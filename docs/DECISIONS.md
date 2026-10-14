@@ -39,6 +39,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Question: How are 15 monsters / 5 spells / 4 traps drawn, and what happens when the element/kind/curve constraints fail?
 - Decision: From the `deck` stream: pick each monster uniformly from pool entries with fewer than `MAX_COPIES` copies already picked (15 picks); same for spells (5) and traps (4). Check constraints (≥ `DECK_MIN_ELEMENTS` elements, ≥ `DECK_MIN_KINDS` kinds, ≥ `CURVE_LOW_MIN_COUNT` monsters with Power ≤ `CURVE_LOW_MAX_POWER`, ≥ `CURVE_HIGH_MIN_COUNT` with Power ≥ `CURVE_HIGH_MIN_POWER`). On failure, discard the whole attempt and retry, continuing the same stream, up to `DECKGEN_MAX_ATTEMPTS = 1000`. Exhaustion throws a `ContentError`; `content:check` proves feasibility (by running the generator on 1,000 test dates) so this never ships.
 - Reason: rejection sampling is the simplest correct algorithm and is deterministic when the stream continues.
+- Amended by D-192 and D-200: the engine throws `EngineError` (it has no `ContentError`), and `content:check` turns it into a §10.3 record. D-197 sorts the pools by card id.
 
 **D-006 · Deck list order and card instance ids**
 - Date: 2026-10-14
@@ -400,6 +401,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Question: "up to 2 … (player picks if more than 2 are available)". Can the player pick fewer? When is the pick made relative to Ascend?
 - Decision: Available = distinct union of all materials' active keywords (including Ascend material). If the union has ≤ `MAX_INHERITED_KEYWORDS`, all are inherited automatically. Otherwise the player picks exactly 2. The pick is made after the Ascend decision, so "may take that material's keyword" is satisfied by including it in the pick. All six launch keywords are pure upsides, so "fewer" is never offered.
 - Reason: smallest action space; one pick step instead of two.
+- See D-181 (Flaws are never inherited) and D-182 (open owner question: what a face-down or Ward-used board material contributes).
 
 **D-060 · Ascend keeps family and element**
 - Date: 2026-10-14
@@ -426,6 +428,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: No; face-up attack or face-up guard only.
 - Reason: rule 6 offers "attack or guard"; the preview already showed it.
 - Paper-sim: A12 / P12 — agrees (otherwise every Chimera would be Appraisal-proof).
+- This entry covers the Graft's entry. A Chimera card summoned later from the hand is D-189 (open owner question).
 
 **D-064 · Graft is a multi-step choice that can be cancelled**
 - Date: 2026-10-14
@@ -1338,6 +1341,278 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - **Twists:** `twists.json` modifier values stay literal content (D-121). Twists are off in v0.1, and their text may use placeholders (D-172).
 - Reason: none of these will hurt during playtesting, and each has a clear upgrade path.
 
+**D-180 · Graft: material-1 candidates; `Track` counts the player's Grafts only**
+- Date: 2026-10-14
+- Question: Engine M4 offers a `mat1` pick only for an eligible monster that has at least one valid partner (a recipe and a free slot after the sacrifice), and `graftBegin` uses the same test (`graft.ts › mat1Candidates`, `graftAllowed`). §6.2 says "each eligible base monster". Separately, `Track.grafts`, `Track.families` and `RoundFlag.Grafted` are updated only for side 0, and §5.6 doesn't say which side.
+- Decision: Both confirmed.
+  - The partner test applies D-057's slot rule one step earlier. A pending Graft can't reach a dead end that only `graftCancel` leaves, and no Graft that could complete is removed. §6.2's table now says this.
+  - `Track` is player-side by definition (D-127). Its counters feed objectives (D-148), the share grid, the Binder (D-066) and the BT-5 metric (grafts per winning game), and all of these are about the player. The Collector can't graft (D-026). If `collector.json › canGraft` is ever turned on, a Collector counter is added at that point.
+- Reason: legality stays a single list, and the UI never offers a pick that leads nowhere.
+
+**D-181 · Chimeras inherit keywords, never Flaws**
+- Date: 2026-10-14
+- Question: `graft.ts › keywordUnion` masks out Flaw bits. D-059 says "keywords" and doesn't mention Flaws.
+- Decision: Confirmed. DESIGN requires it: "Flaws appear only on the Collector's Relics", and Chimeras "inherit up to 2 keywords". A Flaw bit never counts toward `MAX_INHERITED_KEYWORDS`. The case can't happen with launch rules: Appraisal only moves player monsters, zone moves follow ownership (D-046, D-047), so a player never holds a Relic, and the Collector never grafts (D-026).
+- Reason: this follows from a written rule and no player can reach it, so it isn't an owner call.
+
+**D-182 · Which keywords a board material contributes to a Graft** — owner ruled (B)
+- Date: 2026-10-14
+- Question: D-059 says the available keywords are the union of the materials' "active" keywords. Engine M4 reads this literally (`graft.ts › keywordUnion`). A board material contributes only its active keywords: none while it is face-down (D-037), and no Ward once the Ward is used (D-133). A hand material contributes its printed keywords. Two player-visible cases follow, and both can happen with launch cards:
+  - Grafting a face-down Sentinel or Ward monster from the board passes on no keyword.
+  - A monster whose Ward was broken passes on no Ward.
+  The same card grafted from the hand would pass on its keyword in both cases. DESIGN only says "inherit up to 2 keywords from their materials". The choice changes what the player gets, so it is the owner's.
+- Options:
+  - (A) Board materials give their active keywords and hand materials their printed ones. This is the current code and D-059 read literally.
+  - (B) Every material gives its printed keywords, wherever it is.
+- Recommendation: (B).
+  - Sacrificed materials leave the board, and leaving the board resets board state (D-043), so the same card should make the same Chimera from the hand or the board.
+  - A face-down material is the player's own card and the Graft reveals it (D-057), so D-037's hidden-information reason doesn't apply.
+  - One rule is simpler to show in the preview.
+  - Under (B) a broken Ward comes back on the Chimera, just as it already does through Echo (D-043).
+- Ruling (owner, 2026-10-14): (B). Every material gives its printed keywords, wherever it is. engine-dev changes `graft.ts › keywordUnion` (and the preview) to use `printedKw` for every material, plus one fixture scenario.
+
+
+**D-183 · Plumbing for the M-01 (`SLOW_TURNS`) and M-02 (`UNSTABLE_EXPIRY`) levers**
+- Date: 2026-10-14
+- Question: The code reads neither lever.
+  - `graft.ts` always stores `unstableUntil = turn + UNSTABLE_EXPIRY_TURNS` and ignores `UNSTABLE_EXPIRY`.
+  - `keywords/slow.ts` uses `enteredThisTurn`. That can't express `SLOW_TURNS > 1`, because `QueryCtx` doesn't expose the turn a monster entered.
+  So a `--set` of either lever silently does nothing (D-170), and the Phase 3 A/B (§15) can't run.
+- Decision: Wire both. The defaults stay DESIGN as written and keep their D-168 pins. Neither proposal is adopted.
+  - **M-02.** `graft.ts` gets one helper, `unstableExpiry(turn, g)`, used by the commit and by `previewGraft`. Let `e = turn + UNSTABLE_EXPIRY_TURNS`, the end of the grafter's next turn (D-062).
+    - `'endOfNextOwnTurn'` returns `e`.
+    - `'startOfOwnTurnAfterNext'` returns `e + DURATION_NEXT_OWN_TURN − 1`, the end of the opponent's turn just before the grafter's turn after next. This reuses D-136's encoding of "until the start of turn n" as "through the end of turn n − 1", so the end-of-turn destruction step (§5.3) doesn't change.
+    - The only visible difference from destroying literally at the start of the turn is the order of events around `TurnEnded`/`TurnStarted`, and no launch card has a turn hook. If the owner adopts M-02, revisit it then.
+  - **M-01.** `QueryCtx` gets `ownTurnsSinceEntered(i): number`.
+    - It counts how many of the monster's controller's turns have started after the turn it entered: 0 during the entry turn, −1 if the monster isn't on a board.
+    - With `e = Monster.entered`, `t = turn` and controller `x`, it is `((t − x) >> 1) − ((e − x) >> 1)`. The shift is arithmetic, so the board DSL's `entered = −1` works. It uses integers only.
+    - `slow.ts` becomes `attackPermission: (q) => (q.ownTurnsSinceEntered(q.self) < q.g.SLOW_TURNS ? { restrict: 'none' } : {})`.
+    - With `SLOW_TURNS = 1` this is exactly today's behaviour. With 2 it is M-01's "cannot attack until his second turn after it is summoned".
+  - Tests: one engine fixture test per `UNSTABLE_EXPIRY` value, and a declared-card Slow example under `TEST_GLOBALS` with `SLOW_TURNS` 1 and 2.
+- Reason: these are the smallest changes that make each lever do what its proposal says. A `QueryCtx` method keeps Slow in one file (D-112), and the D-136 encoding avoids adding a second destruction step.
+
+**D-184 · M-03 and M-04 levers (`APPRAISED_ENTERS_GUARD`, `ACE_SET_ASIDE`)**
+- Date: 2026-10-14
+- Question: Engine M4 implements `FLAGS.APPRAISED_ENTERS_GUARD` as "the stolen monster enters his board in guard" (`appraisal.ts`). It doesn't implement `FLAGS.ACE_SET_ASIDE`, because no state zone can hold a set-aside card. A vault placement emits `Appraised{to:'vault', toSlot:-1}`.
+- Decision:
+  - **M-03:** confirmed as M-03's own wording. A stolen monster is always face-up (D-076), so "guard" means face-up guard. Off by default.
+  - **`toSlot: -1` for the vault:** confirmed. It is the same convention as `target: -1`.
+  - **M-04 plumbing** (engine-dev, before the Phase 3 A/B):
+    - Add `SideState.aside: readonly Iid[]`, `[]` by default and public. `IidZone` gains `'aside'`, and the conservation property and `hashState` include it.
+    - Setup with the flag on: the ace's instance goes to `sides[1].aside`, and the Collector's deck is shuffled from the remaining cards. The opening-hand guarantee runs on those cards, so D-118 no longer arises.
+    - `appraisal()`: on the duel's first success (`successes` was 0), if `aside` isn't empty, the ace moves from `aside` to the hand right after `Appraised`, with the event `CardDrawn{side:1, iid, byEffect:true}`.
+    - Nothing else changes. Covetous still needs a sacrifice (D-054). `collector.json` still lists all 20 cards including the ace, so the validator is unchanged.
+  - Until the plumbing lands, `FLAGS.ACE_SET_ASIDE` is on the D-170 inert list. `GlobalsSchema` pins it to `false` with the message `globals.ts › FLAGS › ACE_SET_ASIDE: must be false until the engine supports other values › keep false`. The pin is removed in the change that wires the flag.
+- Reason: a zone keeps card conservation and copy-on-write (§4.1) uniform, whereas a root field would need special cases in both. The pin stops a `--set` from silently doing nothing (D-170).
+
+**D-185 · What a trap's `when` is evaluated on**
+- Date: 2026-10-14
+- Question: §9.1 doesn't say. Engine M4 (`traps.ts › fire`) evaluates `TrapDef.when` on the triggering monster, with the event refs bound:
+  - the attacker for `enemyAttack` and `enemyDirectAttack`;
+  - the destroyed monster for `allyDestroyed`;
+  - the grafted Chimera for `enemyGraft`.
+- Decision: Confirmed.
+  - Found in review: for `allyDestroyed` the subject has already left the board (§5.5). Leaves that read board state (`faceUp`, `powerLte`, `powerGte`, `onBoard`, `keyword`) don't see its last-known information, so they can't give the intended answer. No launch card uses `when`, or an `if` on the destroyed monster.
+  - Validator rule (content-author): a `when` on an `allyDestroyed` trap, and an `if` on an effect whose target is `destroyed`, may use only leaves that don't depend on the zone. Those are `type`, `relic`, `chimera`, `element`, `kind` and `graftedThisTurn`, plus `all`/`any`/`not` over them.
+  - Message: `cards/player-traps.json › x › condition "powerGte" can't be checked on a destroyed monster › use type, relic, chimera, element, kind or graftedThisTurn`.
+  - When a card needs a board-state condition on a destroyed monster, the engine change to make then is to evaluate it against the `DestroyedEvt` last-known information.
+- Reason: the monster the trap is about is the only subject every trigger has. Restricting the leaves turns a silently wrong result into a `content:check` error.
+
+**D-186 · `HookCtx.holds`, trap spending, and live state in hook contexts**
+- Date: 2026-10-14
+- Question: Engine M4 adds `holds(cond, iid)` and `spendTrap()` to the public `HookCtx`, and `spendTrap(side, iid)` to the internal `EffectSink`. §8.2 lists neither.
+- Decision:
+  - `holds(cond, iid)` stays on `HookCtx` and is documented in §8.2. It is a read-only condition check with the event's refs bound, so `directAttack` works. Keyword hooks may use it.
+  - `spendTrap()` comes off the public `HookCtx`. It only means something for the compiled trap subscribers in `traps.ts`, and it throws when a keyword calls it. It moves to an engine-internal `TrapCtx` extension that only trap hooks receive, and the trap table in `HookRegistry` gets that type. `EffectSink.spendTrap` stays, since `EffectSink` is internal (D-131).
+  - Found in review: `spendTrap` writes during a subscriber list, but the `Dispatcher` and its contexts keep the `GameState` captured when `Run.dispatcher()` built them. If nothing was written earlier in the action, as in the `onTurnEnd` dispatch at the start of `endTurn`, that is the base state, and it goes stale at the first write (§4.1 contract 1). This can't happen today, because no trap triggers on a turn hook. But the claim in `dispatch.ts`'s header that calling hooks never writes state is no longer true. Contexts read the state through the `Run` (`get s() { return run.state }`) instead of keeping a reference.
+- Reason: the public context should offer only what a keyword author can use, and contexts must follow the copy-on-write contract now that one subscriber can write.
+
+**D-187 · Identical traps: one per (definition, side) per dispatch**
+- Date: 2026-10-14
+- Question: Engine M4 enforces D-071's "two identical traps → only the leftmost is used" per dispatch. A destruction batch gives each destroyed monster its own dispatch (D-158), so each monster can use one trap of an identical pair.
+- Decision: Confirmed. D-071's rule is about one trigger event: two identical traps must not both answer the same attack or the same destruction. Two of your monsters destroyed together are two "your monster is destroyed" events, so two Last Rites draw one card each. This can't happen with launch content, where a batch never destroys two monsters on one side, and it matches D-158's one dispatch per monster.
+- Reason: it reads D-071 per event, which is how every trigger is defined.
+
+**D-188 · The spell cast lives in `cast.ts`**
+- Date: 2026-10-14
+- Question: §2 names no file for the cast action. Engine M4's order is: the card goes to its owner's discard, `SpellCast` is emitted, the play tail runs (D-155), then the effects are queued in card order with `chosen` bound and flushed.
+- Decision: Confirmed, and §2 now lists `cast.ts`. The card is in the discard before its effects run, like a spent trap (§8.3 rule 3). `getLegalActions` fixed the targets before the move. No spell can target itself, because Grave Recall and Restoration require `{ type: 'monster' }`.
+- Reason: one module per action, and the same "leaves its zone, then resolves" order as traps.
+
+**D-189 · Summoning a Chimera card from the hand** — owner ruled (A)
+- Date: 2026-10-14
+- Question: A Chimera card can reach the hand through Echo or Grave Recall (D-046, D-068, with `CHIMERA_TO_HAND` on). Engine M4 lets it be summoned like any monster in hand, in all three modes, face-down included (`legal.ts`).
+  - Whether it can be summoned at all is settled: D-046 (owner-confirmed, D-149) says it "costs a full play to re-summon".
+  - Whether it can be summoned face-down is not. D-063 bars a face-down Chimera, but only for the Graft's own entry (Graft rule 6), and the reason it gave was that face-down Chimeras would be Appraisal-proof.
+  Whether a re-summoned Chimera may be hidden changes what the player can do, so it is the owner's call.
+- Options:
+  - (A) All three summon modes. This is the current code: DESIGN's summon rule ("face-up attack, face-up guard, or face-down guard") applies to every monster in hand.
+  - (B) Face-up attack or guard only, extending D-063 to every Chimera.
+- Recommendation: (A). It is the literal summon rule, with no special case.
+  - A returned Chimera has already lost Unstable (D-043) and costs a full play.
+  - Face-down, it is Appraisal-safe like any face-down monster, and its keywords are off until it is revealed (D-037).
+  - The value concern behind M-12 already has its own lever, `CHIMERA_TO_HAND`.
+- Either way, the summoned Chimera:
+  - keeps its family, element, inherited keywords and Ascend, which live on its `Instance`;
+  - has no Unstable timer;
+  - isn't a Graft (`graftedThisTurn` is false, D-139, and `Track.grafts` doesn't change);
+  - fires `onSummon`.
+- Ruling (owner, 2026-10-14): (A). All three summon modes, as the current code does. No change.
+
+**D-190 · Reposition legality and the per-turn globals**
+- Date: 2026-10-14
+- Question: Engine M4 implements §6.2 literally (`entered < turn` and `repositioned !== turn`). It doesn't read `PLAYS_PER_TURN`, `REPOSITIONS_PER_TURN` or `ATTACKS_PER_TURN`, and D-022's "unless a keyword grants it" has no reposition hook.
+- Decision: Confirmed. This isn't an owner question, because no case is left open:
+  - Under strict step order (D-014), a summon or Graft closes the Reposition step. So `entered < turn` only applies to a monster taken by Appraisal at the start of the Collector's turn, and D-077 (owner-confirmed) already says that monster can't reposition.
+  - D-022's "unless a keyword grants it" means Swift, and Swift grants attacks only ("Can attack monsters the turn it is summoned"). A reposition-permission query hook is added when a keyword needs one.
+  - The three per-turn globals encode DESIGN's "one" in the structure itself (`played: boolean` and the per-monster turn indices). They go on the D-170 inert list, and `GlobalsSchema` pins each to 1 until the engine has counters.
+- Reason: the code is DESIGN plus confirmed decisions, and pinning keeps a `--set` from silently doing nothing.
+
+**D-191 · `state.cfg` hashes the globals in canonical form, and replay checks it** (changed)
+- Date: 2026-10-14
+- Question: `setup/seed.ts › configHash` hashes `JSON.stringify(globals)`, which follows property insertion order. Engine-dev chose this because §19 bans key iteration.
+- Decision: Changed. Two equal `Globals` objects must give the same `cfg`, and today they can differ:
+  - `withOverrides` returns zod's parse output, which is in schema key order.
+  - `DEFAULT_GLOBALS` follows its object literal, and `TEST_GLOBALS` follows its own order.
+  - `CONTENT_NUMBERS` keeps insertion order.
+  Reordering one line in any of these would void every save (D-108) even though the values are identical. The fix:
+  - The engine gets `canonicalJson(v)` in `src/canonical.ts`, exported from the root. It writes JSON with object keys sorted by code unit and drops `undefined` members. Its output doesn't depend on key order, so it is the second allowed key iteration after `deepFreeze` (D-147), with the same documented lint exception.
+  - `configHash` = `c.hash + ":" + hex(cyrb128(canonicalJson(g)))`.
+  - `compile.ts` drops its private copy and imports this one, so content and globals are hashed the same way.
+  - Replay checks `cfg`, as §11 says. `replay(seed, actions, { cfg })` throws `EngineError` before applying any action if the new game's `cfg` differs.
+  - The web session stores `cfg` alongside its action list (an addition to D-108's record) and passes it to `replay`.
+- Reason: a replay guard that depends on how an object was built isn't a guard. Sorting is the simplest order-independent form, and one shared function keeps content and globals consistent.
+
+**D-192 · Setup: deckgen exhaustion, `REDRAW` off, the redraw count, Collector instance ids**
+- Date: 2026-10-14
+- Question: Engine M4 made four setup calls:
+  - deckgen exhaustion throws `EngineError`, because the engine has no `ContentError`;
+  - with `FLAGS.REDRAW` off, `newGame` runs the `keep` code;
+  - after `redraw` only `keep` is legal;
+  - Collector iids start at the player deck's length.
+- Decision: All four confirmed.
+  - `generateDeck` exhaustion throws `EngineError`, since the engine can't import content's `ContentError`. D-005 and §12.3 are amended, and `content:check` turns the failure into a §10.3 record (D-200).
+  - With `FLAGS.REDRAW` off, `newGame` returns round 1 in `main` with the intent set and `redrawsLeft = 0`. That is what "the mulligan step is skipped" (D-008) means.
+  - `redraw` decrements `redrawsLeft`, which starts at `REDRAWS`. `keep` ends the mulligan and sets it to 0. Each redraw takes the next `OPENING_HAND` cards, and D-007 guarantees every redraw window.
+  - Collector iids start at the player deck's length; D-006's "24–43" is the launch case. Iids are positions, so nothing depends on the absolute numbers.
+- Reason: each matches the written rule with no extra state.
+
+**D-193 · Board DSL: defaults, syntax, and a dedicated filler card**
+- Date: 2026-10-14
+- Question: Engine M4's `test-utils/board-dsl.ts` makes these calls:
+  - a monster without `new` gets `entered = −1`;
+  - an unspecified hand is empty;
+  - an unspecified deck, or `deck *`, is 2 × `OPENING_HAND` filler cards;
+  - an `appraised` monster, on a board or in the vault, is owned by the player;
+  - the filler is the first keyword-less monster in the content (`fillerDef`);
+  - the `do`/`expect` syntax beyond §17's examples is defined in the file header, and `expect event <Name> [<slot>]` resolves the slot against the board at setup.
+- Decision: Everything is confirmed except the filler. Under D-169, content tests compile only the declared cards. The filler is then one of the scenario's own cards, or a keyworded card if every declared card has a keyword (the fallback loop), and a drawn filler can change a test's result.
+  - **Changed:** the filler is a reserved card, `dsl-filler`: player pool, first element, first kind, 1/1, no keywords. The engine's `withDeclared` and content's `scenarioContent` (D-169) always add it. `fillerDef` looks it up by id, and declaring a card with that id is a parse error.
+  - The file header is the canonical syntax reference, and §17 points to it.
+- Reason: a scenario should contain exactly the cards it declares, plus inert filler.
+
+**D-194 · `hashState`, dev freeze, and what stays outside the engine**
+- Date: 2026-10-14
+- Question: Engine M4's `hashState` excludes `log` and includes `nActions`. Dev mode freezes the caller's action object. Several pieces were left out by design.
+- Decision: Confirmed.
+  - `hashState` uses explicit field lists with compile-time completeness checks, so it doesn't iterate keys. It excludes `log`, which records how the state was reached. It includes `nActions`, which identifies the position in the replay. A `graftBegin` + `graftCancel` pair changes `nActions`, and that is intended.
+  - Freezing the caller's action in dev mode is fine. Actions are typed `readonly`, `getLegalActions` returns fresh objects, and production pays nothing.
+  - These stay outside the engine:
+    - objective and twist selection (D-102, D-103), so `objectives.json` isn't in `CompiledContent` and `newGame` takes a `twist` index;
+    - `pickSignature`, which is called by `ai/difficulty.ts › prepareDay` (§12.5), not by `newGame`;
+    - `view/redact.ts` and `meta/*`, which land with the ai and web work.
+- Reason: as documented in §12.5 and §19.
+
+**D-195 · Keyword and Flaw icon and visual ids** — owner ruled (A)
+- Date: 2026-10-14
+- Question: DESIGN gives a visual for each keyword ("Motion streaks", …) but no icons, and gives neither for Flaws. Content M3 chose these (`keywords/*.ts`):
+  - Swift: icon `swift`.
+  - Echo: icon `echo`, visual `faded-double-image`.
+  - Pierce: icon `pierce`, visual `spear-notch-on-frame`.
+  - Every Flaw: icon `<id>`, visual `<id>-frame`.
+  The visuals are DESIGN's words in kebab-case. Sentinel, Ward and Haunt use §8.4's ids. The art and the UI will key on these asset names, so like D-130's values they are an art decision.
+- Options:
+  - (A) Keep content-author's ids as drafts. The placeholder art draws something for each id, and the art pass may rename them with a data edit (D-166). Flaws get a frame visual like keywords.
+  - (B) The owner supplies names and visual concepts now.
+  - (C) As (A), but Flaws get only an icon badge and no frame.
+- Recommendation: (A). The ids are internal names and nothing in play depends on them. A frame for each Flaw follows DESIGN's "each keyword is shown as a visual frame or effect". Every Relic has exactly one Flaw, so its frame tells the player which weakness to exploit.
+- Ruling (owner, 2026-10-14): (A). content-author's ids stay as drafts and Flaws get a frame. No change; the ids can be renamed in data later.
+
+**D-196 · Keyword-file items already covered (content M3)**
+- Date: 2026-10-14
+- Question: content-author raised four keyword-file items that existing decisions may already cover: Haunt and Tethered text, missing examples, Sentinel's face-up check, and Slow's `SLOW_TURNS`.
+- Decision:
+  - **Haunt and Tethered text** hard-code "2 Power". D-172 covers this, and content-author migrates them to `{HAUNT_PENALTY}` and `{TETHERED_PENALTY}` as part of that work.
+  - **No keyword has `examples`.** D-169 covers this. Each of the 11 keyword files gets at least one declared-card example, because DESIGN promises "tests auto-generated from its examples". `keyword-files.ts` warns on a file without one: `warning: keywords/x.ts › x › no examples › add one board-DSL example with declared cards (D-169)`.
+  - **Sentinel's `restrictTargets: () => true`:** confirmed. The engine asks only active keyword bits (`hooks/dispatch.ts › attackTargets` uses `activeKwOf`, which is 0 for a face-down monster), so D-037's face-up rule holds without a check in the keyword.
+  - **Slow ignoring `SLOW_TURNS`:** handled by D-183.
+- Reason: no new rule is needed. The examples warning keeps DESIGN's promise of auto-generated keyword tests visible.
+
+**D-197 · Compiled content: DefIdx order, family rows, hash coverage**
+- Date: 2026-10-14
+- Question: content-author asked about three choices in `compile.ts`:
+  - the DefIdx order;
+  - Chimera family rows with `pool = Player` and `element = kind = −1`;
+  - a content hash that covers the parsed content and the keyword ids, but not globals or keyword code.
+- Decision:
+  - **DefIdx order:** confirmed: player monsters, Relics, player spells, player traps, Collector spells, Collector traps, then families in recipes.json order. Nothing outside `compile.ts` may depend on it.
+  - **Pool order (changed):** `playerPool.monsters/spells/traps` are sorted by card id. Deckgen picks by pool position (D-005), so with JSON order a reordered file would change every generated deck.
+  - **Family rows:** confirmed. A Chimera's owner is `Instance.owner` and its element is `ChimeraInfo.element` (D-129). Nothing reads `pool` for a family, since `{ relic }` requires `DefType.Monster`. That stays true if `canGraft` is ever turned on.
+  - **Hash (changed):** §3 says the hash covers keyword text templates, but `compile.ts` hashes only keyword ids.
+    - It now covers each `KeywordDef`'s data fields (`id`, `name`, `kind`, `icon`, `visual`, `text`) in bit order.
+    - `examples` (tests only) and hook code stay out. A hook-code change is a code change, and the D-108/D-179 version rule protects saves from it.
+    - In the web dev build, ui-dev restarts the duel on any content hot reload (D-176), not only when `cfg` changes.
+    - Globals stay out of `CompiledContent.hash`, because `state.cfg` covers them (D-191).
+- Reason: a pure reordering of a JSON file shouldn't change play, and the hash should cover what §3 says it covers.
+
+**D-198 · Validator keyword rules and messages**
+- Date: 2026-10-14
+- Question: Content M3 made several validator calls about keywords that §10.3 doesn't settle:
+  - the default registry;
+  - extra keyword-file checks, and where they run;
+  - rejecting a Flaw in a keyword slot;
+  - `Cond { keyword }` accepting Flaw ids;
+  - the wording for an unregistered Flaw.
+- Decision:
+  - **Default registry:** confirmed as the generated barrel (D-111).
+  - **Kebab-case and empty-field checks on keyword files:** confirmed, as part of §10.3's "keyword file problems". Ids are kebab-case everywhere (§10.2 `Id`), and §8.4 requires the display fields.
+  - **A Flaw in a `keywords` list is an error**, alongside §10.3's keyword-as-Flaw rule. It would give a Relic a second Flaw (D-114) or put a Flaw on a player card, and DESIGN forbids both.
+  - **`Cond { keyword }` accepts Flaw ids:** confirmed. A condition may test a Flaw, for example a twist like "Brittle monsters −1 Guard", and it reads active bits the same way as for a keyword.
+  - **Unregistered-Flaw message:** `cards/relics.json › x › Flaw "frail" is not registered › use one of: brittle, covetous, slow, tethered, vain, or add packages/content/keywords/frail.ts`. Added to §10.3.
+  - **Changed (later):** the checks that need only the registry move from `keyword-files.ts` into `validateContent`, so the browser dev build (D-176) reports them too. These are duplicate ids, kebab-case, empty display fields, the sentence count on the rendered text (D-172 rule 7), and the 32-keyword limit. `keyword-files.ts` keeps the checks that need the files: id = file name, load failures, the `$NAME` source scan (D-171) and barrel staleness.
+- Reason: each rule follows from DESIGN or an earlier entry. Running the pure checks everywhere means the web dev build catches the same problems as `content:check`.
+
+**D-199 · `GlobalsSchema` sanity checks and `withOverrides` errors**
+- Date: 2026-10-14
+- Question: Content M3's `GlobalsSchema` uses decimals for a few keys and `z.int()` elsewhere. It has no non-negativity or star-cut ordering check, and its `WARD_CHARGES` fix text is generic. `withOverrides` throws a single multi-line `Error` and accepts a whole-object `FLAGS={…}`.
+- Decision:
+  - **Number types:** confirmed. Only the listed rates and ranges are decimals, and every other number is `z.int()`.
+  - **New sanity refinements**, in the §10.3 format (`globals.ts › KEY › problem › fix`):
+    - Every numeric global and every `CONTENT_NUMBERS` value must be ≥ 0, since signs are written outside the number (D-172): `must be 0 or more › use 0 or more`.
+    - `SEED_WINRATE_MIN`, `SEED_WINRATE_MAX`, `BOT_NOISE_EPSILON`, `TARGET_NOVICE_POINT`, `TARGET_SEED_REJECT_MAX` and both `DIFFICULTY_STAR_CUTS` lie in 0…1.
+    - `SEED_WINRATE_MIN ≤ SEED_WINRATE_MAX`.
+    - `DIFFICULTY_STAR_CUTS` is strictly descending (D-098, D-126): `cuts must descend, got [0.4, 0.6] › write the higher (1-star) cut first`.
+  - **One pin message:** `WARD_CHARGES` and every D-170 pin share one form: `globals.ts › WARD_CHARGES › must be 1 until the engine supports other values › keep 1`.
+  - **`withOverrides` errors:** it throws `OverridesError extends Error`, exported from the content root.
+    - It carries `errors: readonly ContentError[]` (file `globals.ts`, entry = the key), and its `message` is the `formatError` lines.
+    - The sim CLI prints those lines and exits non-zero. The web dev build shows them like content errors (D-176).
+    - Zod's default wording stays only where no refinement sets a message.
+  - **Whole-object overrides of `FLAGS` and `CONTENT_NUMBERS` are rejected:** `globals.ts › FLAGS › set one entry at a time › write FLAGS.<NAME>=<value>`, and the same with `CONTENT_NUMBERS.<NAME>=<value>`. For `CONTENT_NUMBERS` a whole object could add a name, which D-171 forbids for `--set`. Arrays and ranges are still set whole (`APPRAISAL_ROUNDS=[3,6]`).
+- Reason: these checks catch tuning typos that would otherwise surface as odd sim results. Structured errors let the sim and the web show the same §10.3 lines.
+
+**D-200 · Deck-generation feasibility check**
+- Date: 2026-10-14
+- Question: §10.3, D-005 and D-168 require `content:check` to prove deck generation feasible on 1,000 test dates. The rule was deferred until the engine's `setup/deckgen.ts` existed, and it now does.
+- Decision:
+  - **Engine export:** the engine root exports `deckForSeed(c, g, seed): DefIdx[]`, defined as `generateDeck(c, g, stream(seed, 'deck'))`. That is exactly what `newGame` runs, and ai's `prepareDay` uses it too.
+  - **The check:** `packages/content/src/feasibility.ts` (pure and browser-safe) exports `checkDeckgen(c, g): ContentError[]`.
+    - It runs `deckForSeed` on `rerollSeed(seedString(g, date), 0)` for 1,000 consecutive ISO dates starting at 2026-01-01. The start date and the count are named constants in the file; they are check parameters, not rule numbers.
+    - It catches `EngineError` only and counts the failing dates.
+    - Any failure produces one error: `cards/player-monsters.json › pool › deck constraints unsatisfiable on 3 of 1000 test dates › relax DECK_MIN_ELEMENTS, DECK_MIN_KINDS or the CURVE_* globals, or add monsters`.
+    - It is skipped when the pool-capacity rule (D-170) has already failed, because every date would then fail for that reason.
+  - **Callers:** `scripts/content-check.ts` calls it after `compileContent`, and the web dev build may call it after compile (D-176). The entry in `DEFERRED_RULES` is removed.
+- Reason: the check runs the shipping generator rather than a copy, so it can't drift from it.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
@@ -1371,11 +1646,14 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 
 ## L. Summary of items needing owner review
 
-> **2026-10-14:** the owner confirmed every D-row below up to D-149 (D-149). D-152 (added after D-149) was ruled (A) the same day. Still open: the M-01…M-16 row.
+> **2026-10-14:** the owner confirmed every D-row below up to D-149 (D-149). D-152 (added after D-149) was ruled (A) the same day. D-182 (B), D-189 (A) and D-195 (A) were ruled the same day. Still open: the M-01…M-16 row.
 
 | Id | Topic | Why |
 | --- | --- | --- |
-| M-01…M-16 | Balance/rule proposals from the paper-sim (section M) | None applied; each needs a Phase 3 sim A/B test and an owner decision |
+| D-182 | Keywords a board material gives a Graft: active (face-down gives none, a used Ward gives none) or printed | DESIGN is silent; reachable with launch cards. Owner ruled (B): printed keywords |
+| D-189 | May a Chimera card summoned from the hand go face-down? | D-063 covers only the Graft entry. Owner ruled (A): all three summon modes |
+| D-195 | Keyword and Flaw icon/visual ids; do Flaws get a frame? | Art decision; DESIGN gives no icons and no Flaw visuals. Owner ruled (A): content-author's ids as drafts, Flaws framed |
+| M-01…M-16 | Balance/rule proposals from the paper-sim (section M) | None applied; each needs a Phase 3 sim A/B test and an owner decision. Levers M-01 and M-02 get plumbing in D-183, and M-04 in D-184 |
 | D-152 | Ward saves an Unstable Chimera from expiry: does it keep the +3? | DESIGN is silent and it's reachable with launch cards. Owner ruled (A): Unstable ends and the +3 goes |
 | D-019 | No life cap (changed after paper-sim) | First draft capped life; DESIGN states no cap |
 | D-083 | Rule 3 "beats" uses the combat preview (element bonus, Guard vs a guard target) | Changed after paper-sim; affects which Relic answers your monster |

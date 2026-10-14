@@ -35,6 +35,7 @@ project-daily/
 │  │     ├─ rng.ts              # cyrb128, sfc32, int(), shuffle()
 │  │     ├─ errors.ts           # EngineError (public, D-132)
 │  │     ├─ freeze.ts           # deepFreeze (public; dev-mode states, content globals; D-147)
+│  │     ├─ canonical.ts        # canonicalJson: sorted-key JSON for state.cfg and the content hash (public; D-191)
 │  │     ├─ setup/{seed,deckgen,shuffle,initial-state}.ts
 │  │     ├─ tx.ts               # copy-on-write transaction (draft) over GameState
 │  │     ├─ pipeline.ts         # Run (Tx + events + effect queue), Services, IntentPolicy;
@@ -51,6 +52,7 @@ project-daily/
 │  │     ├─ graft.ts            # pending graft, recipes, inheritance, Ascend, Unstable, preview
 │  │     ├─ appraisal.ts        # Appraisal step, vault
 │  │     ├─ summon.ts           # summon, Covetous summon, set trap
+│  │     ├─ cast.ts             # cast action: card to discard, SpellCast, play tail, effects (D-188)
 │  │     ├─ mood.ts             # mood from life
 │  │     ├─ effects/{run,targets,conditions,num}.ts   # effect-primitive interpreter
 │  │     ├─ hooks/{registry,context,define,dispatch}.ts
@@ -70,6 +72,7 @@ project-daily/
 │  │  │  ├─ keyword-files.ts    # Node only ("./node" export): keyword file and barrel checks
 │  │  │  ├─ text.ts             # parseTemplate, renderText: {NAME} placeholders (D-172)
 │  │  │  ├─ compile.ts          # → CompiledContent (dense typed arrays)
+│  │  │  ├─ feasibility.ts      # checkDeckgen: engine deckForSeed on 1,000 dates (pure; D-200)
 │  │  │  └─ validate.ts         # cross-file rules (§10.3)
 │  │  ├─ test-utils/scenario-content.ts  # live elements/kinds/recipes/KEYWORDS + declared cards (D-169)
 │  │  ├─ cards/
@@ -157,7 +160,8 @@ export interface CompiledTwist {
 
 export interface CompiledContent {
   readonly version: string;              // CONTENT_VERSION
-  readonly hash: string;                 // cyrb128 of canonical content JSON
+  readonly hash: string;                 // cyrb128 of canonicalJson(content + each KeywordDef's id, name, kind, icon,
+                                         // visual, text in bit order); no globals, examples or hook code (D-197)
   readonly ids: readonly string[];       // DefIdx → id
   readonly index: ReadonlyMap<string, DefIdx>; // boundary use only
   readonly type: Uint8Array;  readonly pool: Uint8Array;
@@ -176,6 +180,7 @@ export interface CompiledContent {
   readonly kwBit: Readonly<Record<string, number>>;
   readonly hookMask: Readonly<Record<HookName, KwMask>>; // which bits have which hook (fast skip)
   readonly playerPool: { readonly monsters: readonly DefIdx[]; readonly spells: readonly DefIdx[]; readonly traps: readonly DefIdx[] };
+                                         // each sorted by card id, so JSON entry order never changes a deck (D-197)
   readonly collector: { readonly deck: readonly DefIdx[]; readonly ace: DefIdx; readonly canGraft: boolean };
   readonly twists: readonly CompiledTwist[];
 }
@@ -467,17 +472,21 @@ Leaving the board resets all board state (D-043) because the `Monster` record is
 
 ```
 graftBegin                 → pending { stage:'mat1', mats:[] }
-graftPick m (mat1)         → stage 'mat2'
+graftPick m (mat1)         → stage 'mat2'      // mat1 offered only with ≥ 1 valid partner (D-180)
 graftPick m (mat2)         → stage FLAGS.ASCEND && any eligible third material ? 'ascend' : next
 graftPick m (ascend) | graftSkipAscend → stage (union(kw) > MAX_INHERITED_KEYWORDS) ? 'keywords' : 'position'
+     // union = keyword bits only, never Flaws (D-181). Every material, board or hand: printed keywords (D-182 B)
 graftKeywords kw           → stage 'position'
 graftPosition pos          → COMMIT:
      family = recipe[kind(m0), kind(m1)]; element = element(m0)
      unstable = FLAGS.UNSTABLE && any pair of material elements opposes
      sacrifice board materials and hand materials → owner's discard (emit Sacrificed; no hooks)
      inst.push({ def: family, owner, chimera: { element, kw, ascended: mats.length === 3, materials, grafted: turn } })
-     place in leftmost free slot: { pos, entered: turn, unstableUntil: unstable ? turn + 2 : -1, … }
-     played = true; step = 'attack'; track.grafts++, round[round−1] |= RoundFlag.Grafted, families ∪= family
+     place in leftmost free slot: { pos, entered: turn, unstableUntil: unstable ? unstableExpiry(turn, g) : -1, … }
+          // unstableExpiry: e = turn + UNSTABLE_EXPIRY_TURNS ('endOfNextOwnTurn', DESIGN);
+          //                 e + DURATION_NEXT_OWN_TURN − 1 ('startOfOwnTurnAfterNext', lever M-02; D-183)
+     played = true; step = 'attack'
+     player only (D-180): track.grafts++, round[round−1] |= RoundFlag.Grafted, families ∪= family
      emit Grafted{…}; dispatch onGraft (Counterfeit; D-065). A Graft does not dispatch onSummon.
 graftCancel (any stage)    → pending = null (nothing was applied)
 ```
@@ -491,11 +500,14 @@ appraisal.attempts++
 candidates = player board monsters: !faceDown && !(turn < shroudUntil) && power(m) >= APPRAISAL_MIN_POWER
 if none: emit AppraisalFailed; return
 pick highest power, tie leftmost
-remove from player board; m' = { ...m, entered: turn, appraised: true }
-slot = leftmost free on Collector board → place m', emit Appraised{to:'board'}
-else vault.push(iid), emit Appraised{to:'vault'}
+remove from player board; m' = { ...m, entered: turn, appraised: true,
+                                  pos: FLAGS.APPRAISED_ENTERS_GUARD ? guard : m.pos }   // lever M-03 (D-184)
+slot = leftmost free on Collector board → place m', emit Appraised{to:'board', toSlot}
+else vault.push(iid), emit Appraised{to:'vault', toSlot: -1}
 appraisal.successes++, taken.push(iid); track.round[round−1] |= RoundFlag.Appraised; track.appraisedLost++
 ```
+
+Lever M-04 (`FLAGS.ACE_SET_ASIDE`) is pinned to `false` until its plumbing lands (D-184). That plumbing adds a `SideState.aside` zone, which holds the ace from setup. On the duel's first success the ace moves from `aside` to the hand, with `CardDrawn{byEffect:true}`, right after `Appraised`.
 
 ### 5.8 Win check (`pipeline.ts › lifeChanged / checkWin / endGame`) — D-018, D-151
 
@@ -543,12 +555,14 @@ pending graft             → stage actions (below) + graftCancel
 mulligan                  → keep, redraw (if FLAGS.REDRAW && redrawsLeft > 0)
 main (and !played):
    reposition m           for own m with m.entered < turn and m.repositioned !== turn
-                          (face-down: only to attack; D-023)
+                          (face-down: only to attack; D-023). No keyword grants a reposition; the
+                          *_PER_TURN globals are pinned to 1 (D-190)
    summon c × mode        for hand monster c, free slot, summonRequirement(c) === 'normal'
+                          (a Chimera card in hand too, all three modes: owner ruling D-189 A)
    summonCovetous c, sac  for each acquired sac on board or in vault with a free slot after (D-054)
    cast c, target         per legal target from the spell's TargetSpec (≥1 needed if targeted; D-067)
    setTrap c              if a trap slot is free
-   graftBegin             if canGraft(side) && ≥2 eligible materials && slot feasibility (D-057)
+   graftBegin             if canGraft(side) && ≥2 eligible materials && some mat1 candidate (D-057, D-180)
 main or attack:
    attack a, target       for own a: pos=atk, !faceDown, a.attacked !== turn,
                           perm = attackPermission(a) ≠ 'none';
@@ -561,7 +575,7 @@ Graft stage actions:
 
 | Stage | Legal actions |
 | --- | --- |
-| `mat1` | `graftPick m` for each eligible base monster in own hand/board |
+| `mat1` | `graftPick m` for each eligible base monster in own hand/board that has at least one valid `mat2` partner (D-180) |
 | `mat2` | `graftPick m` for each eligible m ≠ mat1 such that a slot is free after sacrificing board materials |
 | `ascend` | `graftPick m` for each remaining eligible m (slot feasibility re-checked), `graftSkipAscend` |
 | `keywords` | `graftKeywords kw` for each 2-subset of the available union (≤ 3 options with launch content) |
@@ -710,6 +724,7 @@ export interface QueryCtx {
   hasKw(i: Iid, id: string): boolean;   // active keywords only
   monsters(side: Side): readonly Iid[]; // board, slot order
   enteredThisTurn(i: Iid): boolean;
+  ownTurnsSinceEntered(i: Iid): number; // controller's turns started after the entry turn: 0 on it, -1 off-board (D-183)
   isAttacker(i: Iid): boolean;          // TargetQueryCtx/CombatCtx helpers
 }
 
@@ -717,7 +732,9 @@ export interface HookCtx<E> extends QueryCtx {
   readonly evt: E;                  // event payload (attacker, target, destroyed LKI, chimera…)
   effect(e: Effect): void;          // queue an effect primitive (§9) with refs bound to evt
   emit(ev: GameEvent): void;
+  holds(cond: Cond, iid: Iid): boolean; // read-only DSL condition check with evt refs bound (D-186)
 }
+// Trap subscribers (traps.ts) get an engine-internal TrapCtx extension with spendTrap(); it isn't public (D-186).
 export interface TargetQueryCtx extends QueryCtx { readonly attacker: Iid }   // restrictTargets; self = a face-up defender (D-122)
 
 export interface AttackCtx extends HookCtx<AttackEvt> { readonly cancelled: boolean; cancelAttack(by: Iid): void }
@@ -734,7 +751,7 @@ export interface CombatCtx extends HookCtx<AttackEvt> {
 }
 ```
 
-Hooks never touch the `Tx` directly: they read through `QueryCtx` and act through `effect()`, so every state change goes through the effect interpreter (one place for events, Ward, zone rules). There are two exceptions, and neither writes `GameState`. First, the `cancelAttack` op runs immediately: `traps.ts` calls `ctx.cancelAttack(trapIid)` when the trap's subscriber runs, so later subscribers see `cancelled` (§8.3 rule 4, D-071). The card's other effects are queued in order (D-122). Second, `beforeCombat` hooks set combat flags through `CombatCtx` (D-124).
+A context reads the state through the `Run` (`s` is always `run.state`) and never keeps a captured reference, because a trap subscriber spends its trap mid-list (D-186). Hooks never touch the `Tx` directly: they read through `QueryCtx` and act through `effect()`, so every state change goes through the effect interpreter (one place for events, Ward, zone rules). There are two exceptions, and neither writes `GameState`. First, the `cancelAttack` op runs immediately: `traps.ts` calls `ctx.cancelAttack(trapIid)` when the trap's subscriber runs, so later subscribers see `cancelled` (§8.3 rule 4, D-071). The card's other effects are queued in order (D-122). Second, `beforeCombat` hooks set combat flags through `CombatCtx` (D-124).
 
 ### 8.3 Ordering rules
 
@@ -822,7 +839,7 @@ export default defineKeyword({
 | Ward | `beforeDestroy` | `'prevent'` once; asked only for its own monster; engine sets `wardUsed` and emits `WardBroken` (D-034, D-035, D-044, D-133, D-134) |
 | Haunt | `onDestroyed` | destroyer gets `modifyStats −HAUNT_PENALTY permanent` if still on board (D-045) |
 | Echo | `onDestroyed` | `returnToHand self` (from discard to owner's hand) (D-046) |
-| Slow | `attackPermission` | `restrict: 'none'` when `enteredThisTurn(self)` (D-053, PROPOSAL) |
+| Slow | `attackPermission` | `restrict: 'none'` while `ownTurnsSinceEntered(self) < SLOW_TURNS` (1 = DESIGN, the entry turn only; 2 = lever M-01) (D-053, D-183) |
 | Vain | `mustAttack` | `true`; engine blocks `endTurn` while a legal attack remains; AI picks best target (D-052, D-091) |
 | Brittle | `beforeCombat` | if self is defender and `combat.advantage`: `ctx.setBrittleWin()` (D-049, D-050, D-124) |
 | Tethered | `staticPower` | `−TETHERED_PENALTY` when `monsters(side).length === 1` (D-051) |
@@ -835,7 +852,7 @@ The five legality-constraining keywords (Sentinel, Swift, Vain, Slow, Covetous) 
 | Type | File | Role |
 | --- | --- | --- |
 | `Env { c, g, reg, dev }` | `hooks/registry.ts` | Everything a rule needs besides the state: compiled content, bound globals, hook registry, dev-mode switch (D-141) |
-| `HookRegistry { kw, masks, trapHooks }` | `hooks/registry.ts` | Keyword bit → `Hooks`. Hook name → bit mask (same object as `c.hookMask`, checked against the hook tables by `createRegistry`). Trap `DefIdx` → hooks compiled by `traps.ts` |
+| `HookRegistry { kw, masks, trapHooks }` | `hooks/registry.ts` | Keyword bit → `Hooks`. Hook name → bit mask (same object as `c.hookMask`, checked against the hook tables by `createRegistry`). Trap `DefIdx` → hooks compiled by `traps.ts`, typed with the internal `TrapCtx` (`spendTrap()`, D-186). At most one trap per (definition, side) fires per dispatch (D-071, D-187) |
 | `Refs` | `effects/run.ts` | One field per DSL `Ref` (§9.1), bound when an effect is queued; `-1` = absent |
 | `QueuedEffect { effect, refs, source, side }` | `effects/run.ts` | One queued primitive. `side` = the source's controller at queue time; durations are relative to it (D-136) |
 | `EffectSink { queue, emit }` | `effects/run.ts` | What hook contexts write into |
@@ -909,7 +926,7 @@ Semantics:
   | `enemyDirectAttack` | `onAttackDeclared` | `attacker` |
   | `allyDestroyed` | `onDestroyed` | `destroyed`, `destroyer` (`-1` unless destroyed in combat: fizzles) |
   | `enemyGraft` | `onGraft` | `grafted` |
-- Conditions: `TargetSpec.where` filters candidates during legality; `TrapDef.when` is checked when the trap's turn in the subscriber list comes (D-071); `Effect.if` is checked just before the effect resolves.
+- Conditions: `TargetSpec.where` filters candidates during legality. `TrapDef.when` is checked when the trap's turn in the subscriber list comes (D-071), on the triggering monster: the attacker, the destroyed monster or the grafted Chimera (D-185). `Effect.if` is checked just before the effect resolves. A condition on a destroyed monster (an `allyDestroyed` `when`, or an `if` on target `destroyed`) may use only zone-independent leaves: `type`, `relic`, `chimera`, `element`, `kind`, `graftedThisTurn` (validator, D-185).
 - Durations are relative to the card's controller at cast/trigger time (`QueuedEffect.side`) and stored as absolute turn indices (`TimedMod.until`, `shroudUntil`). Let `n` be the controller's next own turn: `turn + DURATION_NEXT_OWN_TURN` if the controller is the active side, else `turn + 1` (D-136):
 
   | Duration | Stored as | Applies while | Launch cards (cast on own turn t) |
@@ -1118,7 +1135,8 @@ Parse errors come from zod 4 issues rendered by `load.ts › describeIssue` (D-1
 | AI card refs (D-145) | `collector.json › ai › trapPreference.[1]: "snare" is not a Collector trap in the deck › use a trap id from collector.json › deck` (same for `castHighValueSpell` keys and Collector spells) |
 | duplicate id (any file, incl. families) | `cards/relics.json › halo-stag › duplicate id (also in cards/player-monsters.json) › rename one of them` |
 | unknown element/kind | `cards/player-monsters.json › stormcrow › unknown element "wind" › use one of: ember, gale, tide, lumen, umbra, or add it to elements.json` |
-| unregistered keyword/Flaw | `cards/relics.json › reliquary-hound › keyword "hant" is not registered › use one of: echo, haunt, pierce, sentinel, swift, ward, or add packages/content/keywords/hant.ts` |
+| unregistered keyword/Flaw | `cards/relics.json › reliquary-hound › keyword "hant" is not registered › use one of: echo, haunt, pierce, sentinel, swift, ward, or add packages/content/keywords/hant.ts`; for a Flaw: `cards/relics.json › x › Flaw "frail" is not registered › use one of: brittle, covetous, slow, tethered, vain, or add packages/content/keywords/frail.ts` (D-198). A Flaw in a `keywords` list is an error too (D-198) |
+| board-state condition on a destroyed monster (D-185) | `cards/player-traps.json › x › condition "powerGte" can't be checked on a destroyed monster › use type, relic, chimera, element, kind or graftedThisTurn` |
 | Flaw on a player card / keyword used as Flaw | `cards/player-monsters.json › halo-stag › Flaws appear only on Relics › remove "flaw"` |
 | Relic without exactly one Flaw | `cards/relics.json › stormglass-hydra › needs exactly 1 flaw, has 0 › add "flaw": "<id>"` |
 | base card or Relic with > `MAX_BASE_KEYWORDS` keywords (validator, not zod; D-173) | `cards/player-monsters.json › x › 2 keywords, max MAX_BASE_KEYWORDS=1 › remove one` |
@@ -1146,14 +1164,16 @@ Parse errors come from zod 4 issues rendered by `load.ts › describeIssue` (D-1
 | pool can't fill the deck (D-170) | `cards/player-spells.json › pool › 2 spells × MAX_COPIES=2 can't fill DECK_SPELLS=5 › add 1 spell, or lower DECK_SPELLS or raise MAX_COPIES in globals.ts` |
 | Collector card the AI never plays — **warnings** (D-177) | `warning: collector.json › deck[n] › Collector spell "x" has no AI rule that casts it › add "x" to ai.params.castHighValueSpell with a pick, or make it draw-only` / `warning: collector.json › deck[n] › Collector trap "x" is not in ai.trapPreference › add it, or AI rule 4 never sets it` |
 | objective metric unknown | `objectives.json › win-fast › unknown metric "rounds" › use one of: grafts, playerLife, round, appraisedLost` |
-| keyword file problems | `keywords/haunt.ts › id "haunted" ≠ file name › rename the file or the id` / `keywords/index.gen.ts › stale › run pnpm content:gen` |
-| deckgen feasibility | `cards/player-monsters.json › pool › deck constraints unsatisfiable on 3 of 1000 test dates › relax DECK_MIN_KINDS or add monsters` |
-| globals sanity (`GlobalsSchema`, D-147) | `globals.ts › APPRAISAL_ROUNDS › round 13 > MAX_ROUNDS=12 › remove it`; also every `Range` has min ≤ max, and `WARD_CHARGES` must be 1 until the engine has a charge counter (D-133) |
-| inert global set to an unsupported value (D-170) | `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1` |
+| keyword file problems | `keywords/haunt.ts › id "haunted" ≠ file name › rename the file or the id` / `keywords/index.gen.ts › stale › run pnpm content:gen`. Registry-only checks (duplicate id, kebab-case, empty display field, sentences, ≤ 32) run in `validateContent`; file checks stay in `keyword-files.ts` (D-198) |
+| keyword without examples — **warning** (D-196) | `warning: keywords/x.ts › x › no examples › add one board-DSL example with declared cards (D-169)` |
+| deckgen feasibility (`feasibility.ts › checkDeckgen`, run by `content:check` on engine `deckForSeed`, 1,000 dates from 2026-01-01; skipped when the pool-capacity rule fails; D-200) | `cards/player-monsters.json › pool › deck constraints unsatisfiable on 3 of 1000 test dates › relax DECK_MIN_ELEMENTS, DECK_MIN_KINDS or the CURVE_* globals, or add monsters` |
+| globals sanity (`GlobalsSchema`, D-147, D-199) | `globals.ts › APPRAISAL_ROUNDS › round 13 > MAX_ROUNDS=12 › remove it`. Also: every `Range` has min ≤ max; every number and `CONTENT_NUMBERS` value is ≥ 0 (`must be 0 or more › use 0 or more`); the rates `SEED_WINRATE_*`, `BOT_NOISE_EPSILON`, `TARGET_NOVICE_POINT`, `TARGET_SEED_REJECT_MAX` and the star cuts lie in 0…1; `SEED_WINRATE_MIN ≤ SEED_WINRATE_MAX`; `globals.ts › DIFFICULTY_STAR_CUTS › cuts must descend, got [0.4, 0.6] › write the higher (1-star) cut first` |
+| inert global set to an unsupported value (D-170, D-199) | `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1`. The same form for `WARD_CHARGES` (D-133), `PLAYS_PER_TURN`, `REPOSITIONS_PER_TURN`, `ATTACKS_PER_TURN` (D-190) and `FLAGS.ACE_SET_ASIDE` (`false`, until D-184's plumbing) |
+| `--set` errors (`withOverrides`, D-199) | `OverridesError` with `ContentError` records; whole-object `FLAGS=…` / `CONTENT_NUMBERS=…`: `globals.ts › FLAGS › set one entry at a time › write FLAGS.<NAME>=<value>` |
 | `CONTENT_NUMBERS` name clash (D-171) | `globals.ts › CONTENT_NUMBERS › UNMAKE_MAX_POWER is also a core global › keep one of them` |
 | delete-a-card reverse refs | `collector.json › deck[7] › "kiln-born-leviathan" no longer exists › remove the reference` |
 
-**Warnings** never fail `content:check` or the build. They are printed first, prefixed `warning:`. The full list: stat budget (D-167), unused placeholder (D-172), art brief missing/orphan (D-174), and Collector card unplayable by the AI (D-177). The pool-size warning and the `POOL_*` globals are gone (D-170); the pool-capacity error replaces them.
+**Warnings** never fail `content:check` or the build. They are printed first, prefixed `warning:`. The full list: stat budget (D-167), unused placeholder (D-172), art brief missing/orphan (D-174), Collector card unplayable by the AI (D-177), and keyword without examples (D-196). The pool-size warning and the `POOL_*` globals are gone (D-170); the pool-capacity error replaces them.
 
 ### 10.4 One change, one edit (D-166…D-177)
 
@@ -1284,15 +1304,16 @@ export function withOverrides(base: Globals, sets: readonly string[]): Globals; 
 // "APPRAISAL_ROUNDS=[3,6]", "UNMAKE_MAX_POWER=6" (routed to CONTENT_NUMBERS; "CONTENT_NUMBERS.UNMAKE_MAX_POWER=6" also
 // works, D-171); each VALUE is JSON-parsed (a bare word is a string); unknown keys are rejected (a --set never adds a
 // number); the merged object is validated with GlobalsSchema (schemas/globals.ts, incl. sanity checks) and returned
-// deep-frozen (D-147).
+// deep-frozen (D-147). FLAGS and CONTENT_NUMBERS are set one entry at a time, never as a whole object. Problems are
+// thrown as one OverridesError carrying ContentError records (D-199).
 // Card stat overrides ("card.kiln-whelp.power=6") live in sim/overrides.ts and are applied to raw content before compile.
 ```
 
 This listing is the launch snapshot. From the D-166 switch, `globals.ts` itself is canonical. Owner-only (a change needs an owner-approved D-entry): `TARGET_*`, the proposal levers (`FLAGS.APPRAISED_ENTERS_GUARD`, `FLAGS.ACE_SET_ASIDE`, `FLAGS.CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`, `SLOW_TURNS`) and `WARD_CHARGES`. Everything else is tuning (owner, or balance-analyst with a `BALANCE_LOG.md` entry).
 
-Where things live (D-147): `deepFreeze` is in `packages/engine/src/freeze.ts` and exported from the engine root. It is the engine's one order-insensitive key iteration, with a documented lint exception. `GlobalsSchema` is in `packages/content/src/schemas/globals.ts`. `DEFAULT_GLOBALS` and `withOverrides` are in `packages/content/src/globals.ts`, exported from the content root. The engine's `packages/engine/test-utils/globals.ts › TEST_GLOBALS` is an engine-owned **fixture**, deliberately independent of `DEFAULT_GLOBALS` (`CONTENT_VERSION: '0.0.0-fixture'`, its own `CONTENT_NUMBERS`). TypeScript checks its shape, and a content test checks that it passes `GlobalsSchema`. Nothing compares its values with the real globals (D-168, superseding D-143).
+Where things live (D-147): `deepFreeze` is in `packages/engine/src/freeze.ts` and exported from the engine root. It and `canonical.ts › canonicalJson` (sorted keys, D-191) are the engine's two order-insensitive key iterations, each with a documented lint exception. `GlobalsSchema` is in `packages/content/src/schemas/globals.ts`. `DEFAULT_GLOBALS` and `withOverrides` are in `packages/content/src/globals.ts`, exported from the content root. The engine's `packages/engine/test-utils/globals.ts › TEST_GLOBALS` is an engine-owned **fixture**, deliberately independent of `DEFAULT_GLOBALS` (`CONTENT_VERSION: '0.0.0-fixture'`, its own `CONTENT_NUMBERS`). TypeScript checks its shape, and a content test checks that it passes `GlobalsSchema`. Nothing compares its values with the real globals (D-168, superseding D-143).
 
-`Globals` is an engine-side interface (`packages/engine/src/types/globals.ts`, widened types of the object above), so the engine is typed against it without importing content. The widening (D-126) is: numbers → `number` and strings → `string`. Min/max pairs (`TARGET_*`) → `Range = readonly [number, number]`, with the sanity check `min ≤ max`. `DIFFICULTY_STAR_CUTS` → `StarCuts = readonly [number, number]` (descending cuts, not a range). `APPRAISAL_ROUNDS` → `readonly number[]`. `UNSTABLE_EXPIRY` → `'endOfNextOwnTurn' | 'startOfOwnTurnAfterNext'`. `FLAGS` → `Flags`: 13 booleans, DESIGN's 10 plus the 3 proposal levers. `NumericGlobal` (the keys whose type is `number`) plus the keys of `CONTENT_NUMBERS` (`Readonly<Record<string, number>>`) are the names an effect `Num` ref (`"$NAME"`) or a text placeholder (`{NAME}`) may use (D-120, D-171, D-172). A number that TypeScript reads as a property is a core global, and adding one is an engine change. A number referenced only by name is a content number, and adding one is one line. Globals and content are bound into the engine by `createEngine(compiled, globals, policies, options)`; a hash of both is stored in `state.cfg` and checked on replay.
+`Globals` is an engine-side interface (`packages/engine/src/types/globals.ts`, widened types of the object above), so the engine is typed against it without importing content. The widening (D-126) is: numbers → `number` and strings → `string`. Min/max pairs (`TARGET_*`) → `Range = readonly [number, number]`, with the sanity check `min ≤ max`. `DIFFICULTY_STAR_CUTS` → `StarCuts = readonly [number, number]` (descending cuts, not a range). `APPRAISAL_ROUNDS` → `readonly number[]`. `UNSTABLE_EXPIRY` → `'endOfNextOwnTurn' | 'startOfOwnTurnAfterNext'`. `FLAGS` → `Flags`: 13 booleans, DESIGN's 10 plus the 3 proposal levers. `NumericGlobal` (the keys whose type is `number`) plus the keys of `CONTENT_NUMBERS` (`Readonly<Record<string, number>>`) are the names an effect `Num` ref (`"$NAME"`) or a text placeholder (`{NAME}`) may use (D-120, D-171, D-172). A number that TypeScript reads as a property is a core global, and adding one is an engine change. A number referenced only by name is a content number, and adding one is one line. Globals and content are bound into the engine by `createEngine(compiled, globals, policies, options)`. A hash of both is stored in `state.cfg`: `c.hash + ":" + cyrb128(canonicalJson(g))`, which doesn't depend on key order (D-191). It is checked on replay: `replay(seed, actions, { cfg })` throws `EngineError` on a mismatch, and the web session stores `cfg` with its actions.
 
 DESIGN numbers that are content rather than globals (with reason, D-074): monster/Relic Power/Guard (card JSON), Chimera family stats (recipes.json), weekly-twist values (twists.json). All are overridable from the sim. After the D-166 switch, these files are canonical too.
 
@@ -1363,8 +1384,10 @@ for attempt in 1..DECKGEN_MAX_ATTEMPTS:            // continuing the 'deck' stre
      && count(power ≤ CURVE_LOW_MAX_POWER) ≥ CURVE_LOW_MIN_COUNT && count(power ≥ CURVE_HIGH_MIN_POWER) ≥ CURVE_HIGH_MIN_COUNT:
        spells = pickWithCap(pool.spells, DECK_SPELLS, MAX_COPIES); traps = pickWithCap(pool.traps, DECK_TRAPS, MAX_COPIES)
        return sortDeckList([...monsters, ...spells, ...traps])     // D-006
-throw ContentError
+throw EngineError                                    // the engine has no ContentError (D-192)
 ```
+
+`deckForSeed(c, g, seed)` (engine root) runs this on the seed's `deck` stream. `newGame`, ai's `prepareDay` and the `content:check` feasibility rule (D-200) all call it. Pools are sorted by card id (D-197).
 
 ### 12.4 Shuffles and opening hands (`setup/shuffle.ts`) — D-007, D-008
 
@@ -1572,6 +1595,8 @@ expect legal attack P1 > C0
 expect illegal attack P1 > face
 ```
 
+The header of `test-utils/board-dsl.ts` is the canonical syntax reference for every `do` and `expect` form (D-193). Defaults: a monster without `new` has `entered = −1`; an unspecified hand is empty; an unspecified deck or `deck *` is 2 × `OPENING_HAND` copies of the reserved inert card `dsl-filler` (player pool, first element and kind, 1/1, no keywords), which `withDeclared` (engine) and `scenarioContent` (content) always add; an `appraised` monster is owned by the player; `expect event <Name> <slot>` resolves the slot against the board at setup.
+
 Monster token: `[<card-id> <A|G|D> flags…]` where `D` = face-down guard. Flags: `new` (entered this turn), `moved` (repositioned this turn), `done` (attacked this turn), `ward-used`, `p±N` / `g±N` (permanent), `p+N@T` (timed until end of turn T), `unstable@T`, `shroud@T`, `appraised`, `chimera(<family>,<element>,<kw,kw>[,asc][,grafted@T])` (`grafted` defaults to the monster's entered turn, D-139). Slots are addressed `P0..P2`, `C0..C2`; `face` = direct.
 
 ---
@@ -1597,7 +1622,8 @@ Budget: a duel ≈ 24 turns × ~6–8 actions ≈ 150–200 actions incl. AI dec
 ## 19. Determinism and review checklist (applied to every engine PR)
 
 - [ ] No `Math.random`, `Date`, `performance.now`, timers, DOM, Node APIs in engine/content keywords/ai (ESLint `no-restricted-globals`/`no-restricted-properties`).
-- [ ] No `for…in`, `Object.keys/values/entries` or `Map`/`Set` iteration whose order affects outcomes (arrays and slot order only). The single allowed exception is `freeze.ts › deepFreeze`, which doesn't depend on order (D-147).
+- [ ] No `for…in`, `Object.keys/values/entries` or `Map`/`Set` iteration whose order affects outcomes (arrays and slot order only). The two allowed exceptions don't depend on order: `freeze.ts › deepFreeze` (D-147) and `canonical.ts › canonicalJson`, which sorts keys (D-191). Anything hashed (`state.cfg`, the content hash) goes through `canonicalJson`, never `JSON.stringify` of an object.
+- [ ] Hook contexts read `run.state`, never a state captured before a write (D-186).
 - [ ] Dev-only checks go through `Env.dev`, never `process.env` (D-141).
 - [ ] Only integer arithmetic in rules; `Sfc32.int` is the only float operation and is exact.
 - [ ] Every rule number comes from `globals`; every mechanic checks its flag.
@@ -1653,8 +1679,8 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | SU-6 | Player first; cannot attack round 1 | `stats.ts › attackPermission` | D-015, D-042, D-142 |
 | RD-1 | Round = player turn then Collector turn | `turn.ts` (turn index) | — |
 | RD-2 | Draw up to 5, at most 2/turn; effects ignore cap | `turn.ts › drawStep`, `effects/run.ts › draw` | D-011…D-013 |
-| RD-3 | Reposition once, not on summon turn; face-down flipped to attack is revealed | `legal.ts`, `reposition.ts` | D-014, D-022, D-023, D-024, D-161 |
-| RD-4 | Play one card: summon (atk/grd/face-down), Graft, spell, trap | `legal.ts`, `summon.ts`, `graft.ts`, `effects/run.ts` | D-014, D-021 |
+| RD-3 | Reposition once, not on summon turn; face-down flipped to attack is revealed | `legal.ts`, `reposition.ts` | D-014, D-022, D-023, D-024, D-161, D-190 |
+| RD-4 | Play one card: summon (atk/grd/face-down), Graft, spell, trap | `legal.ts`, `summon.ts`, `graft.ts`, `cast.ts`, `effects/run.ts` | D-014, D-021, D-188, D-189 (Chimera from hand: all modes) |
 | RD-5 | Attack with each attack-position monster once, then end | `combat.ts`, `legal.ts` | D-033 |
 | BD-1 | 3 monster slots, 2 trap slots per side | `globals`, `state.ts` | D-021 |
 | BD-2 | Full board blocks summoning | `legal.ts` | — |
@@ -1689,7 +1715,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | KW-1 | 6 keywords, 5 Flaws at launch | `keywords/*.ts` | D-111 |
 | KW-2 | Base cards ≤ 1 keyword | validator (`MAX_BASE_KEYWORDS`) | D-173 |
 | KW-3 | Chimeras inherit up to 2 | `graft.ts`, `globals.MAX_INHERITED_KEYWORDS` | D-059 |
-| KW-4 | Keyword shown as visual frame/effect | `KeywordDef.visual`, web `KeywordFrame.tsx` | — |
+| KW-4 | Keyword shown as visual frame/effect | `KeywordDef.visual`, web `KeywordFrame.tsx` | D-195 (draft icon/visual ids, Flaws framed) |
 | KW-5 | Swift | `keywords/swift.ts` (`attackPermission`) | D-041, D-042 |
 | KW-6 | Sentinel | `keywords/sentinel.ts` (`restrictTargets`) | D-037, D-038 |
 | KW-7 | Pierce | `keywords/pierce.ts` (`beforeCombat`), `combat.ts` | D-039, D-040, D-124 |
@@ -1697,7 +1723,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | KW-9 | Haunt | `keywords/haunt.ts` (`onDestroyed`) | D-045 |
 | KW-10 | Echo | `keywords/echo.ts` (`onDestroyed`), `effects/run.ts › returnToHand` | D-046, D-140 |
 | FL-1 | Flaws only on Relics, exactly one each | validator | D-114 |
-| FL-2 | Slow | `keywords/slow.ts` (`attackPermission`) | D-053 |
+| FL-2 | Slow | `keywords/slow.ts` (`attackPermission`, `ownTurnsSinceEntered`) | D-053, D-183 (M-01 lever) |
 | FL-3 | Vain | `keywords/vain.ts` (`mustAttack`), `legal.ts`, `ai/collector/best-target.ts` | D-052, D-091 |
 | FL-4 | Brittle | `keywords/brittle.ts` (`beforeCombat`), `combat.ts` | D-049, D-050 |
 | FL-5 | Tethered | `keywords/tethered.ts` (`staticPower`) | D-051 |
@@ -1709,12 +1735,12 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 
 | # | Rule | Implemented in | Decisions |
 | --- | --- | --- | --- |
-| GR-1 | Combine 2 monsters; family by kinds, element by first; it is the turn's play | `graft.ts`, `legal.ts` | D-057 |
+| GR-1 | Combine 2 monsters; family by kinds, element by first; it is the turn's play | `graft.ts`, `legal.ts` | D-057, D-180 |
 | GR-2 | Materials from hand and/or board, in order; board materials sacrificed | `graft.ts` (pending `mat1`/`mat2`) | D-056, D-058 |
 | GR-3 | Family = kind pair; element = first material | `recipes.json`, `compile.ts › recipe`, `graft.ts` | — |
-| GR-4 | Inherit ≤ 2 keywords; player picks if > 2 | `graft.ts` (`keywords` stage) | D-059 |
+| GR-4 | Inherit ≤ 2 keywords; player picks if > 2 | `graft.ts` (`keywords` stage, `keywordUnion`) | D-059, D-181, D-182 (printed keywords) |
 | GR-5 | Ascend: second step same turn, same family, +2/+1, may take keyword, max 3 materials | `graft.ts` (`ascend` stage), `globals`, `FLAGS.ASCEND` | D-056, D-060 |
-| GR-6 | Unstable: opposing elements → +3 Power, destroyed end of your next turn | `graft.ts`, `turn.ts › endTurn`, `FLAGS.UNSTABLE` | D-061, D-062, D-152 (Ward-saved: bonus lost) |
+| GR-6 | Unstable: opposing elements → +3 Power, destroyed end of your next turn | `graft.ts › unstableExpiry`, `turn.ts › endTurn`, `FLAGS.UNSTABLE` | D-061, D-062, D-152 (Ward-saved: bonus lost), D-183 (M-02 lever) |
 | GR-7 | Chimera enters attack or guard; normal summoning rules | `graft.ts` (`position`), `attackPermission` | D-022, D-063 |
 | GR-8 | Preview before confirming | `graft.ts › previewGraft`, web `GraftPreview.tsx` | D-064 |
 | GR-9 | First-time result added to the Binder | `track.families`, web `persistence/binder.ts` | D-066 |
@@ -1734,7 +1760,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | PP-5 | Stat budget P+G 8–10, keyword ≈ 1 | validator **warning** | D-109, D-167 |
 | PP-6 | Spells cast as the one play, resolve immediately | `legal.ts`, `effects/run.ts` | D-067 |
 | PP-7 | Unmake, Bloodlust, Grave Recall, Scrying Bones, Shroud, Siphon | `cards/player-spells.json` (§9.2), `effects/run.ts`, `effects/targets.ts` | D-067…D-070, D-136, D-140 |
-| PP-8 | Traps set face-down as the play; trigger automatically, then discard | `summon.ts › setTrap`, `traps.ts`, `hooks/dispatch.ts` | D-071, D-072, D-122 |
+| PP-8 | Traps set face-down as the play; trigger automatically, then discard | `summon.ts › setTrap`, `traps.ts`, `hooks/dispatch.ts` | D-071, D-072, D-122, D-185, D-186, D-187 |
 | PP-9 | Snare, Mirror Sigil, Last Rites, Thornwall | `cards/player-traps.json` (§9.2) | D-036, D-073 |
 | PP-10 | One-line art brief per card | `art-briefs.json`, validator warnings | D-110, D-174 |
 
@@ -1748,7 +1774,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | CO-4 | Traps: Display Case, Counterfeit, Insurance Claim | `cards/collector-traps.json` (§9.2) | D-065, D-073, D-139 |
 | AP-1 | Appraisal at start of his turns in rounds 3, 6, 9 | `turn.ts › startTurn`, `appraisal.ts`, `FLAGS.APPRAISAL` | D-016, D-075 |
 | AP-2 | Takes highest-Power face-up monster with Power ≥ 7; tie leftmost | `appraisal.ts` | D-076 |
-| AP-3 | Goes to open slot, or vault if full | `appraisal.ts`, `SideState.vault` | D-077, D-078 |
+| AP-3 | Goes to open slot, or vault if full | `appraisal.ts`, `SideState.vault` | D-077, D-078, D-184 (M-03/M-04 levers) |
 | AP-4 | Face-down and Shrouded monsters are safe | `appraisal.ts`, `Monster.shroudUntil` | D-069 |
 | AP-5 | Countdown always on screen | web `AppraisalCountdown.tsx` | — |
 | AC-1 | Ace only if Appraisal succeeded | `keywords/covetous.ts`, `summon.ts` | D-054 |
@@ -1777,9 +1803,9 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | DL-1 | Each local date → one seed → deck, both shuffles, signature card | web `daily/date.ts`, `setup/seed.ts` | D-001, D-002, D-010 |
 | DL-2 | seed = hash("vault-duel" + date + content version) | `setup/seed.ts`, `rng.ts` | D-001 |
 | DL-3 | Reset at local midnight; dev date override | web `daily/date.ts`, `globals.RESET_HOUR_LOCAL` | D-104 |
-| DG-1 | 15/5/4, max 2 copies | `setup/deckgen.ts` | D-005 |
-| DG-2 | ≥ 3 elements, ≥ 4 kinds | `setup/deckgen.ts` | D-005 |
-| DG-3 | Curve: ≥ 4 with Power ≤ 5, ≥ 3 with Power ≥ 6 | `setup/deckgen.ts` | D-005 |
+| DG-1 | 15/5/4, max 2 copies | `setup/deckgen.ts` | D-005, D-197 |
+| DG-2 | ≥ 3 elements, ≥ 4 kinds | `setup/deckgen.ts`, `content/src/feasibility.ts` | D-005, D-200 |
+| DG-3 | Curve: ≥ 4 with Power ≤ 5, ≥ 3 with Power ≥ 6 | `setup/deckgen.ts`, `content/src/feasibility.ts` | D-005, D-200 |
 | DG-4 | Opening hands (both + redraw) ≥ 2 monsters | `setup/shuffle.ts` | D-007 |
 | DC-1 | Reference bot plays seed 500× with deterministic noise | `ai/difficulty.ts`, `ai/bots/expert.ts`, `bots/noise.ts` | D-094 |
 | DC-2 | Keep if win rate 30–70%, else re-roll seed+1 | `ai/difficulty.ts` | D-003, D-004 |
@@ -1819,11 +1845,11 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | TA-6 | `getLegalActions` single source of truth | `legal.ts` | D-064 |
 | TA-7 | Hook registry (7 hooks) for keywords, Flaws, spells/traps | `types/hooks.ts`, `hooks/*`, `traps.ts` | D-112, D-122, D-124, D-127 |
 | TA-8 | No deep cloning; structural sharing; small integer ids | `tx.ts` (§4.1), §18 | D-006, D-128 |
-| TA-9 | Reproducible from seed + action log (leaderboards later) | `replay.ts`, `state.log` | D-108 |
+| TA-9 | Reproducible from seed + action log (leaderboards later) | `replay.ts` (`cfg` check), `canonical.ts`, `state.log` | D-108, D-191, D-194 |
 | CP-1 | JSON validated by zod at build and in `content:check` | `content/src/schemas/*`, `content/src/load.ts`, `scripts/content-check.ts`, `build` script | D-145, D-146 |
 | CP-2 | Effect primitives with targets, conditions, durations | `types/effects.ts`, `effects/*` | D-074, D-120, D-129 |
 | CP-3 | New keyword/Flaw = one `defineKeyword` file, auto-registered | `hooks/define.ts` (type in `types/hooks.ts`), `scripts/gen-keyword-index.ts` | D-111, D-123 |
-| CP-4 | Validator fails on unknown refs, missing recipes, budget, duplicate ids, Collector deck ≠ 20 | `content/src/validate.ts` (§10.3); budget is a warning by owner ruling | D-109, D-167 |
+| CP-4 | Validator fails on unknown refs, missing recipes, budget, duplicate ids, Collector deck ≠ 20 | `content/src/validate.ts` (§10.3), `feasibility.ts`, `schemas/globals.ts`; budget is a warning by owner ruling | D-109, D-167, D-198, D-199, D-200 |
 | CP-5 | Placeholder art from data until a painting with the card id exists | web `art/placeholder.ts` | D-175 (ids permanent) |
 | CG-1 | Add/change/delete card → JSON → `content:check` → `sim:quick` | scripts, validator reverse refs; one edit per change (§10.4); web hot reload | D-168, D-174, D-175, D-176 |
 | CG-2 | Add keyword → one file + icon → tests auto-generated from examples | `KeywordDef.examples` (declared cards), `content/src/keyword-examples.test.ts` | D-169 |
