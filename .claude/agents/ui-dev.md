@@ -15,3 +15,4 @@ Requirements
 - Persist the duel (seed + action log) after every action so refresh resumes mid-duel. Local stats, streaks and Binder in browser storage.
 - Placeholder art generated from data: dark gilded frame, element color + icon, kind silhouette, name, stats (SVG/CSS). If apps/web/public/art/<cardId>.webp exists, use it instead — zero code changes.
 - Debug overlay behind its flag; dev setting overrides the date.
+- Content (D-176): load, validate and compile it at startup and show an error screen if it fails; in dev, a JSON edit hot-reloads and restarts the duel. Render all card and keyword text with `renderText(template, globals)` (D-172); never hardcode numbers in UI copy.

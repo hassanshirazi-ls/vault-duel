@@ -122,6 +122,8 @@ Grafting combines 2 monsters into a Chimera whose family is set by their two kin
 
 **Chimera families** (15 kind pairs, order-independent). Art is one painting per family; the element changes the frame and glow, so launch needs 15 Chimera paintings, not 75.
 
+> *Launch values (v0.1). The live values are in packages/content (see CONTENT_GUIDE.md); this table is not updated.*
+
 | Kind pair | Chimera | Power / Guard |
 | --- | --- | --- |
 | Beast + Beast | Packmaw | 7 / 4 |
@@ -143,6 +145,8 @@ Grafting combines 2 monsters into a Chimera whose family is set by their two kin
 Every pair of monsters can graft, so a random hand never has zero options; the skill is choosing which pair, which order, and when. Most Chimeras reach 7+ Power, which makes them Appraisal targets (see The Collector).
 
 ## Player card pool v0.1
+
+> *Launch values (v0.1). The live values in this section are in packages/content (see CONTENT_GUIDE.md); it is not updated.*
 
 The v0.1 pool is 25 monsters (one per element × kind), 6 spells and 4 traps. Each daily deck draws 15 monsters, 5 spells and 4 traps from it (duplicates allowed, max 2 copies). Stats are placeholders for the simulator to tune.
 
@@ -183,6 +187,8 @@ Each card also gets a one-line art brief (mood, pose, palette) in its data file 
 ## The Collector
 
 The Collector plays a fixed 20-card deck of Relics: stronger than your base cards, but he never grafts and every Relic has one Flaw. His signature mechanic, Appraisal, steals your strongest monster, and his ace can only arrive if Appraisal succeeded.
+
+> *Launch values (v0.1). The live values in this section are in packages/content (see CONTENT_GUIDE.md); it is not updated.*
 
 **Monsters (13)**
 
@@ -284,6 +290,8 @@ The simulator must show an experienced-bot win rate of 45–55% and a novice-bot
 
 Every number in this doc is a global in one config file, so tuning never requires engine changes:
 
+> *Launch values (v0.1). The live values are in packages/content/src/globals.ts (see CONTENT_GUIDE.md); this block is not updated.*
+
 ```
 PLAYER_LIFE=20  COLLECTOR_LIFE=25  MAX_ROUNDS=12
 HAND_SIZE=5  MAX_DRAW_PER_TURN=2  REDRAWS=1
@@ -332,7 +340,7 @@ docs/
 - Cards, elements, kinds, recipes, the Collector deck, objectives and weekly twists are JSON files validated by zod schemas at build time and in a `content:check` script.
 - Simple spell and trap effects are written as data using effect primitives (`draw`, `damage`, `heal`, `modifyStats`, `destroy`, `returnToHand`, `changePosition`, `preventAppraisal`, `cancelAttack`) with targets, conditions and durations, so most new cards need no code.
 - A new keyword or Flaw is one file exporting `defineKeyword({ id, name, icon, text, hooks })`; files are auto-registered.
-- The validator fails the build on: unknown references, missing Graft recipes for a kind pair, stats outside the budget, duplicate ids, or a Collector deck that is not 20 cards.
+- The validator fails the build on: unknown references, missing Graft recipes for a kind pair, duplicate ids, or a Collector deck that is not 20 cards. Stats outside the budget are a warning, so off-budget cards can be playtested on purpose (D-167).
 - Placeholder art is generated from data (element color, kind silhouette, name) until a painting file with the card's id exists.
 
 **How to change content (summary of CONTENT\_GUIDE.md)**

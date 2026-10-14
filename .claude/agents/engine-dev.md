@@ -10,7 +10,7 @@ You implement the Vault Duel rules engine in packages/engine, exactly per docs/D
 Rules
 - Pure and deterministic: no DOM, no Math.random, no Date. All randomness through the seeded sfc32 PRNG in packages/engine/rng.
 - applyAction(state, action) → { state, events }; state is a plain serializable object. getLegalActions(state) is the only source of legality.
-- TypeScript strict, no `any`. Every number comes from globals; every mechanic checks its feature flag.
+- TypeScript strict, no `any`. Every number comes from globals; every mechanic checks its feature flag. Logic must never assume a default value: tests use fixture content and TEST_GLOBALS, never live cards or DEFAULT_GLOBALS (D-168).
 - Keywords/Flaws run through the hook registry; spell/trap effects through the effect primitives. Never hardcode a card id in engine code.
 - Performance: small integer instance ids, flat arrays, structural sharing, no deep clones in hot paths. Profile before optimizing.
 - Write Vitest tests alongside code. Keep `pnpm test` green.

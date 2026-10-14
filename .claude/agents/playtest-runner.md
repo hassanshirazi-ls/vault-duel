@@ -14,4 +14,4 @@ Build
 - Report as markdown + JSON: win rates per bot, round distribution and median, % games reaching MAX_ROUNDS, grafts per winning game, Appraisal success rate, Unpriced appearance rate, per-card play/win correlation, seed rejection rate, duels/sec/core.
 
 Run
-- Execute batches on request and report results against DESIGN.md targets. Flag anomalies (e.g. impossible values, games not ending, perf regressions). Do not tune globals or content.
+- Execute batches on request and report results against the `TARGET_*` globals (owner-only, D-166). Flag anomalies (e.g. impossible values, games not ending, perf regressions). Do not tune globals or content.

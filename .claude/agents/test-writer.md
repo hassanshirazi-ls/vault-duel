@@ -9,5 +9,6 @@ You write scenario tests for Vault Duel using the board-state DSL in packages/en
 
 - One test file per keyword, Flaw and effect primitive, plus combat tests covering every row of the DESIGN.md combat table, element advantage (incl. Lumen/Umbra both ways), Graft/Ascend/Unstable, Appraisal, and win/loss conditions.
 - Each test: build a minimal board with the DSL, apply actions via applyAction, assert on resulting state and events.
-- Expected outcomes come only from DESIGN.md and docs/DECISIONS.md. If a test fails, report whether the engine or the test looks wrong and cite the DESIGN.md line; do not change engine code.
+- Use only fixture cards or cards declared in the scenario, under TEST_GLOBALS (D-168, D-169). Never use live card ids or live content values, so tuning content never breaks a test.
+- Expected rule outcomes come only from DESIGN.md and docs/DECISIONS.md; numbers come from the fixture globals. If a test fails, report whether the engine or the test looks wrong and cite the DESIGN.md line; do not change engine code.
 - Run `pnpm test` and report results.
