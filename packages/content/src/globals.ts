@@ -2,6 +2,7 @@
 // engine's `Globals` and `Flags` types (packages/engine/src/types/globals.ts) by `satisfies`.
 import { deepFreeze } from '@vault-duel/engine';
 import type { Flags, Globals } from '@vault-duel/engine';
+import { GlobalsSchema, globalsProblems } from './schemas/globals';
 
 const FLAGS = {
   ASCEND: true,
@@ -151,3 +152,62 @@ const GLOBAL_VALUES = {
 } as const satisfies Globals;
 
 export const DEFAULT_GLOBALS: Globals = deepFreeze(GLOBAL_VALUES);
+
+const GLOBAL_KEYS: readonly string[] = Object.keys(GlobalsSchema.shape);
+const FLAG_KEYS: readonly string[] = Object.keys(GlobalsSchema.shape.FLAGS.shape);
+
+/** A VALUE is parsed as JSON; text that is not JSON (a bare word) stays a string. */
+function parseOverrideValue(raw: string): unknown {
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return raw;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * ARCHITECTURE.md §11, D-147. Applies "KEY=VALUE" and "FLAGS.KEY=VALUE" overrides to `base` in order, e.g.
+ * "PLAYER_LIFE=18", "FLAGS.ASCEND=false", "APPRAISAL_ROUNDS=[3,6]". Unknown keys are rejected. The merged object
+ * is validated with GlobalsSchema and returned deep-frozen. Throws one Error listing every problem, one per line,
+ * in the §10.3 shape. Card overrides ("card.<id>.power") are not globals and are handled by sim/overrides.ts.
+ */
+export function withOverrides(base: Globals, sets: readonly string[]): Globals {
+  const problems: string[] = [];
+  const merged: Record<string, unknown> = { ...base };
+  for (const set of sets) {
+    const eq = set.indexOf('=');
+    if (eq <= 0) {
+      problems.push(`"${set}" › not in KEY=VALUE form › write it as KEY=VALUE`);
+      continue;
+    }
+    const key = set.slice(0, eq);
+    const value = parseOverrideValue(set.slice(eq + 1));
+    if (key.startsWith('FLAGS.')) {
+      const flag = key.slice('FLAGS.'.length);
+      if (!FLAG_KEYS.includes(flag)) {
+        problems.push(`globals.ts › ${key} › unknown flag › use one of: ${FLAG_KEYS.join(', ')}`);
+        continue;
+      }
+      const current = isRecord(merged['FLAGS']) ? merged['FLAGS'] : {};
+      merged['FLAGS'] = { ...current, [flag]: value };
+    } else if (GLOBAL_KEYS.includes(key)) {
+      merged[key] = value;
+    } else {
+      problems.push(`globals.ts › ${key} › unknown key › use a key from globals.ts`);
+    }
+  }
+  if (problems.length > 0) throw new Error(problems.join('\n'));
+
+  const result = GlobalsSchema.safeParse(merged);
+  if (!result.success) {
+    const lines = globalsProblems(result.error).map(
+      (p) => `globals.ts › ${p.key} › ${p.field ? `${p.field}: ` : ''}${p.problem} › ${p.fix}`,
+    );
+    throw new Error(lines.join('\n'));
+  }
+  return deepFreeze(result.data);
+}

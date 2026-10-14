@@ -1,9 +1,11 @@
 // Cross-file validator (ARCHITECTURE.md §10.3, D-109, D-145). It runs after the zod pass, on whatever parsed:
 // a rule whose input file failed to parse is skipped, because that file already has zod errors, so every
 // problem is reported in one run. Messages follow the §10.3 examples. Pool-size checks are warnings and never fail.
-import type { Cond, Effect, Globals, TrapTrigger } from '@vault-duel/engine';
+import type { Cond, Effect, Globals, KeywordDef, TrapTrigger } from '@vault-duel/engine';
+import { KEYWORDS } from '../keywords/index.gen';
 import { DEFAULT_GLOBALS } from './globals';
 import { CONTENT_FILES, type ContentData, type ContentError, type ContentKey } from './load';
+import { GlobalsSchema, globalsProblems } from './schemas/globals';
 
 export interface ValidationResult {
   readonly errors: readonly ContentError[];
@@ -15,13 +17,8 @@ export interface ValidationResult {
  * Remove an entry when its rule is implemented here.
  */
 export const DEFERRED_RULES: readonly string[] = [
-  // TODO(content milestone 2, needs the keyword barrel §8.4): packages/content/keywords/*.ts and index.gen.ts do not exist.
-  'unregistered keyword or Flaw (`keyword "hant" is not registered`); Cond { keyword } refs',
-  'keyword used as a Flaw (a relics.json › flaw that is a keyword id)',
-  'keyword file problems: id ≠ file name, two files with one id, more than 32 keywords, stale index.gen.ts (pnpm content:gen)',
-  // TODO(content milestone 2, needs GlobalsSchema, src/schemas/globals.ts, D-147): not a cross-file rule.
-  'globals sanity: every Range min ≤ max, APPRAISAL_ROUNDS within 1…MAX_ROUNDS, WARD_CHARGES = 1 (D-133)',
-  // TODO(content milestone 2, needs src/compile.ts and setup/deckgen.ts, §12.3): needs the generator on 1,000 test dates.
+  // TODO(content milestone 3, needs setup/deckgen.ts from the engine, §12.3, not written yet): the generator has to
+  // run on 1,000 test dates. Stays deferred until packages/engine/src/setup/deckgen.ts exists.
   'deckgen feasibility: DECK constraints satisfiable on 1,000 test dates',
 ];
 
@@ -66,6 +63,7 @@ interface Ctx {
   readonly sink: Sink;
   readonly elements: readonly string[] | undefined;
   readonly kinds: readonly string[] | undefined;
+  readonly keywords: ReadonlyMap<string, KeywordDef>;
 }
 
 const fileOf = (key: ContentKey): string => CONTENT_FILES[key].path;
@@ -91,8 +89,15 @@ function refOf(effect: Effect): string | undefined {
   return 'target' in effect ? effect.target : undefined;
 }
 
-/** Runs every implemented §10.3 rule. Never throws: problems come back as records. */
-export function validateContent(data: ContentData, globals: Globals = DEFAULT_GLOBALS): ValidationResult {
+/**
+ * Runs every implemented §10.3 rule. Never throws: problems come back as records.
+ * `keywords` is the registry the keyword rules check against (the generated barrel by default, D-111).
+ */
+export function validateContent(
+  data: ContentData,
+  globals: Globals = DEFAULT_GLOBALS,
+  keywords: readonly KeywordDef[] = KEYWORDS,
+): ValidationResult {
   const sink: Sink = { errors: [], warnings: [] };
   const ctx: Ctx = {
     data,
@@ -100,10 +105,13 @@ export function validateContent(data: ContentData, globals: Globals = DEFAULT_GL
     sink,
     elements: data.elements?.map((element) => element.id),
     kinds: data.kinds?.map((kind) => kind.id),
+    keywords: new Map(keywords.map((keyword) => [keyword.id, keyword] as const)),
   };
+  checkGlobalsSanity(ctx);
   checkDuplicateIds(ctx);
   checkElementBeats(ctx);
   checkMonsterVocabulary(ctx);
+  checkKeywordFields(ctx);
   checkStatBudget(ctx);
   checkRecipes(ctx);
   checkCollector(ctx);
@@ -197,6 +205,7 @@ function checkKind(ctx: Ctx, where: Where, value: string): void {
 function checkCond(ctx: Ctx, where: Where, cond: Cond): void {
   if ('element' in cond) checkElement(ctx, where, cond.element);
   else if ('kind' in cond) checkKind(ctx, where, cond.kind);
+  else if ('keyword' in cond) checkKeywordRef(ctx, where, cond.keyword, 'any');
   else if ('all' in cond) for (const inner of cond.all) checkCond(ctx, where, inner);
   else if ('any' in cond) for (const inner of cond.any) checkCond(ctx, where, inner);
   else if ('not' in cond) checkCond(ctx, where, cond.not);
@@ -483,6 +492,56 @@ function checkArtBriefs(ctx: Ctx): void {
   }
   for (const id of Object.keys(briefs)) {
     if (!ids.has(id)) fail(sink, { file, id }, 'orphan brief, no card or Chimera family has this id', 'delete the entry');
+  }
+}
+
+/**
+ * A keyword or Flaw id must be registered (keywords/<id>.ts, D-111), and of the right kind: base monsters and the
+ * keyword slot of a Relic take keywords; a Relic's flaw takes a Flaw (D-114). `want: 'any'` is for Cond { keyword }.
+ */
+function checkKeywordRef(ctx: Ctx, where: Where, id: string, want: 'keyword' | 'flaw' | 'any'): void {
+  const found = ctx.keywords.get(id);
+  const listed = [...ctx.keywords.values()]
+    .filter((keyword) => want === 'any' || keyword.kind === want)
+    .map((keyword) => keyword.id)
+    .sort();
+  const noun = want === 'flaw' ? 'Flaw' : 'keyword';
+  if (found === undefined) {
+    fail(
+      ctx.sink,
+      where,
+      `${noun} "${id}" is not registered`,
+      `use one of: ${listed.join(', ')}, or add packages/content/keywords/${id}.ts`,
+    );
+    return;
+  }
+  if (want === 'any' || found.kind === want) return;
+  const other = found.kind === 'flaw' ? 'a Flaw' : 'a keyword';
+  fail(ctx.sink, where, `"${id}" is ${other}, not a ${noun}`, `use one of: ${listed.join(', ')}`);
+}
+
+// keywords[] of base monsters and Relics are keywords; a Relic's flaw is a Flaw (§10.3, D-114).
+function checkKeywordFields(ctx: Ctx): void {
+  const { data } = ctx;
+  for (const monster of data.playerMonsters ?? []) {
+    for (const id of monster.keywords) checkKeywordRef(ctx, { file: fileOf('playerMonsters'), id: monster.id }, id, 'keyword');
+  }
+  for (const relic of data.relics ?? []) {
+    const where: Where = { file: fileOf('relics'), id: relic.id };
+    for (const id of relic.keywords) checkKeywordRef(ctx, where, id, 'keyword');
+    checkKeywordRef(ctx, where, relic.flaw, 'flaw');
+  }
+}
+
+/**
+ * globals.ts sanity (§10.3, D-147): the GlobalsSchema refinements (Range min ≤ max, APPRAISAL_ROUNDS in
+ * 1…MAX_ROUNDS, WARD_CHARGES = 1). Every key of the schema is checked too, so a missing or extra key shows here.
+ */
+function checkGlobalsSanity(ctx: Ctx): void {
+  const result = GlobalsSchema.safeParse(ctx.globals);
+  if (result.success) return;
+  for (const problem of globalsProblems(result.error)) {
+    fail(ctx.sink, { file: 'globals.ts', id: problem.key }, problem.problem, problem.fix, problem.field);
   }
 }
 

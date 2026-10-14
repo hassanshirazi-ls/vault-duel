@@ -188,7 +188,7 @@ export type CombatPreview =
       readonly defenderWarded: boolean;
     };
 
-const NULL_SINK: EffectSink = { queue: () => undefined, emit: () => undefined };
+const NULL_SINK: EffectSink = { queue: () => undefined, emit: () => undefined, spendTrap: () => undefined };
 
 /**
  * Same `resolveCombat` as the pipeline, without side effects (§5.4): no reveal, no traps, no queued

@@ -1,14 +1,22 @@
-// `pnpm content:check`: parses every content file with its zod schema, then runs the cross-file validator
-// (ARCHITECTURE.md §10.3). Problems print in the §10.3 format. Exits 1 on any error; warnings never fail.
+// `pnpm content:check`: parses every content file with its zod schema, checks the keyword files and their barrel,
+// then runs the cross-file validator (ARCHITECTURE.md §10.3). Problems print in the §10.3 format. Exits 1 on any
+// error; warnings never fail. When there are no errors it also compiles the content (§3) as a smoke test.
+import { compileContent } from '../src/compile';
+import { DEFAULT_GLOBALS } from '../src/globals';
+import { checkKeywordBarrel, checkKeywordSources, loadKeywordFiles, sortKeywords } from '../src/keyword-files';
 import { CONTENT_FILES, formatError, loadContent } from '../src/load';
 import { DEFERRED_RULES, validateContent } from '../src/validate';
 
 const result = loadContent();
-const validation = validateContent(result.data);
-const errors = [...result.errors, ...validation.errors];
-
-// TODO(content milestone 2): compile (src/compile.ts, §3). It runs only when `errors` is empty, so it can
-// assume typed, cross-checked data. The deckgen feasibility check (§12.3) is listed in DEFERRED_RULES.
+const keywordLoad = await loadKeywordFiles();
+const keywordErrors = [
+  ...keywordLoad.errors,
+  ...checkKeywordSources(keywordLoad.sources, DEFAULT_GLOBALS.MAX_TEXT_SENTENCES),
+  ...checkKeywordBarrel(keywordLoad.sources),
+];
+const keywordDefs = sortKeywords(keywordLoad.sources).map((source) => source.def);
+const validation = validateContent(result.data, DEFAULT_GLOBALS, keywordDefs);
+const errors = [...result.errors, ...keywordErrors, ...validation.errors];
 
 for (const warning of validation.warnings) console.warn(`warning: ${formatError(warning)}`);
 
@@ -19,9 +27,13 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
+const compiled = compileContent(result.data, keywordDefs, DEFAULT_GLOBALS);
 const lines = (Object.keys(CONTENT_FILES) as (keyof typeof CONTENT_FILES)[]).map(
   (key) => `  ${CONTENT_FILES[key].path.padEnd(32)} ${String(result.counts[key] ?? 0).padStart(3)}`,
 );
+const flaws = keywordDefs.filter((keyword) => keyword.kind === 'flaw').length;
 console.log(`content:check OK: ${Object.keys(CONTENT_FILES).length} files parsed`);
 console.log(lines.join('\n'));
+console.log(`  keywords/                        ${keywordDefs.length - flaws} keywords, ${flaws} Flaws`);
+console.log(`  compiled: ${compiled.ids.length} definitions, hash ${compiled.hash}`);
 for (const rule of DEFERRED_RULES) console.log(`not yet checked (TODO, §10.3): ${rule}`);

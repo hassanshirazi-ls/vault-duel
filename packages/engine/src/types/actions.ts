@@ -20,3 +20,6 @@ export type Action =
   | { readonly t: 'graftCancel' }
   | { readonly t: 'attack'; readonly a: Iid; readonly target: Iid | -1 }
   | { readonly t: 'endTurn' };
+
+/** Visitor for `forEachLegal` (§6.2): return `true` to stop the enumeration early. */
+export type ActionVisitor = (a: Action) => boolean;

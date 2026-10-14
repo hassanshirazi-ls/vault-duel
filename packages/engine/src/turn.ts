@@ -1,6 +1,7 @@
 // Start and end of turn (ARCHITECTURE.md §5.1 to §5.3; D-011, D-013, D-016, D-017, D-095, D-096).
 // `startTurn` is called by the actions that begin a turn (`keep`, `endTurn`); there are no
 // "advance" actions (§5.1). Both functions return early once a result is set (§8.3.5).
+import { appraisal } from './appraisal';
 import { destroyBatch } from './destroy';
 import { endGame } from './pipeline';
 import type { Run } from './pipeline';
@@ -58,7 +59,7 @@ export function startTurn(run: Run): void {
 
   // (2) Collector turn, Appraisal rounds only (D-075).
   if (evt.side === 1 && g.FLAGS.APPRAISAL && g.APPRAISAL_ROUNDS.includes(evt.round)) {
-    run.services.appraisal?.(run);
+    appraisal(run);
     if (run.over) return;
   }
 

@@ -56,7 +56,7 @@ export function sacrificeCandidates(s: GameState, env: Env, side: Side, c: Iid):
 const POS_OF_MODE = { atk: 0, grd: 1, down: 1 } as const satisfies Record<SummonMode, Pos>;
 
 /** Common tail of a play: the one play of the turn is used and the Reposition step closes (D-014). */
-function playUsed(run: Run): void {
+export function playUsed(run: Run): void {
   run.tx.set('played', true);
   run.tx.set('step', 'attack');
 }

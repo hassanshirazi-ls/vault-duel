@@ -36,6 +36,8 @@ export interface QueuedEffect {
 export interface EffectSink {
   queue(q: QueuedEffect): void;
   emit(ev: GameEvent): void;
+  /** Spend a set trap now (not a queued effect, D-158): slot -> owner's discard, TrapTriggered. */
+  spendTrap(side: Side, iid: Iid): void;
 }
 
 /** Services owned by later pipelines (destroy.ts, reducer.ts). */

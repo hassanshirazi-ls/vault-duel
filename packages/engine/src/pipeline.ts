@@ -1,6 +1,7 @@
 // Shared plumbing for the §5 pipelines (turn, summon, combat, destroy). A `Run` is one applyAction:
 // it owns the Tx, the event list, the FIFO effect queue and the services other pipelines inject.
 // Engine-internal (not exported from the package root).
+import { EngineError } from './errors';
 import { Dispatcher } from './hooks/dispatch';
 import type { Env } from './hooks/registry';
 import { EffectQueue } from './effects/run';
@@ -14,14 +15,9 @@ import type { GameState, Intent, Iid, Side } from './types/state';
 /** Intent policy injected by createEngine (D-096). The engine never imports `ai`. */
 export type IntentPolicy = (s: GameState) => Intent;
 
-/**
- * Services that later pipelines provide. Injected rather than imported so turn.ts can run before
- * appraisal.ts exists; the reducer wires the real ones.
- */
+/** Injected services (D-150). Required when FLAGS.INTENTS is on: createEngine enforces it. */
 export interface Services {
   readonly intent?: IntentPolicy;
-  /** Appraisal step (§5.7); called at the start of Collector turns in APPRAISAL_ROUNDS. */
-  readonly appraisal?: (run: Run) => void;
 }
 
 export class Run implements EffectSink {
@@ -49,6 +45,18 @@ export class Run implements EffectSink {
 
   emit(ev: GameEvent): void {
     this.events?.push(ev);
+  }
+
+  /** A set trap fires: out of its slot into its owner's discard, then TrapTriggered (§8.3.3, D-071, D-158). */
+  spendTrap(side: Side, iid: Iid): void {
+    const { tx } = this;
+    const traps = tx.state.sides[side].traps;
+    let slot = -1;
+    for (let i = 0; i < traps.length; i++) if (traps[i]?.iid === iid) slot = i;
+    if (slot < 0) throw new EngineError(`spendTrap: ${iid} is not a set trap of side ${side}`);
+    tx.setTrap(side, slot, null);
+    tx.zonePush(tx.state.inst[iid]?.owner ?? side, 'discard', iid);
+    this.emit({ e: 'TrapTriggered', side, iid, slot });
   }
 
   queue(q: QueuedEffect): void {

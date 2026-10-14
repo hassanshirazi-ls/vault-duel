@@ -6,7 +6,7 @@ import { StateBuilder } from '../../test-utils/state';
 import type { QueuedEffect } from '../effects/run';
 import type { GameEvent } from '../types/events';
 import type { CombatSnapshot, Hooks } from '../types/hooks';
-import type { GameState, Iid } from '../types/state';
+import type { GameState, Iid, Side } from '../types/state';
 import { attackTargets, Dispatcher, mustAttack, summonRequirement } from './dispatch';
 import { defineKeyword } from './define';
 import { createEnv } from './registry';
@@ -49,6 +49,7 @@ interface Sink {
   events: GameEvent[];
   queue(q: QueuedEffect): void;
   emit(ev: GameEvent): void;
+  spendTrap(side: Side, iid: Iid): void;
 }
 const sink = (): Sink => {
   const s: Sink = {
@@ -56,6 +57,7 @@ const sink = (): Sink => {
     events: [],
     queue: (q) => void s.queued.push(q),
     emit: (ev) => void s.events.push(ev),
+    spendTrap: (side, iid) => void s.events.push({ e: 'TrapTriggered', side, iid, slot: -1 }),
   };
   return s;
 };

@@ -1,6 +1,6 @@
 // ARCHITECTURE.md §8.1, §8.2 and §8.4 (KeywordDef; the defineKeyword helper lands in hooks/define.ts).
 import type { CompiledContent, DefIdx, KwMask } from './content';
-import type { Effect } from './effects';
+import type { Cond, Effect } from './effects';
 import type { GameEvent } from './events';
 import type { Globals } from './globals';
 import type { GameState, Iid, Pos, Side } from './state';
@@ -104,6 +104,18 @@ export interface HookCtx<E> extends QueryCtx {
   readonly evt: E;
   effect(e: Effect): void;
   emit(ev: GameEvent): void;
+  /**
+   * Evaluate a DSL condition on a card in the state as it is now, with this event's refs bound
+   * (`directAttack` reads attacker/defender). Read-only; used by compiled traps for `TrapDef.when`.
+   */
+  holds(cond: Cond, iid: Iid): boolean; // judgment call: new HookCtx method, not listed in §8.2
+  /**
+   * Traps only (traps.ts): spend the trap this subscriber belongs to, immediately: it leaves its slot
+   * for its owner's discard and TrapTriggered is emitted (D-071, D-158). Not an effect; nothing is queued.
+   * Throws EngineError when `self` is not a set trap. At most one trap per identical definition and side
+   * fires per dispatch (D-071 "two identical traps -> only the leftmost").
+   */
+  spendTrap(): void;
 }
 export interface AttackCtx extends HookCtx<AttackEvt> {
   readonly cancelled: boolean;

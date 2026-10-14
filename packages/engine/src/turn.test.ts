@@ -4,7 +4,6 @@ import { withGlobals } from '../test-utils/globals';
 import { PC, pipeEnv, PENV, SPY } from '../test-utils/pipeline-fixture';
 import { allCards, harness } from '../test-utils/run';
 import { StateBuilder } from '../test-utils/state';
-import type { Run } from './pipeline';
 import { effectivePower } from './stats';
 import { drawStep, endTurn, startTurn } from './turn';
 import type { GameEvent } from './types/events';
@@ -130,37 +129,31 @@ describe('startTurn (§5.2, D-016)', () => {
   });
 
   describe('Appraisal call (D-075)', () => {
-    const calls: string[] = [];
-    const appraisal = (run: Run): void => {
-      // Called before the draw: his hand still has the 2 cards it started with.
-      calls.push(`t${run.state.turn}:hand${run.state.sides[1].hand.length}`);
-    };
-    beforeEach(() => {
-      calls.length = 0;
-    });
-    const at = (turn: number, env = PENV) => {
+    const attempts = (turn: number, env = PENV): GameEvent[] => {
       const { s } = drawing((turn & 1) as Side, 2, 5, turn);
-      const h = harness(s, env, { appraisal });
+      const h = harness(s, env);
       startTurn(h.run);
-      return h;
+      return h.events;
     };
+    const rounds = (turn: number, env = PENV): number[] =>
+      ev(attempts(turn, env), 'AppraisalAttempt').map((e) => e.round);
     it('only at the start of a Collector turn in APPRAISAL_ROUNDS (3, 6, 9), before his draw', () => {
-      for (const t of [4, 10, 16]) at(t); // the player's turns of those rounds
-      for (const t of [1, 3, 7, 9, 23]) at(t); // Collector turns of other rounds
-      expect(calls).toEqual([]);
-      for (const t of [5, 11, 17]) at(t);
-      expect(calls).toEqual(['t5:hand2', 't11:hand2', 't17:hand2']);
+      for (const t of [4, 10, 16]) expect(rounds(t)).toEqual([]); // the player's turns of those rounds
+      for (const t of [1, 3, 7, 9, 23]) expect(rounds(t)).toEqual([]); // Collector turns of other rounds
+      expect([5, 11, 17].map((t) => rounds(t))).toEqual([[3], [6], [9]]);
+      const names = attempts(5).map((e) => e.e);
+      expect(names.indexOf('AppraisalAttempt')).toBeLessThan(names.indexOf('CardDrawn'));
+      expect(names.indexOf('TurnStarted')).toBeLessThan(names.indexOf('AppraisalAttempt'));
     });
     it('respects FLAGS.APPRAISAL and APPRAISAL_ROUNDS being globals', () => {
-      at(5, pipeEnv(withGlobals({ FLAGS: { APPRAISAL: false } })));
-      expect(calls).toEqual([]);
-      at(7, pipeEnv(withGlobals({ APPRAISAL_ROUNDS: [4] })));
-      expect(calls).toEqual(['t7:hand2']);
+      expect(rounds(5, pipeEnv(withGlobals({ FLAGS: { APPRAISAL: false } })))).toEqual([]);
+      expect(rounds(7, pipeEnv(withGlobals({ APPRAISAL_ROUNDS: [4] })))).toEqual([4]);
     });
-    it('is a no-op when no appraisal service is injected', () => {
+    it('with no eligible monster the step fails and the turn goes on', () => {
       const { s } = drawing(1, 2, 5, 5);
       const h = harness(s, PENV);
-      expect(() => startTurn(h.run)).not.toThrow();
+      startTurn(h.run);
+      expect(ev(h.events, 'AppraisalFailed')).toHaveLength(1);
     });
   });
 

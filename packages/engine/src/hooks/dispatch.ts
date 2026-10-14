@@ -36,6 +36,8 @@ interface Sub {
   readonly mask: KwMask;
   /** compiled trap hook table (traps only) */
   readonly trap: Hooks | null;
+  /** DefIdx of a trap (identical-trap rule, D-071); -1 for monsters */
+  readonly def: number;
 }
 
 export class Dispatcher {
@@ -64,7 +66,7 @@ export class Dispatcher {
         const m = board[i];
         if (m === null || m === undefined) continue;
         const mask = activeKwOf(s, env, m) & hookMask;
-        if (mask !== 0) subs.push({ iid: m.iid, side, mask, trap: null });
+        if (mask !== 0) subs.push({ iid: m.iid, side, mask, trap: null, def: -1 });
       }
     }
     for (let k = 0; k < 2; k++) {
@@ -75,18 +77,24 @@ export class Dispatcher {
         if (t === null || t === undefined) continue;
         const def = s.inst[t.iid]?.def;
         const hooks = def === undefined ? null : (env.reg.trapHooks[def] ?? null);
-        if (hooks !== null && hooks[hook] !== undefined) subs.push({ iid: t.iid, side, mask: 0, trap: hooks });
+        if (hooks !== null && hooks[hook] !== undefined) subs.push({ iid: t.iid, side, mask: 0, trap: hooks, def: def as number });
       }
     }
     return subs;
   }
 
   private run<C extends QueryContext>(subs: readonly Sub[], ctx: C, call: (h: Hooks, ctx: C) => void): void {
+    const spent: number[] = []; // trap defs (x2 + side) already spent in this dispatch
     for (let i = 0; i < subs.length; i++) {
       const sub = subs[i] as Sub;
       ctx.bind(sub.iid, sub.side);
       if (sub.trap !== null) {
+        // Two identical traps of one side: only the leftmost is used (D-071). Judgment call: implemented per dispatch,
+        // so each monster of a destruction batch can still use one trap of the pair (D-158).
+        const key = sub.def * 2 + sub.side;
+        if (spent.includes(key)) continue;
         call(sub.trap, ctx);
+        if (ctx.trapSpent) spent.push(key);
         continue;
       }
       for (let b = sub.mask | 0; b !== 0; b &= b - 1) {
@@ -121,7 +129,7 @@ export class Dispatcher {
   /** `evt` is the last-known information; the destroyed monster's own hooks run first (§8.3.1b). */
   onDestroyed(evt: DestroyedEvt): void {
     const mask = evt.kw & this.env.reg.masks.onDestroyed;
-    const own: Sub | null = mask !== 0 ? { iid: evt.iid, side: evt.side, mask, trap: null } : null;
+    const own: Sub | null = mask !== 0 ? { iid: evt.iid, side: evt.side, mask, trap: null, def: -1 } : null;
     const refs = makeRefs({ destroyed: evt.iid, destroyer: evt.by });
     const ctx = new EventContext(this.env, this.s, this.sink, evt, refs);
     this.run(this.collect('onDestroyed', own), ctx, (h, c) => h.onDestroyed?.(c));

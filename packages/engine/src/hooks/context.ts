@@ -6,7 +6,7 @@ import type { EffectSink, Refs } from '../effects/run';
 import { EngineError } from '../errors';
 import { activeKw, effectiveGuard, effectivePower, locate, locSide, locSlot, monsterOf } from '../stats';
 import type { CompiledContent } from '../types/content';
-import type { Effect } from '../types/effects';
+import type { Cond, Effect } from '../types/effects';
 import type { GameEvent } from '../types/events';
 import type { Globals } from '../types/globals';
 import type {
@@ -27,6 +27,8 @@ export class QueryContext implements QueryCtx {
   self: Iid;
   side: Side;
   protected readonly attackerIid: Iid | -1;
+  /** set by EventContext.spendTrap; the dispatcher reads and clears it per subscriber (D-071) */
+  trapSpent = false;
 
   constructor(
     protected readonly env: Env,
@@ -46,6 +48,7 @@ export class QueryContext implements QueryCtx {
   bind(self: Iid, side: Side): void {
     this.self = self;
     this.side = side;
+    this.trapSpent = false;
   }
 
   power(i: Iid): number {
@@ -121,6 +124,16 @@ export class EventContext<E> extends QueryContext implements HookCtx<E> {
 
   emit(ev: GameEvent): void {
     this.sink.emit(ev);
+  }
+
+  holds(cond: Cond, iid: Iid): boolean {
+    return evalCond(cond, { s: this.s, env: this.env, refs: this.refs }, iid);
+  }
+
+  /** Immediate and visible to every later subscriber of the same destruction batch (D-158). Not an effect. */
+  spendTrap(): void {
+    this.sink.spendTrap(this.side, this.self);
+    this.trapSpent = true;
   }
 }
 
