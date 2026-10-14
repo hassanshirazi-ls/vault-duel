@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
+import { EngineError } from './errors';
 import { Tx } from './tx';
 import type { GameState, Monster, SideState } from './types/state';
 
@@ -105,8 +106,8 @@ describe('Tx', () => {
     expect(n.sides[0].traps).toBe(s.sides[0].traps);
   });
 
-  it('patchMonster on an empty slot throws', () => {
-    expect(() => new Tx(makeState()).patchMonster(0, 1, { permP: 1 })).toThrow();
+  it('patchMonster on an empty slot throws EngineError', () => {
+    expect(() => new Tx(makeState()).patchMonster(0, 1, { permP: 1 })).toThrow(EngineError);
   });
 
   it('setSlot and setTrap', () => {
@@ -166,7 +167,7 @@ describe('Tx', () => {
   it('writes after commit throw', () => {
     const tx = new Tx(makeState());
     tx.commit();
-    expect(() => tx.set('turn', 1)).toThrow();
+    expect(() => tx.set('turn', 1)).toThrow(EngineError);
   });
 
   it('a committed state is not changed by a later Tx on it', () => {

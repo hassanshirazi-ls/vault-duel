@@ -5,6 +5,7 @@
 // reference. Objects the Tx has already copied are owned and mutated in place by later
 // writes in the same transaction. Monster/TrapSlot records are replaced, never mutated.
 // `commit()` returns the new state, or the base state itself when nothing was written.
+import { EngineError } from './errors';
 import type {
   GameState,
   Instance,
@@ -77,7 +78,7 @@ export class Tx {
   // ---- ownership -------------------------------------------------------------------------
 
   private ownRoot(): Mut<GameState> {
-    if (this.done) throw new Error('Tx already committed');
+    if (this.done) throw new EngineError('Tx already committed');
     if (this.root === null) this.root = { ...this.base };
     return this.root;
   }
@@ -176,7 +177,7 @@ export class Tx {
   /** Replace the monster in a slot with a patched copy. Throws if the slot is empty. */
   patchMonster(side: Side, slot: number, patch: Partial<Mut<Omit<Monster, 'iid'>>>): Monster {
     const cur = this.state.sides[side].board[slot];
-    if (cur === null || cur === undefined) throw new Error(`patchMonster: empty slot ${slot}`);
+    if (cur === null || cur === undefined) throw new EngineError(`patchMonster: empty slot ${slot}`);
     const next: Monster = { ...cur, ...patch };
     this.ownZone<Monster | null>(side, 'board')[slot] = next;
     return next;
