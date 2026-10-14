@@ -1,0 +1,30 @@
+[
+  {
+    "id": "unmake", "type": "spell", "name": "Unmake", "text": "Destroy an enemy monster with Power 5 or less.",
+    "target": { "side": "enemy", "zone": "board", "where": { "all": [ { "faceUp": true }, { "powerLte": "$UNMAKE_MAX_POWER" } ] } },
+    "effects": [ { "op": "destroy", "target": "chosen" } ]
+  },
+  {
+    "id": "bloodlust", "type": "spell", "name": "Bloodlust", "text": "One of your monsters gets +3 Power this turn.",
+    "target": { "side": "ally", "zone": "board" },
+    "effects": [ { "op": "modifyStats", "target": "chosen", "power": "$BLOODLUST_POWER", "duration": "thisTurn" } ]
+  },
+  {
+    "id": "grave-recall", "type": "spell", "name": "Grave Recall", "text": "Return a monster from your discard pile to your hand.",
+    "target": { "side": "ally", "zone": "discard", "where": { "type": "monster" } },
+    "effects": [ { "op": "returnToHand", "target": "chosen" } ]
+  },
+  {
+    "id": "scrying-bones", "type": "spell", "name": "Scrying Bones", "text": "Draw 2 cards (ignores the draw cap).",
+    "effects": [ { "op": "draw", "who": "self", "n": "$SCRYING_DRAW" } ]
+  },
+  {
+    "id": "shroud", "type": "spell", "name": "Shroud", "text": "One of your monsters cannot be Appraised until your next turn.",
+    "target": { "side": "ally", "zone": "board" },
+    "effects": [ { "op": "preventAppraisal", "target": "chosen", "duration": "untilYourNextTurn" } ]
+  },
+  {
+    "id": "siphon", "type": "spell", "name": "Siphon", "text": "The Collector loses 3 life; you gain 3.",
+    "effects": [ { "op": "damage", "who": "opponent", "n": "$SIPHON_DRAIN" }, { "op": "heal", "who": "self", "n": "$SIPHON_GAIN" } ]
+  }
+]

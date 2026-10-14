@@ -1,6 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "rootDir": ".", "outDir": "dist", "types": [] },
-  "include": ["src", "test", "scripts", "keywords", "*.json"],
+  "compilerOptions": { "rootDir": ".", "outDir": "dist", "types": ["node"] },
+  "include": ["src", "test", "scripts", "keywords", "*.json", "cards/*.json"],
   "references": [{ "path": "../engine" }]
 }

@@ -876,6 +876,15 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: Add `elementIds: readonly string[]` (`ElemIdx` → element id) and `kindIds: readonly string[]` (`KindIdx` → kind id) to `CompiledContent`. They use the same index order as `element`, `kind`, `beats` and `recipe`. `effects/conditions.ts` evaluates `{ element }` as `elementIds[elementOf(i)] === cond.element`, where a Chimera's element comes from `inst[i].chimera.element`. It evaluates `{ kind }` as `kindIds[kind[def]] === cond.kind`, which is false for Chimeras: they have no kind (family `kind = -1`, D-056).
 - Reason: no launch spell or trap uses these conditions, but DESIGN's twist example ("Umbra monsters +1 Power") does, and the flag exists. Two small string arrays are the simplest fix: no maps, no key iteration, and `Cond` keeps the same shape in JSON and in the engine.
 
+**D-130 · Content values DESIGN.md doesn't give (owner-approved 2026-10-14)**
+- Date: 2026-10-14
+- Question: The §10.1 schemas require values DESIGN.md doesn't supply: element hex colors, kind silhouettes, Collector dialogue lines and per-card art briefs.
+- Decision:
+  - **Final (owner-approved):** element colors ember `#C8452C`, gale `#8FBF9A`, tide `#2B4C7E`, lumen `#D4A93C`, umbra `#6B4C9A`, muted versions of DESIGN's Red / Pale green / Deep blue / Gold / Violet. Kind silhouettes: beast `quadruped`, knight `armored-humanoid`, wyrm `serpent`, construct `golem`, spirit `wisp`; these are used only by placeholder art (`apps/web/src/art/placeholder.ts`).
+  - **Drafts, pending an owner rewrite:** every line in `collector.json › dialogue` and every entry in `art-briefs.json`. These are written by content-author, not by the design. They carry no in-file marker because the strings are shown in the UI.
+  - Also settled: `twists.json` ships empty because DESIGN says weekly twists are not in v0.1, and the Collector deck is all 20 listed Relics, spells and traps, in DESIGN order.
+- Reason: the schemas need concrete values, and inventing them silently would break the "never invent content" rule. This entry is the record of which content values didn't come from DESIGN.md.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

@@ -1,0 +1,7 @@
+[
+  { "id": "beast", "name": "Beast", "profile": "High Power, low Guard", "graftRole": "Aggression", "silhouette": "quadruped" },
+  { "id": "knight", "name": "Knight", "profile": "Balanced", "graftRole": "Reliable middle results", "silhouette": "armored-humanoid" },
+  { "id": "wyrm", "name": "Wyrm", "profile": "Highest Power", "graftRole": "Biggest Chimeras", "silhouette": "serpent" },
+  { "id": "construct", "name": "Construct", "profile": "High Guard", "graftRole": "Defensive Chimeras", "silhouette": "golem" },
+  { "id": "spirit", "name": "Spirit", "profile": "Low stats, carries keywords", "graftRole": "Keyword donors", "silhouette": "wisp" }
+]

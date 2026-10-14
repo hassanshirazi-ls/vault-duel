@@ -1,0 +1,17 @@
+[
+  { "id": "packmaw", "name": "Packmaw", "kinds": ["beast", "beast"], "power": 7, "guard": 4 },
+  { "id": "centaur-revenant", "name": "Centaur Revenant", "kinds": ["beast", "knight"], "power": 8, "guard": 5 },
+  { "id": "gorefang-drake", "name": "Gorefang Drake", "kinds": ["beast", "wyrm"], "power": 9, "guard": 4 },
+  { "id": "ironhide-chimera", "name": "Ironhide Chimera", "kinds": ["beast", "construct"], "power": 7, "guard": 7 },
+  { "id": "feral-specter", "name": "Feral Specter", "kinds": ["beast", "spirit"], "power": 8, "guard": 4 },
+  { "id": "twinblade-paladin", "name": "Twinblade Paladin", "kinds": ["knight", "knight"], "power": 8, "guard": 6 },
+  { "id": "dragoon-abomination", "name": "Dragoon Abomination", "kinds": ["knight", "wyrm"], "power": 9, "guard": 5 },
+  { "id": "bastion-warden", "name": "Bastion Warden", "kinds": ["knight", "construct"], "power": 6, "guard": 9 },
+  { "id": "revenant-lord", "name": "Revenant Lord", "kinds": ["knight", "spirit"], "power": 8, "guard": 5 },
+  { "id": "twin-throat-hydra", "name": "Twin-Throat Hydra", "kinds": ["wyrm", "wyrm"], "power": 10, "guard": 4 },
+  { "id": "clockwork-wyrm", "name": "Clockwork Wyrm", "kinds": ["wyrm", "construct"], "power": 8, "guard": 7 },
+  { "id": "phantom-wyrm", "name": "Phantom Wyrm", "kinds": ["wyrm", "spirit"], "power": 9, "guard": 5 },
+  { "id": "colossus-of-seams", "name": "Colossus of Seams", "kinds": ["construct", "construct"], "power": 5, "guard": 10 },
+  { "id": "haunted-engine", "name": "Haunted Engine", "kinds": ["construct", "spirit"], "power": 7, "guard": 6 },
+  { "id": "choir-of-ash", "name": "Choir of Ash", "kinds": ["spirit", "spirit"], "power": 7, "guard": 5 }
+]

@@ -1,0 +1,67 @@
+{
+  "deck": [
+    "gilded-penitent", "ossuary-seraph", "saint-of-brass", "mourning-cartographer", "stormglass-hydra",
+    "ashen-duchess", "kiln-born-leviathan", "drowned-choir", "abyssal-curator", "reliquary-hound",
+    "velvet-moth-sovereign", "weeping-automaton", "the-unpriced",
+    "provenance-ledger", "restoration", "gilt-frame", "forfeit",
+    "display-case", "counterfeit", "insurance-claim"
+  ],
+  "ace": "the-unpriced",
+  "canGraft": false,
+  "ai": {
+    "allowFaceDown": false,
+    "reposition": "toAttackIfUsable",
+    "play": ["winThisTurn", "summonAce", "summonBeater", "setTrapWhenBehind", "castHighValueSpell", "summonFallback", "utility"],
+    "attack": ["lethal", "killWithoutLoss", "faceDownIfStrong", "directIfEmpty", "holdExceptVain"],
+    "params": {
+      "setTrapWhenBehind": { "compare": "fewer" },
+      "summonFallback": { "position": "attack", "slowPosition": "guard", "slowPick": "highestGuard" },
+      "faceDownIfStrong": { "minPower": "$AI_FACEDOWN_ATTACK_MIN_POWER" },
+      "killWithoutLoss": { "allowTrades": false },
+      "castHighValueSpell": {
+        "forfeit": { "pick": "highestPower" },
+        "restoration": { "pick": "highestPower" },
+        "gilt-frame": { "when": "contestedAttack" }
+      },
+      "summonBeater": { "compare": "previewAttack", "skipBrittleCountered": false },
+      "utility": { "order": ["castDrawSpell", "setTrap", "pass"] }
+    },
+    "moods": {
+      "composed": {
+        "params": { "setTrapWhenBehind": { "compare": "fewerOrEqual" }, "summonFallback": { "position": "guardUnlessBeater" } },
+        "attack": ["lethal", "killWithoutLoss", "directIfEmpty", "holdExceptVain"]
+      },
+      "agitated": {
+        "play": ["winThisTurn", "summonAce", "castHighValueSpell", "summonBeater", "setTrapWhenBehind", "summonFallback", "utility"],
+        "params": { "killWithoutLoss": { "allowTrades": true } }
+      },
+      "desperate": {
+        "attack": ["lethal", "attackAnything"],
+        "params": { "faceDownIfStrong": { "minPower": 0 } },
+        "reposition": "allAttack"
+      }
+    },
+    "trapPreference": ["display-case", "insurance-claim", "counterfeit"],
+    "tieBreak": ["leftmostSlot", "cardId", "instanceId"]
+  },
+  "dialogue": {
+    "composed": [
+      "Every piece in my collection has a provenance. Yours will have one too.",
+      "Patience is the first virtue of any true collector.",
+      "Set your monsters down gently. I will take them in good time.",
+      "What fine work. It would look splendid in my vault."
+    ],
+    "agitated": [
+      "You are clumsier than I expected. Give me that one.",
+      "Every one of your monsters has a price, and I am running out of patience.",
+      "Your hounds are at my gate. Let them come.",
+      "I will have your strongest, and you will watch me take it."
+    ],
+    "desperate": [
+      "Very well, take your stand. I only want what is mine.",
+      "No more pretense. Everything you own is mine to appraise.",
+      "Your vault is empty and so is your hand. Let us finish this.",
+      "Even ruin makes a fine display case."
+    ]
+  }
+}

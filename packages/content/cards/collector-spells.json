@@ -1,0 +1,21 @@
+[
+  {
+    "id": "provenance-ledger", "type": "spell", "name": "Provenance Ledger", "text": "Draw 2 cards.",
+    "effects": [ { "op": "draw", "who": "self", "n": "$PROVENANCE_DRAW" } ]
+  },
+  {
+    "id": "restoration", "type": "spell", "name": "Restoration", "text": "Return a destroyed Relic to his hand.",
+    "target": { "side": "ally", "zone": "discard", "where": { "all": [ { "type": "monster" }, { "relic": true } ] } },
+    "effects": [ { "op": "returnToHand", "target": "chosen" } ]
+  },
+  {
+    "id": "gilt-frame", "type": "spell", "name": "Gilt Frame", "text": "+2 Power and +2 Guard until the end of his next turn.",
+    "target": { "side": "ally", "zone": "board", "where": { "faceUp": true } },
+    "effects": [ { "op": "modifyStats", "target": "chosen", "power": "$GILT_POWER", "guard": "$GILT_GUARD", "duration": "untilEndOfYourNextTurn" } ]
+  },
+  {
+    "id": "forfeit", "type": "spell", "name": "Forfeit", "text": "Destroy one of your monsters with Power 4 or less.",
+    "target": { "side": "enemy", "zone": "board", "where": { "all": [ { "faceUp": true }, { "powerLte": "$FORFEIT_MAX_POWER" } ] } },
+    "effects": [ { "op": "destroy", "target": "chosen" } ]
+  }
+]
