@@ -16,6 +16,7 @@ export interface Flags {
 }
 
 export type Range = readonly [number, number];
+export type StarCuts = readonly [number, number];
 
 export interface Globals {
   // Identity & seeding
@@ -115,7 +116,7 @@ export interface Globals {
   readonly SEED_WINRATE_MAX: number;
   readonly SEED_MAX_REROLLS: number;
   readonly BOT_NOISE_EPSILON: number;
-  readonly DIFFICULTY_STAR_CUTS: Range;
+  readonly DIFFICULTY_STAR_CUTS: StarCuts;
   // Daily loop
   readonly RESET_HOUR_LOCAL: number;
   readonly OBJECTIVES_PER_DAY: number;
@@ -145,3 +146,5 @@ export interface Globals {
   // Feature flags
   readonly FLAGS: Flags;
 }
+
+export type NumericGlobal = { [K in keyof Globals]: Globals[K] extends number ? K : never }[keyof Globals];

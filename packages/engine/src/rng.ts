@@ -31,23 +31,23 @@ export class Sfc32 {
   private c: number;
   private d: number;
 
-  /** `warmUp` is false only when restoring a saved state (see `Sfc32.restore`). */
-  constructor(a: number, b: number, c: number, d: number, warmUp = true) {
+  private constructor(a: number, b: number, c: number, d: number) {
     this.a = a | 0;
     this.b = b | 0;
     this.c = c | 0;
     this.d = d | 0;
-    if (warmUp) for (let i = 0; i < 15; i++) this.next();
   }
 
   static from(key: string): Sfc32 {
     const [a, b, c, d] = cyrb128(key);
-    return new Sfc32(a, b, c, d);
+    const g = new Sfc32(a, b, c, d);
+    for (let i = 0; i < 15; i++) g.next(); // warm-up
+    return g;
   }
 
   /** Resume exactly from a state() snapshot (no warm-up). */
   static restore(state: Rng): Sfc32 {
-    return new Sfc32(state[0], state[1], state[2], state[3], false);
+    return new Sfc32(state[0], state[1], state[2], state[3]);
   }
 
   /** uint32 */

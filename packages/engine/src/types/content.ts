@@ -38,6 +38,8 @@ export interface CompiledContent {
   readonly trap: readonly (CompiledTrap | null)[];
   readonly nElements: number;
   readonly nKinds: number;
+  readonly elementIds: readonly string[];
+  readonly kindIds: readonly string[];
   readonly beats: Uint8Array;
   readonly opposes: Uint8Array;
   readonly recipe: Int16Array;

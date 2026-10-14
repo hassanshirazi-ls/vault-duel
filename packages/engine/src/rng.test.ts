@@ -43,6 +43,15 @@ describe('Sfc32', () => {
     const b = Sfc32.restore(a.state());
     for (let i = 0; i < 50; i++) expect(b.next()).toBe(a.next());
   });
+  it('restore(g.state()) continues the same stream as g', () => {
+    const g = Sfc32.from('continue');
+    const h = Sfc32.restore(g.state());
+    expect(h.state()).toEqual(g.state());
+    for (let i = 0; i < 100; i++) {
+      expect(h.next()).toBe(g.next());
+      expect(h.int(7)).toBe(g.int(7));
+    }
+  });
   it('next() is uint32', () => {
     fc.assert(
       fc.property(fc.string(), (s) => {

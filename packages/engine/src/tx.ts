@@ -6,19 +6,12 @@
 // writes in the same transaction. Monster/TrapSlot records are replaced, never mutated.
 // `commit()` returns the new state, or the base state itself when nothing was written.
 import type {
-  AppraisalState,
   GameState,
   Instance,
   Iid,
   Monster,
-  Pending,
-  Result,
-  Rng,
   SideState,
-  Step,
-  Track,
   TrapSlot,
-  LogNode,
 } from './types/state';
 import type { Side } from './types/state';
 
@@ -42,22 +35,6 @@ export type RootField =
   | 'result'
   | 'log'
   | 'nActions';
-
-interface RootFieldTypes {
-  rng: Rng;
-  turn: number;
-  step: Step;
-  played: boolean;
-  redrawsLeft: number;
-  pending: Pending | null;
-  appraisal: AppraisalState;
-  collector: GameState['collector'];
-  twist: number;
-  track: Track;
-  result: Result | null;
-  log: LogNode | null;
-  nActions: number;
-}
 
 const ZONE_BIT: Readonly<Record<Zone, number>> = {
   deck: 1,
@@ -140,7 +117,7 @@ export class Tx {
 
   // ---- root writes -----------------------------------------------------------------------
 
-  set<K extends RootField>(key: K, value: RootFieldTypes[K]): void {
+  set<K extends RootField>(key: K, value: GameState[K]): void {
     (this.ownRoot() as Record<RootField, unknown>)[key] = value;
   }
 
@@ -197,7 +174,7 @@ export class Tx {
   }
 
   /** Replace the monster in a slot with a patched copy. Throws if the slot is empty. */
-  patchMonster(side: Side, slot: number, patch: Partial<Mut<Monster>>): Monster {
+  patchMonster(side: Side, slot: number, patch: Partial<Mut<Omit<Monster, 'iid'>>>): Monster {
     const cur = this.state.sides[side].board[slot];
     if (cur === null || cur === undefined) throw new Error(`patchMonster: empty slot ${slot}`);
     const next: Monster = { ...cur, ...patch };

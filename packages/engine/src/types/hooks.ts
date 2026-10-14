@@ -5,22 +5,6 @@ import type { GameEvent } from './events';
 import type { Globals } from './globals';
 import type { GameState, Iid, Pos, Side } from './state';
 
-export type HookName =
-  | 'onSummon'
-  | 'onAttackDeclared'
-  | 'beforeCombat'
-  | 'onDestroyed'
-  | 'onTurnStart'
-  | 'onTurnEnd'
-  | 'onGraft'
-  | 'attackPermission'
-  | 'restrictTargets'
-  | 'mustAttack'
-  | 'summonRequirement'
-  | 'staticPower'
-  | 'staticGuard'
-  | 'beforeDestroy';
-
 /** All hook names in a fixed order (iteration over this array, never over object keys). */
 export const HOOK_NAMES = [
   'onSummon',
@@ -37,7 +21,9 @@ export const HOOK_NAMES = [
   'staticPower',
   'staticGuard',
   'beforeDestroy',
-] as const satisfies readonly HookName[];
+] as const;
+
+export type HookName = (typeof HOOK_NAMES)[number];
 
 export type AttackPerm = 'none' | 'monstersOnly' | 'any';
 export type SummonReq =
@@ -83,15 +69,13 @@ export interface GraftEvt {
   readonly family: DefIdx;
   readonly materials: readonly Iid[];
 }
-/** Mutable scratch for beforeCombat (§5.4 snapshot, §8.2 comment). */
-export interface CombatScratch {
-  aP: number;
-  dP: number;
-  dG: number;
-  defPos: Pos;
-  advantage: boolean;
-  pierce: boolean;
-  brittleWin: boolean;
+/** Read-only snapshot taken after the reveal (§5.4, D-124). */
+export interface CombatSnapshot {
+  readonly aP: number;
+  readonly dP: number;
+  readonly dG: number;
+  readonly defPos: Pos;
+  readonly advantage: boolean;
 }
 
 export interface QueryCtx {
@@ -126,7 +110,9 @@ export interface AttackCtx extends HookCtx<AttackEvt> {
   cancelAttack(by: Iid): void;
 }
 export interface CombatCtx extends HookCtx<AttackEvt> {
-  readonly combat: CombatScratch;
+  readonly combat: CombatSnapshot;
+  setPierce(): void;
+  setBrittleWin(): void;
 }
 
 export interface Hooks {
