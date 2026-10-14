@@ -22,7 +22,7 @@ project-daily/
 ├─ package.json                 # root scripts (below)
 ├─ pnpm-workspace.yaml          # packages/*, apps/*
 ├─ tsconfig.base.json           # strict settings shared by all packages
-├─ vitest.workspace.ts
+├─ vitest.config.ts           # test.projects = packages/* (D-119)
 ├─ eslint.config.js             # determinism bans for engine/content/ai
 ├─ docs/
 │  ├─ DESIGN.md  ARCHITECTURE.md  DECISIONS.md  CONTENT_GUIDE.md (Phase 1)

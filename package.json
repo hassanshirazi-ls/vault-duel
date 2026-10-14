@@ -1,0 +1,34 @@
+{
+  "name": "vault-duel",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm content:gen && pnpm --filter web dev",
+    "test": "vitest run",
+    "typecheck": "tsc -b",
+    "lint": "eslint .",
+    "content:gen": "tsx packages/content/scripts/gen-keyword-index.ts",
+    "content:check": "tsx packages/content/scripts/content-check.ts",
+    "sim:quick": "tsx packages/sim/src/cli.ts quick --games 2000",
+    "sim:full": "tsx packages/sim/src/cli.ts full --games 50000 --seed-dates 60",
+    "sim:seed": "tsx packages/sim/src/cli.ts seed",
+    "bench": "vitest bench packages/engine",
+    "build": "pnpm content:gen && pnpm content:check && tsc -b && pnpm --filter web build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.5",
+    "eslint": "^10.12.0",
+    "fast-check": "^4.10.2",
+    "globals": "^17.13.0",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.4"
+  }
+}

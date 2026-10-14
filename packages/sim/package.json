@@ -1,0 +1,8 @@
+{
+  "name": "@vault-duel/sim",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@vault-duel/engine": "workspace:*", "@vault-duel/content": "workspace:*", "@vault-duel/ai": "workspace:*" }
+}

@@ -793,6 +793,12 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Reason: "at least 2 monsters" is literal, and excluding Covetous cards would add a rule that DESIGN doesn't state. The underlying problem (a dead ace in hand) is better solved by proposal M-04 (set The Unpriced aside), which makes this question moot.
 - Paper-sim: A10 — differs (it recommends not counting it if M-04 is rejected). Revisit if the owner rejects M-04.
 
+**D-119 · Toolchain pins for Phase 1 scaffold**
+- Date: 2026-10-14
+- Question: ARCHITECTURE.md §2 names `vitest.workspace.ts` and doesn't pin versions. The current releases (TypeScript 7.0, Vitest 5) change both.
+- Decision: TypeScript is pinned to `~6.0` (TS 7's native compiler is not yet supported by typescript-eslint, whose peer range is `<6.1.0`, and ESLint carries the determinism bans). Vitest projects live in `vitest.config.ts › test.projects`, because Vitest 4+ removed `vitest.workspace.ts`. Node ≥ 24, pnpm 12. Workspace packages are named `@vault-duel/{engine,content,ai,sim}`; the web app stays `web` so `pnpm --filter web` works.
+- Reason: the determinism lint is a hard requirement (§1.2), so the compiler follows what the linter supports. Revisit TS 7 when typescript-eslint widens its peer range.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
