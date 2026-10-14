@@ -8,6 +8,7 @@ import { builtinModules } from 'node:module';
 // object-key iteration order.
 const determinism = {
   files: ['packages/engine/src/**/*.ts', 'packages/content/keywords/**/*.ts', 'packages/ai/src/**/*.ts'],
+  ignores: ['**/*.test.ts'],
   rules: {
     'no-restricted-globals': [
       'error',
@@ -41,10 +42,11 @@ const layer = (files, pkg, banned, banNode) => ({
     'no-restricted-imports': [
       'error',
       {
+        // Builtins go in `paths` (exact names): as gitignore-style `patterns` they would also
+        // match local files such as ./events.
+        paths: banNode ? builtinModules.map((name) => ({ name, message: 'No Node APIs in deterministic code.' })) : [],
         patterns: [
-          ...(banNode
-            ? [{ group: ['node:*', ...builtinModules], message: 'No Node APIs in deterministic code.' }]
-            : []),
+          ...(banNode ? [{ group: ['node:*'], message: 'No Node APIs in deterministic code.' }] : []),
           ...banned.map((dep) => ({
             group: [`@vault-duel/${dep}`, `@vault-duel/${dep}/*`],
             message: `${pkg} must not depend on ${dep} (ARCHITECTURE.md §2).`,
