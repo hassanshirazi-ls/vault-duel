@@ -1,0 +1,1225 @@
+// Tests for docs/CONTENT_GUIDE.md (D-178). Every worked example in sections 1–7 is applied here to a temp copy of the
+// content, then checked with the same steps content:check runs. Expected output is written out in full, so the guide
+// and the tooling cannot drift apart. The copy is set up on its own terms: globals that an example depends on are
+// written into the copy's src/globals.ts, and no test assumes a live value. Keyword and vocabulary ids (ember, swift,
+// slow, covetous) are rules, not tuning values, so they are used as they are.
+import { afterEach, describe, expect, it } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import type { Globals } from '@vault-duel/engine';
+import { compileContent } from '../src/compile';
+import { CONTENT_FILES, formatError } from '../src/files';
+import { checkDeckgen } from '../src/feasibility';
+import {
+  checkKeywordBarrel,
+  checkKeywordExamples,
+  checkKeywordGlobalRefs,
+  checkKeywordSources,
+  loadKeywordFiles,
+  sortKeywords,
+} from '../src/keyword-files';
+import { CONTENT_ROOT, loadContent } from '../src/load';
+import { OverridesError, withOverrides } from '../src/globals';
+import { renderText } from '../src/text';
+import { DEFERRED_RULES, validateContent } from '../src/validate';
+import { KEYWORDS } from '../keywords/index.gen';
+import { OBJECTIVE_METRICS } from '../src/schemas/objective';
+
+// ---- The guide and the copy harness -------------------------------------------------------------------------------
+
+const GUIDE_PATH = resolve(CONTENT_ROOT, '../../docs/CONTENT_GUIDE.md');
+const GUIDE = readFileSync(GUIDE_PATH, 'utf8');
+// Table cells escape "|" as "\|" (GitHub markdown); the text the tooling prints has a plain "|".
+const GUIDE_TEXT = GUIDE.replaceAll('\\|', '|');
+const TSX = join(CONTENT_ROOT, '../../node_modules/.bin/tsx');
+/** Spawning the real scripts takes seconds; the default vitest timeout is too short under load. */
+const SPAWN_TIMEOUT = 60_000;
+const CONTENT_JSON = Object.values(CONTENT_FILES).map((file) => file.path);
+
+type Json = Record<string, unknown>;
+
+const copies: string[] = [];
+
+afterEach(() => {
+  for (const dir of copies.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+/** A temp copy of the content: the JSON files, keywords/, src/, scripts/ and package.json (for tsx). */
+function makeCopy(): string {
+  const root = mkdtempSync(join(tmpdir(), 'vault-guide-'));
+  copies.push(root);
+  cpSync(join(CONTENT_ROOT, 'package.json'), join(root, 'package.json'));
+  for (const dir of ['src', 'keywords', 'scripts']) {
+    cpSync(join(CONTENT_ROOT, dir), join(root, dir), { recursive: true, filter: (path) => !path.endsWith('.test.ts') });
+  }
+  for (const rel of CONTENT_JSON) {
+    mkdirSync(dirname(join(root, rel)), { recursive: true });
+    cpSync(join(CONTENT_ROOT, rel), join(root, rel));
+  }
+  // Keyword files import @vault-duel/engine, which resolves through the package's node_modules.
+  symlinkSync(join(CONTENT_ROOT, 'node_modules'), join(root, 'node_modules'));
+  return root;
+}
+
+/** A copy of `value` without the given keys. Written without `delete`, which lint bans for computed keys. */
+function withoutKeys(value: Json, keys: readonly string[]): Json {
+  return Object.fromEntries(Object.entries(value).filter(([key]) => !keys.includes(key)));
+}
+
+function readArray(root: string, rel: string): Json[] {
+  return JSON.parse(readFileSync(join(root, rel), 'utf8')) as Json[];
+}
+
+function readObject(root: string, rel: string): Json {
+  return JSON.parse(readFileSync(join(root, rel), 'utf8')) as Json;
+}
+
+function writeJson(root: string, rel: string, value: unknown): void {
+  writeFileSync(join(root, rel), `${JSON.stringify(value, null, 2)}\n`);
+}
+
+/** Sets a core number in the copy's globals.ts, e.g. setGlobal(root, 'PLAYER_LIFE', '18'). The name must appear once. */
+function setGlobal(root: string, name: string, literal: string): void {
+  const path = join(root, 'src/globals.ts');
+  const text = readFileSync(path, 'utf8');
+  const pattern = new RegExp(`(\\b${name}: )(\\[[^\\]]*\\]|[^,\\n]+)`);
+  if (!pattern.test(text)) throw new Error(`setGlobal: ${name} is not a core key in globals.ts`);
+  writeFileSync(path, text.replace(pattern, `$1${literal}`));
+}
+
+/** Adds one line inside the copy's CONTENT_NUMBERS block, as the owner does by hand (D-171). */
+function addContentNumber(root: string, line: string): void {
+  const path = join(root, 'src/globals.ts');
+  const text = readFileSync(path, 'utf8');
+  if (!text.includes('CONTENT_NUMBERS: {')) throw new Error('addContentNumber: no CONTENT_NUMBERS block');
+  writeFileSync(path, text.replace('CONTENT_NUMBERS: {', `CONTENT_NUMBERS: {\n${line}`));
+}
+
+let globalsLoads = 0;
+/** The copy's DEFAULT_GLOBALS, read from its own globals.ts. A new query each time, so an edit is picked up. */
+async function globalsOf(root: string): Promise<Globals> {
+  globalsLoads += 1;
+  const url = `${pathToFileURL(join(root, 'src/globals.ts')).href}?load=${globalsLoads}`;
+  const mod = (await import(url)) as { DEFAULT_GLOBALS: Globals };
+  return mod.DEFAULT_GLOBALS;
+}
+
+interface Report {
+  readonly errors: string[];
+  readonly warnings: string[];
+}
+
+/**
+ * The steps of scripts/content-check.ts, run on a copy: load, keyword checks, validate, and then (only when there are
+ * no errors) compile and the deck-generation check. Lines come back in the §10.3 format, warnings with their prefix.
+ */
+async function check(root: string): Promise<Report> {
+  const g = await globalsOf(root);
+  const load = loadContent(root);
+  const keywords = await loadKeywordFiles(root);
+  const keywordErrors = [
+    ...keywords.errors,
+    ...checkKeywordSources(keywords.sources),
+    ...checkKeywordGlobalRefs(keywords.sources, g, root),
+    ...checkKeywordBarrel(keywords.sources, root),
+  ];
+  const defs = sortKeywords(keywords.sources).map((source) => source.def);
+  const validation = validateContent(load.data, g, defs);
+  const errors = [...load.errors, ...keywordErrors, ...validation.errors];
+  const warnings = [...validation.warnings, ...checkKeywordExamples(keywords.sources)];
+  if (errors.length === 0) {
+    errors.push(...checkDeckgen(compileContent(load.data, defs, g), g));
+  }
+  return {
+    errors: errors.map(formatError),
+    warnings: warnings.map((warning) => `warning: ${formatError(warning)}`),
+  };
+}
+
+/** Runs one of the real scripts with the same tsx the root scripts use, from inside the copy. */
+function runScript(root: string, script: string): { status: number | null; stdout: string; stderr: string } {
+  const result = spawnSync(TSX, [join(root, 'scripts', script)], { cwd: root, encoding: 'utf8' });
+  return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+}
+
+function lines(text: string): string[] {
+  return text.split('\n').filter((line) => line !== '');
+}
+
+/** The first deck entry the AI does not name in its trap preference or its spell picks, so removing it is safe. */
+function unnamedDeckId(c: Json): string {
+  const ai = c['ai'] as { trapPreference: string[]; params: { castHighValueSpell: Record<string, unknown> } };
+  const named = new Set([...ai.trapPreference, ...Object.keys(ai.params.castHighValueSpell)]);
+  const deck = c['deck'] as string[];
+  const id = deck.find((entry) => !named.has(entry));
+  if (id === undefined) throw new Error('every deck entry is named by the AI; the example needs one that is not');
+  return id;
+}
+
+// ---- Literal snippets. Each one is quoted verbatim in the guide (checked below). ------------------------------------
+
+const BEAST_JSON = `{
+  "id": "example-beast",
+  "type": "monster",
+  "name": "Example Beast",
+  "element": "ember",
+  "kind": "beast",
+  "power": 6,
+  "guard": 3,
+  "keywords": []
+}`;
+
+const RELIC_JSON = `{
+  "id": "example-relic",
+  "type": "monster",
+  "name": "Example Relic",
+  "element": "lumen",
+  "kind": "knight",
+  "power": 6,
+  "guard": 5,
+  "keywords": [],
+  "flaw": "slow"
+}`;
+
+const SPELL_JSON = `{
+  "id": "example-purge",
+  "type": "spell",
+  "name": "Example Purge",
+  "text": "Destroy one enemy monster.",
+  "target": { "side": "enemy", "zone": "board" },
+  "effects": [{ "op": "destroy", "target": "chosen" }]
+}`;
+
+const TRAP_JSON = `{
+  "id": "example-snare",
+  "type": "trap",
+  "name": "Example Snare",
+  "text": "When an enemy monster attacks, cancel that attack.",
+  "trigger": "enemyAttack",
+  "effects": [{ "op": "cancelAttack" }]
+}`;
+
+const DRAW_JSON = `{
+  "id": "example-draw",
+  "type": "spell",
+  "name": "Example Draw",
+  "text": "Draw {DRAW_CARDS|card|cards}.",
+  "effects": [{ "op": "draw", "who": "self", "n": "$DRAW_CARDS" }]
+}`;
+
+const COLLECTOR_SPELL_JSON = `{
+  "id": "example-collector-purge",
+  "type": "spell",
+  "name": "Example Collector Purge",
+  "text": "Destroy one enemy monster.",
+  "target": { "side": "enemy", "zone": "board" },
+  "effects": [{ "op": "destroy", "target": "chosen" }]
+}`;
+
+const QUILL_JSON = `{
+  "id": "example-quill",
+  "type": "spell",
+  "name": "Example Quill",
+  "text": "The Collector loses {QUILL_TOLL} life.",
+  "effects": [{ "op": "damage", "who": "opponent", "n": "$QUILL_TOLL" }]
+}`;
+
+const BRIEF_LINE = '"example-beast": "feral · lunging · ember red",';
+const DRAW_NUMBER_LINE = '    DRAW_CARDS: 2,';
+const QUILL_LINE = '    QUILL_TOLL: 2,';
+const DECK_LINE = '"example-collector-purge",';
+
+const SNIPPETS = [BEAST_JSON, RELIC_JSON, SPELL_JSON, TRAP_JSON, DRAW_JSON, COLLECTOR_SPELL_JSON, QUILL_JSON, BRIEF_LINE, DRAW_NUMBER_LINE, QUILL_LINE, DECK_LINE];
+
+// ---- Messages the guide quotes. Lists of ids are written as "…" in the guide, so those are quoted by prefix. --------
+
+const BUDGET_11 = 'warning: cards/player-monsters.json › example-beast › budget 11 (P7+G3+1kw) outside 8–10 › lower Power or Guard by 1 if this is not intended';
+const MISSING_BRIEF = 'warning: art-briefs.json › example-beast › missing art brief › add a one-line "mood · pose · palette"';
+const ORPHAN_BRIEF = 'warning: art-briefs.json › example-purge › orphan brief, no card or Chimera family has this id › delete the entry';
+const NO_EXAMPLES = 'warning: keywords/example-ward.ts › example-ward › no examples › add one board-DSL example with declared cards (D-169)';
+const BARE_NUMBER = 'cards/player-spells.json › example-draw › text: bare number "2" while the card uses $DRAW_CARDS › write {DRAW_CARDS} instead of 2';
+const TWO_SENTENCES = 'cards/player-spells.json › example-draw › text has 2 sentences › shorten to one sentence';
+const MALFORMED = 'cards/player-spells.json › example-draw › text: malformed placeholder "{draw}" › write {NAME} or {NAME|word|words} with a global name in capitals';
+const UNKNOWN_PLACEHOLDER = 'cards/player-spells.json › example-draw › text: unknown placeholder {DRAW_CARDZ} › did you mean {DRAW_CARDS}?';
+const UNUSED_PLACEHOLDER = "warning: cards/player-spells.json › example-draw › text: {DRAW_CARDS} is not used by this card's effects or conditions › check the name";
+const NOT_A_NUMBER = 'cards/player-spells.json › example-draw › text: {CONTENT_VERSION} is not a number in globals.ts › use a numeric global';
+const UNKNOWN_REF = 'cards/player-spells.json › example-draw › "$DRAW_CARDZ" not in globals.ts › did you mean $DRAW_CARDS?';
+const POOL_SPELLS = "cards/player-spells.json › pool › 2 spells × MAX_COPIES=2 can't fill DECK_SPELLS=5 › add 1 spell, or lower DECK_SPELLS or raise MAX_COPIES in globals.ts";
+
+/** Asserts that the guide quotes `line` verbatim. Table cells escape the pipe character, so the guide text is normalised first. */
+function quoted(line: string): void {
+  expect(GUIDE_TEXT.includes(line), `guide quotes: ${line}`).toBe(true);
+}
+
+// ---- Tests ----------------------------------------------------------------------------------------------------------
+
+describe('guide: the tooling the guide relies on', () => {
+  it('the real content:check script passes on a fresh copy of the content', () => {
+    expect(existsSync(TSX), 'tsx is installed at the repo root').toBe(true);
+    const root = makeCopy();
+    const result = runScript(root, 'content-check.ts');
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/^content:check OK: \d+ files parsed$/m);
+  }, SPAWN_TIMEOUT);
+
+  it('the copy harness and the in-process check agree on a fresh copy', async () => {
+    const report = await check(makeCopy());
+    expect(report.errors).toEqual([]);
+  });
+
+  it('the registry facts the examples use are present (keyword and Flaw ids are rules)', () => {
+    const kind = (id: string): string | undefined => KEYWORDS.find((keyword) => keyword.id === id)?.kind;
+    expect(kind('swift')).toBe('keyword');
+    expect(kind('sentinel')).toBe('keyword');
+    expect(kind('slow')).toBe('flaw');
+    expect(kind('covetous')).toBe('flaw');
+    expect(kind('frail'), 'the unregistered example id must stay unregistered').toBeUndefined();
+    expect(kind('hant'), 'the unregistered example id must stay unregistered').toBeUndefined();
+  });
+});
+
+describe('guide §1 · where things live', () => {
+  it('§1 every file the guide names exists', () => {
+    const named = [
+      'src/globals.ts',
+      'cards/player-monsters.json',
+      'cards/player-spells.json',
+      'cards/player-traps.json',
+      'cards/relics.json',
+      'cards/collector-spells.json',
+      'cards/collector-traps.json',
+      'collector.json',
+      'elements.json',
+      'kinds.json',
+      'recipes.json',
+      'objectives.json',
+      'twists.json',
+      'art-briefs.json',
+      'keywords',
+    ];
+    for (const rel of named) expect(existsSync(join(CONTENT_ROOT, rel)), rel).toBe(true);
+    expect(existsSync(resolve(CONTENT_ROOT, '../../docs/DESIGN.md'))).toBe(true);
+    for (const rel of named) quoted(rel);
+  });
+
+  it('§1 example: the Collector deck size is set in two places, and the check reports the mismatch', async () => {
+    const root = makeCopy();
+    const collector = readObject(root, 'collector.json');
+    const deck = collector['deck'] as string[];
+    const removed = unnamedDeckId(collector);
+    setGlobal(root, 'COLLECTOR_DECK_SIZE', String(deck.length));
+    writeJson(root, 'collector.json', { ...collector, deck: deck.filter((id) => id !== removed) });
+    const n = deck.length;
+    const report = await check(root);
+    expect(report.errors).toEqual([`collector.json › deck › has ${n - 1} cards, needs COLLECTOR_DECK_SIZE=${n} › add 1 card id`]);
+  });
+});
+
+describe('guide §2 · the edit loop', () => {
+  it('§2 the commands the guide names are scripts in package.json', () => {
+    const scripts = (JSON.parse(readFileSync(resolve(CONTENT_ROOT, '../../package.json'), 'utf8')) as { scripts: Record<string, string> }).scripts;
+    for (const name of ['content:check', 'content:gen', 'sim:quick', 'sim:full', 'dev']) {
+      expect(scripts[name], name).toBeDefined();
+      expect(GUIDE_TEXT.includes(`pnpm ${name}`), `guide names pnpm ${name}`).toBe(true);
+    }
+  });
+
+  it('§2 example: a warning is printed but does not fail the check (exit 0), and a fix clears it', () => {
+    const root = makeCopy();
+    setGlobal(root, 'STAT_BUDGET_MIN', '8');
+    setGlobal(root, 'STAT_BUDGET_MAX', '10');
+    const beast = { ...(JSON.parse(BEAST_JSON) as Json), power: 7, keywords: ['swift'] };
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · ember red' });
+
+    const first = runScript(root, 'content-check.ts');
+    expect(first.status).toBe(0);
+    expect(lines(first.stderr)).toEqual([BUDGET_11]);
+    expect(first.stdout).toMatch(/^content:check OK: \d+ files parsed$/m);
+
+    writeJson(root, 'cards/player-monsters.json', readArray(root, 'cards/player-monsters.json').map((card) =>
+      card['id'] === 'example-beast' ? { ...card, power: 6 } : card,
+    ));
+    const second = runScript(root, 'content-check.ts');
+    expect(second.status).toBe(0);
+    expect(lines(second.stderr)).toEqual([]);
+    quoted(BUDGET_11);
+  }, SPAWN_TIMEOUT);
+});
+
+describe('guide §3 · reading content:check output', () => {
+  it('§3 a run prints warnings first, then errors, and exits 1 with a summary line', () => {
+    const root = makeCopy();
+    setGlobal(root, 'STAT_BUDGET_MIN', '8');
+    setGlobal(root, 'STAT_BUDGET_MAX', '10');
+    setGlobal(root, 'DECK_SPELLS', '5');
+    setGlobal(root, 'MAX_COPIES', '2');
+    const beast = { ...(JSON.parse(BEAST_JSON) as Json), power: 7, keywords: ['swift'] };
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · ember red' });
+    // Keep two player spells, so the pool cannot fill a five-spell deck, and drop the briefs of the spells removed.
+    const spells = readArray(root, 'cards/player-spells.json');
+    const briefs = withoutKeys(readObject(root, 'art-briefs.json'), spells.slice(2).map((gone) => gone['id'] as string));
+    writeJson(root, 'cards/player-spells.json', spells.slice(0, 2));
+    writeJson(root, 'art-briefs.json', briefs);
+    const result = runScript(root, 'content-check.ts');
+    expect(result.status).toBe(1);
+    expect(lines(result.stderr)).toEqual([
+      BUDGET_11,
+      POOL_SPELLS,
+      'content:check FAILED: 1 error(s) in 1 file(s)',
+    ]);
+    quoted('content:check FAILED: 1 error(s) in 1 file(s)');
+  }, SPAWN_TIMEOUT);
+
+  it('§3 table · zod type error: a number written in quotes', async () => {
+    const root = makeCopy();
+    const beast = { ...(JSON.parse(BEAST_JSON) as Json), power: '7' };
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
+    const report = await check(root);
+    expect(report.errors).toEqual(['cards/player-monsters.json › example-beast › power: expected number, got "7" › write numbers without quotes']);
+    quoted('power: expected number, got "7" › write numbers without quotes');
+  });
+
+  it('§3 table · unknown element lists the element ids', async () => {
+    const root = makeCopy();
+    const beast = { ...(JSON.parse(BEAST_JSON) as Json), element: 'wind' };
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
+    const ids = readArray(root, 'elements.json').map((element) => element['id']).join(', ');
+    const report = await check(root);
+    expect(report.errors).toEqual([`cards/player-monsters.json › example-beast › unknown element "wind" › use one of: ${ids}, or add it to elements.json`]);
+    quoted('unknown element "wind" › use one of:');
+  });
+
+  it('§3 table · unknown kind lists the kind ids', async () => {
+    const root = makeCopy();
+    const beast = { ...(JSON.parse(BEAST_JSON) as Json), kind: 'dragon' };
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
+    const ids = readArray(root, 'kinds.json').map((kind) => kind['id']).join(', ');
+    const report = await check(root);
+    expect(report.errors).toEqual([`cards/player-monsters.json › example-beast › unknown kind "dragon" › use one of: ${ids}, or add it to kinds.json`]);
+    quoted('unknown kind "dragon" › use one of:');
+  });
+
+  it('§3 table · a keyword that is not registered', async () => {
+    const root = makeCopy();
+    const beast = { ...(JSON.parse(BEAST_JSON) as Json), keywords: ['hant'] };
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
+    const ids = KEYWORDS.filter((keyword) => keyword.kind === 'keyword').map((keyword) => keyword.id).sort().join(', ');
+    const report = await check(root);
+    expect(report.errors).toEqual([
+      `cards/player-monsters.json › example-beast › keyword "hant" is not registered › use one of: ${ids}, or add packages/content/keywords/hant.ts`,
+    ]);
+    quoted('keyword "hant" is not registered › use one of:');
+  });
+
+  it('§3 table · an objective with an unknown metric', async () => {
+    const root = makeCopy();
+    const objectives = readArray(root, 'objectives.json');
+    const first = objectives[0] ?? {};
+    writeJson(root, 'objectives.json', [{ ...first, metric: 'rounds' }, ...objectives.slice(1)]);
+    const report = await check(root);
+    expect(report.errors).toEqual([
+      `objectives.json › ${first['id']} › metric: got "rounds" › use one of: ${OBJECTIVE_METRICS.join(', ')}`,
+    ]);
+    quoted('metric: got "rounds" › use one of:');
+  });
+
+  it('§3 table · a deck entry that is a player card', async () => {
+    const root = makeCopy();
+    const collector = readObject(root, 'collector.json');
+    const deck = collector['deck'] as string[];
+    const player = readArray(root, 'cards/player-monsters.json')[0]?.['id'] as string;
+    const removed = unnamedDeckId(collector);
+    writeJson(root, 'collector.json', { ...collector, deck: deck.map((id) => (id === removed ? player : id)) });
+    const report = await check(root);
+    expect(report.errors).toEqual([
+      `collector.json › deck[${deck.indexOf(removed)}] › "${player}" is a player card › use a card from relics.json or collector-*.json`,
+    ]);
+    quoted('is a player card › use a card from relics.json or collector-*.json');
+  });
+
+  it('§3 table · a Flaw in a keyword list', async () => {
+    const root = makeCopy();
+    const beast = { ...(JSON.parse(BEAST_JSON) as Json), keywords: ['slow'] };
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
+    const report = await check(root);
+    expect(report.errors).toHaveLength(1);
+    expect(report.errors[0]?.startsWith('cards/player-monsters.json › example-beast › "slow" is a Flaw, not a keyword › use one of: ')).toBe(true);
+    quoted('"slow" is a Flaw, not a keyword › use one of:');
+  });
+
+  it('§3 table · a Flaw that is not registered on a Relic', async () => {
+    const root = makeCopy();
+    const relic = { ...(JSON.parse(RELIC_JSON) as Json), flaw: 'frail' };
+    writeJson(root, 'cards/relics.json', [...readArray(root, 'cards/relics.json'), relic]);
+    const ids = KEYWORDS.filter((keyword) => keyword.kind === 'flaw').map((keyword) => keyword.id).sort().join(', ');
+    const report = await check(root);
+    expect(report.errors).toEqual([`cards/relics.json › example-relic › Flaw "frail" is not registered › use one of: ${ids}, or add packages/content/keywords/frail.ts`]);
+    quoted('Flaw "frail" is not registered › use one of:');
+  });
+
+  it('§3 table · stat budget is a warning, not an error', async () => {
+    const root = makeCopy();
+    setGlobal(root, 'STAT_BUDGET_MIN', '8');
+    setGlobal(root, 'STAT_BUDGET_MAX', '10');
+    const beast = { ...(JSON.parse(BEAST_JSON) as Json), power: 7, keywords: ['swift'] };
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · ember red' });
+    const report = await check(root);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([BUDGET_11]);
+    quoted(BUDGET_11);
+  });
+
+  it('§3 table · missing art brief is a warning', async () => {
+    const root = makeCopy();
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), JSON.parse(BEAST_JSON) as Json]);
+    const report = await check(root);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([MISSING_BRIEF]);
+    quoted(MISSING_BRIEF);
+  });
+
+  it('§3 table · orphan art brief is a warning', async () => {
+    const root = makeCopy();
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-purge': 'feral · lunging · ember red' });
+    const report = await check(root);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([ORPHAN_BRIEF]);
+    quoted(ORPHAN_BRIEF);
+  });
+
+  it('§3 table · a keyword file without an example is a warning, after the barrel is regenerated', async () => {
+    const root = makeCopy();
+    writeFileSync(join(root, 'keywords/example-ward.ts'), KEYWORD_STUB);
+    const stale = await check(root);
+    expect(stale.errors).toEqual(['keywords/index.gen.ts › (file) › stale, does not match keywords/*.ts › run pnpm content:gen']);
+    const gen = runScript(root, 'gen-keyword-index.ts');
+    expect(gen.status).toBe(0);
+    expect(gen.stdout).toMatch(/^content:gen wrote keywords\/index\.gen\.ts: /m);
+    const fresh = await check(root);
+    expect(fresh.errors).toEqual([]);
+    expect(fresh.warnings).toEqual([NO_EXAMPLES]);
+    quoted(NO_EXAMPLES);
+    quoted('keywords/index.gen.ts › (file) › stale, does not match keywords/*.ts › run pnpm content:gen');
+  }, SPAWN_TIMEOUT);
+
+  it('§3 table · a keyword file whose id differs from its file name', async () => {
+    const root = makeCopy();
+    writeFileSync(join(root, 'keywords/example-ward.ts'), KEYWORD_STUB.replace("id: 'example-ward'", "id: 'example-other'"));
+    const report = await check(root);
+    expect(report.errors).toEqual([
+      'keywords/example-ward.ts › example-ward › id "example-other" ≠ file name › rename the file or the id',
+      'keywords/index.gen.ts › (file) › stale, does not match keywords/*.ts › run pnpm content:gen',
+    ]);
+    quoted('keywords/example-ward.ts › example-ward › id "example-other" ≠ file name › rename the file or the id');
+  });
+
+  it('§3 table · a bare number in card text next to a global', async () => {
+    const root = makeCopy();
+    addContentNumber(root, DRAW_NUMBER_LINE);
+    writeJson(root, 'cards/player-spells.json', [...readArray(root, 'cards/player-spells.json'), { ...(JSON.parse(DRAW_JSON) as Json), text: 'Draw 2 cards.' }]);
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-draw': 'feral · lunging · ember red' });
+    const report = await check(root);
+    expect(report.errors).toEqual([BARE_NUMBER]);
+    quoted(BARE_NUMBER);
+  });
+
+  it('§3 table · a card text with two sentences', async () => {
+    const two = await check(withText(makeCopy(), 'Draw a card. Then wait.'));
+    expect(two.errors).toEqual(['cards/player-spells.json › example-draw › text has 2 sentences › shorten to one sentence']);
+    quoted(TWO_SENTENCES);
+  });
+
+  it('§3 table · a malformed placeholder', async () => {
+    const root = withText(makeCopy(), 'Draw {draw}.');
+    const report = await check(root);
+    expect(report.errors).toEqual(['cards/player-spells.json › example-draw › text: malformed placeholder "{draw}" › write {NAME} or {NAME|word|words} with a global name in capitals']);
+    quoted(MALFORMED);
+  });
+
+  it('§3 table · an unknown placeholder, with a did-you-mean', async () => {
+    const root = withText(makeCopy(), 'Draw {DRAW_CARDZ|card|cards}.');
+    const report = await check(root);
+    expect(report.errors).toEqual(['cards/player-spells.json › example-draw › text: unknown placeholder {DRAW_CARDZ} › did you mean {DRAW_CARDS}?']);
+    quoted(UNKNOWN_PLACEHOLDER);
+  });
+
+  it('§3 table · a placeholder that is not a number', async () => {
+    const root = withText(makeCopy(), 'Version {CONTENT_VERSION}.');
+    const report = await check(root);
+    expect(report.errors).toEqual(['cards/player-spells.json › example-draw › text: {CONTENT_VERSION} is not a number in globals.ts › use a numeric global']);
+    quoted(NOT_A_NUMBER);
+  });
+
+  it('§3 table · a placeholder the card does not use is a warning', async () => {
+    const root = withText(makeCopy(), 'Draw {DRAW_CARDS|card|cards}.', [{ op: 'draw', who: 'self', n: 1 }]);
+    const report = await check(root);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toContain(UNUSED_PLACEHOLDER);
+    quoted(UNUSED_PLACEHOLDER);
+  });
+
+  it('§3 table · an unknown $NAME in an effect, with a did-you-mean', async () => {
+    const root = withText(makeCopy(), 'Draw {DRAW_CARDS|card|cards}.', [{ op: 'draw', who: 'self', n: '$DRAW_CARDZ' }]);
+    const report = await check(root);
+    expect(report.errors).toEqual(['cards/player-spells.json › example-draw › "$DRAW_CARDZ" not in globals.ts › did you mean $DRAW_CARDS?']);
+    quoted(UNKNOWN_REF);
+  });
+
+  it('§3 table · a pool that cannot fill its deck', async () => {
+    const root = makeCopy();
+    setGlobal(root, 'DECK_SPELLS', '5');
+    setGlobal(root, 'MAX_COPIES', '2');
+    const spells = readArray(root, 'cards/player-spells.json');
+    const kept = spells.slice(0, 2);
+    const briefs = withoutKeys(readObject(root, 'art-briefs.json'), spells.slice(2).map((gone) => gone['id'] as string));
+    writeJson(root, 'cards/player-spells.json', kept);
+    writeJson(root, 'art-briefs.json', briefs);
+    const report = await check(root);
+    expect(report.errors).toEqual([
+      "cards/player-spells.json › pool › 2 spells × MAX_COPIES=2 can't fill DECK_SPELLS=5 › add 1 spell, or lower DECK_SPELLS or raise MAX_COPIES in globals.ts",
+    ]);
+    expect(report.warnings).toEqual([]);
+    quoted("2 spells × MAX_COPIES=2 can't fill DECK_SPELLS=5 › add 1 spell");
+  });
+
+  it('§3 table · a deck id that no longer exists', async () => {
+    const root = makeCopy();
+    const collector = readObject(root, 'collector.json');
+    const deck = collector['deck'] as string[];
+    const target = unnamedDeckId(collector);
+    const at = deck.indexOf(target);
+    // Remove the card from whichever pool file holds it, and its brief, but leave the deck list alone.
+    for (const rel of ['cards/relics.json', 'cards/collector-spells.json', 'cards/collector-traps.json']) {
+      const entries = readArray(root, rel);
+      if (entries.some((entry) => entry['id'] === target)) writeJson(root, rel, entries.filter((entry) => entry['id'] !== target));
+    }
+    const briefs = withoutKeys(readObject(root, 'art-briefs.json'), [target]);
+    writeJson(root, 'art-briefs.json', briefs);
+    const report = await check(root);
+    expect(report.errors).toEqual([`collector.json › deck[${at}] › "${target}" no longer exists › remove the reference`]);
+    expect(report.warnings).toEqual([]);
+    quoted('no longer exists › remove the reference');
+  });
+
+  it('§3 table · a missing Chimera recipe for a kind pair', async () => {
+    const root = makeCopy();
+    const kinds = readArray(root, 'kinds.json').map((kind) => kind['id'] as string);
+    const recipes = readArray(root, 'recipes.json');
+    const first = recipes[0];
+    if (first === undefined) throw new Error('no recipes');
+    const [x, y] = first['kinds'] as string[];
+    const [a, b] = [x, y].sort((p, q) => kinds.indexOf(p ?? '') - kinds.indexOf(q ?? '')) as [string, string];
+    writeJson(root, 'recipes.json', recipes.slice(1));
+    const report = await check(root);
+    expect(report.errors).toEqual([`recipes.json › (${a}, ${b}) › no Chimera recipe for this kind pair › add {"kinds":["${a}","${b}"], …}`]);
+    quoted('no Chimera recipe for this kind pair › add {"kinds":["');
+  });
+
+  it('§3 table · a second recipe for a kind pair', async () => {
+    const root = makeCopy();
+    const recipes = readArray(root, 'recipes.json');
+    const first = recipes[0];
+    if (first === undefined) throw new Error('no recipes');
+    const copy = { id: 'example-chimera', name: 'Example Chimera', kinds: first['kinds'], power: 1, guard: 1 };
+    writeJson(root, 'recipes.json', [...recipes, copy]);
+    const [x, y] = first['kinds'] as string[];
+    const report = await check(root);
+    expect(report.errors).toEqual([`recipes.json › example-chimera › pair (${x}, ${y}) already defined by ${first['id']} › delete one`]);
+    quoted('already defined by');
+  });
+
+  it('§3 table · Covetous is ace-only', async () => {
+    const root = makeCopy();
+    const relic = { ...(JSON.parse(RELIC_JSON) as Json), flaw: 'covetous' };
+    writeJson(root, 'cards/relics.json', [...readArray(root, 'cards/relics.json'), relic]);
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-relic': 'feral · lunging · ember red' });
+    const report = await check(root);
+    expect(report.errors).toEqual(['cards/relics.json › example-relic › Covetous is ace-only › change flaw or set collector.json ace']);
+    quoted('Covetous is ace-only › change flaw or set collector.json ace');
+  });
+
+  it('§3 table · a trap ref that the trigger does not provide', async () => {
+    const root = makeCopy();
+    const trap = { ...(JSON.parse(TRAP_JSON) as Json), effects: [{ op: 'modifyStats', target: 'grafted', power: 1, duration: 'permanent' }] };
+    writeJson(root, 'cards/player-traps.json', [...readArray(root, 'cards/player-traps.json'), trap]);
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-snare': 'feral · lunging · ember red' });
+    const report = await check(root);
+    expect(report.errors).toEqual(['cards/player-traps.json › example-snare › ref "grafted" is not available for trigger "enemyAttack" › use attacker or defender']);
+    quoted('is not available for trigger "enemyAttack" › use attacker or defender');
+  });
+
+  it('§3 table · cancelAttack outside an attack trap', async () => {
+    const root = makeCopy();
+    writeJson(root, 'cards/player-spells.json', [...readArray(root, 'cards/player-spells.json'), { ...(JSON.parse(SPELL_JSON) as Json), effects: [{ op: 'cancelAttack' }], text: 'Cancel it.', target: undefined }]);
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-purge': 'feral · lunging · ember red' });
+    const report = await check(root);
+    expect(report.errors).toEqual(['cards/player-spells.json › example-purge › "cancelAttack" only works in a trap with trigger enemyAttack or enemyDirectAttack › remove it or change the trigger']);
+    quoted('"cancelAttack" only works in a trap with trigger enemyAttack or enemyDirectAttack');
+  });
+
+  it('§3 table · a condition that cannot be checked on a destroyed monster', async () => {
+    const root = makeCopy();
+    const trap = { id: 'example-last', type: 'trap', name: 'Example Last', text: 'Draw {DRAW_CARDS|card|cards}.', trigger: 'allyDestroyed', when: { powerGte: 3 }, effects: [{ op: 'draw', who: 'self', n: '$DRAW_CARDS' }] };
+    addContentNumber(root, DRAW_NUMBER_LINE);
+    writeJson(root, 'cards/player-traps.json', [...readArray(root, 'cards/player-traps.json'), trap]);
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-last': 'feral · lunging · ember red' });
+    const report = await check(root);
+    expect(report.errors).toEqual(['cards/player-traps.json › example-last › condition "powerGte" can\'t be checked on a destroyed monster › use type, relic, chimera, element, kind or graftedThisTurn']);
+    quoted("condition \"powerGte\" can't be checked on a destroyed monster");
+  });
+
+  it('§3 table · a Relic without its Flaw', async () => {
+    const root = makeCopy();
+    const relic = withoutKeys(JSON.parse(RELIC_JSON) as Json, ['flaw']);
+    writeJson(root, 'cards/relics.json', [...readArray(root, 'cards/relics.json'), relic]);
+    const report = await check(root);
+    expect(report.errors).toEqual(['cards/relics.json › example-relic › flaw: expected string, got undefined › write a string value']);
+    quoted('flaw: expected string, got undefined › write a string value');
+  });
+
+  it('§3 table · a Flaw written on a base monster', async () => {
+    const root = makeCopy();
+    const beast = { ...(JSON.parse(BEAST_JSON) as Json), flaw: 'slow' };
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
+    const report = await check(root);
+    expect(report.errors).toEqual(['cards/player-monsters.json › example-beast › (entry): unknown key(s) flaw › remove flaw']);
+    quoted('unknown key(s) flaw › remove flaw');
+  });
+
+  it('§3 table · a Collector AI reference to a spell that is not in the deck', async () => {
+    const root = makeCopy();
+    const collector = readObject(root, 'collector.json');
+    const deck = collector['deck'] as string[];
+    const ai = collector['ai'] as { params: { castHighValueSpell: Record<string, unknown> } };
+    const key = Object.keys(ai.params.castHighValueSpell)[0] ?? '';
+    // Take the named spell out of the deck and put a different card in its place, so the deck size still matches.
+    addCollectorSpell(root);
+    writeJson(root, 'collector.json', { ...collector, deck: deck.map((id) => (id === key ? 'example-collector-purge' : id)) });
+    const report = await check(root);
+    expect(report.errors).toEqual([
+      `collector.json › ai › castHighValueSpell.${key}: "${key}" is not a Collector spell in the deck › use a spell id from collector.json › deck`,
+    ]);
+    quoted('is not a Collector spell in the deck › use a spell id from collector.json › deck');
+  });
+
+  it('§3 table · the global sanity rules (negative, round range, pinned, limits)', async () => {
+    const negative = makeCopy();
+    setGlobal(negative, 'PLAYER_LIFE', '-1');
+    expect((await check(negative)).errors).toEqual(['globals.ts › PLAYER_LIFE › must be 0 or more › use 0 or more']);
+    quoted('globals.ts › PLAYER_LIFE › must be 0 or more › use 0 or more');
+
+    const rounds = makeCopy();
+    setGlobal(rounds, 'APPRAISAL_ROUNDS', '[3, 13]');
+    expect((await check(rounds)).errors).toEqual(['globals.ts › APPRAISAL_ROUNDS › round 13 > MAX_ROUNDS=12 › remove it']);
+    quoted('globals.ts › APPRAISAL_ROUNDS › round 13 > MAX_ROUNDS=12 › remove it');
+
+    const pinned = makeCopy();
+    setGlobal(pinned, 'WARD_CHARGES', '2');
+    expect((await check(pinned)).errors).toEqual(['globals.ts › WARD_CHARGES › must be 1 until the engine supports other values › keep 1']);
+    quoted('globals.ts › WARD_CHARGES › must be 1 until the engine supports other values › keep 1');
+  });
+
+  it('§3 table · deck generation cannot satisfy its constraints', async () => {
+    const root = makeCopy();
+    setGlobal(root, 'DECK_MIN_KINDS', '9');
+    const report = await check(root);
+    expect(report.errors).toEqual([
+      'cards/player-monsters.json › pool › deck constraints unsatisfiable on 1000 of 1000 test dates › relax DECK_MIN_ELEMENTS, DECK_MIN_KINDS or the CURVE_* globals, or add monsters',
+    ]);
+    quoted('deck constraints unsatisfiable on 1000 of 1000 test dates');
+  });
+
+  it('§3 table · a CONTENT_NUMBERS name that clashes with a core key', async () => {
+    const clash = makeCopy();
+    addContentNumber(clash, '    PLAYER_LIFE: 3,');
+    expect((await check(clash)).errors).toEqual([
+      'globals.ts › CONTENT_NUMBERS › PLAYER_LIFE: PLAYER_LIFE is already a core key of Globals › rename it, or change the core PLAYER_LIFE instead',
+    ]);
+    quoted('is already a core key of Globals');
+  });
+
+  it('§3 "not yet checked" lines: there are no deferred rules today', () => {
+    expect([...DEFERRED_RULES]).toEqual([]);
+    quoted('not yet checked');
+  });
+});
+
+describe('guide §4 · change a monster or Relic', () => {
+  it('§4 example: raising Power pushes the stat budget over, and the warning names the fix', async () => {
+    const root = makeCopy();
+    setGlobal(root, 'STAT_BUDGET_MIN', '8');
+    setGlobal(root, 'STAT_BUDGET_MAX', '10');
+    const beast = { ...(JSON.parse(BEAST_JSON) as Json), keywords: ['swift'] };
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · ember red' });
+    expect((await check(root)).warnings).toEqual([]);
+    writeJson(root, 'cards/player-monsters.json', readArray(root, 'cards/player-monsters.json').map((card) =>
+      card['id'] === 'example-beast' ? { ...card, power: 7 } : card,
+    ));
+    const report = await check(root);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([BUDGET_11]);
+  });
+
+  it('§4 example: a second keyword is refused by the card format', async () => {
+    const root = makeCopy();
+    const beast = { ...(JSON.parse(BEAST_JSON) as Json), keywords: ['swift', 'sentinel'] };
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
+    const report = await check(root);
+    expect(report.errors).toEqual(['cards/player-monsters.json › example-beast › keywords: ["swift","sentinel"] is above the maximum 1 › use 1 or less']);
+    quoted('keywords: ["swift","sentinel"] is above the maximum 1 › use 1 or less');
+  });
+
+  it('§4 MAX_BASE_KEYWORDS does nothing today: raising it still refuses the second keyword', async () => {
+    const root = makeCopy();
+    setGlobal(root, 'MAX_BASE_KEYWORDS', '2');
+    const beast = { ...(JSON.parse(BEAST_JSON) as Json), keywords: ['swift', 'sentinel'] };
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
+    const report = await check(root);
+    expect(report.errors).toEqual(['cards/player-monsters.json › example-beast › keywords: ["swift","sentinel"] is above the maximum 1 › use 1 or less']);
+    quoted('changing that number does nothing yet');
+  });
+
+  it('§4 example: a Relic with its Flaw in the right field is accepted, and an unknown Flaw is refused', async () => {
+    const good = makeCopy();
+    writeJson(good, 'cards/relics.json', [...readArray(good, 'cards/relics.json'), JSON.parse(RELIC_JSON) as Json]);
+    writeJson(good, 'art-briefs.json', { ...readObject(good, 'art-briefs.json'), 'example-relic': 'feral · lunging · ember red' });
+    expect((await check(good)).errors).toEqual([]);
+
+    const bad = makeCopy();
+    writeJson(bad, 'cards/relics.json', [...readArray(bad, 'cards/relics.json'), { ...(JSON.parse(RELIC_JSON) as Json), flaw: 'frail' }]);
+    const ids = KEYWORDS.filter((keyword) => keyword.kind === 'flaw').map((keyword) => keyword.id).sort().join(', ');
+    expect((await check(bad)).errors).toEqual([`cards/relics.json › example-relic › Flaw "frail" is not registered › use one of: ${ids}, or add packages/content/keywords/frail.ts`]);
+  });
+
+  it('§4 example: a stat budget does not apply to a Relic', async () => {
+    const root = makeCopy();
+    setGlobal(root, 'STAT_BUDGET_MIN', '8');
+    setGlobal(root, 'STAT_BUDGET_MAX', '10');
+    writeJson(root, 'cards/relics.json', [...readArray(root, 'cards/relics.json'), { ...(JSON.parse(RELIC_JSON) as Json), power: 1, guard: 1 }]);
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-relic': 'feral · lunging · ember red' });
+    const report = await check(root);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([]);
+  });
+
+  it('§4 example: an element that is not in elements.json is refused', async () => {
+    const root = makeCopy();
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), { ...(JSON.parse(BEAST_JSON) as Json), element: 'wind' }]);
+    const report = await check(root);
+    expect(report.errors).toHaveLength(1);
+    expect(report.errors[0]?.startsWith('cards/player-monsters.json › example-beast › unknown element "wind" › use one of: ')).toBe(true);
+    quoted('unknown element "wind" › use one of:');
+  });
+});
+
+describe('guide §5 · add or remove a card', () => {
+  it('§5 example: add a monster with its art brief, and the check is clean', async () => {
+    const root = makeCopy();
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), JSON.parse(BEAST_JSON) as Json]);
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · ember red' });
+    const report = await check(root);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([]);
+    quoted(BRIEF_LINE);
+  });
+
+  it('§5 example: a new monster without its brief gets a warning, not an error', async () => {
+    const root = makeCopy();
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), JSON.parse(BEAST_JSON) as Json]);
+    const report = await check(root);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([MISSING_BRIEF]);
+  });
+
+  it('§5 example: add a spell, a trap and a Relic (each with its brief)', async () => {
+    const root = makeCopy();
+    writeJson(root, 'cards/player-spells.json', [...readArray(root, 'cards/player-spells.json'), JSON.parse(SPELL_JSON) as Json]);
+    writeJson(root, 'cards/player-traps.json', [...readArray(root, 'cards/player-traps.json'), JSON.parse(TRAP_JSON) as Json]);
+    writeJson(root, 'cards/relics.json', [...readArray(root, 'cards/relics.json'), JSON.parse(RELIC_JSON) as Json]);
+    writeJson(root, 'art-briefs.json', {
+      ...readObject(root, 'art-briefs.json'),
+      'example-purge': 'feral · lunging · ember red',
+      'example-snare': 'feral · lunging · ember red',
+      'example-relic': 'feral · lunging · ember red',
+    });
+    const report = await check(root);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([]);
+  });
+
+  it('§5 example: a Collector spell goes in the spell file and swaps into his deck for an unnamed card', async () => {
+    const root = makeCopy();
+    addCollectorSpell(root);
+    const collector = readObject(root, 'collector.json');
+    const removed = unnamedDeckId(collector);
+    const deck = (collector['deck'] as string[]).map((id) => (id === removed ? 'example-collector-purge' : id));
+    writeJson(root, 'collector.json', { ...collector, deck });
+    const report = await check(root);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([]);
+    quoted(DECK_LINE);
+  });
+
+  it('§5 example: one card too many in the Collector deck', async () => {
+    const root = makeCopy();
+    addCollectorSpell(root);
+    const collector = readObject(root, 'collector.json');
+    const deck = [...(collector['deck'] as string[]), 'example-collector-purge'];
+    writeJson(root, 'collector.json', { ...collector, deck });
+    setGlobal(root, 'COLLECTOR_DECK_SIZE', String(deck.length - 1));
+    const report = await check(root);
+    expect(report.errors).toEqual([`collector.json › deck › has ${deck.length} cards, needs COLLECTOR_DECK_SIZE=${deck.length - 1} › remove 1 card id`]);
+    quoted('remove 1 card id');
+  });
+
+  it('§5 example: delete a Collector spell from its file but not from the deck, and see what is listed', async () => {
+    const root = makeCopy();
+    addCollectorSpell(root);
+    const collector = readObject(root, 'collector.json');
+    writeJson(root, 'collector.json', { ...collector, deck: (collector['deck'] as string[]).map((id) => (id === unnamedDeckId(collector) ? 'example-collector-purge' : id)) });
+    writeJson(root, 'cards/collector-spells.json', readArray(root, 'cards/collector-spells.json').filter((spell) => spell['id'] !== 'example-collector-purge'));
+    const deck = (readObject(root, 'collector.json')['deck'] as string[]);
+    const at = deck.indexOf('example-collector-purge');
+    const report = await check(root);
+    expect(report.errors).toEqual([`collector.json › deck[${at}] › "example-collector-purge" no longer exists › remove the reference`]);
+    expect(report.warnings).toEqual([`warning: art-briefs.json › example-collector-purge › orphan brief, no card or Chimera family has this id › delete the entry`]);
+    quoted('no longer exists › remove the reference');
+  });
+
+  it('§5 example: delete too many player spells, and the pool error says how many to add', async () => {
+    const root = makeCopy();
+    setGlobal(root, 'DECK_SPELLS', '5');
+    setGlobal(root, 'MAX_COPIES', '2');
+    const spells = readArray(root, 'cards/player-spells.json');
+    const briefs = withoutKeys(readObject(root, 'art-briefs.json'), spells.slice(2).map((gone) => gone['id'] as string));
+    writeJson(root, 'cards/player-spells.json', spells.slice(0, 2));
+    writeJson(root, 'art-briefs.json', briefs);
+    const report = await check(root);
+    expect(report.errors).toEqual([
+      "cards/player-spells.json › pool › 2 spells × MAX_COPIES=2 can't fill DECK_SPELLS=5 › add 1 spell, or lower DECK_SPELLS or raise MAX_COPIES in globals.ts",
+    ]);
+    expect(report.warnings).toEqual([]);
+  });
+
+  it('§5 example: a deleted card whose brief is left behind gets an orphan warning', async () => {
+    const root = makeCopy();
+    writeJson(root, 'cards/player-spells.json', [...readArray(root, 'cards/player-spells.json'), JSON.parse(SPELL_JSON) as Json]);
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-purge': 'feral · lunging · ember red' });
+    writeJson(root, 'cards/player-spells.json', readArray(root, 'cards/player-spells.json').filter((spell) => spell['id'] !== 'example-purge'));
+    const report = await check(root);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([ORPHAN_BRIEF]);
+  });
+
+  it('§5 AI: a new spell key is refused by the AI format today (a code change is needed)', async () => {
+    const root = makeCopy();
+    addCollectorSpell(root);
+    const collector = readObject(root, 'collector.json');
+    const ai = collector['ai'] as { params: { castHighValueSpell: Record<string, unknown> } };
+    const spells = { ...ai.params.castHighValueSpell, 'example-collector-purge': { pick: 'highestPower' } };
+    writeJson(root, 'collector.json', { ...collector, ai: { ...ai, params: { ...ai.params, castHighValueSpell: spells } } });
+    const report = await check(root);
+    expect(report.errors).toEqual([
+      'collector.json › ai › params.castHighValueSpell: unknown key(s) example-collector-purge › remove example-collector-purge',
+    ]);
+  });
+
+  it('§5 note: the Collector ace is not checked for existence yet (a tripwire for that gap)', async () => {
+    const root = makeCopy();
+    writeJson(root, 'collector.json', { ...readObject(root, 'collector.json'), ace: 'no-such-relic' });
+    const report = await check(root);
+    expect(report.errors.some((line) => line.includes('no-such-relic'))).toBe(false);
+  });
+
+  it('§5 example: rename a card by changing its name only, and the check is clean', async () => {
+    const root = makeCopy();
+    writeJson(root, 'cards/player-monsters.json', readArray(root, 'cards/player-monsters.json').map((card) =>
+      card['id'] === 'cinderjaw-hound' ? { ...card, name: 'Example Hound' } : card,
+    ));
+    const report = await check(root);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([]);
+  });
+
+  it('§5 example: changing an id in the Collector list shows every reference that breaks', async () => {
+    const root = makeCopy();
+    const collector = readObject(root, 'collector.json');
+    const ai = collector['ai'] as { params: { castHighValueSpell: Record<string, unknown> } };
+    const key = Object.keys(ai.params.castHighValueSpell)[0] ?? '';
+    const deck = collector['deck'] as string[];
+    writeJson(root, 'cards/collector-spells.json', readArray(root, 'cards/collector-spells.json').map((spell) =>
+      spell['id'] === key ? { ...spell, id: `${key}-2` } : spell,
+    ));
+    const at = deck.indexOf(key);
+    const report = await check(root);
+    expect(report.errors).toEqual([
+      `collector.json › deck[${at}] › "${key}" no longer exists › remove the reference`,
+      `collector.json › ai › castHighValueSpell.${key}: "${key}" is not a Collector spell in the deck › use a spell id from collector.json › deck`,
+    ]);
+    expect(report.warnings).toEqual([
+      `warning: art-briefs.json › ${key}-2 › missing art brief › add a one-line "mood · pose · palette"`,
+      `warning: art-briefs.json › ${key} › orphan brief, no card or Chimera family has this id › delete the entry`,
+    ]);
+  });
+});
+
+describe('guide §6 · write card text', () => {
+  it('§6 example: a placeholder renders the current number, singular or plural', async () => {
+    const root = makeCopy();
+    addContentNumber(root, DRAW_NUMBER_LINE);
+    writeJson(root, 'cards/player-spells.json', [...readArray(root, 'cards/player-spells.json'), JSON.parse(DRAW_JSON) as Json]);
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-draw': 'feral · lunging · ember red' });
+    const report = await check(root);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([]);
+    const g = await globalsOf(root);
+    const text = 'Draw {DRAW_CARDS|card|cards}.';
+    expect(renderText(text, withOverrides(g, ['DRAW_CARDS=1']))).toBe('Draw 1 card.');
+    expect(renderText(text, withOverrides(g, ['DRAW_CARDS=3']))).toBe('Draw 3 cards.');
+    quoted(DRAW_NUMBER_LINE.trim());
+  });
+
+  it('§6 example: a typed digit next to a global is refused', async () => {
+    const report = await check(withText(makeCopy(), 'Draw 2 cards.'));
+    expect(report.errors).toEqual([BARE_NUMBER]);
+    quoted(BARE_NUMBER);
+  });
+
+  it('§6 example: a sign goes outside the placeholder', async () => {
+    const g = await globalsOf(makeCopy());
+    const rendered = renderText('−{TETHERED_PENALTY} Power', g);
+    expect(rendered).toBe(`−${g.TETHERED_PENALTY} Power`);
+    quoted('−{TETHERED_PENALTY} Power');
+  });
+
+  it('§6 example: a card text with two sentences is refused, and the one-sentence rule runs on the rendered text', async () => {
+    const root = withText(makeCopy(), 'Draw a card. Then wait.');
+    expect((await check(root)).errors).toEqual(['cards/player-spells.json › example-draw › text has 2 sentences › shorten to one sentence']);
+    quoted(TWO_SENTENCES);
+  });
+
+  it('§6 example: a placeholder the card does not use gets a warning', async () => {
+    const root = withText(makeCopy(), 'Draw {DRAW_CARDS|card|cards}.', [{ op: 'draw', who: 'self', n: 1 }]);
+    const report = await check(root);
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toContain(UNUSED_PLACEHOLDER);
+  });
+
+  it('§6 example: a malformed placeholder, an unknown name and a non-number are each refused', async () => {
+    expect((await check(withText(makeCopy(), 'Draw {draw}.'))).errors).toEqual([MALFORMED]);
+    expect((await check(withText(makeCopy(), 'Draw {DRAW_CARDZ|card|cards}.'))).errors).toEqual([UNKNOWN_PLACEHOLDER]);
+    expect((await check(withText(makeCopy(), 'Version {CONTENT_VERSION}.'))).errors).toEqual([NOT_A_NUMBER]);
+  });
+});
+
+describe('guide §7 · tune a global', () => {
+  it('§7 example: change PLAYER_LIFE in globals.ts, and the copy reads the new value', async () => {
+    const root = makeCopy();
+    setGlobal(root, 'PLAYER_LIFE', '18');
+    const g = await globalsOf(root);
+    expect(g.PLAYER_LIFE).toBe(18);
+    expect((await check(root)).errors).toEqual([]);
+    quoted('PLAYER_LIFE: 18,');
+  });
+
+  it('§7 example: widen the stat budget and the warning goes away', async () => {
+    const root = makeCopy();
+    setGlobal(root, 'STAT_BUDGET_MIN', '8');
+    setGlobal(root, 'STAT_BUDGET_MAX', '10');
+    const beast = { ...(JSON.parse(BEAST_JSON) as Json), power: 7, keywords: ['swift'] };
+    writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · ember red' });
+    expect((await check(root)).warnings).toEqual([BUDGET_11]);
+    setGlobal(root, 'STAT_BUDGET_MAX', '11');
+    expect((await check(root)).warnings).toEqual([]);
+    quoted('STAT_BUDGET_MAX: 11,');
+  });
+
+  it('§7 example: a temporary --set changes the value the game reads, and card text shows it', async () => {
+    const root = withText(makeCopy(), 'Draw {DRAW_CARDS|card|cards}.', [{ op: 'draw', who: 'self', n: '$DRAW_CARDS' }]);
+    const g = await globalsOf(root);
+    const before = g.PLAYER_LIFE;
+    const overridden = withOverrides(g, ['PLAYER_LIFE=18', 'DRAW_CARDS=1']);
+    expect(overridden.PLAYER_LIFE).toBe(18);
+    expect(overridden.CONTENT_NUMBERS['DRAW_CARDS']).toBe(1);
+    expect(renderText('Draw {DRAW_CARDS|card|cards}.', overridden)).toBe('Draw 1 card.');
+    expect(g.PLAYER_LIFE, 'the base globals are not changed by an override').toBe(before);
+    expect(withOverrides(g, []).PLAYER_LIFE, 'with no --set, the value is unchanged').toBe(before);
+    quoted('--set PLAYER_LIFE=18');
+    quoted('?set=PLAYER_LIFE=18');
+  });
+
+  it('§7 example: a typo in --set is refused with the list of keys', async () => {
+    const g = await globalsOf(makeCopy());
+    expect(messageOf(() => withOverrides(g, ['PLAYER_LEFE=18']))).toBe(
+      'globals.ts › PLAYER_LEFE › unknown key › use a key from globals.ts or a name already in CONTENT_NUMBERS',
+    );
+    expect(() => withOverrides(g, ['PLAYER_LEFE=18'])).toThrow(OverridesError);
+    quoted('unknown key › use a key from globals.ts or a name already in CONTENT_NUMBERS');
+  });
+
+  it('§7 example: --set of a whole object is refused, and a value that breaks a sanity rule is refused', async () => {
+    const g = await globalsOf(makeCopy());
+    expect(() => withOverrides(g, ['FLAGS={}'])).toThrow(OverridesError);
+    expect(messageOf(() => withOverrides(g, ['FLAGS={}']))).toBe('globals.ts › FLAGS › set one entry at a time › write FLAGS.<NAME>=<value>');
+    expect(messageOf(() => withOverrides(g, ['CONTENT_NUMBERS={}']))).toBe('globals.ts › CONTENT_NUMBERS › set one entry at a time › write CONTENT_NUMBERS.<NAME>=<value>');
+    expect(messageOf(() => withOverrides(g, ['PLAYER_LIFE=-1']))).toBe('globals.ts › PLAYER_LIFE › must be 0 or more › use 0 or more');
+    quoted('set one entry at a time › write FLAGS.<NAME>=<value>');
+  });
+
+  it('§7 example: a new card number needs one line in globals.ts; without it the check fails', async () => {
+    const without = makeCopy();
+    writeJson(without, 'cards/player-spells.json', [...readArray(without, 'cards/player-spells.json'), QUILL_SPELL]);
+    writeJson(without, 'art-briefs.json', { ...readObject(without, 'art-briefs.json'), 'example-quill': 'feral · lunging · ember red' });
+    const failed = await check(without);
+    expect(failed.errors).toEqual([
+      'cards/player-spells.json › example-quill › text: unknown placeholder {QUILL_TOLL} › use a numeric name from globals.ts',
+      'cards/player-spells.json › example-quill › "$QUILL_TOLL" not in globals.ts › use a name from globals.ts or CONTENT_NUMBERS',
+    ]);
+
+    const withLine = makeCopy();
+    addContentNumber(withLine, QUILL_LINE);
+    writeJson(withLine, 'cards/player-spells.json', [...readArray(withLine, 'cards/player-spells.json'), QUILL_SPELL]);
+    writeJson(withLine, 'art-briefs.json', { ...readObject(withLine, 'art-briefs.json'), 'example-quill': 'feral · lunging · ember red' });
+    const fixed = await check(withLine);
+    expect(fixed.errors).toEqual([]);
+    expect(fixed.warnings).toEqual([]);
+    quoted(QUILL_LINE);
+  });
+
+  it('§7 example: a CONTENT_NUMBERS name that repeats a core key is refused', async () => {
+    const root = makeCopy();
+    addContentNumber(root, '    PLAYER_LIFE: 3,');
+    expect((await check(root)).errors).toEqual([
+      'globals.ts › CONTENT_NUMBERS › PLAYER_LIFE: PLAYER_LIFE is already a core key of Globals › rename it, or change the core PLAYER_LIFE instead',
+    ]);
+  });
+
+  it('§7 pinned settings: each accepts its one value and refuses any other', async () => {
+    const g = await globalsOf(makeCopy());
+    const cases: [string, string, string][] = [
+      ['PLAYS_PER_TURN=2', 'globals.ts › PLAYS_PER_TURN › must be 1 until the engine supports other values › keep 1', 'PLAYS_PER_TURN=1'],
+      ['REPOSITIONS_PER_TURN=2', 'globals.ts › REPOSITIONS_PER_TURN › must be 1 until the engine supports other values › keep 1', 'REPOSITIONS_PER_TURN=1'],
+      ['ATTACKS_PER_TURN=2', 'globals.ts › ATTACKS_PER_TURN › must be 1 until the engine supports other values › keep 1', 'ATTACKS_PER_TURN=1'],
+      ['MIN_GRAFT_MATERIALS=3', 'globals.ts › MIN_GRAFT_MATERIALS › must be 2 until the engine supports other values › keep 2', 'MIN_GRAFT_MATERIALS=2'],
+      ['WARD_CHARGES=2', 'globals.ts › WARD_CHARGES › must be 1 until the engine supports other values › keep 1', 'WARD_CHARGES=1'],
+      ['FLAGS.ACE_SET_ASIDE=true', 'globals.ts › FLAGS › ACE_SET_ASIDE: must be false until the engine supports other values › keep false', 'FLAGS.ACE_SET_ASIDE=false'],
+    ];
+    for (const [refused, message, accepted] of cases) {
+      expect(messageOf(() => withOverrides(g, [refused])), refused).toBe(message);
+      expect(() => withOverrides(g, [accepted]), accepted).not.toThrow();
+    }
+    quoted('keep 1');
+    quoted('ACE_SET_ASIDE: must be false');
+  });
+
+  it('§7 limits: BOARD_SLOTS up to 16 and MAX_GRAFT_MATERIALS 2 to 3', async () => {
+    const g = await globalsOf(makeCopy());
+    expect(() => withOverrides(g, ['BOARD_SLOTS=16'])).not.toThrow();
+    expect(messageOf(() => withOverrides(g, ['BOARD_SLOTS=17']))).toBe("globals.ts › BOARD_SLOTS › must be 16 or less, the engine's LOC_STRIDE › use 16 or less");
+    expect(messageOf(() => withOverrides(g, ['MAX_GRAFT_MATERIALS=4']))).toBe('globals.ts › MAX_GRAFT_MATERIALS › must be from 2 to 3 › use 2 or 3');
+    expect(() => withOverrides(g, ['MAX_GRAFT_MATERIALS=3'])).not.toThrow();
+    quoted("must be 16 or less, the engine's LOC_STRIDE › use 16 or less");
+    quoted('must be from 2 to 3 › use 2 or 3');
+  });
+
+  it('§7 flags: a flag is set by name, and an unknown flag is refused', async () => {
+    const g = await globalsOf(makeCopy());
+    expect(withOverrides(g, ['FLAGS.WEEKLY_TWIST=true']).FLAGS.WEEKLY_TWIST).toBe(true);
+    expect(messageOf(() => withOverrides(g, ['FLAGS.NOPE=true']))).toMatch(/^globals\.ts › FLAGS\.NOPE › unknown flag › use one of: /);
+    quoted('FLAGS.WEEKLY_TWIST=true');
+  });
+
+  it('§7 a global that nothing reads yet is accepted (RELIC_FLAWS), so it has no effect', async () => {
+    const root = makeCopy();
+    const g = await globalsOf(root);
+    expect(() => withOverrides(g, ['RELIC_FLAWS=2'])).not.toThrow();
+    expect((await check(root)).errors).toEqual([]);
+    quoted('RELIC_FLAWS');
+  });
+});
+
+// ---- Small builders used above --------------------------------------------------------------------------------------
+
+const KEYWORD_STUB = `import { defineKeyword } from '@vault-duel/engine';
+
+export default defineKeyword({
+  id: 'example-ward',
+  name: 'Example Ward',
+  kind: 'keyword',
+  icon: 'example',
+  visual: 'example',
+  text: 'Does nothing.',
+  hooks: {},
+});
+`;
+
+const QUILL_SPELL = JSON.parse(QUILL_JSON) as Json;
+
+/** Adds the Collector spell of COLLECTOR_SPELL_JSON to collector-spells.json, with its art brief. */
+function addCollectorSpell(root: string): void {
+  writeJson(root, 'cards/collector-spells.json', [...readArray(root, 'cards/collector-spells.json'), JSON.parse(COLLECTOR_SPELL_JSON) as Json]);
+  writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-collector-purge': 'feral · lunging · ember red' });
+}
+
+/**
+ * Adds the example spell (example-draw) with the given text and optional effects, its art brief, and the DRAW_CARDS
+ * line in globals.ts. Call it once per copy.
+ */
+function withText(root: string, text: string, effects?: unknown[]): string {
+  const draw: Json = { ...(JSON.parse(DRAW_JSON) as Json), text };
+  if (effects !== undefined) draw['effects'] = effects;
+  writeJson(root, 'cards/player-spells.json', [...readArray(root, 'cards/player-spells.json'), draw]);
+  writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-draw': 'feral · lunging · ember red' });
+  addContentNumber(root, DRAW_NUMBER_LINE);
+  return root;
+}
+
+function messageOf(fn: () => unknown): string {
+  try {
+    fn();
+    return 'no error';
+  } catch (cause) {
+    return cause instanceof Error ? cause.message : String(cause);
+  }
+}
+
+// ---- The guide's own structure ----------------------------------------------------------------------------------------
+
+describe('guide: structure and quoted text', () => {
+  it('sections 1 to 7 appear in order', () => {
+    const numbers = [...GUIDE.matchAll(/^## (\d+)\. /gm)].map((match) => Number(match[1]));
+    expect(numbers.slice(0, 7)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it('every ```json block in the guide is valid JSON', () => {
+    const blocks = [...GUIDE.matchAll(/```json\n([\s\S]*?)```/g)].map((match) => match[1] ?? '');
+    expect(blocks.length).toBeGreaterThan(0);
+    for (const block of blocks) expect(() => JSON.parse(block), block).not.toThrow();
+  });
+
+  it('every message constant the tests assert is quoted verbatim in the guide', () => {
+    const messages = [BUDGET_11, MISSING_BRIEF, ORPHAN_BRIEF, NO_EXAMPLES, BARE_NUMBER, TWO_SENTENCES, MALFORMED, UNKNOWN_PLACEHOLDER, UNUSED_PLACEHOLDER, NOT_A_NUMBER, UNKNOWN_REF, POOL_SPELLS];
+    for (const line of messages) expect(GUIDE_TEXT.includes(line), line).toBe(true);
+  });
+
+  it('every worked example snippet is quoted verbatim in the guide', () => {
+    for (const snippet of SNIPPETS) expect(GUIDE.includes(snippet), snippet).toBe(true);
+  });
+
+  it('every snippet the tests apply parses to the object the test uses', () => {
+    expect(JSON.parse(BEAST_JSON)).toMatchObject({ id: 'example-beast', type: 'monster' });
+    expect(JSON.parse(RELIC_JSON)).toMatchObject({ id: 'example-relic', flaw: 'slow' });
+    expect(JSON.parse(SPELL_JSON)).toMatchObject({ id: 'example-purge', type: 'spell' });
+    expect(JSON.parse(TRAP_JSON)).toMatchObject({ id: 'example-snare', type: 'trap' });
+    expect(JSON.parse(DRAW_JSON)).toMatchObject({ id: 'example-draw', type: 'spell' });
+    expect(JSON.parse(COLLECTOR_SPELL_JSON)).toMatchObject({ id: 'example-collector-purge' });
+  });
+});
