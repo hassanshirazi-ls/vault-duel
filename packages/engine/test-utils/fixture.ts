@@ -95,10 +95,10 @@ export const FX_SPEC: ContentSpec = {
 };
 
 export const FX: CompiledContent = buildContent(FX_SPEC);
-export const FX_ENV: Env = createEnv(FX, TEST_GLOBALS);
+export const FX_ENV: Env = createEnv(FX, TEST_GLOBALS, [], true);
 
 export function fxEnv(g: Globals = TEST_GLOBALS, c: CompiledContent = FX): Env {
-  return createEnv(c, g);
+  return createEnv(c, g, [], true);
 }
 
 /** Bit mask of fixture keywords by id. */

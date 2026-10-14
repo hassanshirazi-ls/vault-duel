@@ -1,5 +1,6 @@
 // ARCHITECTURE.md §11: every number and feature flag of the game. Shape is checked against the
 // engine's `Globals` and `Flags` types (packages/engine/src/types/globals.ts) by `satisfies`.
+import { deepFreeze } from '@vault-duel/engine';
 import type { Flags, Globals } from '@vault-duel/engine';
 
 const FLAGS = {
@@ -148,14 +149,5 @@ const GLOBAL_VALUES = {
   // Feature flags
   FLAGS,
 } as const satisfies Globals;
-
-/** Deep-freezes a plain value so the exported globals cannot be mutated at run time. */
-function deepFreeze<T>(value: T): T {
-  if (typeof value === 'object' && value !== null && !Object.isFrozen(value)) {
-    Object.freeze(value);
-    for (const child of Object.values(value)) deepFreeze(child);
-  }
-  return value;
-}
 
 export const DEFAULT_GLOBALS: Globals = deepFreeze(GLOBAL_VALUES);

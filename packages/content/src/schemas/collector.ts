@@ -1,37 +1,68 @@
-// collector.json (ARCHITECTURE.md §10.1, §13.2, D-097). The AI block is data consumed by ai/collector.
+// collector.json (ARCHITECTURE.md §10.1, §10.2, §13.2, D-097, D-145). The AI block is data consumed by ai/collector.
+// Rule ids and string parameter values are closed enums (D-145): a typo fails content:check, and packages/ai
+// tests that its rule registry matches AI_PLAY_RULES ∪ AI_ATTACK_RULES. Content never imports ai.
 import { z } from 'zod';
 import { Id, Num } from './common';
 
-const Pick = z.object({ pick: z.string() }).strict();
+export const AI_PLAY_RULES = z.enum([
+  'winThisTurn',
+  'summonAce',
+  'summonBeater',
+  'setTrapWhenBehind',
+  'castHighValueSpell',
+  'summonFallback',
+  'utility',
+]);
+
+export const AI_ATTACK_RULES = z.enum([
+  'lethal',
+  'killWithoutLoss',
+  'faceDownIfStrong',
+  'directIfEmpty',
+  'holdExceptVain',
+  'attackAnything',
+]);
+
+export const AI_REPOSITION = z.enum(['toAttackIfUsable', 'allAttack']);
+
+const AI_COMPARE_TRAP = z.enum(['fewer', 'fewerOrEqual']);
+const AI_COMPARE_BEATER = z.enum(['previewAttack']);
+const AI_POSITION = z.enum(['attack', 'guard', 'guardUnlessBeater']);
+const AI_SLOW_POSITION = z.enum(['attack', 'guard']);
+const AI_SLOW_PICK = z.enum(['highestGuard']);
+const AI_PICK = z.enum(['highestPower']);
+const AI_WHEN = z.enum(['contestedAttack']);
+const AI_UTILITY_STEP = z.enum(['castDrawSpell', 'setTrap', 'pass']);
+export const AI_TIE_BREAK = z.enum(['leftmostSlot', 'cardId', 'instanceId']);
 
 /** Per-rule parameters (§13.2). Base params are complete; mood overrides may set any subset. */
 const AiParams = z
   .object({
-    setTrapWhenBehind: z.object({ compare: z.string() }).strict(),
+    setTrapWhenBehind: z.object({ compare: AI_COMPARE_TRAP }).strict(),
     summonFallback: z
-      .object({ position: z.string(), slowPosition: z.string(), slowPick: z.string() })
+      .object({ position: AI_POSITION, slowPosition: AI_SLOW_POSITION, slowPick: AI_SLOW_PICK })
       .strict()
       .partial(),
     faceDownIfStrong: z.object({ minPower: Num }).strict(),
     killWithoutLoss: z.object({ allowTrades: z.boolean() }).strict(),
     castHighValueSpell: z
       .object({
-        forfeit: Pick,
-        restoration: Pick,
-        'gilt-frame': z.object({ when: z.string() }).strict(),
+        forfeit: z.object({ pick: AI_PICK }).strict(),
+        restoration: z.object({ pick: AI_PICK }).strict(),
+        'gilt-frame': z.object({ when: AI_WHEN }).strict(),
       })
       .strict(),
-    summonBeater: z.object({ compare: z.string(), skipBrittleCountered: z.boolean() }).strict(),
-    utility: z.object({ order: z.array(z.string()) }).strict(),
+    summonBeater: z.object({ compare: AI_COMPARE_BEATER, skipBrittleCountered: z.boolean() }).strict(),
+    utility: z.object({ order: z.array(AI_UTILITY_STEP) }).strict(),
   })
   .strict()
   .partial();
 
 const MoodOverride = z
   .object({
-    play: z.exactOptional(z.array(z.string())),
-    attack: z.exactOptional(z.array(z.string())),
-    reposition: z.exactOptional(z.string()),
+    play: z.exactOptional(z.array(AI_PLAY_RULES)),
+    attack: z.exactOptional(z.array(AI_ATTACK_RULES)),
+    reposition: z.exactOptional(AI_REPOSITION),
     params: z.exactOptional(AiParams),
   })
   .strict();
@@ -39,15 +70,15 @@ const MoodOverride = z
 export const CollectorAi = z
   .object({
     allowFaceDown: z.boolean(),
-    reposition: z.string(),
-    play: z.array(z.string()),
-    attack: z.array(z.string()),
+    reposition: AI_REPOSITION,
+    play: z.array(AI_PLAY_RULES),
+    attack: z.array(AI_ATTACK_RULES),
     params: AiParams,
     moods: z
       .object({ composed: MoodOverride, agitated: MoodOverride, desperate: MoodOverride })
       .strict(),
     trapPreference: z.array(Id),
-    tieBreak: z.array(z.string()),
+    tieBreak: z.array(AI_TIE_BREAK),
   })
   .strict();
 

@@ -42,7 +42,7 @@ const RC = buildContent({
 const trapDef = RC.index.get('fx-rec-trap') as number;
 const trapHooks: (Hooks | null)[] = [];
 trapHooks[trapDef] = rec('trap');
-const renv = createEnv(RC, TEST_GLOBALS, trapHooks);
+const renv = createEnv(RC, TEST_GLOBALS, trapHooks, true);
 
 interface Sink {
   queued: QueuedEffect[];
@@ -149,7 +149,7 @@ describe('queued effects and event refs (§8.3.2)', () => {
     ],
     defs: [...FX_SPEC.defs, { id: 'fx-q-card', type: 'monster', power: 1, guard: 1, element: 'fx-ember', kind: 'fx-beast', kw: ['fx-q'] }],
   });
-  const qenv = createEnv(qc, TEST_GLOBALS);
+  const qenv = createEnv(qc, TEST_GLOBALS, [], true);
 
   it('hooks only queue: nothing is written, refs bind the event, self and source are the subscriber', () => {
     const b = new StateBuilder(qc).turn(2);
@@ -202,7 +202,7 @@ describe('attack cancellation is immediate (§8.3.4, D-122)', () => {
       { id: 'fx-c3-card', type: 'monster', power: 1, guard: 1, element: 'fx-ember', kind: 'fx-beast', kw: ['fx-c3'] },
     ],
   });
-  const cenv = createEnv(cc, TEST_GLOBALS);
+  const cenv = createEnv(cc, TEST_GLOBALS, [], true);
 
   it('later subscribers see cancelled === true; the first canceller is reported', () => {
     const b = new StateBuilder(cc).turn(2);
@@ -245,7 +245,7 @@ describe('attack cancellation is immediate (§8.3.4, D-122)', () => {
     const b = new StateBuilder(bad).turn(2);
     const m = b.card('fx-bad-card', 0);
     const s = b.place(0, 0, m).build();
-    expect(() => new Dispatcher(createEnv(bad, TEST_GLOBALS), s, sink()).onSummon({ iid: m, side: 0, slot: 0, covetous: false })).toThrow();
+    expect(() => new Dispatcher(createEnv(bad, TEST_GLOBALS, [], true), s, sink()).onSummon({ iid: m, side: 0, slot: 0, covetous: false })).toThrow();
   });
 });
 
@@ -285,7 +285,7 @@ describe('beforeCombat flags (D-124, §8.3.6)', () => {
       { id: 'fx-f3-card', type: 'monster', power: 1, guard: 1, element: 'fx-ember', kind: 'fx-beast', kw: ['fx-f3'] },
     ],
   });
-  const fenv = createEnv(fc, TEST_GLOBALS);
+  const fenv = createEnv(fc, TEST_GLOBALS, [], true);
   const snap = (): CombatSnapshot => Object.freeze({ aP: 5, dP: 3, dG: 4, defPos: 1, advantage: true });
 
   function fight(turn: number, order: [string, string, string]): { pierce: boolean; brittleWin: boolean; s: GameState } {
@@ -376,7 +376,7 @@ describe('beforeDestroy (Ward)', () => {
     const b = new StateBuilder(pc);
     const m = b.card('fx-p-card', 0);
     const s = b.place(0, 0, m).build();
-    expect(new Dispatcher(createEnv(pc, TEST_GLOBALS), s, sink()).beforeDestroy({ iid: m, cause: 'effect', by: -1 })).toBe('prevent');
+    expect(new Dispatcher(createEnv(pc, TEST_GLOBALS, [], true), s, sink()).beforeDestroy({ iid: m, cause: 'effect', by: -1 })).toBe('prevent');
     expect(calls).toEqual(['p1', 'p2']);
   });
 });
@@ -420,7 +420,7 @@ describe('query folds', () => {
     const b = new StateBuilder(rc);
     const atk = b.card('fx-ember-whelp', 0);
     const d = b.card('fx-r-card', 1);
-    attackTargets(createEnv(rc, TEST_GLOBALS), b.place(0, 0, atk).place(1, 1, d).build(), atk, 1);
+    attackTargets(createEnv(rc, TEST_GLOBALS, [], true), b.place(0, 0, atk).place(1, 1, d).build(), atk, 1);
     expect(seenCtx).toEqual([{ self: d, attacker: atk, isAtk: true }]);
   });
   it('mustAttack is an OR over active keywords (Vain)', () => {
@@ -455,7 +455,7 @@ describe('query folds', () => {
       defs: FX_SPEC.defs,
     });
     const s = new StateBuilder(rc).build();
-    expect(summonRequirement(createEnv(rc, TEST_GLOBALS), s, 0, 0, fxKw(rc, 'fx-s1', 'fx-s2', 'fx-s3'))).toEqual({
+    expect(summonRequirement(createEnv(rc, TEST_GLOBALS, [], true), s, 0, 0, fxKw(rc, 'fx-s1', 'fx-s2', 'fx-s3'))).toEqual({
       kind: 'sacrifice', appraised: true, zones: ['vault'],
     });
   });

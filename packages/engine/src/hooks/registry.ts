@@ -23,6 +23,8 @@ export interface Env {
   readonly c: CompiledContent;
   readonly g: Globals;
   readonly reg: HookRegistry;
+  /** dev mode (D-141): freeze snapshots and committed states; never read from process.env */
+  readonly dev: boolean;
 }
 
 /** Index of the lowest set bit of a non-zero mask. */
@@ -50,8 +52,13 @@ export function createRegistry(c: CompiledContent, trapHooks: readonly (Hooks | 
   return { kw, masks: c.hookMask, trapHooks };
 }
 
-export function createEnv(c: CompiledContent, g: Globals, trapHooks: readonly (Hooks | null)[] = []): Env {
-  return { c, g, reg: createRegistry(c, trapHooks) };
+export function createEnv(
+  c: CompiledContent,
+  g: Globals,
+  trapHooks: readonly (Hooks | null)[] = [],
+  dev = false,
+): Env {
+  return { c, g, reg: createRegistry(c, trapHooks), dev };
 }
 
 export function trapHooksOf(env: Env, def: DefIdx): Hooks | null {

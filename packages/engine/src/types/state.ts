@@ -20,6 +20,7 @@ export interface ChimeraInfo {
   readonly kw: KwMask;
   readonly ascended: boolean;
   readonly materials: readonly Iid[];
+  readonly grafted: number; // turn index of the Graft that created it (D-139)
 }
 
 export interface TimedMod {

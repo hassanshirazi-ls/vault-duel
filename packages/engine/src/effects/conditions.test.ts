@@ -82,10 +82,27 @@ describe('evalCond', () => {
     expect(t({ keyword: 'fx-ward' }, w.ox, w)).toBe(false); // face-down
     expect(t({ keyword: 'fx-unknown' }, w.chim, w)).toBe(false);
   });
-  it('graftedThisTurn: a Chimera that entered this turn', () => {
+  it('graftedThisTurn: a Chimera created by a Graft this turn (D-139)', () => {
     const w = world();
     expect(t({ graftedThisTurn: true }, w.chim, w)).toBe(true);
     expect(t({ graftedThisTurn: true }, w.whelp, w)).toBe(false); // entered this turn but not a Chimera
+    expect(t({ graftedThisTurn: true }, w.spell, w)).toBe(false);
+  });
+  it('graftedThisTurn is false for a Chimera re-summoned this turn (grafted < turn)', () => {
+    const b = new StateBuilder(FX).turn(4);
+    const ch = b.card('fx-family-hybrid', 0, { element: 0, kw: 0, ascended: false, materials: [], grafted: 2 });
+    const s = b.place(0, 0, ch, { entered: 4 }).build(); // re-summoned from hand on turn 4
+    expect(evalCond({ graftedThisTurn: true }, { s, env }, ch)).toBe(false);
+    // the builder default is the monster's `entered` turn
+    const b2 = new StateBuilder(FX).turn(4);
+    const ch2 = b2.card('fx-family-hybrid', 0, { element: 0, kw: 0, ascended: false, materials: [] });
+    const s2 = b2.place(0, 0, ch2, { entered: 4 }).build();
+    expect(s2.inst[ch2]?.chimera?.grafted).toBe(4);
+    expect(evalCond({ graftedThisTurn: true }, { s: s2, env }, ch2)).toBe(true);
+    // location does not matter: a Chimera in the discard grafted this turn still counts
+    const b3 = new StateBuilder(FX).turn(4);
+    const ch3 = b3.card('fx-family-hybrid', 0, { element: 0, kw: 0, ascended: false, materials: [], grafted: 4 });
+    expect(evalCond({ graftedThisTurn: true }, { s: b3.discard(0, ch3).build(), env }, ch3)).toBe(true);
   });
   it('directAttack reads the event refs; false outside an attack', () => {
     const w = world();

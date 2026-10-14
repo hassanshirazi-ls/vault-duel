@@ -50,8 +50,7 @@ export function evalCond(cond: Cond, cx: CondCx, iid: Iid): boolean {
     return (r.defender < 0) === cond.directAttack;
   }
   if ('graftedThisTurn' in cond) {
-    const m = monsterOf(s, iid);
-    return m !== null && m.entered === s.turn && (s.inst[iid]?.chimera ?? null) !== null;
+    return s.inst[iid]?.chimera?.grafted === s.turn;
   }
   if ('element' in cond) {
     const e = elementOf(s, env, iid);

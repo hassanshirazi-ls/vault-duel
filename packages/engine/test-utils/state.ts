@@ -1,4 +1,5 @@
 // Minimal GameState builder for engine tests (not the §17 board DSL).
+import { deepFreeze } from '../src/freeze';
 import type { CompiledContent } from '../src/types/content';
 import type {
   ChimeraInfo,
@@ -24,13 +25,7 @@ export function monster(iid: Iid, over: Partial<Mut<Monster>> = {}): Monster {
   };
 }
 
-export function deepFreeze<T>(o: T): T {
-  if (o !== null && typeof o === 'object' && !Object.isFrozen(o)) {
-    Object.freeze(o);
-    for (const v of Object.values(o as object)) deepFreeze(v);
-  }
-  return o;
-}
+export { deepFreeze };
 
 interface SideDraft {
   life: number;
@@ -43,7 +38,8 @@ interface SideDraft {
 }
 
 export class StateBuilder {
-  private readonly inst: Instance[] = [];
+  private readonly inst: Mut<Instance>[] = [];
+  private readonly autoGrafted = new Set<Iid>();
   private readonly sides: [SideDraft, SideDraft];
   private turnIdx = 2;
   private stepName: Step = 'main';
@@ -64,11 +60,14 @@ export class StateBuilder {
   }
 
   /** Create a card instance by fixture id; returns its iid (= index into state.inst). */
-  card(id: string, owner: Side, chimera: ChimeraInfo | null = null): Iid {
+  card(id: string, owner: Side, chimera: (Omit<ChimeraInfo, 'grafted'> & { grafted?: number }) | null = null): Iid {
     const def = this.c.index.get(id);
     if (def === undefined) throw new Error(`fixture: unknown card ${id}`);
-    this.inst.push({ def, owner, chimera });
-    return this.inst.length - 1;
+    // `grafted` defaults to the monster's `entered` turn once the card is placed (0 if never placed).
+    const iid = this.inst.length;
+    if (chimera !== null && chimera.grafted === undefined) this.autoGrafted.add(iid);
+    this.inst.push({ def, owner, chimera: chimera === null ? null : { ...chimera, grafted: chimera.grafted ?? 0 } });
+    return iid;
   }
 
   turn(t: number): this {
@@ -89,7 +88,10 @@ export class StateBuilder {
   }
   /** Put a card on a board slot (Monster record defaults: face-up attack, entered turn 0). */
   place(side: Side, slot: number, iid: Iid, over: Partial<Mut<Monster>> = {}): this {
-    this.sides[side].board[slot] = monster(iid, over);
+    const m = monster(iid, over);
+    this.sides[side].board[slot] = m;
+    const inst = this.inst[iid];
+    if (inst !== undefined && inst.chimera !== null && this.autoGrafted.has(iid)) inst.chimera = { ...inst.chimera, grafted: m.entered };
     return this;
   }
   setTrap(side: Side, slot: number, iid: Iid, set = 0): this {

@@ -6,6 +6,8 @@ import { builtinModules } from 'node:module';
 // Determinism bans (ARCHITECTURE.md §1.2, §18 checklist): engine, content keywords and ai
 // must not touch wall-clock time, ambient randomness, timers, DOM, Node APIs or
 // object-key iteration order.
+const mathRandom = { object: 'Math', property: 'random', message: 'Use the seeded rng (engine/src/rng.ts).' };
+
 const determinism = {
   files: ['packages/engine/src/**/*.ts', 'packages/content/keywords/**/*.ts', 'packages/ai/src/**/*.ts'],
   ignores: ['**/*.test.ts'],
@@ -21,7 +23,7 @@ const determinism = {
     ],
     'no-restricted-properties': [
       'error',
-      { object: 'Math', property: 'random', message: 'Use the seeded rng (engine/src/rng.ts).' },
+      mathRandom,
       { object: 'Object', property: 'keys', message: 'Key iteration order is banned; use arrays.' },
       { object: 'Object', property: 'values', message: 'Key iteration order is banned; use arrays.' },
       { object: 'Object', property: 'entries', message: 'Key iteration order is banned; use arrays.' },
@@ -63,6 +65,12 @@ export default tseslint.config(
   ...tseslint.configs.strict,
   { rules: { '@typescript-eslint/no-explicit-any': 'error' } },
   determinism,
+  // deepFreeze walks own keys, but freezing doesn't depend on visit order (D-147). Only the
+  // key-iteration bans are lifted here; every other determinism rule still applies.
+  {
+    files: ['packages/engine/src/freeze.ts'],
+    rules: { 'no-restricted-properties': ['error', mathRandom] },
+  },
   layer(['packages/engine/**/*.ts'], 'engine', ['content', 'ai', 'sim'], true),
   layer(['packages/content/**/*.ts'], 'content', ['ai', 'sim'], false),
   layer(['packages/content/keywords/**/*.ts'], 'content', ['ai', 'sim'], true),
