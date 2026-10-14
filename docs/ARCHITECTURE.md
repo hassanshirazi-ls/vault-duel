@@ -26,6 +26,7 @@ project-daily/
 ├─ eslint.config.js             # determinism bans for engine/content/ai
 ├─ docs/
 │  ├─ DESIGN.md  ARCHITECTURE.md  DECISIONS.md  CONTENT_GUIDE.md (Phase 1, plan §10.5)  BALANCE_LOG.md
+│  │  CHANGELOG.md (owner-facing tooling changes, D-208)
 │  └─ reports/                  # sim output (phase0-paper-sim.md is owned by design-simulator)
 ├─ packages/
 │  ├─ engine/                   # rules only; zero runtime deps; no DOM, no Node APIs
@@ -65,6 +66,7 @@ project-daily/
 │  ├─ content/                  # data + schemas + validator; depends on engine (types, defineKeyword)
 │  │  ├─ src/                   # browser-safe except load.ts and keyword-files.ts (D-176)
 │  │  │  ├─ globals.ts          # every number + feature flags + CONTENT_NUMBERS (§11, D-171)
+│  │  │  ├─ planned-globals.ts  # globals whose reader isn't built yet (§11, D-205)
 │  │  │  ├─ schemas/{element,kind,card,effect,recipe,collector,objective,twist,art-brief,globals}.ts
 │  │  │  ├─ files.ts            # CONTENT_FILES, parseFile, parseContent(raw), formatError (pure, D-176)
 │  │  │  ├─ data.ts             # RAW_CONTENT: static JSON imports (Vite HMR, Node import attributes)
@@ -75,6 +77,7 @@ project-daily/
 │  │  │  ├─ feasibility.ts      # checkDeckgen: engine deckForSeed on 1,000 dates (pure; D-200)
 │  │  │  └─ validate.ts         # cross-file rules (§10.3)
 │  │  ├─ test-utils/scenario-content.ts  # live elements/kinds/recipes/KEYWORDS + declared cards (D-169)
+│  │  ├─ test/{guide,globals-readers}.test.ts  # CONTENT_GUIDE examples (D-178); reader tripwire (D-205)
 │  │  ├─ cards/
 │  │  │  ├─ player-monsters.json  player-spells.json  player-traps.json
 │  │  │  └─ relics.json  collector-spells.json  collector-traps.json
@@ -1030,11 +1033,11 @@ All 17 launch spells/traps need zero code. Keyword-driven mechanics use the same
 | `elements.json` | `{ id, name, color, icon, beats: string[], identity }` ×5 — `beats` rows form the advantage matrix (Lumen and Umbra list each other) |
 | `kinds.json` | `{ id, name, profile, graftRole, silhouette }` ×5 |
 | `recipes.json` | `{ id, name, kinds: [k1, k2], power, guard }` ×15 (order-independent pair) |
-| `cards/player-monsters.json` | `{ id, type:"monster", name, element, kind, power, guard, keywords: string[] (≤ MAX_BASE_KEYWORDS, validator, D-173), text? }` ×25 at launch |
+| `cards/player-monsters.json` | `{ id, type:"monster", name, element, kind, power, guard, keywords: string[] (≤ MAX_BASE_KEYWORDS, validator, D-173, D-201), text? }` ×25 at launch |
 | `cards/player-spells.json`, `player-traps.json` | §9.2 |
 | `cards/relics.json` | `{ id, type:"monster", name, element, kind, power, guard, keywords: string[] (≤ MAX_BASE_KEYWORDS), flaw: string }` ×13 at launch |
 | `cards/collector-spells.json`, `collector-traps.json` | §9.2 |
-| `collector.json` | `{ deck: string[20], ace, canGraft:false, ai: {…} (§13), dialogue: { composed[], agitated[], desperate[] } }` |
+| `collector.json` | `{ deck: string[20], ace (a Relic id that is in deck, D-203), canGraft:false, ai: {…} (§13), dialogue: { composed[], agitated[], desperate[] } }` |
 | `objectives.json` | `{ id, text, requiresWin: true, metric, lte?|gte? (Num) }` |
 | `twists.json` | `{ id, text, isoWeek?: "YYYY-Www", modifiers: [{ where: Cond, power?, guard? }] }` |
 | `art-briefs.json` | `{ [cardOrFamilyId]: "mood · pose · palette" }` (D-110; missing/orphan = warning, D-174) |
@@ -1058,7 +1061,7 @@ export const Stat = z.int().min(0).max(20);
 export const PlayerMonster = z.object({
   id: Id, type: z.literal('monster'), name: z.string().min(1),
   element: Id, kind: Id, power: Stat, guard: Stat,
-  keywords: z.array(Id).default([]),          // count ≤ MAX_BASE_KEYWORDS is a validator rule (D-173)
+  keywords: z.array(Id).default([]),          // count ≤ MAX_BASE_KEYWORDS is a validator rule (D-173, D-201)
   text: z.exactOptional(z.string()),          // placeholders checked by the validator (D-172)
 }).strict();
 
@@ -1101,12 +1104,18 @@ export const AI_ATTACK_RULES = z.enum(['lethal', 'killWithoutLoss', 'faceDownIfS
 export const AI_REPOSITION = z.enum(['toAttackIfUsable', 'allAttack']);
 // params: setTrapWhenBehind.compare ∈ {fewer, fewerOrEqual}; summonBeater.compare ∈ {previewAttack};
 // summonFallback.position/slowPosition ∈ {attack, guard, guardUnlessBeater} / {attack, guard}; slowPick ∈ {highestGuard};
-// castHighValueSpell.*.pick ∈ {highestPower}; .when ∈ {contestedAttack}; utility.order[] ∈ {castDrawSpell, setTrap, pass};
-// tieBreak[] ∈ {leftmostSlot, cardId, instanceId}
+// utility.order[] ∈ {castDrawSpell, setTrap, pass}; tieBreak[] ∈ {leftmostSlot, cardId, instanceId}
+// castHighValueSpell (D-204): a record keyed by Collector spell id (the validator checks each key is a Collector spell
+// in the deck, D-145); each value has exactly one of pick ∈ {highestPower} or when ∈ {contestedAttack}:
+const CastWhen = z.object({ pick: z.exactOptional(AI_PICK), when: z.exactOptional(AI_WHEN) }).strict()
+  .refine((e) => (e.pick === undefined) !== (e.when === undefined),
+    { message: 'needs exactly one of "pick" or "when"', params: { fix: 'keep exactly one of "pick" or "when"' } });
+// AiParams.castHighValueSpell: z.record(Id, CastWhen)
 
 // globals.ts — GlobalsSchema: a strict object for every Globals key, proof `z.ZodType<Globals>`, plus the
 // "globals sanity" refinements of §10.3 (D-147). CONTENT_NUMBERS: z.record(/^[A-Z][A-Z0-9_]*$/, z.int()), no name
-// shared with a core key (D-171). Inert globals are pinned to their only supported value (D-170).
+// shared with a core key (D-171). Globals the code supports at one value only are pinned (D-170, D-199, D-202);
+// globals whose reader isn't built yet are listed in planned-globals.ts, not pinned (D-205, §11).
 
 // element.ts
 export const Element = z.object({
@@ -1126,20 +1135,24 @@ Error format, one line per problem, all problems reported at once, non-zero exit
 <file> › <entry id or index> › [<field>: ]<problem> › <how to fix>
 ```
 
-Parse errors come from zod 4 issues rendered by `load.ts › describeIssue` (D-146). Cross-file rules produce the same record shape. `load.ts › formatError` leaves out the `<field>: ` part when the problem concerns the whole entry (field `''`, D-165).
+Parse errors come from zod 4 issues rendered by `files.ts › describeIssue` (D-146, D-207). Cross-file rules produce the same record shape. `files.ts › formatError` leaves out the `<field>: ` part when the problem concerns the whole entry (field `''`, D-165, D-206); nothing prints `(entry)`. A problem that belongs to a whole file uses `(file)` as its entry (`keywords/index.gen.ts › (file) › …`, `elements.json › (file) › file is missing › create elements.json`). The examples below are the real output, or the target text of the D-entry named in the row until that code lands (D-208). A message change also updates CONTENT_GUIDE, `content/test/guide.test.ts` and `docs/CHANGELOG.md` in the same commit (D-208).
 
 | Rule | Example message |
 | --- | --- |
 | zod parse error | `cards/player-monsters.json › kiln-whelp › power: expected number, got "7" › write numbers without quotes` |
+| missing required field (D-207) | `cards/player-monsters.json › example-beast › power: missing › add "power"` |
+| unknown key (zod strict) | `cards/relics.json › r1 › unknown key(s) foo › remove foo` (whole entry, so no field part, D-206) |
 | unknown AI rule id / param value (zod enum, D-145) | `collector.json › ai › play.[2]: got "summonBeeter" › use one of: winThisTurn, summonAce, summonBeater, …` |
-| AI card refs (D-145) | `collector.json › ai › trapPreference.[1]: "snare" is not a Collector trap in the deck › use a trap id from collector.json › deck` (same for `castHighValueSpell` keys and Collector spells) |
+| AI card refs (D-145, D-204) | `collector.json › ai › trapPreference.[1]: "snare" is not a Collector trap in the deck › use a trap id from collector.json › deck`; for spells: `collector.json › ai › params.castHighValueSpell.forfeit: "forfeit" is not a Collector spell in the deck › use a spell id from collector.json › deck` (mood form: `moods.agitated.params.castHighValueSpell.forfeit: …`) |
+| `castHighValueSpell` entry shape (D-204, D-207) | `collector.json › ai › params.castHighValueSpell.x: needs exactly one of "pick" or "when" › keep exactly one of "pick" or "when"`; a `contestedAttack` entry on a spell that gives no Power to `chosen`: `collector.json › ai › params.castHighValueSpell.x: "contestedAttack" needs a spell that gives Power to "chosen" › use "pick": "highestPower" instead` |
+| Collector ace (D-203) | `collector.json › ace › "no-such-relic" is not a Relic › use a Relic id from cards/relics.json`; `collector.json › ace › "the-unpriced" is not in the deck › add it to the deck list in collector.json` |
 | duplicate id (any file, incl. families) | `cards/relics.json › halo-stag › duplicate id (also in cards/player-monsters.json) › rename one of them` |
 | unknown element/kind | `cards/player-monsters.json › stormcrow › unknown element "wind" › use one of: ember, gale, tide, lumen, umbra, or add it to elements.json` |
 | unregistered keyword/Flaw | `cards/relics.json › reliquary-hound › keyword "hant" is not registered › use one of: echo, haunt, pierce, sentinel, swift, ward, or add packages/content/keywords/hant.ts`; for a Flaw: `cards/relics.json › x › Flaw "frail" is not registered › use one of: brittle, covetous, slow, tethered, vain, or add packages/content/keywords/frail.ts` (D-198). A Flaw in a `keywords` list is an error too (D-198) |
 | board-state condition on a destroyed monster (D-185) | `cards/player-traps.json › x › condition "powerGte" can't be checked on a destroyed monster › use type, relic, chimera, element, kind or graftedThisTurn` |
-| Flaw on a player card / keyword used as Flaw | `cards/player-monsters.json › halo-stag › Flaws appear only on Relics › remove "flaw"` |
-| Relic without exactly one Flaw | `cards/relics.json › stormglass-hydra › needs exactly 1 flaw, has 0 › add "flaw": "<id>"` |
-| base card or Relic with > `MAX_BASE_KEYWORDS` keywords (validator, not zod; D-173) | `cards/player-monsters.json › x › 2 keywords, max MAX_BASE_KEYWORDS=1 › remove one` |
+| Flaw on a player card (D-207) / keyword used as Flaw (D-198) | `cards/player-monsters.json › halo-stag › Flaws appear only on Relics › remove "flaw"` (only `flaw` unknown; with other unknown keys the generic `unknown key(s) …` line lists them all); `cards/relics.json › x › "swift" is a keyword, not a Flaw › use one of: brittle, covetous, slow, tethered, vain` |
+| Relic without its Flaw (D-207) | `cards/relics.json › stormglass-hydra › flaw: missing, a Relic needs exactly 1 Flaw › add "flaw": "<flaw id>"`. More than one Flaw can't be written (`flaw` is one id; `RELIC_FLAWS` pinned to 1, D-202) |
+| base card or Relic with > `MAX_BASE_KEYWORDS` keywords (validator, not zod; D-173, D-201) | `cards/player-monsters.json › example-beast › keywords: has 2 keywords, max MAX_BASE_KEYWORDS=1 › remove 1 keyword` (same for `cards/relics.json`) |
 | stat budget (D-109) — **warning** (D-167) | `warning: cards/player-monsters.json › kiln-whelp › budget 11 (P7+G3+1kw) outside 8–10 › lower Power or Guard by 1 if this is not intended` |
 | missing kind-pair recipe | `recipes.json › (construct, wisp) › no Chimera recipe for this kind pair › add {"kinds":["construct","wisp"], …}` |
 | duplicate kind-pair recipe | `recipes.json › packmaw-2 › pair (beast, beast) already defined by packmaw › delete one` |
@@ -1163,21 +1176,25 @@ Parse errors come from zod 4 issues rendered by `load.ts › describeIssue` (D-1
 | art brief missing / orphan — **warnings** (D-174) | `warning: art-briefs.json › gale-serpent › missing art brief › add a one-line "mood · pose · palette"` / `warning: art-briefs.json › x › orphan brief, no card or Chimera family has this id › delete the entry` (D-164) |
 | pool can't fill the deck (D-170) | `cards/player-spells.json › pool › 2 spells × MAX_COPIES=2 can't fill DECK_SPELLS=5 › add 1 spell, or lower DECK_SPELLS or raise MAX_COPIES in globals.ts` |
 | Collector card the AI never plays — **warnings** (D-177) | `warning: collector.json › deck[n] › Collector spell "x" has no AI rule that casts it › add "x" to ai.params.castHighValueSpell with a pick, or make it draw-only` / `warning: collector.json › deck[n] › Collector trap "x" is not in ai.trapPreference › add it, or AI rule 4 never sets it` |
-| objective metric unknown | `objectives.json › win-fast › unknown metric "rounds" › use one of: grafts, playerLife, round, appraisedLost` |
-| keyword file problems | `keywords/haunt.ts › id "haunted" ≠ file name › rename the file or the id` / `keywords/index.gen.ts › stale › run pnpm content:gen`. Registry-only checks (duplicate id, kebab-case, empty display field, sentences, ≤ 32) run in `validateContent`; file checks stay in `keyword-files.ts` (D-198) |
+| objective metric unknown (zod enum) | `objectives.json › win-fast › metric: got "rounds" › use one of: grafts, playerLife, round, appraisedLost` |
+| objective threshold (refinement with `params.fix`, D-207) | `objectives.json › win-fast › needs exactly one of "lte" or "gte" › keep exactly one of "lte" or "gte"` |
+| keyword file problems | `keywords/haunt.ts › haunt › id "haunted" ≠ file name › rename the file or the id` / `keywords/index.gen.ts › (file) › stale, does not match keywords/*.ts › run pnpm content:gen` (and `… › (file) › missing › run pnpm content:gen`). Registry-only checks (duplicate id, kebab-case, empty display field, sentences, ≤ 32) run in `validateContent`; file checks stay in `keyword-files.ts` (D-198) |
 | keyword without examples — **warning** (D-196) | `warning: keywords/x.ts › x › no examples › add one board-DSL example with declared cards (D-169)` |
 | deckgen feasibility (`feasibility.ts › checkDeckgen`, run by `content:check` on engine `deckForSeed`, 1,000 dates from 2026-01-01; skipped when the pool-capacity rule fails; D-200) | `cards/player-monsters.json › pool › deck constraints unsatisfiable on 3 of 1000 test dates › relax DECK_MIN_ELEMENTS, DECK_MIN_KINDS or the CURVE_* globals, or add monsters` |
 | globals sanity (`GlobalsSchema`, D-147, D-199) | `globals.ts › APPRAISAL_ROUNDS › round 13 > MAX_ROUNDS=12 › remove it`. Also: every `Range` has min ≤ max; every number and `CONTENT_NUMBERS` value is ≥ 0 (`must be 0 or more › use 0 or more`); the rates `SEED_WINRATE_*`, `BOT_NOISE_EPSILON`, `TARGET_NOVICE_POINT`, `TARGET_SEED_REJECT_MAX` and the star cuts lie in 0…1; `SEED_WINRATE_MIN ≤ SEED_WINRATE_MAX`; `globals.ts › DIFFICULTY_STAR_CUTS › cuts must descend, got [0.4, 0.6] › write the higher (1-star) cut first` |
-| inert global set to an unsupported value (D-170, D-199) | `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1`. The same form for `WARD_CHARGES` (D-133), `PLAYS_PER_TURN`, `REPOSITIONS_PER_TURN`, `ATTACKS_PER_TURN` (D-190) and `FLAGS.ACE_SET_ASIDE` (`false`, until D-184's plumbing) |
-| `--set` errors (`withOverrides`, D-199) | `OverridesError` with `ContentError` records; whole-object `FLAGS=…` / `CONTENT_NUMBERS=…`: `globals.ts › FLAGS › set one entry at a time › write FLAGS.<NAME>=<value>` |
-| `CONTENT_NUMBERS` name clash (D-171) | `globals.ts › CONTENT_NUMBERS › UNMAKE_MAX_POWER is also a core global › keep one of them` |
+| pinned global set to an unsupported value (D-170, D-199, D-205) | `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1` (D-202). The same form for `WARD_CHARGES` (D-133), `PLAYS_PER_TURN`, `REPOSITIONS_PER_TURN`, `ATTACKS_PER_TURN` (D-190), `MIN_GRAFT_MATERIALS` (`2`), and the flag `globals.ts › FLAGS › ACE_SET_ASIDE: must be false until the engine supports other values › keep false` (until D-184's plumbing) |
+| `--set` errors (`withOverrides`, D-199) | `OverridesError` with `ContentError` records; `globals.ts › PLAYER_LEFE › unknown key › use a key from globals.ts or a name already in CONTENT_NUMBERS`; whole-object `FLAGS=…` / `CONTENT_NUMBERS=…`: `globals.ts › FLAGS › set one entry at a time › write FLAGS.<NAME>=<value>` |
+| `CONTENT_NUMBERS` name clash (D-171) | `globals.ts › CONTENT_NUMBERS › PLAYER_LIFE: PLAYER_LIFE is already a core key of Globals › rename it, or change the core PLAYER_LIFE instead` |
+| unused content number — **warning** (D-205; `content:check` only, needs the keyword-source scan) | `warning: globals.ts › CONTENT_NUMBERS › QUILL_TOLL: not used by any card, objective, AI param or keyword › delete the line, or use $QUILL_TOLL in an effect` |
 | delete-a-card reverse refs | `collector.json › deck[7] › "kiln-born-leviathan" no longer exists › remove the reference` |
 
-**Warnings** never fail `content:check` or the build. They are printed first, prefixed `warning:`. The full list: stat budget (D-167), unused placeholder (D-172), art brief missing/orphan (D-174), Collector card unplayable by the AI (D-177), and keyword without examples (D-196). The pool-size warning and the `POOL_*` globals are gone (D-170); the pool-capacity error replaces them.
+**Warnings** never fail `content:check` or the build. They are printed first, prefixed `warning:`. The full list: stat budget (D-167), unused placeholder (D-172), art brief missing/orphan (D-174), Collector card unplayable by the AI (D-177), keyword without examples (D-196), and unused content number (D-205). The pool-size warning and the `POOL_*` globals are gone (D-170); the pool-capacity error replaces them.
 
-### 10.4 One change, one edit (D-166…D-177)
+**Info lines** follow the success summary and never fail the run: `not yet checked (TODO, §10.3): …` for each deferred rule (none today), and, while `planned-globals.ts` is not empty, `not yet read: 28 globals wait for ai, engine, sim, web › see packages/content/src/planned-globals.ts` (count and readers computed; D-205).
 
-After the D-166 switch, the content JSON and `globals.ts` are canonical for every value. DESIGN.md keeps the rules. `TARGET_*`, the proposal levers and the `collector.json › ai` rule lists are owner-only (D-166). The edits for common changes:
+### 10.4 One change, one edit (D-166…D-177, D-201…D-205)
+
+After the D-166 switch, the content JSON and `globals.ts` are canonical for every value. DESIGN.md keeps the rules. `TARGET_*`, the proposal levers and the `collector.json › ai` rule lists are owner-only (D-166); the AI card lists (`castHighValueSpell` ids, `trapPreference`) are not (D-204). The edits for common changes:
 
 | Change | Edit | What reacts |
 | --- | --- | --- |
@@ -1185,7 +1202,9 @@ After the D-166 switch, the content JSON and `globals.ts` are canonical for ever
 | Try a number without editing | `--set NAME=V` (sim), `?set=NAME=V` (web dev, D-176) | — |
 | New number for a new card | one line in `globals.ts › CONTENT_NUMBERS` (D-171) | `content:check` (refs, placeholders) |
 | Change a card's stats, keywords, effects, text | its JSON entry | `content:check` (budget is only a warning) |
-| Add or remove a card | its JSON entry (+ Collector deck entry for his cards) | `content:check` (refs, pool capacity, deckgen, art-brief warning) |
+| Add or remove a card | its JSON entry (+ Collector deck entry for his cards) | `content:check` (refs, pool capacity, deckgen, art-brief warning; unused content number warning after a delete, D-205) |
+| Add a Collector spell or trap he plays | card entry + deck line + `ai.params.castHighValueSpell.<id>` (spell, D-204) or `ai.trapPreference` (trap); a draw-only spell needs no AI entry (D-085). The AI entry is a card list the owner edits freely (D-204) | `content:check` (D-145 refs; D-177 warning if the AI entry is missing) |
+| Change the Collector's ace | `collector.json › ace` (a Relic in his deck) | `content:check` (D-203) |
 | Rename a card | `name` only; the id is permanent (D-175) | — |
 | Change a Chimera family | its `recipes.json` entry | `content:check` |
 | Add a kind | `kinds.json` + one recipe per new pair | `content:check` lists each missing pair |
@@ -1307,6 +1326,28 @@ export function withOverrides(base: Globals, sets: readonly string[]): Globals; 
 // deep-frozen (D-147). FLAGS and CONTENT_NUMBERS are set one entry at a time, never as a whole object. Problems are
 // thrown as one OverridesError carrying ContentError records (D-199).
 // Card stat overrides ("card.kiln-whelp.power=6") live in sim/overrides.ts and are applied to raw content before compile.
+```
+
+**Read, pinned or planned (D-205).** Every core global and every flag is in exactly one state, checked by `packages/content/test/globals-readers.test.ts`:
+
+- **Read:** a non-test source in engine, content (incl. `keywords/`), ai, sim or web names it, or the content JSON references it as `"$NAME"`.
+- **Pinned:** the code supports one value only, so `GlobalsSchema` refuses any other with the D-199 message (`pinned()` / `pinnedFlag()`): `WARD_CHARGES`, `PLAYS_PER_TURN`, `REPOSITIONS_PER_TURN`, `ATTACKS_PER_TURN`, `MIN_GRAFT_MATERIALS`, `RELIC_FLAWS` (D-202), `FLAGS.ACE_SET_ASIDE` (D-184). The change that teaches the code a pinned key removes its pin.
+- **Planned:** its reader isn't built yet. Listed, not pinned, in `packages/content/src/planned-globals.ts`; any sane value is accepted and takes effect when the reader lands. `content:check` prints the `not yet read` info line (§10.3). The test fails when a planned key becomes read (delete its line), when a key is in no state, and when a key is both pinned and planned.
+
+```ts
+// packages/content/src/planned-globals.ts (browser-safe, exported from the content root)
+export interface PlannedGlobal { readonly reader: 'engine' | 'ai' | 'sim' | 'web'; readonly where: string }
+export const PLANNED_GLOBALS: Readonly<Record<string, PlannedGlobal>> = {
+  OBJECTIVES_PER_DAY:         { reader: 'ai',     where: 'ai/difficulty.ts › prepareDay (D-102)' },
+  OBJECTIVE_STARS_MAX:        { reader: 'engine', where: 'engine meta/objectives.ts (D-102)' },
+  RESET_HOUR_LOCAL:           { reader: 'web',    where: 'web daily/date.ts (D-104)' },
+  'FLAGS.BONUS_OBJECTIVES':   { reader: 'engine', where: 'engine meta/objectives.ts (BO-1)' },
+  'FLAGS.ANIMATIONS':         { reader: 'web',    where: 'web duel store (§16)' },
+  'FLAGS.DEBUG_OVERLAY':      { reader: 'web',    where: 'web debug overlay (§16)' },
+  // ai/sim keys formerly exempt by prefix (D-170): SIM_RUNS_PER_SEED, SEED_WINRATE_MIN/MAX, SEED_MAX_REROLLS,
+  // BOT_NOISE_EPSILON, DIFFICULTY_STAR_CUTS (ai/difficulty.ts); SIM_QUICK_GAMES, SIM_FULL_GAMES,
+  // SIM_SEED_CHECK_DATES, TARGET_*, PERF_DUELS_PER_SEC_PER_CORE (sim) — one line each
+};
 ```
 
 This listing is the launch snapshot. From the D-166 switch, `globals.ts` itself is canonical. Owner-only (a change needs an owner-approved D-entry): `TARGET_*`, the proposal levers (`FLAGS.APPRAISED_ENTERS_GUARD`, `FLAGS.ACE_SET_ASIDE`, `FLAGS.CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`, `SLOW_TURNS`) and `WARD_CHARGES`. Everything else is tuning (owner, or balance-analyst with a `BALANCE_LOG.md` entry).
@@ -1470,6 +1511,8 @@ export interface CollectorView {
 ```
 
 `reposition: "toAttackIfUsable"` = a guard monster switches to attack only if that gives it a rule 1, 2 or 4 attack; never attack → guard (D-089). `summonBeater.compare: "previewAttack"` = "beats" means `previewAttack` with post-summon stats and element bonus (D-083); `skipBrittleCountered` is the A/B switch for proposal M-10. Each rule id maps to a function in `ai/collector/rules/<id>.ts`: `(view, params) → ViewChoice | null`. Rule ids, reposition modes and string parameter values are closed zod enums in `content/src/schemas/collector.ts` (§10.2). A test in `packages/ai` asserts that the rule registry equals `AI_PLAY_RULES ∪ AI_ATTACK_RULES`, so a typo fails `content:check` and a missing rule file fails the tests (D-145). The policy walks the mood's list (mood overrides merge over the base) and takes the first non-null choice; if none, `endTurn` (or the forced Vain attack — `holdExceptVain` returns Vain attacks via `bestTarget`, D-091). Rule semantics: D-081…D-093.
+
+`castHighValueSpell` (D-087, D-204) is keyed by Collector spell id; each value has exactly one mode. `{ "pick": "highestPower" }`: the spell qualifies if it has a legal cast choice, and is cast on the target with the highest effective Power the view shows (face-down skipped, D-086; ties by `tieBreak`); an untargeted spell has its one choice. `{ "when": "contestedAttack" }`: D-087's Gilt Frame test, using the Power the spell's `modifyStats` gives `chosen` instead of a literal +2. Candidates are the hand spells with an entry, in card-id order (D-090); the first that qualifies is cast, so JSON key order never matters. Mood params merge over base params per rule, then per key: a mood's `castHighValueSpell.<id>` replaces that id's base entry and leaves the others. Adding a spell the AI casts is a data entry; adding a mode is an enum value plus a handler.
 
 ### 13.3 Turn procedure
 
@@ -1713,7 +1756,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | # | Rule | Implemented in | Decisions |
 | --- | --- | --- | --- |
 | KW-1 | 6 keywords, 5 Flaws at launch | `keywords/*.ts` | D-111 |
-| KW-2 | Base cards ≤ 1 keyword | validator (`MAX_BASE_KEYWORDS`) | D-173 |
+| KW-2 | Base cards ≤ 1 keyword | validator (`MAX_BASE_KEYWORDS`, base monsters and Relics) | D-173, D-201 |
 | KW-3 | Chimeras inherit up to 2 | `graft.ts`, `globals.MAX_INHERITED_KEYWORDS` | D-059 |
 | KW-4 | Keyword shown as visual frame/effect | `KeywordDef.visual`, web `KeywordFrame.tsx` | D-195 (draft icon/visual ids, Flaws framed) |
 | KW-5 | Swift | `keywords/swift.ts` (`attackPermission`) | D-041, D-042 |
@@ -1722,7 +1765,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | KW-8 | Ward | `keywords/ward.ts` (`beforeDestroy`), `destroy.ts`, `hooks/dispatch.ts › beforeDestroy`, `stats.ts › activeKwOf` | D-034, D-035, D-043, D-044, D-133, D-134 |
 | KW-9 | Haunt | `keywords/haunt.ts` (`onDestroyed`) | D-045 |
 | KW-10 | Echo | `keywords/echo.ts` (`onDestroyed`), `effects/run.ts › returnToHand` | D-046, D-140 |
-| FL-1 | Flaws only on Relics, exactly one each | validator | D-114 |
+| FL-1 | Flaws only on Relics, exactly one each | `schemas/card.ts` (`Relic.flaw` one id; strict `PlayerMonster`), `files.ts › describeIssue` messages, validator (Flaw ids), `RELIC_FLAWS` pinned to 1 | D-114, D-198, D-202, D-207 |
 | FL-2 | Slow | `keywords/slow.ts` (`attackPermission`, `ownTurnsSinceEntered`) | D-053, D-183 (M-01 lever) |
 | FL-3 | Vain | `keywords/vain.ts` (`mustAttack`), `legal.ts`, `ai/collector/best-target.ts` | D-052, D-091 |
 | FL-4 | Brittle | `keywords/brittle.ts` (`beforeCombat`), `combat.ts` | D-049, D-050 |
@@ -1768,7 +1811,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 
 | # | Rule | Implemented in | Decisions |
 | --- | --- | --- | --- |
-| CO-1 | Fixed 20-card Relic deck; never grafts; each Relic has one Flaw | `collector.json`, `legal.ts` (`canGraft`), validator | D-026, D-114 |
+| CO-1 | Fixed 20-card Relic deck; never grafts; each Relic has one Flaw | `collector.json`, `legal.ts` (`canGraft`), validator (deck size, pools, ace is a Relic in the deck) | D-026, D-114, D-203 |
 | CO-2 | 13 Relic monsters table | `cards/relics.json` (canonical after the switch); AI coverage warnings for deck cards | D-166, D-177 |
 | CO-3 | Spells: Provenance Ledger, Restoration, Gilt Frame, Forfeit | `cards/collector-spells.json` (§9.2) | D-067…D-069, D-136, D-144 |
 | CO-4 | Traps: Display Case, Counterfeit, Insurance Claim | `cards/collector-traps.json` (§9.2) | D-065, D-073, D-139 |
@@ -1787,7 +1830,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | AI-P2 | Summon The Unpriced if summonable | `rules/summonAce.ts` | D-054 |
 | AI-P3 | Slot open + monster that beats your strongest face-up → play it | `rules/summonBeater.ts` | D-083 |
 | AI-P4 | Fewer monsters than you + holds trap → set it | `rules/setTrapWhenBehind.ts` | D-088 |
-| AI-P5 | Spell with high-value target (Forfeit, Restoration, Gilt Frame contested) | `rules/castHighValueSpell.ts` | D-087 |
+| AI-P5 | Spell with high-value target (Forfeit, Restoration, Gilt Frame contested) | `rules/castHighValueSpell.ts`, `collector.json › ai.params.castHighValueSpell` (keyed by spell id), validator (refs, entry shape, D-177 warnings) | D-087, D-145, D-177, D-204 |
 | AI-P6 | Else summon highest-Power non-Slow; all Slow → guard | `rules/summonFallback.ts` | D-084, D-085 |
 | AI-A1 | Take any lethal attack | `rules/lethal.ts` | D-082 |
 | AI-A2 | Destroy your highest-Power monster he beats without losing attacker | `rules/killWithoutLoss.ts` | D-092 |
@@ -1830,7 +1873,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | BT-6 | 30–60% Appraisals succeed | `state.appraisal`, `sim/report.ts` | D-079 |
 | BT-7 | Unpriced appears in 20–40% | `track.unpriced`, `sim/report.ts` | — |
 | BT-8 | < 15% seeds rejected | `sim/difficulty-batch.ts` | — |
-| GL-1 | Every number is a global in one file | `content/src/globals.ts` (core globals + `CONTENT_NUMBERS`), `content/src/schemas/globals.ts`, `engine/src/types/globals.ts`; canonical after the switch; no derived or inert globals | D-074, D-126, D-147, D-166, D-168, D-170, D-171 |
+| GL-1 | Every number is a global in one file | `content/src/globals.ts` (core globals + `CONTENT_NUMBERS`), `content/src/schemas/globals.ts`, `engine/src/types/globals.ts`; canonical after the switch; no derived globals; every key read, pinned or planned (`planned-globals.ts`, `content/test/globals-readers.test.ts`); unused content numbers warned | D-074, D-126, D-147, D-166, D-168, D-170, D-171, D-205 |
 | GL-2 | Feature flags (10) | `globals.FLAGS` | — |
 
 ### Technical architecture and content pipeline
@@ -1846,17 +1889,17 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | TA-7 | Hook registry (7 hooks) for keywords, Flaws, spells/traps | `types/hooks.ts`, `hooks/*`, `traps.ts` | D-112, D-122, D-124, D-127 |
 | TA-8 | No deep cloning; structural sharing; small integer ids | `tx.ts` (§4.1), §18 | D-006, D-128 |
 | TA-9 | Reproducible from seed + action log (leaderboards later) | `replay.ts` (`cfg` check), `canonical.ts`, `state.log` | D-108, D-191, D-194 |
-| CP-1 | JSON validated by zod at build and in `content:check` | `content/src/schemas/*`, `content/src/load.ts`, `scripts/content-check.ts`, `build` script | D-145, D-146 |
+| CP-1 | JSON validated by zod at build and in `content:check` | `content/src/schemas/*`, `content/src/files.ts` (`describeIssue`, `formatError`), `content/src/load.ts`, `scripts/content-check.ts`, `build` script | D-145, D-146, D-165, D-206, D-207, D-208 |
 | CP-2 | Effect primitives with targets, conditions, durations | `types/effects.ts`, `effects/*` | D-074, D-120, D-129 |
 | CP-3 | New keyword/Flaw = one `defineKeyword` file, auto-registered | `hooks/define.ts` (type in `types/hooks.ts`), `scripts/gen-keyword-index.ts` | D-111, D-123 |
-| CP-4 | Validator fails on unknown refs, missing recipes, budget, duplicate ids, Collector deck ≠ 20 | `content/src/validate.ts` (§10.3), `feasibility.ts`, `schemas/globals.ts`; budget is a warning by owner ruling | D-109, D-167, D-198, D-199, D-200 |
+| CP-4 | Validator fails on unknown refs, missing recipes, budget, duplicate ids, Collector deck ≠ 20 | `content/src/validate.ts` (§10.3; incl. the ace ref), `feasibility.ts`, `schemas/globals.ts`; budget is a warning by owner ruling | D-109, D-167, D-198, D-199, D-200, D-203 |
 | CP-5 | Placeholder art from data until a painting with the card id exists | web `art/placeholder.ts` | D-175 (ids permanent) |
 | CG-1 | Add/change/delete card → JSON → `content:check` → `sim:quick` | scripts, validator reverse refs; one edit per change (§10.4); web hot reload | D-168, D-174, D-175, D-176 |
 | CG-2 | Add keyword → one file + icon → tests auto-generated from examples | `KeywordDef.examples` (declared cards), `content/src/keyword-examples.test.ts` | D-169 |
 | CG-3 | Add element → elements.json + matrix row/column | `elements.json`, validator | — |
 | CG-4 | Add kind → validator lists every new pair needing a recipe | validator | — |
 | CG-5 | Tune a number → globals; toggle mechanic → flag | `globals.ts` (core or `CONTENT_NUMBERS`); text re-renders via placeholders | D-171, D-172 |
-| CG-6 | DESIGN.md › "How to change content" summary of CONTENT_GUIDE.md | `docs/CONTENT_GUIDE.md` (plan §10.5), `content/test/guide.test.ts` | D-178 |
+| CG-6 | DESIGN.md › "How to change content" summary of CONTENT_GUIDE.md | `docs/CONTENT_GUIDE.md` (plan §10.5), `content/test/guide.test.ts`, `docs/CHANGELOG.md` (message changes move together) | D-178, D-208 |
 
 ### v0.1 scope, roadmap and open questions
 

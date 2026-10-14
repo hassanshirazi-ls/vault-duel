@@ -1004,6 +1004,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - **Cross-file validator rule:** `trapPreference` ids and the `castHighValueSpell` keys must be Collector-pool trap/spell ids present in `collector.json › deck`.
   - **ai mirror:** a test in `packages/ai` asserts that the `ai/collector/rules/` registry keys equal `AI_PLAY_RULES ∪ AI_ATTACK_RULES` and that every enum value has a handler. Adding a rule then means one enum entry plus one rule file, and the build fails if either is missing.
 - Reason: catching typos at `content:check` time is the point of the validator. The ai-side test closes the loop, the dependency direction stays intact, and every value is a data field (the M-13 A/B variant only uses existing ids).
+- Amended by D-204: `castHighValueSpell` is a record keyed by Collector spell id, with `pick`/`when` as the closed values. The cross-file rule's field is `params.castHighValueSpell.<id>`.
 
 **D-146 · Zod 4 conventions in the schemas**
 - Date: 2026-10-14
@@ -1173,6 +1174,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Question: content-author changed `load.ts › formatError` to drop the `field:` part when a problem concerns the whole entry (`field === ''`), to match the §10.3 examples. `load.ts` was outside the files the task allowed.
 - Decision: Confirmed, and the change stays. The line format is `<file> › <entry> › [<field>: ]<problem> › <how to fix>`; the field is omitted for whole-entry problems. §10.3 and D-146's format line are read this way. Edits outside the assigned files must be listed in the hand-off, which this one was.
 - Reason: without the change, every cross-file message would carry a stray `: `. The change is one line, and it makes the code match the documented examples.
+- Confirmed by D-206: parse errors still printed `(entry):` from `files.ts › fieldName`, and read errors printed `(file):` from `load.ts`. Both now omit the field.
 
 **D-166 · After v0.1 the content JSON and globals are the source of truth for every value (owner ruling, 2026-10-14)**
 - Date: 2026-10-14
@@ -1186,6 +1188,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - **Review.** Agents and reviewers stop checking content values against DESIGN.md. A value change is reviewed for a clean `content:check`, green tests, and a `sim:quick` run when it affects balance. Rule fidelity is still checked against DESIGN.md and this log.
   - Values quoted in older entries (D-109's "all 25 pass", D-152's example cards) and in ARCHITECTURE examples (§9.2, §11) describe launch content. The files win.
 - Reason: the owner expects many changes and doesn't want to lose track of them. One authoritative place per value, which the tooling already validates, is simpler than keeping a prose copy in sync. Keeping the launch tables as a frozen baseline costs nothing and preserves the history.
+- Amended by D-204 (owner ruling, 2026-10-14): the AI card lists (`castHighValueSpell` spell ids, `trapPreference` ids) are edited freely like `deck`. The AI rule lists, mood rule lists and other params stay owner-only.
 
 **D-167 · A monster outside the stat budget is a warning (owner ruling, 2026-10-14)** (amends D-109)
 - Date: 2026-10-14
@@ -1232,6 +1235,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
     The number to add is `ceil(DECK_X / MAX_COPIES) − count`. Monsters, spells and traps are each checked this way.
   - **Inert globals.** After engine M4, engine-dev lists every `Globals` key that no code in engine or content reads. Keys reserved for ai and sim (`AI_*`, `BOT_*`, `SIM_*`, `SEED_*`, `TARGET_*`, `DIFFICULTY_*`, `PERF_*`) are exempt until those packages land. Content-author adds a `GlobalsSchema` refinement for each listed key, pinning it to its only supported value, like `WARD_CHARGES` (D-133): `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1`. A refinement is removed in the same change that teaches the code the key.
 - Reason: a derived value stored twice means two edits. A warning that every new card trips is noise. A global that is accepted but ignored misleads the person tuning it.
+- Amended by D-205: the inert list becomes three states (read, pinned, planned) checked by a reader tripwire test, and `planned-globals.ts` replaces the prefix exemption. `RELIC_FLAWS` is pinned by D-202.
 
 **D-171 · Content numbers: a new card number is one line in `globals.ts`**
 - Date: 2026-10-14
@@ -1291,6 +1295,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Question: `PlayerMonster.keywords` is `z.array(Id).max(1)`, so changing `MAX_BASE_KEYWORDS` does nothing, and the §10.3 message names a global that the check never reads.
 - Decision: drop `.max(1)` from the schema. `validate.ts` checks that base monsters and Relics (D-114) have at most `MAX_BASE_KEYWORDS` keywords, using the existing §10.3 message `cards/player-monsters.json › x › 2 keywords, max MAX_BASE_KEYWORDS=1 › remove one`.
 - Reason: one number, read in one place.
+- Amended by D-201: it was not built; the message is now `keywords: has 2 keywords, max MAX_BASE_KEYWORDS=1 › remove 1 keyword`.
 
 **D-174 · A missing or orphan art brief is a warning** (amends D-110)
 - Date: 2026-10-14
@@ -1325,6 +1330,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - `warning: collector.json › deck[n] › Collector spell "x" has no AI rule that casts it › add "x" to ai.params.castHighValueSpell with a pick, or make it draw-only`. Raised for a deck spell that isn't a key of `castHighValueSpell` (base or any mood) and isn't draw-only (every effect `{ op: 'draw', who: 'self' }`).
   - `warning: collector.json › deck[n] › Collector trap "x" is not in ai.trapPreference › add it, or AI rule 4 never sets it`.
 - Reason: cheap, and it catches the one way a valid content change silently has no effect.
+- Amended by D-204: `castHighValueSpell` becomes a map keyed by spell id, so the first warning's fix can be done in data. Both warnings are built with it.
 
 **D-178 · CONTENT_GUIDE.md plan**
 - Date: 2026-10-14
@@ -1613,6 +1619,129 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - **Callers:** `scripts/content-check.ts` calls it after `compileContent`, and the web dev build may call it after compile (D-176). The entry in `DEFERRED_RULES` is removed.
 - Reason: the check runs the shipping generator rather than a copy, so it can't drift from it.
 
+**D-201 · `MAX_BASE_KEYWORDS` is read by the validator, with a counted message** (amends D-173)
+- Date: 2026-10-14
+- Question: D-173 was never built. `schemas/card.ts` still has `keywords: z.array(Id).max(1)`, nothing reads `MAX_BASE_KEYWORDS`, and raising it does nothing (`guide.test.ts` §4 pins that). The real output is zod's `keywords: ["swift","sentinel"] is above the maximum 1 › use 1 or less`. D-173's message has no field part and no count.
+- Decision: D-173 is confirmed, with this message.
+  - Drop `.max(1)` from `PlayerMonster.keywords`. `Relic` extends it, so it changes too.
+  - `validate.ts` checks every base monster and every Relic: `keywords.length ≤ g.MAX_BASE_KEYWORDS`. It is an error, with field `keywords`:
+    `cards/player-monsters.json › example-beast › keywords: has 2 keywords, max MAX_BASE_KEYWORDS=1 › remove 1 keyword`
+    The same text applies to `cards/relics.json`. Counts use the existing `plural()` helper (`has 1 keyword, max MAX_BASE_KEYWORDS=0 › remove 1 keyword`). The fix names only the card edit. The guide explains that the global sets the limit for every base card.
+  - Chimeras are not checked here. Their limit is `MAX_INHERITED_KEYWORDS`, applied by `graft.ts`.
+  - Delete "a base card with more than one keyword (keywords .max(1))" from the "Covered by the zod pass" comment in `validate.ts`.
+- Reason: one number, read in one place. The message says what to remove and which global sets the limit.
+
+**D-202 · `RELIC_FLAWS` is pinned to 1**
+- Date: 2026-10-14
+- Question: no code reads `RELIC_FLAWS`, and `GlobalsSchema` accepts any integer for it, although D-170 and §10.3 use it as the example of a pinned global. "Exactly one Flaw" is enforced by the card format instead: `Relic.flaw` is a single required id.
+- Decision: pin it. `RELIC_FLAWS: pinned(1)` in `schemas/globals.ts`, with the shared D-199 message `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1`. The global stays, because DESIGN makes every number a global ("Each Relic has exactly one"). More than one Flaw would need a format change (`flaws: []`), engine work and a DESIGN rule change, so only an owner-approved entry removes this pin.
+- Reason: a pin is one line, and it turns a silent no-op into an error. Removing the global would need an engine type edit and gain nothing.
+
+**D-203 · The Collector's ace must be a Relic in his deck**
+- Date: 2026-10-14
+- Question: only the Covetous rule reads `collector.json › ace`. An unknown id passes `validateContent`, and then `compile.ts › lookup` throws an unformatted `compile: unknown card id "…"`. A Collector spell named as the ace compiles without complaint, and AI rule 2 is then dead. Must the ace exist? Must it be a Relic, be in the deck, or carry Covetous?
+- Decision: three rules in `validate.ts › checkCollector`. They run when `relics.json` and every pool file parsed. The entry is `ace`, with no field, like `collector.json › deck › …`.
+  1. The ace is an id in `cards/relics.json`. Otherwise: `collector.json › ace › "no-such-relic" is not a Relic › use a Relic id from cards/relics.json`. The message is the same whether the id is unknown, a player card, or a Collector spell or trap.
+  2. The ace is in the deck list. D-168 already lists "a Collector deck … that contains the ace" as a `content:check` invariant. Otherwise: `collector.json › ace › "the-unpriced" is not in the deck › add it to the deck list in collector.json`. This is checked only when rule 1 passes.
+  3. The ace doesn't have to carry Covetous. DESIGN says Covetous is ace-only, not that the ace must be Covetous, and the Flaw is a card field (D-166). The existing "Covetous is ace-only" rule stays.
+- Reason: DESIGN's ace is one of the 20 deck cards, and AI rule 2, Covetous and the M-04 lever all look it up. A wrong id should produce a `content:check` line, not a crash in compile or a rule that never fires.
+
+**D-204 · `castHighValueSpell` is keyed by Collector spell id** (amends D-145's schema; generalises D-087; D-177 is built with it) [REVIEW]
+- Date: 2026-10-14
+- Question: `schemas/collector.ts` makes `params.castHighValueSpell` a strict object with exactly three keys: `forfeit`, `restoration` and `gilt-frame`. A new Collector spell that the AI should cast is refused (`collector.json › ai › params.castHighValueSpell: unknown key(s) example-collector-purge › remove example-collector-purge`), so it needs a schema change. But D-145's cross-file rule already treats the keys as spell ids, and D-177's warning tells the owner to "add "x" to ai.params.castHighValueSpell with a pick". D-177 itself is not built.
+- Decision:
+  - **Schema.** `castHighValueSpell: z.record(Id, CastWhen)`. `CastWhen` is `z.object({ pick: z.exactOptional(AI_PICK), when: z.exactOptional(AI_WHEN) }).strict()`, refined to exactly one of the two, with `params.fix` (rendered per D-207): `collector.json › ai › params.castHighValueSpell.x: needs exactly one of "pick" or "when" › keep exactly one of "pick" or "when"`. Base and mood params share the shape. A new `pick` or `when` mode is still a code change: one enum value plus its handler, covered by D-145's ai mirror test.
+  - **Semantics (ai).** These generalise D-087 and don't change the three launch spells.
+    - `{ "pick": "highestPower" }`: the spell qualifies when it has at least one legal cast choice. The AI casts it on the target with the highest effective Power that the view shows (face-down monsters are skipped, D-086), with ties broken by `tieBreak`. An untargeted spell has one choice. For Forfeit and Restoration this is exactly D-087, because their target specs already encode "Power ≤ `$FORFEIT_MAX_POWER`" and "a Relic in his discard".
+    - `{ "when": "contestedAttack" }`: D-087's Gilt Frame test. In place of the literal +2, it uses the Power the spell gives `chosen`: the resolved `power` of its `modifyStats` effect on `chosen`.
+    - **Order.** The candidates are the spells in his hand that have an entry, in card-id order (D-090). The first one that qualifies is cast. The key order in the JSON never matters.
+    - **Moods.** A mood's `params.castHighValueSpell` merges over the base per spell id. A mood entry replaces the base entry for that id, and base entries the mood doesn't name stay. Other rule params merge per key the same way, as `summonFallback`'s partial override already does.
+  - **Validator.**
+    - D-145's rule stays: each key must be a Collector spell in the deck. Its field becomes the real JSON path: `collector.json › ai › params.castHighValueSpell.forfeit: "forfeit" is not a Collector spell in the deck › use a spell id from collector.json › deck`. The mood form keeps `moods.<mood>.params.castHighValueSpell.<id>`.
+    - New error. A `when: contestedAttack` entry on a spell with no `modifyStats` effect giving Power to `chosen` could never fire: `collector.json › ai › params.castHighValueSpell.x: "contestedAttack" needs a spell that gives Power to "chosen" › use "pick": "highestPower" instead`.
+    - D-177's two warnings are built as written, in `checkCollector`.
+  - **Ownership (owner ruling, 2026-10-14; amends D-166).** `castHighValueSpell` entries and `trapPreference` ids are card lists, like `deck`: the owner adds or removes them freely when adding or removing a Collector card, with no D-entry. The rule lists, mood rule lists, `reposition` and the other `collector.json › ai` params stay owner-only under D-166.
+  - **Edit count.** A new Collector spell that the AI casts takes three data edits: the card, its deck line and its `castHighValueSpell` entry. Its art brief is only a warning. A missing AI entry is a D-177 warning. No code changes.
+- Reason: the keys were always spell ids (D-145, D-177). With fixed keys, the AI was the one place where new content needed code. The AI's vocabulary is the modes, not the spell ids, so the closed enums move to the values.
+
+**D-205 · Unread globals: pinned, planned, or read, kept true by a test** (amends D-170)
+- Date: 2026-10-14
+- Question: D-170 promised that no global is accepted and then ignored. The inert list was never written into the repo.
+  - `RELIC_FLAWS` and `MAX_BASE_KEYWORDS` were unread and unpinned (D-201, D-202).
+  - `OBJECTIVES_PER_DAY`, `OBJECTIVE_STARS_MAX`, `RESET_HOUR_LOCAL`, `FLAGS.BONUS_OBJECTIVES`, `FLAGS.ANIMATIONS` and `FLAGS.DEBUG_OVERLAY` wait for code that isn't built: engine `meta/`, ai and web.
+  - D-170's prefix exemption (`AI_*`, `SIM_*`, `TARGET_*`, …) is a blind spot that stays open after ai and sim land.
+
+  Pinning a planned global to today's value would copy the value, and it would need a manual unpin later that nothing reminds anyone to do.
+- Decision: every core global and every flag is in exactly one of three states, and a test keeps the states true.
+  1. **Read:** some non-test source reads it. It needs no mark.
+  2. **Pinned:** the code supports only one value, an engine or format limit. `GlobalsSchema` pins it (D-170, D-199). The pins today are `WARD_CHARGES`, `PLAYS_PER_TURN`, `REPOSITIONS_PER_TURN`, `ATTACKS_PER_TURN`, `MIN_GRAFT_MATERIALS`, `RELIC_FLAWS` (D-202) and `FLAGS.ACE_SET_ASIDE` (D-184). As before (D-170), a pin is removed in the change that teaches the code the key.
+  3. **Planned:** its reader is a module that isn't built yet. It is listed in a new file, `packages/content/src/planned-globals.ts`, which is browser-safe and exported from the content root:
+     ```ts
+     export interface PlannedGlobal { readonly reader: 'engine' | 'ai' | 'sim' | 'web'; readonly where: string }
+     export const PLANNED_GLOBALS: Readonly<Record<string, PlannedGlobal>> = {
+       OBJECTIVES_PER_DAY: { reader: 'ai', where: 'ai/difficulty.ts › prepareDay (D-102)' },
+       'FLAGS.ANIMATIONS': { reader: 'web', where: 'web duel store (§16)' },
+       // …
+     };
+     ```
+     Flags are written `FLAGS.<NAME>`. A planned global is **not** pinned. Any value that passes the sanity checks is accepted and takes effect when its reader lands, so there is no copy of the value and nothing to unpin. The list replaces D-170's prefix exemption. Its first contents are whatever the tripwire below reports as unread and unpinned. Today that is the six keys above, plus `SIM_RUNS_PER_SEED`, `SIM_QUICK_GAMES`, `SIM_FULL_GAMES`, `SIM_SEED_CHECK_DATES`, `SEED_WINRATE_MIN`, `SEED_WINRATE_MAX`, `SEED_MAX_REROLLS`, `BOT_NOISE_EPSILON`, `DIFFICULTY_STAR_CUTS`, every `TARGET_*` and `PERF_DUELS_PER_SEC_PER_CORE`.
+  - **Visible, not silent.** When `content:check` succeeds and the list isn't empty, it prints one more line after the counts. The count and the readers (sorted) are computed from the list:
+    `not yet read: 28 globals wait for ai, engine, sim, web › see packages/content/src/planned-globals.ts`
+    CONTENT_GUIDE §7 explains the line.
+  - **Reader tripwire.** This is `packages/content/test/globals-readers.test.ts`, a Node test.
+    - **What it reads.** The comment-stripped text of every non-test `.ts`/`.tsx` file under `packages/*/src`, `packages/content/keywords` and `apps/*/src`, plus every `"$NAME"` in the content JSON.
+    - **What it skips.** `*.test.ts`, `test-utils/`, `dist/`, and the four files that define the keys: `engine/src/types/globals.ts`, `content/src/globals.ts`, `content/src/schemas/globals.ts` and `content/src/planned-globals.ts`. Any other excluded file needs a comment saying why.
+    - **Read and pinned.** A key is read when its name appears in that text as a whole word. A key is pinned when `GlobalsSchema` refuses a changed value (number + 1, or the flag negated) with the D-199 pin message.
+    - **What it asserts.** Three things, each failing with a line that names the fix:
+      - A planned key that is now read: `OBJECTIVES_PER_DAY is in planned-globals.ts but packages/ai/src/difficulty.ts reads it › delete its line from planned-globals.ts`
+      - A key that is not read, pinned or planned: `RESET_HOUR_LOCAL is read by no code › wire it, pin it in schemas/globals.ts, or add it to planned-globals.ts`
+      - A key that is both pinned and planned: `FLAGS.ACE_SET_ASIDE is both pinned and planned › keep one`
+
+    So the change that wires a planned global fails its own tests until the line is deleted. Nobody has to remember.
+  - **Unused content numbers.** A `CONTENT_NUMBERS` entry that nothing references is the same silent no-op. It is typically left behind by a deleted card. `content:check` warns: `warning: globals.ts › CONTENT_NUMBERS › QUILL_TOLL: not used by any card, objective, AI param or keyword › delete the line, or use $QUILL_TOLL in an effect`.
+    - Any of these counts as a use: a `$NAME` anywhere in the data, a `{NAME}` in card, objective, twist or keyword text, or a `'$NAME'` / `num('NAME')` literal in a keyword source (the D-171 scan in `keyword-files.ts`).
+    - The last kind needs the source files. So `validateContent` takes the keyword-source refs as an optional fourth argument and runs this rule only when it is given. `content:check` gives it; the browser dev build doesn't.
+- Reason: three states plus a test cover every key and keep themselves current. A planned global needs no copy of its value and no unpin. The tripwire catches both directions (wired but still listed, unread but unlisted), including the ai and sim keys that D-170's prefixes would have hidden for good.
+
+**D-206 · A whole-entry problem has no field part; `(file)` stays as the entry of a whole-file problem** (confirms D-165)
+- Date: 2026-10-14
+- Question: `files.ts › fieldName` returns `(entry)` for an issue on the entry itself, so lines read `cards/relics.json › r1 › (entry): unknown key(s) flaw › remove flaw`. `load.ts` sets the field to `(file)` for a missing or unreadable file. D-165 and §10.3 say the field part is omitted. Which is right?
+- Decision: D-165 is right.
+  - `fieldName([])` returns `''`, so `formatError` omits the field: `cards/relics.json › r1 › unknown key(s) foo › remove foo`.
+  - `load.ts` read errors use field `''`: `elements.json › (file) › file is missing › create elements.json` and `elements.json › (file) › invalid JSON (…) › fix the JSON syntax`.
+  - `(file)` stays in the **entry** slot whenever a problem belongs to a whole file: read errors, a top-level zod issue, and `keywords/index.gen.ts › (file) › stale, does not match keywords/*.ts › run pnpm content:gen`. Every line keeps the format `<file> › <entry> › [<field>: ]<problem> › <fix>`.
+  - Nothing prints `(entry)` any more.
+- Reason: one format, as documented. The entry slot is required, so it needs a stand-in. The field slot is optional, so a stand-in there is noise.
+
+**D-207 · Plain-language parse messages for the mistakes a non-engineer makes most**
+- Date: 2026-10-14
+- Question: zod's generic wording reaches the owner for three common mistakes:
+  - a missing field: `flaw: expected string, got undefined › write a string value`;
+  - a Flaw on a base monster: `unknown key(s) flaw › remove flaw`, which doesn't say why;
+  - refinements whose fix is the generic `fix the value so it matches packages/content/src/schemas`.
+
+  Which of these are worth a code change in `files.ts › describeIssue`?
+- Decision: four changes, all in `describeIssue`, which now also gets the file path from `parseFile`. All other wording stays (`got "rounds" › use one of: …`, `is above the maximum`, `expected number, got "7" › write numbers without quotes`), because its fix already lists what to write.
+  1. **Missing field:** any issue whose path ends at a key that is absent from its object. `<field>: missing › add "<key>"`, for example `cards/player-monsters.json › example-beast › power: missing › add "power"`.
+  2. **Missing Flaw:** case 1 for `flaw` in `cards/relics.json`. `cards/relics.json › example-relic › flaw: missing, a Relic needs exactly 1 Flaw › add "flaw": "<flaw id>"`.
+  3. **Flaw on a base monster:** an `unrecognized_keys` issue in `cards/player-monsters.json` whose only key is `flaw`. `cards/player-monsters.json › example-beast › Flaws appear only on Relics › remove "flaw"`. If there are other unknown keys too, the generic line lists them all.
+  4. **Refinement fixes:** a `custom` issue uses `params.fix` when the schema sets it, as `globalsProblems` already does. The objective refinement gets `params: { fix: 'keep exactly one of "lte" or "gte"' }`, which prints `objectives.json › x › needs exactly one of "lte" or "gte" › keep exactly one of "lte" or "gte"`. D-204's entry refinement uses the same mechanism.
+- Reason: these are the lines the owner will see most when following the guide's §4. Each takes a few lines in one function, and none changes what is accepted.
+
+**D-208 · §10.3 examples follow the real output; a message change updates the guide, its test and the changelog in the same commit**
+- Date: 2026-10-14
+- Question: several §10.3 example lines no longer match `content:check`: `keywords/index.gen.ts › stale`, `unknown metric "rounds"`, the `CONTENT_NUMBERS` clash text, and the keyword-limit and Flaw lines. CONTENT_GUIDE quotes the real text, and `guide.test.ts` asserts it verbatim, so a wording change in code can break the guide.
+- Decision:
+  - §10.3 shows the real text, or the target text that D-201…D-207 specify, marked with its D-number until the code lands.
+  - A change to any message that `content:check`, `withOverrides` or the validator prints updates all of these in the same commit:
+    - the code and its unit tests;
+    - every CONTENT_GUIDE quote of the message;
+    - `guide.test.ts`;
+    - §10.3, if the message is listed there;
+    - one line in `docs/CHANGELOG.md`.
+  - `docs/CHANGELOG.md` (new, docs-keeper) is the owner-facing log of the tooling changes he will notice: new or changed `content:check` lines, newly pinned or planned globals, and new edit steps. Each change gets a dated section, and each line ends with its D-number. It is not a commit log.
+- Reason: the guide is only useful while it matches the tool. Bundling the edits turns drift into a failing test in the same change, and the changelog tells the owner why a familiar line changed.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
@@ -1652,6 +1781,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 | --- | --- | --- |
 | D-182 | Keywords a board material gives a Graft: active (face-down gives none, a used Ward gives none) or printed | DESIGN is silent; reachable with launch cards. Owner ruled (B): printed keywords |
 | D-189 | May a Chimera card summoned from the hand go face-down? | D-063 covers only the Graft entry. Owner ruled (A): all three summon modes |
+| D-204 | Is a `castHighValueSpell` entry (or a `trapPreference` id) for a newly added Collector card an owner-only AI param under D-166, or a card list the owner edits freely like `deck`? | Settled 2026-10-14 (owner): both are card lists, edited freely like `deck`. The rule lists, mood rule lists, `reposition` and the other params stay owner-only |
 | D-195 | Keyword and Flaw icon/visual ids; do Flaws get a frame? | Art decision; DESIGN gives no icons and no Flaw visuals. Owner ruled (A): content-author's ids as drafts, Flaws framed |
 | M-01…M-16 | Balance/rule proposals from the paper-sim (section M) | None applied; each needs a Phase 3 sim A/B test and an owner decision. Levers M-01 and M-02 get plumbing in D-183, and M-04 in D-184 |
 | D-152 | Ward saves an Unstable Chimera from expiry: does it keep the +3? | DESIGN is silent and it's reachable with launch cards. Owner ruled (A): Unstable ends and the +3 goes |
