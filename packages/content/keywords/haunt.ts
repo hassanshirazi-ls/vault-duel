@@ -22,4 +22,17 @@ export default defineKeyword({
       });
     },
   },
+  examples: [
+    `
+card ex-haunt P ember beast 2/2 haunt
+card ex-hammer C tide beast 5/1
+turn 3
+step attack
+P board [ex-haunt G]
+C board [ex-hammer A]
+do attack C0 > P0
+expect P0 empty
+expect C0 power 3
+`,
+  ],
 });

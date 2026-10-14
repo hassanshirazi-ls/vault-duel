@@ -115,6 +115,22 @@ export function checkKeywordSources(sources: readonly KeywordSource[]): ContentE
   return errors;
 }
 
+/**
+ * D-169: a keyword file with no board-DSL example is a warning, not an error. DESIGN promises tests generated from the
+ * examples, so a missing example is visible in content:check output without failing the run.
+ */
+export function checkKeywordExamples(sources: readonly KeywordSource[]): ContentError[] {
+  return sources
+    .filter(({ def }) => (def.examples ?? []).length === 0)
+    .map(({ file, stem }) => ({
+      file,
+      id: stem,
+      field: '',
+      problem: 'no examples',
+      fix: 'add one board-DSL example with declared cards (D-169)',
+    }));
+}
+
 // D-171: a keyword source names a global either as a '$NAME' / '-$NAME' string (an effect value) or as num('NAME')
 // (a query hook). Every such literal must resolve in either namespace. Reads the source text, so it is run on disk.
 const REF_LITERAL = /['"](-?)\$([A-Za-z0-9_]+)['"]/g;

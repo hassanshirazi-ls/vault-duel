@@ -30,8 +30,8 @@ describe('fixture', () => {
     expect(run(fixtureData())).toEqual({ errors: [], warnings: [] });
   });
 
-  it('lists the §10.3 rules that are still deferred', () => {
-    expect(DEFERRED_RULES.length).toBeGreaterThan(0);
+  it('lists each deferred §10.3 rule as a non-empty line', () => {
+    expect(DEFERRED_RULES.every((rule) => rule.trim() !== '')).toBe(true);
   });
 });
 

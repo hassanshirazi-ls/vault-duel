@@ -27,6 +27,27 @@ export function pinned(value: number): z.ZodType<number> {
   });
 }
 
+/** An inert flag (D-170, D-199): the engine reads it only at this value, so any other value would be a silent no-op. */
+export function pinnedFlag(value: false): z.ZodType<boolean> {
+  return z.boolean().refine((input) => input === value, {
+    message: `must be ${value} until the engine supports other values`,
+    params: { fix: `keep ${value}` },
+  });
+}
+
+/**
+ * BOARD_SLOTS is at most 16 (D-170). The engine packs a board location as side * LOC_STRIDE + slot, with
+ * LOC_STRIDE = 16 in packages/engine/src/stats.ts, so a larger board would collide with the other side's slots.
+ */
+const BOARD_SLOTS_MAX = 16;
+const BOARD_SLOTS_LIMIT = {
+  message: `must be ${BOARD_SLOTS_MAX} or less, the engine's LOC_STRIDE`,
+  params: { fix: `use ${BOARD_SLOTS_MAX} or less` },
+} as const;
+
+/** MAX_GRAFT_MATERIALS is 2 to 3 (D-170, D-199): the graft UI and preview handle only these counts. */
+const GRAFT_RANGE = { message: 'must be from 2 to 3', params: { fix: 'use 2 or 3' } } as const;
+
 /** A CONTENT_NUMBERS name (D-171): capitals, digits and underscores, the same shape as a $NAME ref. */
 const CONTENT_NAME = /^[A-Z][A-Z0-9_]*$/;
 
@@ -69,7 +90,7 @@ const Flags = z
     ANIMATIONS: z.boolean(),
     DEBUG_OVERLAY: z.boolean(),
     APPRAISED_ENTERS_GUARD: z.boolean(),
-    ACE_SET_ASIDE: z.boolean(),
+    ACE_SET_ASIDE: pinnedFlag(false), // D-184: pinned until the set-aside zone is wired
     CHIMERA_TO_HAND: z.boolean(),
   })
   .strict();
@@ -97,11 +118,11 @@ const GlobalsShape = z
     REDRAWS: Int,
     OPENING_MIN_MONSTERS: Int,
     FIRST_ATTACK_ROUND_PLAYER: Int,
-    PLAYS_PER_TURN: Int,
-    REPOSITIONS_PER_TURN: Int,
-    ATTACKS_PER_TURN: Int,
+    PLAYS_PER_TURN: pinned(1), // D-170, D-199: the engine does not read it yet; keep 1
+    REPOSITIONS_PER_TURN: pinned(1), // D-170, D-199: the engine does not read it yet; keep 1
+    ATTACKS_PER_TURN: pinned(1), // D-170, D-199: the engine does not read it yet; keep 1
     // Board
-    BOARD_SLOTS: Int,
+    BOARD_SLOTS: Int.refine((value) => value <= BOARD_SLOTS_MAX, BOARD_SLOTS_LIMIT), // D-170; LOC_STRIDE in the engine
     TRAP_SLOTS: Int,
     // Combat
     ELEMENT_BONUS: Int,
@@ -115,8 +136,8 @@ const GlobalsShape = z
     RELIC_FLAWS: Int,
     SLOW_TURNS: Int,
     // Graft
-    MIN_GRAFT_MATERIALS: Int,
-    MAX_GRAFT_MATERIALS: Int,
+    MIN_GRAFT_MATERIALS: pinned(2), // D-170, D-199: a graft takes exactly two materials; keep 2
+    MAX_GRAFT_MATERIALS: Int.refine((value) => value >= 2 && value <= 3, GRAFT_RANGE), // D-170, D-199: 2 to 3
     ASCEND_POWER: Int,
     ASCEND_GUARD: Int,
     UNSTABLE_BONUS: Int,

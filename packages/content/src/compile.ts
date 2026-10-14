@@ -2,7 +2,7 @@
 // the element and kind matrices, keyword bits, hook masks and the Collector pool. String ids stay only in `ids`,
 // `index`, the keyword registry and the boundary maps. Runs only on data that passed load + validateContent, so a
 // missing entry or unknown reference here is a bug and throws.
-import { cyrb128, DefType, deepFreeze, HOOK_NAMES, Pool } from '@vault-duel/engine';
+import { canonicalJson, cyrb128, DefType, deepFreeze, HOOK_NAMES, Pool } from '@vault-duel/engine';
 import type {
   CompiledContent,
   CompiledSpell,
@@ -49,20 +49,6 @@ function lookup(map: ReadonlyMap<string, number>, id: string, what: string): num
   const found = map.get(id);
   if (found === undefined) throw new Error(`compile: unknown ${what} "${id}"`);
   return found;
-}
-
-/** JSON with sorted object keys and no undefined members, so the same content always hashes the same. */
-function canonicalJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(',')}]`;
-  if (value !== null && typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    const parts = Object.keys(record)
-      .sort()
-      .filter((key) => record[key] !== undefined)
-      .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`);
-    return `{${parts.join(',')}}`;
-  }
-  return JSON.stringify(value) ?? 'null';
 }
 
 function hashOf(text: string): string {
@@ -218,10 +204,25 @@ export function compileContent(
     })),
   }));
 
-  const hash = hashOf(canonicalJson({ content: data, keywords: keywords.map((keyword) => keyword.id) }));
-  const playerMonsters = indicesOf(monsters);
-  const playerSpellIdx = indicesOf(playerSpells);
-  const playerTrapIdx = indicesOf(playerTraps);
+  // D-197: the hash covers the parsed content and every keyword's display fields, in bit order.
+  const hash = hashOf(
+    canonicalJson({
+      content: data,
+      keywords: keywords.map((keyword) => ({
+        id: keyword.id,
+        name: keyword.name,
+        kind: keyword.kind,
+        icon: keyword.icon,
+        visual: keyword.visual,
+        text: keyword.text,
+      })),
+    }),
+  );
+  // D-197: player pools are sorted by card id, so a reordered JSON file does not change generated decks (D-005).
+  const byId = (a: { readonly id: string }, b: { readonly id: string }): number => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const playerMonsters = indicesOf([...monsters].sort(byId));
+  const playerSpellIdx = indicesOf([...playerSpells].sort(byId));
+  const playerTrapIdx = indicesOf([...playerTraps].sort(byId));
 
   return Object.freeze({
     version: globals.CONTENT_VERSION,

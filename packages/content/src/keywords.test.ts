@@ -6,11 +6,12 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HOOK_NAMES } from '@vault-duel/engine';
 import type { CombatCtx, DestroyedEvt, GameEvent, HookCtx, KeywordDef, QueryCtx, Effect } from '@vault-duel/engine';
-import { TEST_GLOBALS } from '@vault-duel/engine/test-utils/globals';
+import { TEST_GLOBALS, withGlobals } from '@vault-duel/engine/test-utils/globals';
 import { KEYWORDS } from '../keywords/index.gen';
 import {
   BARREL_FILE,
   checkKeywordBarrel,
+  checkKeywordExamples,
   checkKeywordGlobalRefs,
   checkKeywordSources,
   loadKeywordFiles,
@@ -18,6 +19,7 @@ import {
   sortKeywords,
   type KeywordSource,
 } from './keyword-files';
+import { formatError } from './files';
 
 function need<T>(value: T | undefined, what: string): T {
   if (value === undefined) throw new Error(`fixture: ${what} is missing`);
@@ -56,10 +58,6 @@ describe('registry (KW-1, FL-1, D-111)', () => {
     }
   });
 
-  it('has no card ids in any keyword file (examples would reference cards)', () => {
-    for (const keyword of KEYWORDS) expect(keyword.examples ?? [], keyword.id).toEqual([]);
-  });
-
   it('passes the file-level checks and has a current barrel', async () => {
     const loaded = await loadKeywordFiles();
     expect(loaded.errors).toEqual([]);
@@ -76,10 +74,15 @@ describe('hooks match DESIGN.md and the section E decisions', () => {
     expect(hook(queryCtx({ enteredThisTurn: () => false }))).toEqual({});
   });
 
-  it('Slow restricts attacks to none on its summon turn (D-053)', () => {
+  it('Slow restricts attacks to none until SLOW_TURNS own turns have started since entry (D-053, D-183)', () => {
     const hook = need(byId('slow').hooks.attackPermission, 'slow.attackPermission');
-    expect(hook(queryCtx({ enteredThisTurn: () => true }))).toEqual({ restrict: 'none' });
-    expect(hook(queryCtx({ enteredThisTurn: () => false }))).toEqual({});
+    const turns = (n: number, g = TEST_GLOBALS) => hook(queryCtx({ g, ownTurnsSinceEntered: () => n }));
+    expect(turns(0)).toEqual({ restrict: 'none' });
+    expect(turns(1)).toEqual({});
+    const two = withGlobals({ SLOW_TURNS: 2 });
+    expect(turns(0, two)).toEqual({ restrict: 'none' });
+    expect(turns(1, two)).toEqual({ restrict: 'none' });
+    expect(turns(2, two)).toEqual({});
   });
 
   it('Sentinel marks its monster as a mandatory target (D-038)', () => {
@@ -192,6 +195,13 @@ describe('file checks (§8.4, §10.3 keyword file problems)', () => {
   it('reports two files with one id', () => {
     const problems = checkKeywordSources([source('swift', {}), source('swift', {})]);
     expect(problems.map((error) => error.problem)).toEqual(['duplicate id (also in keywords/swift.ts)']);
+  });
+
+  it('warns on a keyword file with no examples (D-169), and not on one that has one', () => {
+    const warnings = checkKeywordExamples([source('haunt', { examples: [] }), source('swift', { examples: ['x'] })]);
+    expect(warnings.map(formatError)).toEqual([
+      'keywords/haunt.ts › haunt › no examples › add one board-DSL example with declared cards (D-169)',
+    ]);
   });
 
   it('reports more than 32 keywords and Flaws', () => {

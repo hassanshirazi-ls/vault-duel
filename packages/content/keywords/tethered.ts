@@ -12,4 +12,17 @@ export default defineKeyword({
   hooks: {
     staticPower: (q) => (q.monsters(q.side).length === 1 ? -q.g.TETHERED_PENALTY : 0),
   },
+  examples: [
+    `
+card ex-tethered C ember beast 5/3 tethered
+C board [ex-tethered A]
+expect C0 power 3
+`,
+    `
+card ex-tethered C ember beast 5/3 tethered
+card ex-wall P gale beast 1/3
+C board [ex-tethered A] [ex-wall G]
+expect C0 power 5
+`,
+  ],
 });

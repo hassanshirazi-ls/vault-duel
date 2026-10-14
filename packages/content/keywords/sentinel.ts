@@ -11,4 +11,16 @@ export default defineKeyword({
   visual: 'iron-shield-border',
   text: 'Enemy attacks must target Sentinels first.',
   hooks: { restrictTargets: () => true },
+  examples: [
+    `
+card ex-striker P ember beast 3/2
+card ex-plain P tide beast 2/2
+card ex-sentinel P tide beast 2/3 sentinel
+step attack
+P board [ex-striker A]
+C board [ex-plain A] [ex-sentinel G]
+expect illegal attack P0 > C0
+expect legal attack P0 > C1
+`,
+  ],
 });

@@ -15,4 +15,16 @@ export default defineKeyword({
       if (ctx.evt.target === ctx.self && ctx.combat.advantage) ctx.setBrittleWin();
     },
   },
+  examples: [
+    `
+card ex-brittle C ember beast 4/4 brittle
+card ex-striker P tide beast 1/1
+step attack
+P board [ex-striker A]
+C board [ex-brittle G]
+do attack P0 > C0
+expect C0 empty
+expect P0 card ex-striker
+`,
+  ],
 });

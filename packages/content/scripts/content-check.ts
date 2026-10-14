@@ -4,8 +4,10 @@
 import { compileContent } from '../src/compile';
 import { DEFAULT_GLOBALS } from '../src/globals';
 import { CONTENT_FILES, formatError } from '../src/files';
+import { checkDeckgen } from '../src/feasibility';
 import {
   checkKeywordBarrel,
+  checkKeywordExamples,
   checkKeywordGlobalRefs,
   checkKeywordSources,
   loadContent,
@@ -25,8 +27,9 @@ const keywordErrors = [
 const keywordDefs = sortKeywords(keywordLoad.sources).map((source) => source.def);
 const validation = validateContent(result.data, DEFAULT_GLOBALS, keywordDefs);
 const errors = [...result.errors, ...keywordErrors, ...validation.errors];
+const warnings = [...validation.warnings, ...checkKeywordExamples(keywordLoad.sources)];
 
-for (const warning of validation.warnings) console.warn(`warning: ${formatError(warning)}`);
+for (const warning of warnings) console.warn(`warning: ${formatError(warning)}`);
 
 if (errors.length > 0) {
   for (const error of errors) console.error(formatError(error));
@@ -36,6 +39,13 @@ if (errors.length > 0) {
 }
 
 const compiled = compileContent(result.data, keywordDefs, DEFAULT_GLOBALS);
+// D-200: deck generation runs on 1,000 test dates. It is skipped above when the pool-capacity rule failed.
+const deckgenErrors = checkDeckgen(compiled, DEFAULT_GLOBALS);
+if (deckgenErrors.length > 0) {
+  for (const error of deckgenErrors) console.error(formatError(error));
+  console.error(`content:check FAILED: ${deckgenErrors.length} error(s) in 1 file(s)`);
+  process.exit(1);
+}
 const lines = (Object.keys(CONTENT_FILES) as (keyof typeof CONTENT_FILES)[]).map(
   (key) => `  ${CONTENT_FILES[key].path.padEnd(32)} ${String(result.counts[key] ?? 0).padStart(3)}`,
 );
@@ -44,4 +54,5 @@ console.log(`content:check OK: ${Object.keys(CONTENT_FILES).length} files parsed
 console.log(lines.join('\n'));
 console.log(`  keywords/                        ${keywordDefs.length - flaws} keywords, ${flaws} Flaws`);
 console.log(`  compiled: ${compiled.ids.length} definitions, hash ${compiled.hash}`);
+console.log(`  deckgen: feasible on every test date`);
 for (const rule of DEFERRED_RULES) console.log(`not yet checked (TODO, §10.3): ${rule}`);

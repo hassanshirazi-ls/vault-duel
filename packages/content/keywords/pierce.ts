@@ -16,4 +16,17 @@ export default defineKeyword({
       if (ctx.evt.attacker === ctx.self && ctx.combat.defPos === 1) ctx.setPierce();
     },
   },
+  examples: [
+    `
+card ex-lancer P ember beast 5/1 pierce
+card ex-wall P ember beast 2/2
+C life 25
+step attack
+P board [ex-lancer A]
+C board [ex-wall G]
+do attack P0 > C0
+expect C0 empty
+expect C life 22
+`,
+  ],
 });

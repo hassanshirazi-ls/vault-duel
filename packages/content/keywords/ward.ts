@@ -11,4 +11,16 @@ export default defineKeyword({
   visual: 'pale-barrier',
   text: 'The first time it would be destroyed, it loses Ward instead.',
   hooks: { beforeDestroy: () => 'prevent' },
+  examples: [
+    `
+card ex-warden P ember beast 2/2 ward
+card ex-hammer C tide beast 5/1
+turn 3
+step attack
+P board [ex-warden G]
+C board [ex-hammer A]
+do attack C0 > P0
+expect P0 card ex-warden
+`,
+  ],
 });

@@ -16,4 +16,17 @@ export default defineKeyword({
       ctx.effect({ op: 'returnToHand', target: 'self' });
     },
   },
+  examples: [
+    `
+card ex-echo P ember beast 2/2 echo
+card ex-hammer P tide beast 5/1
+turn 3
+step attack
+P board [ex-echo G]
+C board [ex-hammer A]
+do attack C0 > P0
+expect P0 empty
+expect P hand has ex-echo
+`,
+  ],
 });

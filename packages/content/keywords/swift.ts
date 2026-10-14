@@ -13,4 +13,22 @@ export default defineKeyword({
   hooks: {
     attackPermission: (q) => (q.enteredThisTurn(q.self) ? { grant: 'monstersOnly' } : {}),
   },
+  examples: [
+    `
+card ex-swift P ember beast 3/2 swift
+card ex-wall P gale beast 1/3
+step attack
+P board [ex-swift A new]
+C board [ex-wall G]
+expect legal attack P0 > C0
+`,
+    `
+card ex-swift P ember beast 3/2 swift
+card ex-runner P gale beast 2/1
+step attack
+P board [ex-swift A new] [ex-runner A]
+expect illegal attack P0 > face
+expect legal attack P1 > face
+`,
+  ],
 });

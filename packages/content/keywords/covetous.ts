@@ -13,4 +13,16 @@ export default defineKeyword({
   hooks: {
     summonRequirement: () => ({ kind: 'sacrifice', appraised: true, zones: ['board', 'vault'] }),
   },
+  examples: [
+    `
+card ex-stolen P ember beast 3/3
+card ex-covetous C ember beast 5/3 covetous
+turn 3
+step main
+C hand ex-covetous
+C vault [ex-stolen appraised]
+expect illegal summon ex-covetous A
+expect legal covetous ex-covetous sac vault:ex-stolen A
+`,
+  ],
 });

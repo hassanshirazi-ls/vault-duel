@@ -18,13 +18,10 @@ export interface ValidationResult {
 
 /**
  * §10.3 rules that are not implemented yet. content:check prints each one, so a green run never hides them.
- * Remove an entry when its rule is implemented here.
+ * Remove an entry when its rule is implemented here. Deck-generation feasibility is implemented in feasibility.ts
+ * (D-200), so no rule is deferred now.
  */
-export const DEFERRED_RULES: readonly string[] = [
-  // TODO(content milestone 3, needs setup/deckgen.ts from the engine, §12.3, not written yet): the generator has to
-  // run on 1,000 test dates. Stays deferred until packages/engine/src/setup/deckgen.ts exists.
-  'deckgen feasibility: DECK constraints satisfiable on 1,000 test dates',
-];
+export const DEFERRED_RULES: readonly string[] = [];
 
 // Covered by the zod pass in src/schemas, so not repeated here: a base card with more than one keyword
 // (keywords .max(1)), a Relic without exactly one Flaw (flaw is a required string), a Flaw on a player card

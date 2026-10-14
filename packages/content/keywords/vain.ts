@@ -11,4 +11,14 @@ export default defineKeyword({
   visual: 'vain-frame', // not given in DESIGN.md (judgment call)
   text: 'Must attack if able, choosing the best legal target.',
   hooks: { mustAttack: () => true },
+  examples: [
+    `
+card ex-vain C ember beast 3/2 vain
+turn 3
+step attack
+C board [ex-vain A]
+expect illegal end
+expect legal attack C0 > face
+`,
+  ],
 });
