@@ -1039,6 +1039,134 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - D-117 stands: the novice bot is uniform random. M-09 stays open, and the sim reports both bots.
 - Not covered: the M-01…M-16 proposals (section M), which wait for Phase 3 sim A/B results, and the D-130 drafts (dialogue, art briefs).
 
+**D-150 · `Run`, `Services` and `IntentPolicy` (pipeline plumbing)**
+- Date: 2026-10-14
+- Question: Engine milestone 3 added `pipeline.ts`. `Run` is one `applyAction`: it owns the `Tx`, the event list (`null` under `{ events: false }`), the FIFO `EffectQueue`, the `EffectHost` and `flush()`. A re-entrant `flush()` does nothing, and the outer drain picks up the new effects. `Services { intent?, appraisal? }` is injected so `turn.ts` could land before `appraisal.ts`. `IntentPolicy` is `(s: GameState) => Intent`, while §5.2 calls the policy with `collectorView(tx)`.
+- Decision: Confirmed as engine-internal (not exported), with these rules:
+  - `Run`: one per `applyAction`, built only by `reducer.ts`. Pipelines take a `Run`; hooks never see it (§8.2).
+  - `IntentPolicy = (s: GameState) => Intent` is final, and it is exported as a type from the package root because `createEngine` takes it (D-096). The engine can't build the `CollectorView`, because it lives in `ai/collector/view.ts` and the engine never imports `ai`. So `ai`'s `intentPolicy` builds `collectorView(s)` itself before deciding, which keeps D-086's guarantee at the `ai` boundary. Contract: the policy is pure and deterministic, and it only reads. `s` is the live draft (§4.1 contract 1), so the policy must not keep references into it.
+  - `createEngine` throws `EngineError` when `FLAGS.INTENTS` is on and no policy is given. The intent is stored state and bots read it (§14), so two engines with and without a policy would diverge on the same seed and log. To run without intents, turn the flag off (`state.cfg` hashes it).
+  - `Services.appraisal` is temporary. When `appraisal.ts` lands, `turn.ts` imports `appraisal()` directly and the field is removed, so no configuration can skip Appraisal silently. `Services` then holds only `intent`.
+  - §5.2 now reads `intentPolicy(tx.state)`. §8.6 lists `Run`, `Services` and `IntentPolicy`.
+- Reason: the injection seam was the right call while modules land in sequence. Once a service is an engine module, an optional field only adds a way to misconfigure the engine. Passing the state and redacting in `ai` is the only option that keeps the dependency direction (§2).
+
+**D-151 · `checkWin`, `lifeChanged` and `endGame` live in `pipeline.ts`**
+- Date: 2026-10-14
+- Question: §5.8 puts `checkWin` in `reducer.ts`. Engine milestone 3 put `checkWin`, `lifeChanged`, `endGame` and `dealDamage` in `pipeline.ts`, and `moodOf` in `mood.ts`, because `EffectHost.lifeChanged` and `combat.ts` need them before the reducer exists.
+- Decision: Confirmed. `reducer.ts` imports them and has no second win check. After any life change, `lifeChanged` emits `MoodChanged` (if the mood changed), then runs `checkWin`, which may emit `GameOver`. So a lethal hit on the Collector emits `MoodChanged{to: desperate}` before `GameOver`. §5.8 and §2 are updated.
+- Reason: `reducer.ts` imports `turn.ts` and `combat.ts`, so keeping the win check there would create an import cycle. One home for "life changed" keeps mood and win checks from drifting apart.
+
+**D-152 · Unstable expiry prevented by Ward — owner ruled (A)**
+- Date: 2026-10-14
+- Question: This case is reachable with launch content: a player Chimera can inherit Ward (Drowned Oathkeeper, Candle Templar) and be Unstable (e.g. Candle Templar + Nightglass Wyrm, Lumen + Umbra → Dragoon Abomination 9/5 with Ward, 12 Power while Unstable). D-044 and D-062 say Ward prevents the expiry destruction, but neither says what happens to the Unstable bonus after that. Engine milestone 3 leaves `unstableUntil` set to a past turn. Because the bonus applies while `unstableUntil ≥ 0` (§4, D-031), the Chimera keeps +`UNSTABLE_BONUS` Power forever and is never checked again. This changes what the player experiences, so it is the owner's call.
+- Options:
+  - (A) Ward saves the Chimera and Unstable ends: the +3 is lost and no new timer starts. In the engine, the Ward replacement for cause `'unstable'` also sets `unstableUntil = -1`.
+  - (B) Ward saves it and it keeps +3 permanently. This is the current code and the most literal reading ("the Chimera gets +3 Power" has no end).
+  - (C) Ward saves it and it stays Unstable, with a new timer for the end of its controller's next turn.
+- Recommendation: (A). Unstable is a bargain (+3 now, destroyed later), so Ward should buy survival, not a permanent +3. Under (B) that Dragoon Abomination stays at 12 Power for the rest of the duel and stays an Appraisal target (≥ `APPRAISAL_MIN_POWER`) every round. (C) invents a second timer that DESIGN doesn't mention.
+- Ruling (owner, 2026-10-14): (A). When Ward prevents the Unstable expiry destruction, the Ward replacement also sets `unstableUntil = -1`, so the +3 is lost and no new timer starts. Engine-dev pins this with one scenario test.
+- Settled now (event plumbing, not a rule): `UnstableExpired` is emitted for every monster whose timer ran out, before the batch. Each one is then followed by either `WardBroken` or `Destroyed`.
+
+**D-153 · `DrawSkipped` reasons**
+- Date: 2026-10-14
+- Question: Engine milestone 3 emits `DrawSkipped{handFull}` whenever the draw step wants 0 cards. That happens on every full-hand turn, round 1 included (D-012). It emits `DrawSkipped{deckEmpty}` when the deck holds fewer cards than wanted (D-013).
+- Decision: Confirmed. The draw step emits at most one `DrawSkipped`. `handFull` means `HAND_SIZE − hand ≤ 0`; it takes precedence when the deck is also empty, because nothing was wanted. `deckEmpty` comes after the `CardDrawn` events of a partial draw. Effect draws ignore the cap (D-011), so they emit only `deckEmpty`. The UI may ignore `handFull`.
+- Reason: one small event per skipped draw step makes "why didn't I draw?" answerable from the log, and it costs nothing in the sim (`{ events: false }`).
+
+**D-154 · Covetous summon events and `Track.unpriced`**
+- Date: 2026-10-14
+- Question: A Covetous summon emits `Sacrificed{reason:'covetous'}`, then `Summoned`, then `CovetousSummoned` (which has no `pos`). Is the double event intended? `Track.unpriced` is set when the summoned def equals `c.collector.ace`.
+- Decision: Confirmed as is. `Summoned` is the one event for every board entry made by a summon action, and it pairs 1:1 with the `onSummon` dispatch (D-122). Anything that counts summons listens to `Summoned` alone. `CovetousSummoned` is an extra marker that links the ace to its sacrifice for the UI. It has no position because `Summoned` already carries one. A Graft is different: `Grafted` replaces `Summoned` because a Graft doesn't dispatch `onSummon`. `Track.unpriced` keys on `c.collector.ace` (D-162). `reason: 'covetous'` is an event label that means "sacrifice summon", not a keyword lookup.
+- Reason: each event has one meaning, and removing either one would make some consumer infer a fact from a neighbouring event.
+
+**D-155 · The first attack closes Reposition and forfeits the play inside `declareAttack`**
+- Date: 2026-10-14
+- Question: `declareAttack` itself sets `step = 'attack'` and `played = true` (D-014).
+- Decision: Confirmed. Every play (summon, Covetous, set trap, and the Graft commit and `cast` when they land) uses the same tail: `played = true; step = 'attack'`. `legal.ts` reads only `step` and `played`.
+- Reason: the state change belongs to the action that causes it, so there is one rule and no reducer special case.
+
+**D-156 · Combat event semantics**
+- Date: 2026-10-14
+- Question: Engine milestone 3 fixed the meaning and order of the combat events.
+- Decision: Confirmed:
+  - `CombatResolved` is emitted after the `beforeCombat` effects and before the destruction batch. `destroyed` is the set the outcome marks for destruction, before Ward. What actually happened comes from the `WardBroken`/`Destroyed` events that follow.
+  - `aP` includes the element bonus. `dStat` is the stat the attack is compared against: the defender's Power in attack position, its Guard in guard position. `previewCombat` uses the same fields.
+  - Damage: no v0.1 outcome damages both sides. The code applies the attacker side's damage, then the defender side's, with a win check after each. `source` is the opposing combatant (the monster whose stat caused it), even if that monster was destroyed in the batch.
+  - Direct attacks emit no `CombatResolved`, only one `Damage` with `source` = the attacker.
+- Reason: listeners can tell "what the fight decided" apart from "what Ward changed", with no duplicated fields.
+
+**D-157 · Fizzled attacks emit no event; `AttackCancelled` order**
+- Date: 2026-10-14
+- Question: §7 has no fizzle event. Engine milestone 3 emits nothing when `onAttackDeclared` or `beforeCombat` effects remove a combatant. It emits `AttackCancelled` before the cancelling card's other queued effects.
+- Decision: Confirmed. Order: `AttackDeclared` → the `TrapTriggered` events from the `onAttackDeclared` list → `AttackCancelled{by}`, once, after the list → events from queued effects (Mirror Sigil's `StatsModified`, the `PositionChanged` from Display Case or Thornwall). A fizzle ends the attack with no further event, and the attacker stays marked as having attacked (D-033). No launch content can cause a fizzle. If future content can, add an `AttackFizzled` event then.
+- Reason: no event exists for a case no card can produce, and the cancellation is visible before the effects it caused.
+
+**D-158 · `onDestroyed`: dispatch the whole batch, then flush once** (changed)
+- Date: 2026-10-14
+- Question: Engine milestone 3 flushes queued effects after each destroyed monster's `onDestroyed` dispatch, so monster 1's Echo is visible to monster 2's hooks. §5.5 and §8.3 rule 2 don't settle it. But `Run.flush()` does nothing when the batch was raised by an effect that is already draining (the `destroy` op). So the same batch would resolve one way from combat or Unstable expiry and another way from a future multi-target destroy effect.
+- Decision: Changed. `destroyBatch` dispatches `onDestroyed` for every destroyed monster in batch order (each monster's own hooks first, D-122), then flushes once. The queue is FIFO, so effects still run monster by monster. Every hook in the batch sees the same post-removal board. This depends on traps being spent at dispatch time (§8.3 rule 3, D-071): `traps.ts` must move a firing trap to its owner's discard and emit `TrapTriggered` when its subscriber runs, like `cancelAttack` (D-122), not in a queued effect. A fresh `Dispatcher` is built per monster, so a trap spent for monster 1 is never offered for monster 2. If monster 1's effects end the game, monster 2's hooks were already dispatched, and their effects are dropped (§8.3 rule 5).
+- Reason: this resolves a batch the same way whether it comes from the top level or from inside a drain. It matches "simultaneous destructions are one batch" (§8.3 rule 2) and D-045's "after the whole destruction batch resolved". With launch content, only the order of events changes.
+
+**D-159 · `ModifierExpired` is per monster**
+- Date: 2026-10-14
+- Question: Engine milestone 3 emits one `ModifierExpired` per monster, not per modifier. It does so after the Unstable destruction, only for monsters still on the board, and not if the game ended.
+- Decision: Confirmed. At the end of turn t, `ModifierExpired{iid}` goes once to each board monster (active side first, slot order) that has at least one timed modifier with `until === t`, before `TurnEnded`. Expired modifiers stay in `Monster.timed` and just stop applying (D-031). The UI recomputes stats; it doesn't need to know which modifier expired.
+- Reason: the event only tells the UI to refresh a card, and monsters that left the board have no card to refresh.
+
+**D-160 · `EffectHost.destroy(iids)` has no `by` parameter** (changed)
+- Date: 2026-10-14
+- Question: `EffectHost.destroy(iids, by)` ignores `by`, because effect destruction never has a destroyer (D-045, D-131).
+- Decision: Changed. The signature becomes `destroy(iids: readonly Iid[]): void`, which always means `destroyBatch(run, iids, 'effect')` with no destroyer. If a future effect needs a destroyer, add a parameter then, together with a DSL ref.
+- Reason: a parameter that is always ignored makes a caller think it does something.
+
+**D-161 · Deferred to later modules: reposition, dev-mode freezing, initial mood**
+- Date: 2026-10-14
+- Question: Engine milestone 3 left three things for later: `reposition` (with `Revealed` on a face-down flip), deep-freezing committed states in dev mode (D-141), and setting `collector.mood` from life at setup. Fixtures use mood 0, so a fixture whose Collector life isn't Composed emits a spurious `MoodChanged` at its first life change.
+- Decision:
+  - **Reposition** goes in a new `reposition.ts`, called by `reducer.ts`, with legality in `legal.ts` (D-014, D-022, D-023). A face-up monster toggles `pos`. A face-down monster becomes face-up attack, emitting `Revealed{iid, side}` and then `Repositioned{iid, pos: 0}`. Either way `repositioned = turn`. No hook fires, the play is not used and `step` doesn't change.
+  - **Dev freeze** goes in `reducer.ts › applyAction`: after `tx.commit()`, `if (env.dev) deepFreeze(next)`. `newGame` freezes its state in dev mode too. `deepFreeze` skips frozen objects, so shared subtrees aren't walked again.
+  - **Initial mood:** `setup/initial-state.ts` sets `collector.mood = moodOf(sides[1].life, g)` and `intent = null`. The board-DSL fixture builder (`test-utils/board-dsl.ts`) derives the mood the same way from the fixture's Collector life. Only setup and `lifeChanged` ever write the mood.
+- Reason: each item belongs to the module that owns that step. Deriving the mood in one way everywhere removes the fixture artefact.
+
+**D-162 · The engine has no card or keyword ids**
+- Date: 2026-10-14
+- Question: Engine milestone 3 finds Ward by its `beforeDestroy` hook and the ace by `c.collector.ace`. It has no id literals.
+- Decision: Confirmed (a grep of `packages/engine/src` outside tests finds no card or keyword id). Ward is found by its hook (D-133), the ace via `CompiledContent.collector.ace`, and Covetous via `summonRequirement` (D-137). The rule is added to the §19 checklist.
+- Reason: content stays data-only (§1.3).
+
+**D-163 · Trap and spell ref sets; where `cancelAttack` may appear**
+- Date: 2026-10-14
+- Question: `validate.ts` restricts the refs each trap trigger may use, and spells may use only `chosen`. These sets weren't written down anywhere. Separately, the interpreter throws `EngineError` if `cancelAttack` is ever queued (D-122), but no validator rule stops a spell or a non-attack trap from using it.
+- Decision: The sets are confirmed and written into §9.1:
+
+  | Trigger | Hook | Refs |
+  | --- | --- | --- |
+  | `enemyAttack` | `onAttackDeclared` | `attacker`, `defender` (`-1` on a direct attack: the effect fizzles) |
+  | `enemyDirectAttack` | `onAttackDeclared` | `attacker` |
+  | `allyDestroyed` | `onDestroyed` | `destroyed`, `destroyer` (`-1` unless destroyed in combat: fizzles) |
+  | `enemyGraft` | `onGraft` | `grafted` |
+
+  Spells may use only `chosen`. `self` isn't available to spells or traps, because the card isn't on a board, so it would always fizzle. The table stays in `validate.ts` as `Record<TrapTrigger, …>`, so adding a trigger fails to compile until the table is updated. **Added rule:** `cancelAttack` is allowed only in traps whose trigger is `enemyAttack` or `enemyDirectAttack`. Anywhere else it is a validator error: `cards/player-spells.json › x › "cancelAttack" only works in a trap with trigger enemyAttack or enemyDirectAttack › remove it or change the trigger`.
+- Reason: these are exactly the refs `hooks/dispatch.ts` binds per hook. The new rule turns a runtime `EngineError` into a `content:check` error, which is the validator's job.
+
+**D-164 · Validator wording that §10.3 doesn't give**
+- Date: 2026-10-14
+- Question: content-author wrote the messages for an orphan art brief, the pool-size warning and some spell-ref problems. §10.3 has no text for them.
+- Decision: Confirmed, and added to §10.3 as the reference examples:
+  - `art-briefs.json › x › orphan brief, no card or Chimera family has this id › delete the entry`
+  - `cards/player-monsters.json › pool › has 24 monsters, expects POOL_MONSTERS=25 › add or remove monsters, or change POOL_MONSTERS in globals.ts` (a warning)
+  - `… › ref "attacker" is not available for spells › use "chosen" with a target spec`
+  - `… › has a "target" but no effect uses "chosen" › remove "target" or use "chosen" in an effect`
+  
+  The deck-entry "no longer exists" message already matches §10.3's delete-a-card example.
+- Reason: the messages follow the `<problem> › <how to fix>` pattern, and each says what to do.
+
+**D-165 · `formatError` omits an empty field**
+- Date: 2026-10-14
+- Question: content-author changed `load.ts › formatError` to drop the `field:` part when a problem concerns the whole entry (`field === ''`), to match the §10.3 examples. `load.ts` was outside the files the task allowed.
+- Decision: Confirmed, and the change stays. The line format is `<file> › <entry> › [<field>: ]<problem> › <how to fix>`; the field is omitted for whole-entry problems. §10.3 and D-146's format line are read this way. Edits outside the assigned files must be listed in the hand-off, which this one was.
+- Reason: without the change, every cross-file message would carry a stray `: `. The change is one line, and it makes the code match the documented examples.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
@@ -1072,11 +1200,12 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 
 ## L. Summary of items needing owner review
 
-> **2026-10-14:** the owner confirmed every D-row below (D-149). Only the M-01…M-16 row is still open.
+> **2026-10-14:** the owner confirmed every D-row below up to D-149 (D-149). D-152 (added after D-149) was ruled (A) the same day. Still open: the M-01…M-16 row.
 
 | Id | Topic | Why |
 | --- | --- | --- |
 | M-01…M-16 | Balance/rule proposals from the paper-sim (section M) | None applied; each needs a Phase 3 sim A/B test and an owner decision |
+| D-152 | Ward saves an Unstable Chimera from expiry: does it keep the +3? | DESIGN is silent and it's reachable with launch cards. Owner ruled (A): Unstable ends and the +3 goes |
 | D-019 | No life cap (changed after paper-sim) | First draft capped life; DESIGN states no cap |
 | D-083 | Rule 3 "beats" uses the combat preview (element bonus, Guard vs a guard target) | Changed after paper-sim; affects which Relic answers your monster |
 | D-089 | Collector reposition: guard → attack only | Simplified after paper-sim |

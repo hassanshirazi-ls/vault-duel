@@ -37,9 +37,14 @@ project-daily/
 │  │     ├─ freeze.ts           # deepFreeze (public; dev-mode states, content globals; D-147)
 │  │     ├─ setup/{seed,deckgen,shuffle,initial-state}.ts
 │  │     ├─ tx.ts               # copy-on-write transaction (draft) over GameState
-│  │     ├─ reducer.ts          # applyAction dispatch
+│  │     ├─ pipeline.ts         # Run (Tx + events + effect queue), Services, IntentPolicy;
+│  │     │                      # lifeChanged, checkWin, endGame, dealDamage (D-150, D-151)
+│  │     ├─ monster.ts          # Monster record factory (§18.7)
+│  │     ├─ track.ts            # emptyTrack, markRound (Track writes inside the Tx)
+│  │     ├─ reducer.ts          # applyAction dispatch (imports checkWin from pipeline.ts)
 │  │     ├─ legal.ts            # getLegalActions / forEachLegal / isLegal
 │  │     ├─ turn.ts             # start/end of turn, draw step, round-12 seal
+│  │     ├─ reposition.ts       # reposition action, face-down flip reveal (D-161)
 │  │     ├─ stats.ts            # effectivePower/Guard, keywords active, advantage
 │  │     ├─ combat.ts           # attack pipeline + combat preview
 │  │     ├─ destroy.ts          # destruction batch, Ward replacement, zone moves
@@ -376,31 +381,40 @@ system: shroud of active side expires (lazy: shroudUntil === turn → emit Shrou
 dispatch onTurnStart                                   (§8.3 order)
 if side === Collector && FLAGS.APPRAISAL && APPRAISAL_ROUNDS.includes(round): appraisal()   (§5.7)
 draw step: n = min(MAX_DRAW_PER_TURN, max(0, HAND_SIZE − hand.length), deck.length)  (D-011)
-if side === Player && FLAGS.INTENTS: collector.intent = intentPolicy(collectorView(tx))   (D-095)
+           wanted 0 → DrawSkipped{handFull}; deck short → CardDrawn… then DrawSkipped{deckEmpty}  (D-153)
+if side === Player && FLAGS.INTENTS: collector.intent = intentPolicy(tx.state); emit IntentSet   (D-095, D-150)
 step = 'main'; played = false
 ```
+
+The policy receives the state, not a view: `ai`'s `intentPolicy` builds `collectorView(s)` itself, because the engine can't import `ai` (D-150). `createEngine` throws `EngineError` if `FLAGS.INTENTS` is on and no policy is given. `appraisal()` is imported directly from `appraisal.ts` once it exists. Until then it is the temporary `Services.appraisal` hook.
 
 ### 5.3 End of turn (`turn.ts › endTurn`) — D-017
 
 ```
 dispatch onTurnEnd
 system: destroy every monster (both boards, active side first, slot order) with unstableUntil === turn   (destroy batch, §5.5)
+        emit UnstableExpired for each first; each is then followed by WardBroken or Destroyed (D-152)
+        Ward-saved: the Ward replacement also sets unstableUntil = -1, so the +UNSTABLE_BONUS is lost (D-152, owner ruled A)
+emit ModifierExpired once per surviving monster with a timed mod whose until === turn   (D-159)
 emit TurnEnded
 if turn === 2*MAX_ROUNDS − 1 and no result: result = { winner: Collector, reason: 'vaultSealed', round: MAX_ROUNDS }; emit VaultSealed, GameOver
 else turn += 1; startTurn()
 ```
 
-Timed modifiers and Gilt Frame need no cleanup: they stop applying when `turn > until` (emit `ModifierExpired` at end of their last turn for the UI).
+Timed modifiers and Gilt Frame need no cleanup: they stop applying when `turn > until`. `ModifierExpired` only tells the UI to refresh that card.
 
 ### 5.4 Attack pipeline (`combat.ts`) — D-032
 
 ```
 declare(attacker A, target T | direct):
   A.attacked = turn; track.round[round−1] |= RoundFlag.Attacked (player)
+  step = 'attack'; played = true                          // first attack closes Reposition, forfeits the play (D-014, D-155)
   emit AttackDeclared
   ctx = { cancelled: false }
   dispatch onAttackDeclared (attacker-side monsters, then defender traps in slot order)   // Snare, Mirror Sigil, Thornwall, Display Case
-  if cancelled: emit AttackCancelled; return
+  if cancelled: emit AttackCancelled                      // once, after the list, before queued effects (D-157)
+  run queued effects; if cancelled: return
+  if A or T (not direct) left the board: return           // fizzle, no event (D-157)
   if direct: damage(defender side, power(A)); checkWin; return
   if T.faceDown: reveal T (faceDown=false, pos=guard); emit Revealed
   combat = snapshot { aP = power(A) + (advantage(A,T) ? ELEMENT_BONUS : 0), dP = power(T), dG = guard(T),
@@ -412,10 +426,13 @@ declare(attacker A, target T | direct):
      brittleWin   → destroyed {T}; dmg to T.side = defPos=atk ? max(0,aP−dP) : (pierce ? max(0,aP−dG) : 0)
      defPos=atk   → aP>dP: destroyed {T}, dmg T.side aP−dP | aP<dP: destroyed {A}, dmg A.side dP−aP | tie: {A,T}, 0
      defPos=guard → aP>dG: destroyed {T}, dmg T.side = pierce ? aP−dG : 0 | aP<dG: dmg A.side dG−aP | tie: nothing
-  emit CombatResolved{…outcome}
+  emit CombatResolved{…outcome}                           // destroyed = intended set before Ward; dStat = dP (atk) | dG (guard) (D-156)
   destroyBatch(outcome.destroyed, cause: combat, destroyerOf: {T→A, A→T})        // §5.5 — before damage
   apply damage amounts (fixed by snapshot); checkWin                               // "keywords and traps resolve before damage"
+                                                          // attacker's side first, then defender's; source = opposing combatant (D-156)
 ```
+
+A direct attack emits no `CombatResolved`, just one `Damage` with `source` = the attacker.
 
 `previewCombat(state, A, T)` runs the same `resolve` without side effects (used by the UI, the Collector AI with public info, and bots). For a face-down target, preview returns `unknown`.
 
@@ -431,7 +448,11 @@ destroyBatch(list, cause, destroyerOf?):
   track: player-controlled → round[round−1] |= RoundFlag.LostMonster
   for each m in order: dispatch onDestroyed: m's own hooks with LKI (Haunt, Echo), then other subscribers (traps: Last Rites, Insurance Claim)
                        // LKI = DestroyedEvt (§8.1); m's own hooks are selected by LKI.kw, not by its (gone) board record (D-122)
+                       // a firing trap is spent at dispatch time (to discard + TrapTriggered), so a later m never sees it
+  flush the effect queue ONCE, after the whole batch (FIFO, so m1's effects still run before m2's) (D-158)
 ```
+
+Flushing once per batch means a batch resolves the same way from combat, Unstable expiry or a `destroy` effect. When the batch comes from an effect, `Run.flush()` is a no-op and the outer drain runs the queued effects.
 
 Leaving the board resets all board state (D-043) because the `Monster` record is simply dropped.
 
@@ -469,9 +490,9 @@ else vault.push(iid), emit Appraised{to:'vault'}
 appraisal.successes++, taken.push(iid); track.round[round−1] |= RoundFlag.Appraised; track.appraisedLost++
 ```
 
-### 5.8 Win check (`reducer.ts › checkWin`) — D-018
+### 5.8 Win check (`pipeline.ts › lifeChanged / checkWin / endGame`) — D-018, D-151
 
-After every life change: Collector ≤ 0 → `{winner:0, reason:'collectorDefeated'}`; else player ≤ 0 → `{winner:1, reason:'playerDefeated'}`. Sets `step = 'over'`, emits `GameOver`, aborts remaining queued hooks.
+After every life change, `lifeChanged` refreshes the mood (`MoodChanged` if it changed, D-080) and then calls `checkWin`: Collector ≤ 0 → `{winner:0, reason:'collectorDefeated'}`; else player ≤ 0 → `{winner:1, reason:'playerDefeated'}`. `endGame` sets `result`, sets `step = 'over'`, emits `GameOver`, and the remaining queued effects are dropped. These live in `pipeline.ts`, not `reducer.ts`, because the effect interpreter and `combat.ts` need them and the reducer imports both. `reducer.ts` imports them and has no second check.
 
 ---
 
@@ -568,16 +589,16 @@ export type GameEvent =
   | { e: 'Redrawn'; returned: readonly Iid[]; drawn: readonly Iid[] }
   | { e: 'TurnStarted'; turn: number; round: number; side: Side }
   | { e: 'CardDrawn'; side: Side; iid: Iid; byEffect: boolean }
-  | { e: 'DrawSkipped'; side: Side; reason: 'handFull' | 'deckEmpty' }
+  | { e: 'DrawSkipped'; side: Side; reason: 'handFull' | 'deckEmpty' }   // ≤ 1 per draw step; effect draws: deckEmpty only (D-153)
   | { e: 'IntentSet'; intent: Intent }
   | { e: 'MoodChanged'; from: Mood; to: Mood }
   | { e: 'AppraisalAttempt'; round: number }
   | { e: 'Appraised'; iid: Iid; fromSlot: number; to: 'board' | 'vault'; toSlot: number }
   | { e: 'AppraisalFailed'; round: number; reason: 'noTarget' }
   | { e: 'Repositioned'; iid: Iid; pos: Pos }
-  | { e: 'Revealed'; iid: Iid; side: Side }
-  | { e: 'Summoned'; side: Side; iid: Iid; slot: number; pos: Pos; faceDown: boolean }
-  | { e: 'CovetousSummoned'; iid: Iid; sacrificed: Iid; slot: number }
+  | { e: 'Revealed'; iid: Iid; side: Side }           // combat reveal, or reposition flip (then Repositioned, D-161)
+  | { e: 'Summoned'; side: Side; iid: Iid; slot: number; pos: Pos; faceDown: boolean } // every summon action, 1:1 with onSummon
+  | { e: 'CovetousSummoned'; iid: Iid; sacrificed: Iid; slot: number }  // marker after Summoned: Sacrificed → Summoned → this (D-154)
   | { e: 'Sacrificed'; iid: Iid; reason: 'graft' | 'covetous'; from: 'hand' | 'board' | 'vault' }
   | { e: 'GraftStarted' } | { e: 'GraftStep'; stage: GraftStage; mats: readonly Iid[] } | { e: 'GraftCancelled' }
   | { e: 'Grafted'; side: Side; iid: Iid; family: DefIdx; element: ElemIdx; materials: readonly Iid[];
@@ -588,7 +609,7 @@ export type GameEvent =
   | { e: 'AttackDeclared'; attacker: Iid; target: Iid | -1 }
   | { e: 'AttackCancelled'; attacker: Iid; by: Iid }
   | { e: 'CombatResolved'; attacker: Iid; defender: Iid; aP: number; dStat: number; advantage: boolean;
-      pierce: boolean; brittle: boolean; destroyed: readonly Iid[] }
+      pierce: boolean; brittle: boolean; destroyed: readonly Iid[] }  // destroyed = before Ward; dStat = dP | dG (D-156)
   | { e: 'Damage'; side: Side; amount: number; source: Iid | -1; lifeAfter: number }
   | { e: 'LifeGained'; side: Side; amount: number; source: Iid; lifeAfter: number }
   | { e: 'StatsModified'; iid: Iid; p: number; g: number; duration: Duration; source: Iid }
@@ -597,12 +618,14 @@ export type GameEvent =
   | { e: 'Destroyed'; iid: Iid; side: Side; cause: 'combat' | 'effect' | 'unstable'; by: Iid | -1 }
   | { e: 'ReturnedToHand'; iid: Iid; side: Side; from: 'board' | 'discard'; source: Iid }
   | { e: 'ShroudApplied'; iid: Iid; until: number } | { e: 'ShroudExpired'; iid: Iid }
-  | { e: 'ModifierExpired'; iid: Iid }
-  | { e: 'UnstableExpired'; iid: Iid }
+  | { e: 'ModifierExpired'; iid: Iid }                // once per surviving monster, not per modifier (D-159)
+  | { e: 'UnstableExpired'; iid: Iid }                // timer ran out; followed by WardBroken or Destroyed (D-152)
   | { e: 'TurnEnded'; turn: number }
   | { e: 'VaultSealed' }
   | { e: 'GameOver'; result: Result };
 ```
+
+There is no fizzle event. An attack whose combatant leaves the board before resolution just ends (D-157).
 
 ---
 
@@ -709,7 +732,7 @@ Hooks never touch the `Tx` directly: they read through `QueryCtx` and act throug
 
 1. **Subscriber order for one event**: (a) engine system rules (fixed, documented in §5); (b) for `onDestroyed`, the destroyed monster's own hooks first, using last-known information; (c) active side's board monsters in slot order; (d) inactive side's board monsters in slot order; (e) active side's traps in slot order; (f) inactive side's traps in slot order. Within one card: keyword bits in registry order (keywords sorted by id, then Flaws sorted by id). Every event hook uses this order, `beforeCombat` included, so bystander monsters are called too and keyword hooks check whether `self` is a combatant (D-135). **Exception:** `beforeDestroy` asks only the monster being destroyed (its own active bits), never neighbours or traps (D-134).
 2. **Queue, no recursion**: effects queued by hooks run after the current subscriber list finishes; events those effects raise (e.g. a destruction) are processed FIFO. Simultaneous destructions are one batch (§5.5).
-3. **Traps fire once**: a trap is moved to its owner's discard *before* its effects run (emit `TrapTriggered`), so it cannot re-trigger; identical traps → only the leftmost fires (D-071).
+3. **Traps fire once**: a trap is moved to its owner's discard *before* its effects run (emit `TrapTriggered`), so it cannot re-trigger; identical traps → only the leftmost fires (D-071). The move happens when the trap's subscriber runs, like `cancelAttack`, not in a queued effect, so the next monster's dispatch in the same destruction batch no longer sees the trap (D-158).
 4. **Cancellation is visible**: after `cancelAttack`, later `onAttackDeclared` subscribers see `ctx.cancelled === true`; trap conditions on an attacking monster fail, so later traps stay set.
 5. **Game over stops everything**: once `result` is set, the queue is dropped.
 6. **Query hooks are order-independent**: permission is a lattice (§6.2), `restrictTargets` is an intersection, `mustAttack` is OR, `staticPower` is a sum, `summonRequirement` takes the most restrictive (any `sacrifice` beats `normal`; several `sacrifice` results intersect their `zones`, and an empty intersection means the card can't be summoned; D-137), `beforeDestroy` stops at the first `'prevent'`. The same holds for `beforeCombat` flags: hooks read only the pre-hook `CombatSnapshot`, and `setPierce`/`setBrittleWin` are OR-folded after the list (D-124).
@@ -805,8 +828,11 @@ The five legality-constraining keywords (Sentinel, Swift, Vain, Slow, Covetous) 
 | `Refs` | `effects/run.ts` | One field per DSL `Ref` (§9.1), bound when an effect is queued; `-1` = absent |
 | `QueuedEffect { effect, refs, source, side }` | `effects/run.ts` | One queued primitive. `side` = the source's controller at queue time; durations are relative to it (D-136) |
 | `EffectSink { queue, emit }` | `effects/run.ts` | What hook contexts write into |
-| `EffectHost { emit, destroy, lifeChanged }` | `effects/run.ts` | How the interpreter reaches later pipelines. `destroy` = `destroyBatch(…, cause 'effect', no destroyer)`; Unstable expiry and combat call `destroyBatch` (§5.5) with their own cause |
+| `EffectHost { emit, destroy(iids), lifeChanged }` | `effects/run.ts` | How the interpreter reaches later pipelines. `destroy(iids)` = `destroyBatch(…, cause 'effect')`, with no destroyer and no `by` parameter (D-160). Unstable expiry and combat call `destroyBatch` (§5.5) with their own cause |
 | `Dispatcher` | `hooks/dispatch.ts` | One per dispatch. Collects subscribers into a local list first (§4.1 contract 1), then calls them in §8.3 order |
+| `Run` | `pipeline.ts` | One per `applyAction`, built by `reducer.ts`: the `Tx`, the event list (`null` under `{ events: false }`), the FIFO `EffectQueue`, the `EffectHost`, and `flush()`. A re-entrant `flush()` is a no-op, and the outer drain runs the new effects (D-150) |
+| `Services { intent? }` | `pipeline.ts` | Injected services. `intent` comes from `createEngine` (D-096). `appraisal?` is temporary and is removed when `appraisal.ts` lands (D-150) |
+| `IntentPolicy = (s: GameState) => Intent` | `pipeline.ts`, type exported from the root | Pure, read-only, keeps no references into `s`. `ai` builds `collectorView(s)` inside it. Required when `FLAGS.INTENTS` is on (D-150) |
 
 ---
 
@@ -863,6 +889,14 @@ export interface TrapDef  { readonly trigger: TrapTrigger; readonly when?: Cond;
 
 Semantics:
 - Targets: `chosen` = the action's `target`; event refs come from the triggering event (`attacker`, `defender`, `destroyed`, `destroyer`, `grafted`). A ref that no longer points to a valid object (e.g. left the board) makes that effect fizzle silently.
+- Refs each card may use (validator, D-163). Spells may use only `chosen`. `self` is never available to spells or traps, because the card isn't on a board. `cancelAttack` may appear only in traps with an attack trigger.
+
+  | Trap trigger | Hook | Refs |
+  | --- | --- | --- |
+  | `enemyAttack` | `onAttackDeclared` | `attacker`, `defender` (`-1` on a direct attack: fizzles) |
+  | `enemyDirectAttack` | `onAttackDeclared` | `attacker` |
+  | `allyDestroyed` | `onDestroyed` | `destroyed`, `destroyer` (`-1` unless destroyed in combat: fizzles) |
+  | `enemyGraft` | `onGraft` | `grafted` |
 - Conditions: `TargetSpec.where` filters candidates during legality; `TrapDef.when` is checked when the trap's turn in the subscriber list comes (D-071); `Effect.if` is checked just before the effect resolves.
 - Durations are relative to the card's controller at cast/trigger time (`QueuedEffect.side`) and stored as absolute turn indices (`TimedMod.until`, `shroudUntil`). Let `n` be the controller's next own turn: `turn + DURATION_NEXT_OWN_TURN` if the controller is the active side, else `turn + 1` (D-136):
 
@@ -1055,10 +1089,10 @@ export const Recipe = z.object({ id: Id, name: z.string(), kinds: z.tuple([Id, I
 Error format, one line per problem, all problems reported at once, non-zero exit:
 
 ```
-<file> › <entry id or index> › <field>: <problem> › <how to fix>
+<file> › <entry id or index> › [<field>: ]<problem> › <how to fix>
 ```
 
-Parse errors come from zod 4 issues rendered by `load.ts › describeIssue` (D-146). Cross-file rules produce the same record shape.
+Parse errors come from zod 4 issues rendered by `load.ts › describeIssue` (D-146). Cross-file rules produce the same record shape. `load.ts › formatError` leaves out the `<field>: ` part when the problem concerns the whole entry (field `''`, D-165).
 
 | Rule | Example message |
 | --- | --- |
@@ -1079,17 +1113,19 @@ Parse errors come from zod 4 issues rendered by `load.ts › describeIssue` (D-1
 | unknown deck reference / wrong pool | `collector.json › deck[4] › "halo-stag" is a player card › use a card from relics.json or collector-*.json` |
 | Covetous off the ace | `cards/relics.json › ashen-duchess › Covetous is ace-only › change flaw or set collector.json ace` |
 | unknown global ref in effect | `cards/player-spells.json › unmake › "$UNMAKE_MAX_POWR" not in globals.ts › did you mean $UNMAKE_MAX_POWER?` |
-| effect/target mismatch | `cards/player-spells.json › bloodlust › effect uses target "chosen" but card has no "target" › add a target spec` |
-| trap ref not available for trigger | `cards/player-traps.json › x › ref "grafted" is not available for trigger "enemyAttack" › use attacker or defender` |
+| effect/target mismatch | `cards/player-spells.json › bloodlust › effect uses target "chosen" but card has no "target" › add a target spec`; the reverse: `… › has a "target" but no effect uses "chosen" › remove "target" or use "chosen" in an effect` (D-164) |
+| spell ref other than `chosen` (D-163) | `cards/player-spells.json › x › ref "attacker" is not available for spells › use "chosen" with a target spec` |
+| trap ref not available for trigger (§9.1 table, D-163) | `cards/player-traps.json › x › ref "grafted" is not available for trigger "enemyAttack" › use attacker or defender` |
+| `cancelAttack` outside an attack-trigger trap (D-163) | `cards/player-spells.json › x › "cancelAttack" only works in a trap with trigger enemyAttack or enemyDirectAttack › remove it or change the trigger` |
 | card text > one sentence | `cards/... › id › text has 2 sentences › shorten to one sentence` |
-| art brief missing / orphan | `art-briefs.json › gale-serpent › missing art brief › add a one-line "mood · pose · palette"` |
+| art brief missing / orphan | `art-briefs.json › gale-serpent › missing art brief › add a one-line "mood · pose · palette"` / `art-briefs.json › x › orphan brief, no card or Chimera family has this id › delete the entry` (D-164) |
 | objective metric unknown | `objectives.json › win-fast › unknown metric "rounds" › use one of: grafts, playerLife, round, appraisedLost` |
 | keyword file problems | `keywords/haunt.ts › id "haunted" ≠ file name › rename the file or the id` / `keywords/index.gen.ts › stale › run pnpm content:gen` |
 | deckgen feasibility | `cards/player-monsters.json › pool › deck constraints unsatisfiable on 3 of 1000 test dates › relax DECK_MIN_KINDS or add monsters` |
 | globals sanity (`GlobalsSchema`, D-147) | `globals.ts › APPRAISAL_ROUNDS › round 13 > MAX_ROUNDS=12 › remove it`; also every `Range` has min ≤ max, and `WARD_CHARGES` must be 1 until the engine has a charge counter (D-133) |
 | delete-a-card reverse refs | `collector.json › deck[7] › "kiln-born-leviathan" no longer exists › remove the reference` |
 
-Pool-size expectations (25/6/4) are warnings, not errors, so content can grow.
+Pool-size expectations (25/6/4) are warnings, not errors, so content can grow: `cards/player-monsters.json › pool › has 24 monsters, expects POOL_MONSTERS=25 › add or remove monsters, or change POOL_MONSTERS in globals.ts` (D-164).
 
 ---
 
@@ -1350,7 +1386,7 @@ The policy is a pure function of the view, so the Collector is deterministic. Th
 ### 13.4 Moods and intents
 
 - Mood: engine (`mood.ts`) computes from life (D-080), emits `MoodChanged`; AI reads `view.mood`. Dialogue from `collector.json › dialogue` (D-097).
-- Intent: `ai/collector/intent.ts › intentPolicy(view)` simulates the rule lists on the current view (no hidden info) and returns `appraise | attack | scheme | guard` with the priority in D-095. Injected into the engine (D-096), stored in `state.collector.intent`, shown by `IntentBadge`.
+- Intent: `ai/collector/intent.ts › intentPolicy: IntentPolicy` takes the `GameState`, builds `collectorView(s)` first, then simulates the rule lists on that view (no hidden info) and returns `appraise | attack | scheme | guard` with the priority in D-095. It is injected into the engine (D-096, D-150; required when `FLAGS.INTENTS` is on), stored in `state.collector.intent`, and shown by `IntentBadge`.
 
 ---
 
@@ -1477,6 +1513,7 @@ Budget: a duel ≈ 24 turns × ~6–8 actions ≈ 150–200 actions incl. AI dec
 - [ ] Hook-visible combat data is read-only; `beforeCombat` only raises on-only flags (D-124).
 - [ ] Legality changes only in `legal.ts`/query hooks; UI/AI/bots never re-implement legality.
 - [ ] New keyword = one file + icon + examples; new card = JSON only.
+- [ ] No card, keyword or Flaw id literals in `packages/engine/src`: find mechanics by hook (Ward → `beforeDestroy`) or by compiled content (`c.collector.ace`) (D-162).
 - [ ] Property tests and the bench pass.
 
 ---
@@ -1510,7 +1547,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | # | Rule | Implemented in | Decisions |
 | --- | --- | --- | --- |
 | CR-1 | Player 20 life / 24 cards; Collector 25 life / 20 cards | `globals`, `setup/initial-state.ts`, validator | — |
-| CR-2 | Win by reducing him to 0 before round 12 ends | `reducer.ts › checkWin`, `turn.ts › endTurn` | D-017, D-018 |
+| CR-2 | Win by reducing him to 0 before round 12 ends | `pipeline.ts › checkWin`, `turn.ts › endTurn` | D-017, D-018, D-151 |
 | SU-1 | Both decks shuffled from daily seed | `setup/shuffle.ts` | D-002 |
 | SU-2 | Player sees full 24-card list and difficulty | web `screens/Home.tsx`, `components/DeckList.tsx`, `ai/difficulty.ts` | D-006, D-098 |
 | SU-3 | Each side draws 5 | `setup/initial-state.ts` | D-009 |
@@ -1519,7 +1556,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | SU-6 | Player first; cannot attack round 1 | `stats.ts › attackPermission` | D-015, D-042, D-142 |
 | RD-1 | Round = player turn then Collector turn | `turn.ts` (turn index) | — |
 | RD-2 | Draw up to 5, at most 2/turn; effects ignore cap | `turn.ts › drawStep`, `effects/run.ts › draw` | D-011…D-013 |
-| RD-3 | Reposition once, not on summon turn; face-down flipped to attack is revealed | `legal.ts`, `reducer.ts` (`reposition`) | D-014, D-022, D-023, D-024 |
+| RD-3 | Reposition once, not on summon turn; face-down flipped to attack is revealed | `legal.ts`, `reposition.ts` | D-014, D-022, D-023, D-024, D-161 |
 | RD-4 | Play one card: summon (atk/grd/face-down), Graft, spell, trap | `legal.ts`, `summon.ts`, `graft.ts`, `effects/run.ts` | D-014, D-021 |
 | RD-5 | Attack with each attack-position monster once, then end | `combat.ts`, `legal.ts` | D-033 |
 | BD-1 | 3 monster slots, 2 trap slots per side | `globals`, `state.ts` | D-021 |
@@ -1531,9 +1568,9 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | CB-4 | Empty board: direct attack for full Power | `legal.ts`, `combat.ts` | D-027 |
 | CB-5 | Element advantage +2 when attacking only | `stats.ts › advantage`, `combat.ts` | D-029 |
 | CB-6 | Keywords and traps resolve before damage | `combat.ts` pipeline, `hooks/dispatch.ts` | D-032 |
-| WL-1 | Win when Collector hits 0 | `reducer.ts › checkWin` | D-018 |
-| WL-2 | Lose at 0 life or when vault seals end of round 12 | `checkWin`, `turn.ts › endTurn` | D-017 |
-| WL-3 | Cannot draw → skip, no deck-out loss | `turn.ts › drawStep` | D-013 |
+| WL-1 | Win when Collector hits 0 | `pipeline.ts › checkWin` | D-018, D-151 |
+| WL-2 | Lose at 0 life or when vault seals end of round 12 | `pipeline.ts › checkWin`, `turn.ts › endTurn` | D-017, D-151 |
+| WL-3 | Cannot draw → skip, no deck-out loss | `turn.ts › drawStep` | D-013, D-153 |
 
 ### Elements and kinds
 
@@ -1580,7 +1617,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | GR-3 | Family = kind pair; element = first material | `recipes.json`, `compile.ts › recipe`, `graft.ts` | — |
 | GR-4 | Inherit ≤ 2 keywords; player picks if > 2 | `graft.ts` (`keywords` stage) | D-059 |
 | GR-5 | Ascend: second step same turn, same family, +2/+1, may take keyword, max 3 materials | `graft.ts` (`ascend` stage), `globals`, `FLAGS.ASCEND` | D-056, D-060 |
-| GR-6 | Unstable: opposing elements → +3 Power, destroyed end of your next turn | `graft.ts`, `turn.ts › endTurn`, `FLAGS.UNSTABLE` | D-061, D-062 |
+| GR-6 | Unstable: opposing elements → +3 Power, destroyed end of your next turn | `graft.ts`, `turn.ts › endTurn`, `FLAGS.UNSTABLE` | D-061, D-062, D-152 (Ward-saved: bonus lost) |
 | GR-7 | Chimera enters attack or guard; normal summoning rules | `graft.ts` (`position`), `attackPermission` | D-022, D-063 |
 | GR-8 | Preview before confirming | `graft.ts › previewGraft`, web `GraftPreview.tsx` | D-064 |
 | GR-9 | First-time result added to the Binder | `track.families`, web `persistence/binder.ts` | D-066 |
