@@ -41,8 +41,8 @@ export interface EffectSink {
 /** Services owned by later pipelines (destroy.ts, reducer.ts). */
 export interface EffectHost {
   emit(ev: GameEvent): void;
-  /** Destruction batch with Ward replacement and onDestroyed dispatch (§5.5). by = -1: no destroyer (D-045). */
-  destroy(iids: readonly Iid[], by: Iid | -1): void;
+  /** Destruction batch with Ward replacement and onDestroyed dispatch (§5.5). No destroyer (D-045, D-160). */
+  destroy(iids: readonly Iid[]): void;
   /** Called after any life change (win check, mood). */
   lifeChanged(): void;
 }
@@ -150,7 +150,7 @@ export function runEffect(tx: Tx, env: Env, q: QueuedEffect, host: EffectHost): 
     case 'destroy': {
       const target = resolveRef(refs, e.target);
       if (target < 0 || locate(tx.state, target) < 0) return;
-      host.destroy([target], -1); // spells/traps have no destroyer (D-045)
+      host.destroy([target]); // spells/traps have no destroyer (D-045)
       return;
     }
     case 'returnToHand': {

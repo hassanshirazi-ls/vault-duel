@@ -41,6 +41,12 @@ const TRAP_REFS: Record<TrapTrigger, readonly string[]> = {
   enemyGraft: ['grafted'],
 };
 
+/** Triggers whose trap runs inside onAttackDeclared, the only hook where cancelAttack is valid (D-163). */
+const ATTACK_TRIGGERS: readonly TrapTrigger[] = ['enemyAttack', 'enemyDirectAttack'];
+
+const CANCEL_ATTACK_PROBLEM = '"cancelAttack" only works in a trap with trigger enemyAttack or enemyDirectAttack';
+const CANCEL_ATTACK_FIX = 'remove it or change the trigger';
+
 type Spells = NonNullable<ContentData['playerSpells']>;
 type Traps = NonNullable<ContentData['playerTraps']>;
 
@@ -321,6 +327,9 @@ function checkSpellList(ctx: Ctx, key: ContentKey, spells: Spells | undefined): 
     if (spell.target?.where) checkCond(ctx, where, spell.target.where);
     checkEffectConditions(ctx, where, spell.effects);
     let usesChosen = false;
+    if (spell.effects.some((effect) => effect.op === 'cancelAttack')) {
+      fail(ctx.sink, where, CANCEL_ATTACK_PROBLEM, CANCEL_ATTACK_FIX);
+    }
     for (const effect of spell.effects) {
       const ref = refOf(effect);
       if (ref === undefined) continue;
@@ -345,6 +354,9 @@ function checkTrapList(ctx: Ctx, key: ContentKey, traps: Traps | undefined): voi
     if (trap.when) checkCond(ctx, where, trap.when);
     checkEffectConditions(ctx, where, trap.effects);
     const allowed = TRAP_REFS[trap.trigger];
+    if (!ATTACK_TRIGGERS.includes(trap.trigger) && trap.effects.some((effect) => effect.op === 'cancelAttack')) {
+      fail(ctx.sink, where, CANCEL_ATTACK_PROBLEM, CANCEL_ATTACK_FIX);
+    }
     for (const effect of trap.effects) {
       const ref = refOf(effect);
       if (ref !== undefined && !allowed.includes(ref)) {

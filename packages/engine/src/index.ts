@@ -9,3 +9,4 @@ export { cyrb128, Sfc32 } from './rng';
 export { defineKeyword } from './hooks/define';
 export { EngineError } from './errors';
 export { deepFreeze } from './freeze';
+export type { IntentPolicy } from './pipeline';

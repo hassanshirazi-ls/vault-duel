@@ -4,7 +4,7 @@
 //   ask each monster's OWN active beforeDestroy keywords (Ward); 'prevent' -> wardUsed, WardBroken
 //   snapshot last-known information (LKI) for the rest, before anything is removed
 //   remove them all simultaneously to their OWNER's discard; emit Destroyed
-//   dispatch onDestroyed per monster (its own hooks by LKI.kw first), flushing queued effects after each
+//   dispatch onDestroyed for every monster (its own hooks by LKI.kw first), then flush queued effects once (D-158)
 import { activeKwOf, activeSide, effectiveGuard, effectivePower, locate, locSide, locSlot } from './stats';
 import { markRound } from './track';
 import type { Run } from './pipeline';
@@ -68,7 +68,9 @@ export function destroyBatch(
   const doomed: Entry[] = [];
   for (const e of orderBatch(run, iids)) {
     if (run.dispatcher().beforeDestroy({ iid: e.iid, cause, by: byOf(e.iid) }) === 'prevent') {
-      tx.patchMonster(e.side, e.slot, { wardUsed: true }); // switches off every beforeDestroy bit (D-133)
+      // wardUsed switches off every beforeDestroy bit (D-133). A Ward-saved Unstable expiry also ends Unstable:
+      // the bonus goes and no new timer starts (D-152 A).
+      tx.patchMonster(e.side, e.slot, cause === 'unstable' ? { wardUsed: true, unstableUntil: -1 } : { wardUsed: true });
       run.emit({ e: 'WardBroken', iid: e.iid });
     } else {
       doomed.push(e);
@@ -105,11 +107,9 @@ export function destroyBatch(
   }
   if (lostPlayerMonster) markRound(tx, RoundFlag.LostMonster);
 
-  // 4. onDestroyed per monster: its own hooks (LKI.kw) first, then everyone else (§8.3.1b).
-  for (const k of lki) {
-    run.dispatcher().onDestroyed(k);
-    run.flush();
-    if (run.over) break; // game over drops the rest (§8.3.5)
-  }
+  // 4. onDestroyed per monster: its own hooks (LKI.kw) first, then everyone else (§8.3.1b). The whole batch is
+  //    dispatched against the same post-removal board, then the queued effects run once, FIFO (D-158).
+  for (const k of lki) run.dispatcher().onDestroyed(k);
+  run.flush();
   return lki.map((k) => k.iid);
 }

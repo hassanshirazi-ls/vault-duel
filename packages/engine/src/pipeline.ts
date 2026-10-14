@@ -38,7 +38,6 @@ export class Run implements EffectSink {
   ) {
     this.host = {
       emit: (ev) => this.emit(ev),
-      // Effect destruction has no destroyer (D-045, D-131), so `by` is ignored.
       destroy: (iids) => destroyBatch(this, iids, 'effect'),
       lifeChanged: () => lifeChanged(this),
     };

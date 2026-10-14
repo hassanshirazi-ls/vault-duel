@@ -62,6 +62,10 @@ export const PIPE_KEYWORDS: readonly KeywordDef[] = [
       if (ctx.evt.iid === ctx.self) ctx.effect({ op: 'damage', who: 'opponent', n: 99 });
     },
   }),
+  // Logs the owner's hand size as each onDestroyed reaches it: queued effects must not be visible yet (D-158).
+  kw('fx-peek', 'keyword', {
+    onDestroyed: (ctx) => void SPY.push(`peek:${ctx.evt.iid}:hand=${ctx.s.sides[0].hand.length}@${ctx.self}`),
+  }),
   // Covetous variants with different zones (D-137).
   kw('fx-cov-vault', 'flaw', {
     summonRequirement: () => ({ kind: 'sacrifice', appraised: true, zones: ['vault'] }),
@@ -87,6 +91,7 @@ export const PIPE_DEFS: readonly DefSpec[] = [
   m('fx-pump', 3, 3, 'fx-ember', 'fx-beast', ['fx-pump']),
   m('fx-tamper', 3, 3, 'fx-ember', 'fx-beast', ['fx-tamper']),
   m('fx-avenger', 2, 2, 'fx-tide', 'fx-spirit', ['fx-avenger']),
+  m('fx-peek-card', 1, 1, 'fx-ember', 'fx-beast', ['fx-peek']),
   m('fx-bomb', 1, 1, 'fx-ember', 'fx-beast', ['fx-bomb']),
   m('fx-echo-spy', 2, 2, 'fx-tide', 'fx-spirit', ['fx-echo', 'fx-spy']),
   m('fx-haunt-four', 4, 2, 'fx-ember', 'fx-beast', ['fx-haunt']),

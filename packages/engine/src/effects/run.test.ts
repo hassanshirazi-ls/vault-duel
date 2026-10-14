@@ -16,7 +16,7 @@ const env = fxEnv();
 interface Rec {
   host: EffectHost;
   events: GameEvent[];
-  destroyed: { iids: readonly Iid[]; by: Iid | -1 }[];
+  destroyed: { iids: readonly Iid[] }[];
   life: number;
 }
 function recHost(): Rec {
@@ -26,7 +26,7 @@ function recHost(): Rec {
     life: 0,
     host: {
       emit: (ev) => rec.events.push(ev),
-      destroy: (iids, by) => rec.destroyed.push({ iids, by }),
+      destroy: (iids) => rec.destroyed.push({ iids }),
       lifeChanged: () => {
         rec.life++;
       },
@@ -163,7 +163,7 @@ describe('destroy', () => {
     const gone = b.card('fx-umbra-beast', 1);
     const s = b.place(1, 0, m).build();
     const hit = run(s, q({ op: 'destroy', target: 'chosen' }, 0, makeRefs({ chosen: m })));
-    expect(hit.rec.destroyed).toEqual([{ iids: [m], by: -1 }]);
+    expect(hit.rec.destroyed).toEqual([{ iids: [m] }]);
     const miss = run(s, q({ op: 'destroy', target: 'chosen' }, 0, makeRefs({ chosen: gone })));
     expect(miss.rec.destroyed).toEqual([]);
   });

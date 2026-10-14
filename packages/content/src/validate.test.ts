@@ -227,6 +227,40 @@ describe('effects, traps and globals', () => {
   });
 });
 
+describe('cancelAttack placement (D-163)', () => {
+  const problem = '"cancelAttack" only works in a trap with trigger enemyAttack or enemyDirectAttack › remove it or change the trigger';
+
+  it('rejects cancelAttack in a spell', () => {
+    const data = realData();
+    entry(data.playerSpells, 'bloodlust').effects.push({ op: 'cancelAttack' });
+    expect(errorLines(data)).toEqual([
+      `cards/player-spells.json › bloodlust › ${problem}`,
+    ]);
+  });
+
+  it('rejects cancelAttack in a trap whose trigger is allyDestroyed', () => {
+    const data = realData();
+    entry(data.playerTraps, 'last-rites').effects.push({ op: 'cancelAttack' });
+    expect(errorLines(data)).toEqual([
+      `cards/player-traps.json › last-rites › ${problem}`,
+    ]);
+  });
+
+  it('accepts cancelAttack in a trap whose trigger is enemyAttack', () => {
+    const data = realData();
+    entry(data.playerTraps, 'mirror-sigil').effects.push({ op: 'cancelAttack' });
+    expect(errorLines(data)).toEqual([]);
+  });
+
+  it('accepts cancelAttack in a trap whose trigger is enemyDirectAttack', () => {
+    const data = realData();
+    const trap = entry(data.playerTraps, 'last-rites');
+    trap.trigger = 'enemyDirectAttack';
+    trap.effects.push({ op: 'cancelAttack' });
+    expect(errorLines(data)).toEqual([]);
+  });
+});
+
 describe('art briefs', () => {
   it('rejects a card with no art brief', () => {
     const data = realData();

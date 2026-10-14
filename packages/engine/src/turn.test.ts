@@ -5,6 +5,7 @@ import { PC, pipeEnv, PENV, SPY } from '../test-utils/pipeline-fixture';
 import { allCards, harness } from '../test-utils/run';
 import { StateBuilder } from '../test-utils/state';
 import type { Run } from './pipeline';
+import { effectivePower } from './stats';
 import { drawStep, endTurn, startTurn } from './turn';
 import type { GameEvent } from './types/events';
 import type { GameState, Iid, Side } from './types/state';
@@ -256,6 +257,28 @@ describe('endTurn (§5.3, D-017)', () => {
       expect(n.sides[0].board[0]).toMatchObject({ iid: ox, wardUsed: true });
       expect(ev(h.events, 'WardBroken')).toHaveLength(1);
       expect(ev(h.events, 'Destroyed')).toEqual([]);
+    });
+    it('D-152 (A): a Ward-saved Unstable Chimera loses the bonus, stays, and is never re-checked', () => {
+      const b = new StateBuilder(PC).turn(2);
+      const ox = b.card('fx-warded-ox', 0, { element: 0, kw: 0, ascended: false, materials: [] });
+      const h = harness(b.place(0, 0, ox, { unstableUntil: 2 }).build(), PENV);
+      expect(effectivePower(h.tx.state, PENV, ox)).toBe(4 + PENV.g.UNSTABLE_BONUS);
+      endTurn(h.run);
+      const names = h.events.map((e) => e.e).filter((e) => e === 'UnstableExpired' || e === 'WardBroken' || e === 'Destroyed');
+      expect(names).toEqual(['UnstableExpired', 'WardBroken']);
+      const n = h.done();
+      expect(n.sides[0].board[0]).toMatchObject({ iid: ox, wardUsed: true, unstableUntil: -1 });
+      expect(effectivePower(n, PENV, ox)).toBe(4); // back to base
+      // later turn ends: not due, not destroyed
+      let cur = n;
+      for (let i = 0; i < 4; i++) {
+        const h2 = harness(cur, PENV);
+        endTurn(h2.run);
+        expect(ev(h2.events, 'UnstableExpired')).toEqual([]);
+        expect(ev(h2.events, 'Destroyed')).toEqual([]);
+        cur = h2.done();
+      }
+      expect(cur.sides[0].board[0]?.iid).toBe(ox);
     });
     it('Haunt fizzles: expiry has no destroyer (D-045)', () => {
       const b = new StateBuilder(PC).turn(2);

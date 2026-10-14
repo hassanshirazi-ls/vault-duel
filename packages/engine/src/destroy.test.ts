@@ -254,7 +254,21 @@ describe('destroyBatch: last-known information and onDestroyed (D-122)', () => {
     ]);
   });
 
-  it('game over inside onDestroyed drops the remaining dispatches (§8.3.5)', () => {
+  it('the whole batch is dispatched before any queued effect runs (D-158)', () => {
+    const b = new StateBuilder(PC);
+    const moth = b.card('fx-echo-moth', 0); // Echo: queues a return to hand
+    const whelp = b.card('fx-ember-whelp', 0);
+    const peek = b.card('fx-peek-card', 1); // survives and observes both destructions
+    const h = harness(b.place(0, 0, moth).place(0, 1, whelp).place(1, 0, peek).build(), PENV);
+    destroyBatch(h.run, [moth, whelp], 'effect');
+    // monster 1's Echo has not run when the bystander hears about either destruction
+    expect(SPY).toEqual([`peek:${moth}:hand=0@${peek}`, `peek:${whelp}:hand=0@${peek}`]);
+    const n = h.done();
+    expect(n.sides[0].hand).toEqual([moth]); // ...and it did run once the batch was dispatched
+    expect(n.sides[0].discard).toEqual([whelp]);
+  });
+
+  it('game over inside onDestroyed: the whole batch is dispatched first, then the queue stops (§8.3.5, D-158)', () => {
     const b = new StateBuilder(PC).life(1, 50);
     const bomb = b.card('fx-bomb', 1);
     const spy = b.card('fx-spy-card', 1);
@@ -265,7 +279,7 @@ describe('destroyBatch: last-known information and onDestroyed (D-122)', () => {
     const n = h.done();
     expect(n.result?.reason).toBe('playerDefeated');
     expect(n.step).toBe('over');
-    expect(SPY).toEqual([]); // the spy's own onDestroyed (second in the batch) never ran
+    expect(SPY).toEqual([`onDestroyed:${spy}/1/1/1@${spy}`]); // dispatched before the flush; its effects would be dropped
   });
 });
 
