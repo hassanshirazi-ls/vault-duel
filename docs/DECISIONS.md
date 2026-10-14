@@ -1030,6 +1030,15 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - "Never lose a monster to Appraisal" → `appraisedLost` lte `0`
 - Reason: each maps one-to-one onto a §10.3 metric. The two numeric thresholds come from globals rather than literals, so balance can tune them with `--set`.
 
+**D-149 · Owner confirms the section L interpretations (2026-10-14)**
+- Date: 2026-10-14
+- Question: Section L lists interpretations made where DESIGN.md was unclear that needed owner review.
+- Decision: The owner confirmed every D-row in section L as written: D-019, D-083, D-089, D-118, D-046, D-068, D-117, D-053, D-039, D-049, D-081, D-085, D-095, D-109, D-077, D-054, D-004, D-098 and D-100. They are final and no longer pending review.
+  - D-053 stays as written: Slow is a legality hook with no extra effect for now. Its proposal to make Slow meaningful is still open as M-01.
+  - D-046/D-068 stand: Echo returns to the owner, and Grave Recall may target a Chimera when `CHIMERA_TO_HAND` is on (D-140). Whether the flag stays on is still decided by M-12.
+  - D-117 stands: the novice bot is uniform random. M-09 stays open, and the sim reports both bots.
+- Not covered: the M-01…M-16 proposals (section M), which wait for Phase 3 sim A/B results, and the D-130 drafts (dialogue, art briefs).
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
@@ -1062,6 +1071,8 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 ---
 
 ## L. Summary of items needing owner review
+
+> **2026-10-14:** the owner confirmed every D-row below (D-149). Only the M-01…M-16 row is still open.
 
 | Id | Topic | Why |
 | --- | --- | --- |

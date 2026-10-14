@@ -1,5 +1,7 @@
 // Minimal GameState builder for engine tests (not the §17 board DSL).
 import { deepFreeze } from '../src/freeze';
+import { emptyTrack } from '../src/track';
+import { TEST_GLOBALS } from './globals';
 import type { CompiledContent } from '../src/types/content';
 import type {
   ChimeraInfo,
@@ -110,6 +112,10 @@ export class StateBuilder {
     this.sides[side].discard.push(...iids);
     return this;
   }
+  vault(side: Side, ...iids: Iid[]): this {
+    this.sides[side].vault.push(...iids);
+    return this;
+  }
 
   build(): GameState {
     const [a, b] = this.sides;
@@ -132,7 +138,7 @@ export class StateBuilder {
       appraisal: { attempts: 0, successes: 0, taken: [] },
       collector: { mood: 0, intent: null },
       twist: this.twistIdx,
-      track: { round: new Array<number>(12).fill(0), grafts: 0, families: [], unpriced: false, appraisedLost: 0 },
+      track: emptyTrack(TEST_GLOBALS), // MAX_ROUNDS zeros (D-127)
       result: null,
       log: null,
       nActions: 0,

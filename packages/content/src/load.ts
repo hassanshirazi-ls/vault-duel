@@ -53,6 +53,7 @@ export type ContentData = {
 export interface ContentError {
   readonly file: string;
   readonly id: string;
+  /** Dotted path inside the entry, or '' when the whole entry is the problem. */
   readonly field: string;
   readonly problem: string;
   readonly fix: string;
@@ -65,9 +66,10 @@ export interface ContentLoad {
   readonly counts: Readonly<Record<ContentKey, number | undefined>>;
 }
 
-/** Renders one error as a §10.3 line. */
+/** Renders one error as a §10.3 line. An empty field (a whole-entry problem, as in the §10.3 examples) has no "field:" part. */
 export function formatError(error: ContentError): string {
-  return `${error.file} › ${error.id} › ${error.field}: ${error.problem} › ${error.fix}`;
+  const problem = error.field === '' ? error.problem : `${error.field}: ${error.problem}`;
+  return `${error.file} › ${error.id} › ${problem} › ${error.fix}`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
