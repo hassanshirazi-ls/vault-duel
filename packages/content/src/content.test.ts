@@ -5,10 +5,11 @@ import { createEngine, rerollSeed, seedString, Sfc32 } from '@vault-duel/engine'
 import { compileContent } from './compile';
 import { DEFAULT_GLOBALS, withOverrides } from './globals';
 import { KEYWORDS } from '../keywords/index.gen';
-import { loadContent } from './load';
+import { RAW_CONTENT } from './data';
+import { parseContent } from './files';
 import { validateContent } from './validate';
 
-const content = loadContent();
+const content = parseContent(RAW_CONTENT);
 const { data } = content;
 
 describe('live content', () => {

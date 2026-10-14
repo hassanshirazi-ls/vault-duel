@@ -1,5 +1,6 @@
 // Replay and state hashing (ARCHITECTURE.md §2, §17 property 4; D-108). The action log is a persistent
 // cons list on the state; `replay(seed, toActions(s))` must hash equal to `s`.
+import { EngineError } from './errors';
 import { cyrb128 } from './rng';
 import type { Action } from './types/actions';
 import type { GameEvent } from './types/events';
@@ -70,9 +71,22 @@ export interface Replayable {
   applyAction(state: GameState, action: Action): { readonly state: GameState; readonly events: readonly GameEvent[] };
 }
 
-/** Rebuild a state from its seed and action list. Throws EngineError at the first illegal action (unless trusted). */
-export function replay(engine: Replayable, seed: string, actions: readonly Action[], opts: { readonly twist?: number } = {}): GameState {
-  let state = engine.newGame(seed, opts).state;
+export interface ReplayOptions {
+  readonly twist?: number;
+  /** the `state.cfg` the actions were recorded under; a different engine configuration throws (D-191, §11) */
+  readonly cfg?: string;
+}
+
+/**
+ * Rebuild a state from its seed and action list. Throws EngineError at the first illegal action (unless trusted),
+ * and, when `opts.cfg` is given, before applying any action if the new game's `cfg` differs (D-191).
+ */
+export function replay(engine: Replayable, seed: string, actions: readonly Action[], opts: ReplayOptions = {}): GameState {
+  const { cfg, ...game } = opts;
+  let state = engine.newGame(seed, game).state;
+  if (cfg !== undefined && state.cfg !== cfg) {
+    throw new EngineError(`replay: cfg mismatch (recorded ${cfg}, this engine ${state.cfg})`);
+  }
   for (const a of actions) state = engine.applyAction(state, a).state;
   return state;
 }

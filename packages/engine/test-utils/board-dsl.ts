@@ -12,6 +12,8 @@
 //                P|C life N
 //                P|C hand <id> ...        (`*` = filler up to HAND_SIZE)
 //                P|C deck <id> ... | *    (top first; `*` or absent = filler, 2 x OPENING_HAND cards)
+//                The filler is the reserved card `dsl-filler` (D-193): player pool, first element, first kind, 1/1, no
+//                keywords. `withDeclared` adds it when the base lacks it; declaring that id in a `card` line is an error.
 //                P|C discard <id> ...
 //                P|C board [<id> A|G|D flags...] ... [-]       P|C traps [<id>] [-] ...
 //                P|C vault [<id> flags...] ...
@@ -36,7 +38,6 @@ import { activeKw, effectiveGuard, effectivePower } from '../src/stats';
 import { emptyTrack } from '../src/track';
 import type { Action, SummonMode } from '../src/types/actions';
 import type { CompiledContent, DefIdx } from '../src/types/content';
-import { DefType } from '../src/types/content';
 import type { GameEvent } from '../src/types/events';
 import type { Globals } from '../src/types/globals';
 import type {
@@ -44,7 +45,7 @@ import type {
 } from '../src/types/state';
 import { deepFreeze } from '../src/freeze';
 import { makeMonster } from '../src/monster';
-import { buildContent } from './content-builder';
+import { buildContent, DSL_FILLER_ID, dslFillerSpec } from './content-builder';
 import type { ContentSpec, DefSpec } from './content-builder';
 import { constantIntent } from './intent';
 
@@ -191,6 +192,7 @@ function parseCard(line: number, words: readonly string[]): DeclaredCard {
   const st = stats.match(/^(\d+)\/(\d+)$/);
   if (st === null) throw new ScenarioError(line, `card stats must be <power>/<guard>, got '${stats}'`);
   const kw = kws === undefined ? [] : kws.split(',').filter((k) => k !== '');
+  if (id === DSL_FILLER_ID) throw new ScenarioError(line, `card id '${DSL_FILLER_ID}' is reserved for the filler card (D-193)`);
   return { id, pool: pool === 'P' ? 'player' : 'collector', element, kind, power: Number(st[1]), guard: Number(st[2]), kw, line };
 }
 
@@ -201,8 +203,12 @@ export function declaredDefs(declared: readonly DeclaredCard[]): DefSpec[] {
   }));
 }
 
-/** `base` plus the declared cards. Throws ScenarioError on an id collision or an unknown element, kind or keyword. */
+/**
+ * `base` plus the declared cards, plus the reserved filler card when `base` does not have it yet (D-193).
+ * Throws ScenarioError on an id collision or an unknown element, kind or keyword.
+ */
 export function withDeclared(base: ContentSpec, declared: readonly DeclaredCard[]): ContentSpec {
+  const hasFiller = base.defs.some((d) => d.id === DSL_FILLER_ID);
   const taken = new Set(base.defs.map((d) => d.id));
   const elements = new Set(base.elements.map((e) => e.id));
   const kinds = new Set(base.kinds);
@@ -214,7 +220,7 @@ export function withDeclared(base: ContentSpec, declared: readonly DeclaredCard[
     if (!kinds.has(d.kind)) throw new ScenarioError(d.line, `card '${d.id}': unknown kind '${d.kind}'`);
     for (const k of d.kw) if (!keywords.has(k)) throw new ScenarioError(d.line, `card '${d.id}': unknown keyword '${k}'`);
   }
-  return { ...base, defs: [...base.defs, ...declaredDefs(declared)] };
+  return { ...base, defs: [...base.defs, ...(hasFiller ? [] : [dslFillerSpec(base)]), ...declaredDefs(declared)] };
 }
 
 export function parseScenario(text: string): Scenario {
@@ -271,11 +277,11 @@ export interface BuiltScenario {
 
 const slotKey = (side: Side, slot: number): number => side * 16 + slot;
 
-/** First monster def without keywords, for filler cards. */
+/** The reserved filler card (D-193). Content built without `withDeclared` or FX_SPEC must include it. */
 function fillerDef(c: CompiledContent): DefIdx {
-  for (let d = 0; d < c.ids.length; d++) if (c.type[d] === DefType.Monster && (c.kw[d] ?? 0) === 0) return d;
-  for (let d = 0; d < c.ids.length; d++) if (c.type[d] === DefType.Monster) return d;
-  throw new ScenarioError(0, 'content has no monster to use as filler');
+  const d = c.index.get(DSL_FILLER_ID);
+  if (d === undefined) throw new ScenarioError(0, `content has no '${DSL_FILLER_ID}' card; build it with withDeclared (D-193)`);
+  return d;
 }
 
 export function buildScenario(sc: Scenario, c: CompiledContent, g: Globals): BuiltScenario {

@@ -1,11 +1,15 @@
-// @vault-duel/content public entry point (ARCHITECTURE.md §2).
-export { DEFAULT_GLOBALS, withOverrides } from './globals';
+// @vault-duel/content public entry point (ARCHITECTURE.md §2, D-176). Browser-safe: no node:* module is reachable
+// from here. The Node-only parts (reading files, keyword-file checks) are on the "./node" entry.
+export { DEFAULT_GLOBALS, OverridesError, withOverrides } from './globals';
 export { compileContent } from './compile';
 export { KEYWORDS } from '../keywords/index.gen';
-export { checkKeywordSources, loadKeywordFiles, sortKeywords } from './keyword-files';
-export { CONTENT_FILES, CONTENT_ROOT, formatError, loadContent, parseFile } from './load';
+export { validateContent } from './validate';
+export type { ValidationResult } from './validate';
+export { CONTENT_FILES, formatError, parseContent, parseFile } from './files';
+export type { ContentData, ContentError, ContentKey, ContentLoad } from './files';
+export { RAW_CONTENT } from './data';
+export { parseTemplate, renderText } from './text';
 export { GlobalsSchema, globalsProblems } from './schemas/globals';
-export type { ContentData, ContentError, ContentKey, ContentLoad } from './load';
 export * from './schemas/common';
 export * from './schemas/effect';
 export * from './schemas/card';

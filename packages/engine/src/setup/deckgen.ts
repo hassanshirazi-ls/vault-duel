@@ -5,6 +5,7 @@ import { EngineError } from '../errors';
 import type { Sfc32 } from '../rng';
 import type { CompiledContent, DefIdx } from '../types/content';
 import type { Globals } from '../types/globals';
+import { stream } from './seed';
 
 /** `n` picks from `pool`, each uniform among entries used fewer than `cap` times (D-005). */
 // Judgment call: D-005 names a ContentError; the engine has only EngineError, so exhaustion throws that.
@@ -77,4 +78,9 @@ export function generateDeck(c: CompiledContent, g: Globals, rng: Sfc32): DefIdx
     return sortDeckList(c, [...monsters, ...spells, ...traps]);
   }
   throw new EngineError(`deckgen: no acceptable deck in ${g.DECKGEN_MAX_ATTEMPTS} attempts`);
+}
+
+/** The player's deck for a full seed string (`...#k`): exactly what `newGame` generates from the 'deck' stream (D-200). */
+export function deckForSeed(c: CompiledContent, g: Globals, seed: string): DefIdx[] {
+  return generateDeck(c, g, stream(seed, 'deck'));
 }

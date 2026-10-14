@@ -1,6 +1,6 @@
-// One resolver for the names a "$NAME" ref or a keyword's num('NAME') may use (D-171): a numeric core global,
-// or an entry of CONTENT_NUMBERS. The validator and the keyword-file scan both call it, so their rules and
-// "did you mean" suggestions cannot drift apart. Browser-safe and pure.
+// One resolver for the names a "$NAME" ref, a keyword's num('NAME') and a text placeholder "{NAME}" may use (D-171,
+// D-172): a numeric core global, or an entry of CONTENT_NUMBERS. The validator, the keyword-file scan and the
+// placeholder rules all call it, so their rules and "did you mean" suggestions cannot drift apart. Browser-safe, pure.
 import type { Globals } from '@vault-duel/engine';
 
 export interface NameProblem {
@@ -22,7 +22,7 @@ function editDistance(a: string, b: string): number {
 }
 
 /** The closest name in either namespace, within two edits, or undefined. */
-function closestName(name: string, globals: Globals): string | undefined {
+export function closestGlobalName(name: string, globals: Globals): string | undefined {
   const candidates = [...Object.keys(globals), ...Object.keys(globals.CONTENT_NUMBERS)];
   let suggestion: string | undefined;
   let bestDistance = 3; // suggest only names within two edits
@@ -46,9 +46,25 @@ export function globalNameProblem(name: string, globals: Globals, shown: string,
     return typeof core[name] === 'number' ? undefined : { problem: `${shown} is not a number in globals.ts`, fix: 'use a numeric global from globals.ts' };
   }
   if (Object.hasOwn(globals.CONTENT_NUMBERS, name)) return undefined;
-  const suggestion = closestName(name, globals);
+  const suggestion = closestGlobalName(name, globals);
   return {
     problem: `${shown} not in globals.ts`,
     fix: suggestion === undefined ? 'use a name from globals.ts or CONTENT_NUMBERS' : `did you mean ${sign}$${suggestion}?`,
+  };
+}
+
+/** The same resolver for a text placeholder "{NAME}" (D-172 rules 2 and 3). Undefined when it resolves to a number. */
+export function placeholderProblem(name: string, globals: Globals): NameProblem | undefined {
+  const core = globals as unknown as Readonly<Record<string, unknown>>;
+  if (Object.hasOwn(core, name)) {
+    return typeof core[name] === 'number'
+      ? undefined
+      : { problem: `{${name}} is not a number in globals.ts`, fix: 'use a numeric global' };
+  }
+  if (Object.hasOwn(globals.CONTENT_NUMBERS, name)) return undefined;
+  const suggestion = closestGlobalName(name, globals);
+  return {
+    problem: `unknown placeholder {${name}}`,
+    fix: suggestion === undefined ? 'use a numeric name from globals.ts' : `did you mean {${suggestion}}?`,
   };
 }

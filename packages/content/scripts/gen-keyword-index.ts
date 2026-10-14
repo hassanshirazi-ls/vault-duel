@@ -2,8 +2,8 @@
 // Refuses to write when a keyword file is broken, so the barrel never encodes an invalid registry.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CONTENT_ROOT, formatError } from '../src/load';
-import { BARREL_FILE, checkKeywordSources, loadKeywordFiles, renderKeywordBarrel, sortKeywords } from '../src/keyword-files';
+import { formatError } from '../src/files';
+import { BARREL_FILE, CONTENT_ROOT, checkKeywordSources, loadKeywordFiles, renderKeywordBarrel, sortKeywords } from '../src/node';
 
 async function main(): Promise<void> {
   const loaded = await loadKeywordFiles();

@@ -92,6 +92,11 @@ export interface QueryCtx {
   hasKw(i: Iid, id: string): boolean;
   monsters(side: Side): readonly Iid[];
   enteredThisTurn(i: Iid): boolean;
+  /**
+   * How many of the monster's controller's turns have started after the turn it entered (D-183): 0 during the
+   * entry turn, 1 on that controller's next turn, and so on; -1 if the monster is not on a board.
+   */
+  ownTurnsSinceEntered(i: Iid): number;
   isAttacker(i: Iid): boolean;
   /** A `$NAME` value: `CONTENT_NUMBERS` first, then core globals; EngineError if unknown (D-171). */
   num(name: string): number;
@@ -111,13 +116,6 @@ export interface HookCtx<E> extends QueryCtx {
    * (`directAttack` reads attacker/defender). Read-only; used by compiled traps for `TrapDef.when`.
    */
   holds(cond: Cond, iid: Iid): boolean; // judgment call: new HookCtx method, not listed in §8.2
-  /**
-   * Traps only (traps.ts): spend the trap this subscriber belongs to, immediately: it leaves its slot
-   * for its owner's discard and TrapTriggered is emitted (D-071, D-158). Not an effect; nothing is queued.
-   * Throws EngineError when `self` is not a set trap. At most one trap per identical definition and side
-   * fires per dispatch (D-071 "two identical traps -> only the leftmost").
-   */
-  spendTrap(): void;
 }
 export interface AttackCtx extends HookCtx<AttackEvt> {
   readonly cancelled: boolean;
@@ -128,6 +126,27 @@ export interface CombatCtx extends HookCtx<AttackEvt> {
   setPierce(): void;
   setBrittleWin(): void;
 }
+
+/**
+ * Engine-internal (D-186): the only addition a compiled trap's hooks get over a keyword's. Not exported from the
+ * package root. `spendTrap()` spends the trap this subscriber belongs to, immediately: it leaves its slot for its
+ * owner's discard and TrapTriggered is emitted (D-071, D-158). Not an effect; nothing is queued. Throws EngineError
+ * when `self` is not a set trap, and always when called from a keyword hook. At most one trap per identical
+ * definition and side fires per dispatch (D-071 "two identical traps -> only the leftmost").
+ */
+export interface TrapSpend {
+  spendTrap(): void;
+}
+/** A hook context as a trap subscriber sees it. */
+export type TrapCtx<C> = C & TrapSpend;
+
+/** The event hooks, the only ones a trap can subscribe to. */
+export type EventHookName = 'onSummon' | 'onAttackDeclared' | 'beforeCombat' | 'onDestroyed' | 'onTurnStart' | 'onTurnEnd' | 'onGraft';
+
+/** Compiled trap hook table (traps.ts): the event hooks of `Hooks`, each receiving a `TrapCtx`. */
+export type TrapHooks = {
+  readonly [K in EventHookName]?: (ctx: TrapCtx<Parameters<NonNullable<Hooks[K]>>[0]>) => void;
+};
 
 export interface Hooks {
   onSummon?(ctx: HookCtx<SummonEvt>): void;

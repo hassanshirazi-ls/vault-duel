@@ -9,7 +9,7 @@ export default defineKeyword({
   kind: 'keyword',
   icon: 'wisp',
   visual: 'ghost-wisps',
-  text: 'When destroyed, the monster that destroyed it loses 2 Power permanently.',
+  text: 'When destroyed, the monster that destroyed it loses {HAUNT_PENALTY} Power permanently.',
   hooks: {
     onDestroyed: (ctx) => {
       if (ctx.evt.iid !== ctx.self || ctx.evt.by < 0) return;

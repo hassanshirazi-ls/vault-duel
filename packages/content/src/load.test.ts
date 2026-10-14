@@ -1,7 +1,7 @@
 // A deliberately broken fixture must fail with a readable §10.3 message.
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { formatError, parseFile } from './load';
+import { formatError, parseFile } from './files';
 import { PlayerMonster, Relic } from './schemas/card';
 import { AI_PLAY_RULES, AI_REPOSITION } from './schemas/collector';
 

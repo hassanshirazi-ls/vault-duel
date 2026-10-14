@@ -218,6 +218,23 @@ describe('attack and endTurn (§6.2, D-027, D-038, D-041, D-052)', () => {
   });
 });
 
+describe('Slow follows SLOW_TURNS (D-183)', () => {
+  // The Collector's Slow relic entered on turn 3 (its own turn); the player's target stands on the board.
+  const canAttack = (turn: number, slowTurns: number): boolean => {
+    const b = new StateBuilder(GC).turn(turn);
+    const sl = b.card('fx-relic-slow', 1);
+    const t = b.card('fx-ember-whelp', 0);
+    const env = graftEnv(withGlobals({ SLOW_TURNS: slowTurns }));
+    return legal(b.place(1, 0, sl, { entered: 3 }).place(0, 0, t, { entered: 0 }).build(), env).some((a) => a.t === 'attack');
+  };
+  it('SLOW_TURNS 1: blocked on the summon turn only', () => {
+    expect([3, 5, 7].map((t) => canAttack(t, 1))).toEqual([false, true, true]);
+  });
+  it('SLOW_TURNS 2: blocked until the second own turn after the summon', () => {
+    expect([3, 5, 7].map((t) => canAttack(t, 2))).toEqual([false, false, true]);
+  });
+});
+
 describe('wrappers agree with the generator (§6.2)', () => {
   const b = new StateBuilder(GC).turn(4);
   const a = b.card('fx-ember-whelp', 0);

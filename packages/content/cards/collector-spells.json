@@ -1,6 +1,6 @@
 [
   {
-    "id": "provenance-ledger", "type": "spell", "name": "Provenance Ledger", "text": "Draw 2 cards.",
+    "id": "provenance-ledger", "type": "spell", "name": "Provenance Ledger", "text": "Draw {PROVENANCE_DRAW|card|cards}.",
     "effects": [ { "op": "draw", "who": "self", "n": "$PROVENANCE_DRAW" } ]
   },
   {
@@ -9,12 +9,12 @@
     "effects": [ { "op": "returnToHand", "target": "chosen" } ]
   },
   {
-    "id": "gilt-frame", "type": "spell", "name": "Gilt Frame", "text": "+2 Power and +2 Guard until the end of his next turn.",
+    "id": "gilt-frame", "type": "spell", "name": "Gilt Frame", "text": "+{GILT_POWER} Power and +{GILT_GUARD} Guard until the end of his next turn.",
     "target": { "side": "ally", "zone": "board", "where": { "faceUp": true } },
     "effects": [ { "op": "modifyStats", "target": "chosen", "power": "$GILT_POWER", "guard": "$GILT_GUARD", "duration": "untilEndOfYourNextTurn" } ]
   },
   {
-    "id": "forfeit", "type": "spell", "name": "Forfeit", "text": "Destroy one of your monsters with Power 4 or less.",
+    "id": "forfeit", "type": "spell", "name": "Forfeit", "text": "Destroy one of your monsters with Power {FORFEIT_MAX_POWER} or less.",
     "target": { "side": "enemy", "zone": "board", "where": { "all": [ { "faceUp": true }, { "powerLte": "$FORFEIT_MAX_POWER" } ] } },
     "effects": [ { "op": "destroy", "target": "chosen" } ]
   }

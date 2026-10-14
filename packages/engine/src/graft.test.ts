@@ -17,8 +17,10 @@ import {
   graftSkipAscend,
   previewGraft,
   subsetsOfSize,
+  unstableExpiry,
 } from './graft';
 import type { Action } from './types/actions';
+import type { Globals } from './types/globals';
 import type { GameState, Iid } from './types/state';
 import { RoundFlag } from './types/state';
 
@@ -240,6 +242,29 @@ describe('graft commit (§5.6)', () => {
     expect(go(slow, 'fx-umbra-beast', 'fx-lumen-seer').sides[0].board[0]?.unstableUntil).toBe(6);
   });
 
+  it('UNSTABLE_EXPIRY picks the expiry turn, in the commit and in the preview (D-183)', () => {
+    // grafted on turn 2; UNSTABLE_EXPIRY_TURNS 2 and DURATION_NEXT_OWN_TURN 2 (TEST_GLOBALS)
+    const go = (g: Globals) => {
+      const env = graftEnv(g);
+      const { s, c } = handOf('fx-umbra-beast', 'fx-lumen-seer');
+      const h = harness(s, env);
+      graftBegin(h.run);
+      graftPick(h.run, c[0] as Iid);
+      graftPick(h.run, c[1] as Iid);
+      const preview = previewGraft(h.tx.state, env)?.unstableUntil;
+      graftPosition(h.run, 0);
+      return { preview, committed: h.done().sides[0].board[0]?.unstableUntil };
+    };
+    expect(go(withGlobals({ UNSTABLE_EXPIRY: 'endOfNextOwnTurn' }))).toEqual({ preview: 4, committed: 4 });
+    expect(go(withGlobals({ UNSTABLE_EXPIRY: 'startOfOwnTurnAfterNext' }))).toEqual({ preview: 5, committed: 5 });
+    expect(go(withGlobals({ UNSTABLE_EXPIRY: 'startOfOwnTurnAfterNext', DURATION_NEXT_OWN_TURN: 4 }))).toEqual({ preview: 7, committed: 7 });
+  });
+  it('unstableExpiry: end of the next own turn, or through the turn before the start of the turn after next (D-136, D-183)', () => {
+    expect(unstableExpiry(2, withGlobals({ UNSTABLE_EXPIRY: 'endOfNextOwnTurn', UNSTABLE_EXPIRY_TURNS: 3 }))).toBe(5);
+    expect(unstableExpiry(2, withGlobals({ UNSTABLE_EXPIRY: 'startOfOwnTurnAfterNext' }))).toBe(5);
+    expect(unstableExpiry(3, withGlobals({ UNSTABLE_EXPIRY: 'startOfOwnTurnAfterNext' }))).toBe(6);
+  });
+
   it('a Chimera enters like a summon: entered = turn, no onSummon; onGraft dispatches once after it entered', () => {
     const b = new StateBuilder(GC).turn(2);
     const x = b.card('fx-gspy-card', 0);
@@ -378,18 +403,37 @@ describe('Ascend and keywords (D-059, D-060)', () => {
     expect(h.tx.state.pending).toMatchObject({ stage: 'position', kw: kwBit('fx-pierce') | kwBit('fx-ward') });
   });
 
-  it('only keywords are inherited, never Flaws; a used Ward and face-down keywords do not count', () => {
-    const b = new StateBuilder(GC).turn(2);
-    const relic = b.card('fx-relic-slow', 0); // Flaw only
-    const ox = b.card('fx-warded-ox', 0);
-    const fang = b.card('fx-pierce-fang', 0);
-    const s = b.hand(0, relic).place(0, 0, ox, { wardUsed: true }).place(0, 1, fang, { faceDown: true, pos: 1 }).build();
+  it('only keywords are inherited, never Flaws (D-181)', () => {
+    const { s, c } = handOf('fx-relic-slow', 'fx-tide-sprite'); // a Flaw plus a keyword-less monster
     const h = harness(s, GENV);
     graftBegin(h.run);
-    graftPick(h.run, relic);
-    graftPick(h.run, ox);
-    graftSkipAscend(h.run);
+    graftPick(h.run, c[0] as Iid);
+    graftPick(h.run, c[1] as Iid);
     expect(h.tx.state.pending).toMatchObject({ stage: 'position', kw: 0 });
+  });
+
+  it('every material gives its printed keywords: a face-down Sentinel and a Ward-used board material pass them on (D-182 B)', () => {
+    const b = new StateBuilder(GC).turn(2);
+    const wall = b.card('fx-sentinel-wall', 0); // face-down on the board: no active keyword
+    const ox = b.card('fx-warded-ox', 0); // Ward used
+    const sprite = b.card('fx-tide-sprite', 0);
+    const s = b.hand(0, sprite).place(0, 0, wall, { faceDown: true, pos: 1 }).place(0, 1, ox, { wardUsed: true }).build();
+    const down = harness(s, GENV);
+    graftBegin(down.run);
+    graftPick(down.run, wall);
+    graftPick(down.run, sprite);
+    graftSkipAscend(down.run);
+    expect(down.tx.state.pending).toMatchObject({ stage: 'position', kw: kwBit('fx-sentinel') });
+    expect(previewGraft(down.tx.state, GENV)).toMatchObject({ keywordsAvailable: kwBit('fx-sentinel'), kw: kwBit('fx-sentinel') });
+    graftPosition(down.run, 0);
+    expect(down.done().inst.at(-1)?.chimera?.kw).toBe(kwBit('fx-sentinel'));
+
+    const used = harness(s, GENV);
+    graftBegin(used.run);
+    graftPick(used.run, ox);
+    graftPick(used.run, sprite);
+    graftSkipAscend(used.run);
+    expect(used.tx.state.pending).toMatchObject({ stage: 'position', kw: kwBit('fx-ward') });
   });
 
   it('subsetsOfSize lists n-subsets in lexicographic bit order', () => {

@@ -8,12 +8,13 @@ import { EngineError } from './errors';
 import type { Env } from './hooks/registry';
 import { makeMonster } from './monster';
 import type { Run } from './pipeline';
-import { activeKwOf, activeSide, elementOf, kindOf, locate, locSlot, monsterOf, printedKw } from './stats';
+import { activeSide, elementOf, kindOf, locate, locSlot, printedKw } from './stats';
 import { freeBoardSlot, playUsed } from './summon';
 import { markRound } from './track';
 import type { Action, ActionVisitor } from './types/actions';
 import { DefType } from './types/content';
 import type { DefIdx, ElemIdx, KwMask } from './types/content';
+import type { Globals } from './types/globals';
 import type { GameState, GraftStage, Iid, PendingGraft, Pos, Side } from './types/state';
 import { RoundFlag } from './types/state';
 
@@ -102,17 +103,13 @@ const popcount = (m: number): number => {
 };
 
 /**
- * Distinct union of the materials' active keywords (D-059). A board material contributes what is active
- * now (nothing while face-down, no used Ward); a hand material contributes its printed keywords.
- * Judgment call: D-059 says "active keywords" but not how a face-down or Ward-used board material counts.
+ * Distinct union of the materials' printed keywords (D-059, D-182 ruling B). Every material gives its printed
+ * keywords wherever it is: a face-down board material and a board material whose Ward is used pass them on
+ * exactly as the same card would from the hand. Flaw bits are masked out (D-181).
  */
 export function keywordUnion(s: GameState, env: Env, mats: readonly Iid[]): KwMask {
   let u = 0;
-  for (let i = 0; i < mats.length; i++) {
-    const iid = mats[i] as Iid;
-    const m = monsterOf(s, iid);
-    u |= m !== null ? activeKwOf(s, env, m) : printedKw(s, env, iid);
-  }
+  for (let i = 0; i < mats.length; i++) u |= printedKw(s, env, mats[i] as Iid);
   return (u & keywordBits(env)) >>> 0;
 }
 
@@ -209,6 +206,22 @@ function opposing(s: GameState, env: Env, mats: readonly Iid[]): boolean {
   return false;
 }
 
+/**
+ * Turn index at whose end an Unstable Chimera grafted on `turn` is destroyed (D-062, D-183). With
+ * `e = turn + UNSTABLE_EXPIRY_TURNS` (the end of the grafter's next turn): 'endOfNextOwnTurn' is `e`;
+ * 'startOfOwnTurnAfterNext' is `e + DURATION_NEXT_OWN_TURN - 1`, i.e. "until the start of turn n" encoded as
+ * "through the end of turn n - 1" (D-136), so the end-of-turn destruction step does not change.
+ */
+export function unstableExpiry(turn: number, g: Globals): number {
+  const e = turn + g.UNSTABLE_EXPIRY_TURNS;
+  switch (g.UNSTABLE_EXPIRY) {
+    case 'endOfNextOwnTurn':
+      return e;
+    case 'startOfOwnTurnAfterNext':
+      return e + g.DURATION_NEXT_OWN_TURN - 1;
+  }
+}
+
 /** `graftPosition`: commit (§5.6). Materials are sacrificed, not destroyed: no hooks, owner's discard (D-058). */
 export function graftPosition(run: Run, pos: Pos): number {
   const { tx, env } = run;
@@ -246,8 +259,7 @@ export function graftPosition(run: Run, pos: Pos): number {
   tx.setSlot(
     side,
     slot,
-    // Judgment call: UNSTABLE_EXPIRY 'startOfOwnTurnAfterNext' (proposal M-02) is not wired; only the turn offset is read.
-    makeMonster(iid, { pos, entered: turn, unstableUntil: unstable ? turn + env.g.UNSTABLE_EXPIRY_TURNS : -1 }),
+    makeMonster(iid, { pos, entered: turn, unstableUntil: unstable ? unstableExpiry(turn, env.g) : -1 }),
   );
 
   tx.set('pending', null);
@@ -311,7 +323,7 @@ export function previewGraft(s: GameState, env: Env): GraftPreview | null {
     guard: stat(env.c.guard[family] ?? 0, env.g.ASCEND_GUARD, 0),
     ascended,
     unstable,
-    unstableUntil: unstable ? s.turn + env.g.UNSTABLE_EXPIRY_TURNS : -1,
+    unstableUntil: unstable ? unstableExpiry(s.turn, env.g) : -1,
     keywordsAvailable: available,
     keywordOptions: choose ? subsetsOfSize(available, env.g.MAX_INHERITED_KEYWORDS) : [],
     kw: choose ? p.kw : available,

@@ -8,7 +8,7 @@ export default defineKeyword({
   kind: 'flaw',
   icon: 'tethered', // not given in DESIGN.md (judgment call)
   visual: 'tethered-frame', // not given in DESIGN.md (judgment call)
-  text: '−2 Power while it is his only monster.',
+  text: '−{TETHERED_PENALTY} Power while it is his only monster.',
   hooks: {
     staticPower: (q) => (q.monsters(q.side).length === 1 ? -q.g.TETHERED_PENALTY : 0),
   },

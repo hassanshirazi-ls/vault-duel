@@ -15,7 +15,7 @@ import type {
 } from '@vault-duel/engine';
 import { KEYWORDS } from '../keywords/index.gen';
 import { DEFAULT_GLOBALS } from './globals';
-import type { ContentData } from './load';
+import type { ContentData } from './files';
 
 /** One definition row before the typed arrays are built. Index in the row list = DefIdx. */
 interface Row {

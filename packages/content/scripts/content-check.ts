@@ -3,21 +3,22 @@
 // error; warnings never fail. When there are no errors it also compiles the content (§3) as a smoke test.
 import { compileContent } from '../src/compile';
 import { DEFAULT_GLOBALS } from '../src/globals';
+import { CONTENT_FILES, formatError } from '../src/files';
 import {
   checkKeywordBarrel,
   checkKeywordGlobalRefs,
   checkKeywordSources,
+  loadContent,
   loadKeywordFiles,
   sortKeywords,
-} from '../src/keyword-files';
-import { CONTENT_FILES, formatError, loadContent } from '../src/load';
+} from '../src/node';
 import { DEFERRED_RULES, validateContent } from '../src/validate';
 
 const result = loadContent();
 const keywordLoad = await loadKeywordFiles();
 const keywordErrors = [
   ...keywordLoad.errors,
-  ...checkKeywordSources(keywordLoad.sources, DEFAULT_GLOBALS.MAX_TEXT_SENTENCES),
+  ...checkKeywordSources(keywordLoad.sources),
   ...checkKeywordGlobalRefs(keywordLoad.sources, DEFAULT_GLOBALS),
   ...checkKeywordBarrel(keywordLoad.sources),
 ];

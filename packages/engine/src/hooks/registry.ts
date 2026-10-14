@@ -5,7 +5,7 @@ import { EngineError } from '../errors';
 import type { CompiledContent, DefIdx, KwMask } from '../types/content';
 import type { Globals } from '../types/globals';
 import { HOOK_NAMES } from '../types/hooks';
-import type { HookName, Hooks } from '../types/hooks';
+import type { HookName, Hooks, TrapHooks } from '../types/hooks';
 
 export const MAX_KEYWORD_BITS = 32;
 
@@ -15,7 +15,7 @@ export interface HookRegistry {
   /** hook name -> mask of keyword bits that implement it (same object as c.hookMask) */
   readonly masks: Readonly<Record<HookName, KwMask>>;
   /** DefIdx -> hooks compiled from a trap's DSL (null for non-traps) */
-  readonly trapHooks: readonly (Hooks | null)[];
+  readonly trapHooks: readonly (TrapHooks | null)[];
 }
 
 /** Everything the rules need besides the state: compiled content, globals, hook registry. */
@@ -32,7 +32,7 @@ export function lowBit(m: number): number {
   return 31 - Math.clz32(m & -m);
 }
 
-export function createRegistry(c: CompiledContent, trapHooks: readonly (Hooks | null)[] = []): HookRegistry {
+export function createRegistry(c: CompiledContent, trapHooks: readonly (TrapHooks | null)[] = []): HookRegistry {
   if (c.keywords.length > MAX_KEYWORD_BITS) {
     throw new EngineError(`more than ${MAX_KEYWORD_BITS} keywords/Flaws`);
   }
@@ -55,12 +55,12 @@ export function createRegistry(c: CompiledContent, trapHooks: readonly (Hooks | 
 export function createEnv(
   c: CompiledContent,
   g: Globals,
-  trapHooks: readonly (Hooks | null)[] = [],
+  trapHooks: readonly (TrapHooks | null)[] = [],
   dev = false,
 ): Env {
   return { c, g, reg: createRegistry(c, trapHooks), dev };
 }
 
-export function trapHooksOf(env: Env, def: DefIdx): Hooks | null {
+export function trapHooksOf(env: Env, def: DefIdx): TrapHooks | null {
   return env.reg.trapHooks[def] ?? null;
 }

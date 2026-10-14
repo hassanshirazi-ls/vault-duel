@@ -1,18 +1,38 @@
-// GlobalsSchema (ARCHITECTURE.md §10.2, §10.3, §11, D-147): a strict zod object for every key of the engine's
-// Globals, typed against it by `satisfies`, plus the globals sanity checks: every Range has min ≤ max,
-// APPRAISAL_ROUNDS lie in 1…MAX_ROUNDS, and WARD_CHARGES is 1 until the engine has a charge counter (D-133).
+// GlobalsSchema (ARCHITECTURE.md §10.2, §10.3, §11, D-147, D-170, D-199): a strict zod object for every key of the
+// engine's Globals, typed against it by `satisfies`, plus the globals sanity checks. Every number is ≥ 0 (signs are
+// written outside the number, D-172). Rates lie in 0…1. Ranges and star cuts are ordered. APPRAISAL_ROUNDS lie in
+// 1…MAX_ROUNDS. An inert global is pinned to its only supported value with pinned() (D-170, D-199).
 import { z } from 'zod';
 import type { Globals } from '@vault-duel/engine';
 
-const Int = z.int();
-const Decimal = z.number();
+/** Problem and fix of every sanity refinement, in the §10.3 shape (D-199). */
+const NON_NEGATIVE = { message: 'must be 0 or more', params: { fix: 'use 0 or more' } } as const;
+const RATE = { message: 'must be between 0 and 1', params: { fix: 'use a rate from 0 to 1' } } as const;
+
+/** A whole number, 0 or more. */
+const Int = z.int().refine((value) => value >= 0, NON_NEGATIVE);
+/** A decimal, 0 or more; used only for the listed rates and ranges (D-199). */
+const Decimal = z.number().refine((value) => value >= 0, NON_NEGATIVE);
+/** A rate: a decimal from 0 to 1. */
+const Rate = z.number().refine((value) => value >= 0 && value <= 1, RATE);
+
+/**
+ * An inert global (D-170): the engine reads it only at this value, so any other value would be a silent no-op.
+ * The message and the fix share the §10.3 form: `globals.ts › KEY › must be V until the engine supports other values › keep V`.
+ */
+export function pinned(value: number): z.ZodType<number> {
+  return z.int().refine((input) => input === value, {
+    message: `must be ${value} until the engine supports other values`,
+    params: { fix: `keep ${value}` },
+  });
+}
 
 /** A CONTENT_NUMBERS name (D-171): capitals, digits and underscores, the same shape as a $NAME ref. */
 const CONTENT_NAME = /^[A-Z][A-Z0-9_]*$/;
 
-/** A min/max pair; the sanity check of §10.3 (min ≤ max). */
+/** A min/max pair; the sanity check of §10.3 (min ≤ max, both 0 or more). */
 const Range = z
-  .tuple([z.number(), z.number()])
+  .tuple([Decimal, Decimal])
   .superRefine((pair, ctx) => {
     if (pair[0] > pair[1]) {
       ctx.addIssue({
@@ -23,6 +43,18 @@ const Range = z
       });
     }
   });
+
+/** Difficulty star cuts (D-098, D-126): two rates, the 1-star cut first and strictly higher than the 2-star cut. */
+const StarCuts = z.tuple([Rate, Rate]).superRefine((cuts, ctx) => {
+  if (!(cuts[0] > cuts[1])) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `cuts must descend, got [${cuts[0]}, ${cuts[1]}]`,
+      input: cuts,
+      params: { fix: 'write the higher (1-star) cut first' },
+    });
+  }
+});
 
 const Flags = z
   .object({
@@ -77,9 +109,7 @@ const GlobalsShape = z
     // Keywords & Flaws
     MAX_BASE_KEYWORDS: Int,
     MAX_INHERITED_KEYWORDS: Int,
-    WARD_CHARGES: Int.refine((value) => value === 1, {
-      message: 'WARD_CHARGES must be 1 until the engine has a charge counter (D-133)',
-    }),
+    WARD_CHARGES: pinned(1), // D-133: one charge until the engine has a charge counter
     HAUNT_PENALTY: Int,
     TETHERED_PENALTY: Int,
     RELIC_FLAWS: Int,
@@ -119,11 +149,11 @@ const GlobalsShape = z
     SHUFFLE_MAX_ATTEMPTS: Int,
     // Difficulty check
     SIM_RUNS_PER_SEED: Int,
-    SEED_WINRATE_MIN: Decimal,
-    SEED_WINRATE_MAX: Decimal,
+    SEED_WINRATE_MIN: Rate,
+    SEED_WINRATE_MAX: Rate,
     SEED_MAX_REROLLS: Int,
-    BOT_NOISE_EPSILON: Decimal,
-    DIFFICULTY_STAR_CUTS: z.tuple([Decimal, Decimal]),
+    BOT_NOISE_EPSILON: Rate,
+    DIFFICULTY_STAR_CUTS: StarCuts,
     // Daily loop
     RESET_HOUR_LOCAL: Int,
     OBJECTIVES_PER_DAY: Int,
@@ -131,14 +161,14 @@ const GlobalsShape = z
     // Balance targets
     TARGET_EXPERT_WINRATE: Range,
     TARGET_NOVICE_WINRATE: Range,
-    TARGET_NOVICE_POINT: Decimal,
+    TARGET_NOVICE_POINT: Rate,
     TARGET_MEDIAN_ROUNDS: Range,
     TARGET_TYPICAL_END_ROUNDS: Range,
     TARGET_FULL_LENGTH_SHARE: Range,
     TARGET_GRAFTS_PER_WIN: Range,
     TARGET_APPRAISAL_SUCCESS: Range,
     TARGET_UNPRICED_APPEARS: Range,
-    TARGET_SEED_REJECT_MAX: Decimal,
+    TARGET_SEED_REJECT_MAX: Rate,
     TARGET_DUEL_MINUTES: Range,
     TARGET_RULES_LEARN_SECONDS: Int,
     // Simulator
@@ -178,6 +208,16 @@ const GlobalsShape = z
           params: { fix: 'remove it' },
         });
       }
+    }
+    // D-199: the win-rate band is ordered (SEED_WINRATE_MIN ≤ SEED_WINRATE_MAX).
+    if (globals.SEED_WINRATE_MAX < globals.SEED_WINRATE_MIN) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SEED_WINRATE_MAX'],
+        message: `${globals.SEED_WINRATE_MAX} < SEED_WINRATE_MIN=${globals.SEED_WINRATE_MIN}`,
+        input: globals.SEED_WINRATE_MAX,
+        params: { fix: 'raise SEED_WINRATE_MAX or lower SEED_WINRATE_MIN' },
+      });
     }
   }) satisfies z.ZodType<Globals>;
 export const GlobalsSchema = GlobalsShape;

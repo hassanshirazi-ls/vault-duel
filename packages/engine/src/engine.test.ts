@@ -6,7 +6,7 @@ import { StateBuilder } from '../test-utils/state';
 import { createEngine } from './engine';
 import { EngineError } from './errors';
 import { NO_EVENTS } from './reducer';
-import { hashState, toActions } from './replay';
+import { hashState, replay, toActions } from './replay';
 import { rerollSeed, seedString } from './setup/seed';
 import type { Action } from './types/actions';
 import type { GameEvent } from './types/events';
@@ -248,6 +248,15 @@ describe('replay (§17 property 4, D-108)', () => {
     expect(hashState({ ...a, turn: 1 })).not.toBe(hashState(a));
     expect(hashState({ ...a, sides: [{ ...a.sides[0], life: 19 }, a.sides[1]] })).not.toBe(hashState(a));
     expect(hashState(e.newGame(rerollSeed(seedString(DUEL_GLOBALS, '2026-10-14'), 1)).state)).not.toBe(hashState(a));
+  });
+  it('replay with { cfg } checks the configuration before applying any action (D-191)', () => {
+    const e = duelEngine();
+    const s = e.newGame(SEED).state;
+    expect(e.replay(SEED, [], { cfg: s.cfg })).toEqual(s);
+    expect(() => e.replay(SEED, [], { cfg: 'other' })).toThrow(/cfg mismatch/);
+    expect(() => e.replay(SEED, [{ t: 'endTurn' }], { cfg: 'other' })).toThrow(/cfg mismatch/); // not the illegal-action error
+    expect(() => e.replay(SEED, [{ t: 'endTurn' }], { cfg: s.cfg })).toThrow(EngineError);
+    expect(() => replay(e, SEED, [], { cfg: 'other' })).toThrow(EngineError);
   });
   it('replay throws EngineError on an illegal action in the list', () => {
     const e = duelEngine();

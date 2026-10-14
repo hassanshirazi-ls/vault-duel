@@ -11,6 +11,7 @@ import { Run } from './pipeline';
 import { applyAction, beginDuel, NO_EVENTS } from './reducer';
 import type { ActionResult, RunOptions } from './reducer';
 import { replay } from './replay';
+import type { ReplayOptions } from './replay';
 import { buildInitialState } from './setup/initial-state';
 import type { NewGameOptions } from './setup/initial-state';
 import { Tx } from './tx';
@@ -47,7 +48,8 @@ export interface Engine {
   forEachLegal(state: GameState, visit: ActionVisitor): void;
   countLegal(state: GameState): number;
   isLegal(state: GameState, action: Action): boolean;
-  replay(seed: string, actions: readonly Action[], opts?: NewGameOptions): GameState;
+  /** `opts.cfg` is the `state.cfg` the actions were recorded under; a mismatch throws EngineError (D-191). */
+  replay(seed: string, actions: readonly Action[], opts?: NewGameOptions & Pick<ReplayOptions, 'cfg'>): GameState;
 }
 
 /** Internal view for modules and test helpers that need the Env (not part of the public surface). */

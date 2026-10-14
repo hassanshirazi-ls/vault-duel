@@ -8,7 +8,7 @@ import { Sfc32 } from '../rng';
 import { compileTraps } from '../traps';
 import { DefType } from '../types/content';
 import type { Iid } from '../types/state';
-import { generateDeck, monstersAcceptable, pickWithCap, sortDeckList } from './deckgen';
+import { deckForSeed, generateDeck, monstersAcceptable, pickWithCap, sortDeckList } from './deckgen';
 import { buildInitialState } from './initial-state';
 import { configHash, rerollSeed, seedString, stream, STREAM_PURPOSES } from './seed';
 import { shuffleDeck, windowsFor } from './shuffle';
@@ -38,6 +38,13 @@ describe('seed strings and streams (§12.2, D-001 to D-003)', () => {
     expect(configHash(DC, withGlobals({ DECK_MIN_KINDS: 2, APPRAISAL_MIN_POWER: 5, FLAGS: { ASCEND: false } }))).not.toBe(a);
     expect(configHash({ hash: 'other' }, g)).not.toBe(a);
   });
+  it('configHash does not depend on the key order of the globals (D-191)', () => {
+    const reordered = { ...g, FLAGS: { ...g.FLAGS }, CONTENT_NUMBERS: { ...g.CONTENT_NUMBERS } };
+    const rev = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).reverse()) as T;
+    const flipped = rev({ ...reordered, FLAGS: rev(reordered.FLAGS), CONTENT_NUMBERS: rev(reordered.CONTENT_NUMBERS) });
+    expect(JSON.stringify(flipped)).not.toBe(JSON.stringify(g));
+    expect(configHash(DC, flipped)).toBe(configHash(DC, g));
+  });
 });
 
 describe('deck generation (§12.3, D-005, D-006)', () => {
@@ -54,6 +61,12 @@ describe('deck generation (§12.3, D-005, D-006)', () => {
     expect(generateDeck(DC, g, stream(SEED, 'deck'))).toEqual(deck);
     const other = generateDeck(DC, g, stream(rerollSeed(seedString(g, '2026-10-14'), 1), 'deck'));
     expect(other).not.toEqual(deck);
+  });
+  it('deckForSeed is the deck newGame deals, and throws EngineError on exhaustion (D-200)', () => {
+    expect(deckForSeed(DC, g, SEED)).toEqual(deck);
+    const dealt = buildInitialState(env, SEED).state.inst.filter((i) => i.owner === 0).map((i) => i.def);
+    expect(dealt).toEqual(deck);
+    expect(() => deckForSeed(DC, withGlobals({ DECK_MIN_KINDS: 9, DECKGEN_MAX_ATTEMPTS: 5 }), SEED)).toThrow(EngineError);
   });
   it('rejects and retries, then throws EngineError when no attempt passes', () => {
     const never = withGlobals({ DECK_MIN_KINDS: 9, DECKGEN_MAX_ATTEMPTS: 5 });

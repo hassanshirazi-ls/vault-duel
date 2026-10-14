@@ -3,6 +3,7 @@
 import { deepFreeze } from '@vault-duel/engine';
 import type { Flags, Globals } from '@vault-duel/engine';
 import { GlobalsSchema, globalsProblems } from './schemas/globals';
+import { formatError, type ContentError } from './files';
 
 const FLAGS = {
   ASCEND: true,
@@ -158,26 +159,54 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * ARCHITECTURE.md §11, D-147. Applies "KEY=VALUE" and "FLAGS.KEY=VALUE" overrides to `base` in order, e.g.
- * "PLAYER_LIFE=18", "FLAGS.ASCEND=false", "APPRAISAL_ROUNDS=[3,6]". Unknown keys are rejected. The merged object
- * is validated with GlobalsSchema and returned deep-frozen. Throws one Error listing every problem, one per line,
- * in the §10.3 shape. Card overrides ("card.<id>.power") are not globals and are handled by sim/overrides.ts.
+ * A failed override (D-199). `errors` are §10.3 records with file `globals.ts`, one per problem, and `message` is those
+ * records rendered as lines, so the sim CLI can print them and the web dev build can show them like content errors.
+ */
+export class OverridesError extends Error {
+  readonly errors: readonly ContentError[];
+
+  constructor(errors: readonly ContentError[]) {
+    super(errors.map(formatError).join('\n'));
+    this.name = 'OverridesError';
+    this.errors = errors;
+  }
+}
+
+/** A whole-object override of these keys would add or replace many entries at once, so each is set by name (D-199). */
+const WHOLE_OBJECT_KEYS: Readonly<Record<string, string>> = {
+  FLAGS: 'FLAGS.<NAME>=<value>',
+  CONTENT_NUMBERS: 'CONTENT_NUMBERS.<NAME>=<value>',
+};
+
+/**
+ * ARCHITECTURE.md §11, D-147, D-171, D-199. Applies "KEY=VALUE" and "FLAGS.KEY=VALUE" overrides to `base` in order, e.g.
+ * "PLAYER_LIFE=18", "FLAGS.ASCEND=false", "APPRAISAL_ROUNDS=[3,6]". Unknown keys are rejected, and so are whole-object
+ * overrides of FLAGS and CONTENT_NUMBERS. The merged object is validated with GlobalsSchema and returned deep-frozen.
+ * Every problem is collected into one OverridesError. Card overrides ("card.<id>.power") are handled by sim/overrides.ts.
  */
 export function withOverrides(base: Globals, sets: readonly string[]): Globals {
-  const problems: string[] = [];
+  const problems: ContentError[] = [];
+  const problem = (id: string, text: string, fix: string): void => {
+    problems.push({ file: 'globals.ts', id, field: '', problem: text, fix });
+  };
   const merged: Record<string, unknown> = { ...base };
   for (const set of sets) {
     const eq = set.indexOf('=');
     if (eq <= 0) {
-      problems.push(`"${set}" › not in KEY=VALUE form › write it as KEY=VALUE`);
+      problem(`"${set}"`, 'not in KEY=VALUE form', 'write it as KEY=VALUE');
       continue;
     }
     const key = set.slice(0, eq);
     const value = parseOverrideValue(set.slice(eq + 1));
+    const whole = Object.hasOwn(WHOLE_OBJECT_KEYS, key) ? WHOLE_OBJECT_KEYS[key] : undefined;
+    if (whole !== undefined) {
+      problem(key, 'set one entry at a time', `write ${whole}`);
+      continue;
+    }
     if (key.startsWith('FLAGS.')) {
       const flag = key.slice('FLAGS.'.length);
       if (!FLAG_KEYS.includes(flag)) {
-        problems.push(`globals.ts › ${key} › unknown flag › use one of: ${FLAG_KEYS.join(', ')}`);
+        problem(key, 'unknown flag', `use one of: ${FLAG_KEYS.join(', ')}`);
         continue;
       }
       const current = isRecord(merged['FLAGS']) ? merged['FLAGS'] : {};
@@ -191,18 +220,18 @@ export function withOverrides(base: Globals, sets: readonly string[]): Globals {
         const current = isRecord(merged['CONTENT_NUMBERS']) ? merged['CONTENT_NUMBERS'] : {};
         merged['CONTENT_NUMBERS'] = { ...current, [name]: value };
       } else {
-        problems.push(`globals.ts › ${key} › unknown key › use a key from globals.ts or a name already in CONTENT_NUMBERS`);
+        problem(key, 'unknown key', 'use a key from globals.ts or a name already in CONTENT_NUMBERS');
       }
     }
   }
-  if (problems.length > 0) throw new Error(problems.join('\n'));
+  if (problems.length > 0) throw new OverridesError(problems);
 
   const result = GlobalsSchema.safeParse(merged);
   if (!result.success) {
-    const lines = globalsProblems(result.error).map(
-      (p) => `globals.ts › ${p.key} › ${p.field ? `${p.field}: ` : ''}${p.problem} › ${p.fix}`,
+    const errors = globalsProblems(result.error).map(
+      (p): ContentError => ({ file: 'globals.ts', id: p.key, field: p.field, problem: p.problem, fix: p.fix }),
     );
-    throw new Error(lines.join('\n'));
+    throw new OverridesError(errors);
   }
   return deepFreeze(result.data);
 }

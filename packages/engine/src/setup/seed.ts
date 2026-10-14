@@ -1,5 +1,6 @@
 // Seed strings and RNG sub-streams (ARCHITECTURE.md §12.2; D-001 to D-003). The date comes from the
 // caller; the engine never reads a clock.
+import { canonicalJson } from '../canonical';
 import { cyrb128, Sfc32 } from '../rng';
 import type { CompiledContent } from '../types/content';
 import type { Globals } from '../types/globals';
@@ -25,7 +26,7 @@ export function stream(seed: string, purpose: StreamPurpose): Sfc32 {
 
 /** Replay guard stored in `GameState.cfg`: the content hash plus a hash of the bound globals (§11). */
 export function configHash(c: Pick<CompiledContent, 'hash'>, g: Globals): string {
-  // Judgment call: JSON.stringify follows property insertion order, fixed by how Globals objects are built (no key sorting: §19 bans key iteration).
-  const words = cyrb128(JSON.stringify(g));
+  // D-191: canonical form, so equal Globals hash equal whatever order their keys were built in.
+  const words = cyrb128(canonicalJson(g));
   return `${c.hash}:${words.map((w) => w.toString(16).padStart(8, '0')).join('')}`;
 }

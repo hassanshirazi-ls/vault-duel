@@ -2,7 +2,7 @@
 // fails on a one-line break of the fixture with the exact §10.3 message (D-168: no test pins a live value).
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_GLOBALS, fixtureData } from '../test-utils/fixture';
-import { formatError, type ContentData } from './load';
+import { formatError, type ContentData } from './files';
 import { DEFERRED_RULES, validateContent } from './validate';
 
 const G = FIXTURE_GLOBALS;
@@ -330,5 +330,105 @@ describe('art briefs (D-110, D-174: warnings)', () => {
     expect(result.warnings).toEqual([
       'art-briefs.json › ghost-card › orphan brief, no card or Chimera family has this id › delete the entry',
     ]);
+  });
+});
+
+describe('text placeholders (D-172)', () => {
+  const bolt = (text: string): ContentData => {
+    const data = fixtureData();
+    entry(data.playerSpells, 'fixture-bolt').text = text;
+    return data;
+  };
+  const boltLine = (problem: string, fix: string): string =>
+    `cards/player-spells.json › fixture-bolt › text: ${problem} › ${fix}`;
+
+  it('accepts a placeholder that the card uses', () => {
+    expect(run(bolt(`Destroy an enemy monster with Power {UNMAKE_MAX_POWER} or less.`))).toEqual({ errors: [], warnings: [] });
+  });
+
+  it('rejects a bare number on a card that uses a global (rule 4)', () => {
+    expect(errorLines(bolt(`Destroy an enemy monster with Power ${G.CONTENT_NUMBERS.UNMAKE_MAX_POWER} or less.`))).toEqual([
+      boltLine(
+        `bare number "${G.CONTENT_NUMBERS.UNMAKE_MAX_POWER}" while the card uses $UNMAKE_MAX_POWER`,
+        `write {UNMAKE_MAX_POWER} instead of ${G.CONTENT_NUMBERS.UNMAKE_MAX_POWER}`,
+      ),
+    ]);
+  });
+
+  it('warns on a placeholder the card does not use (rule 6)', () => {
+    expect(run(bolt('Destroy a monster with Power {SIPHON_GAIN} or less.')).warnings).toEqual([
+      'cards/player-spells.json › fixture-bolt › text: {SIPHON_GAIN} is not used by this card\'s effects or conditions › check the name',
+    ]);
+  });
+
+  it('rejects a malformed placeholder (rule 1)', () => {
+    expect(errorLines(bolt('Destroy {Unmake}.'))).toEqual([
+      boltLine('malformed placeholder "{Unmake}"', 'write {NAME} or {NAME|word|words} with a global name in capitals'),
+    ]);
+  });
+
+  it('rejects an unknown placeholder and suggests the closest name (rule 2)', () => {
+    expect(errorLines(bolt('Destroy with Power {UNMAKE_MAX_POWR} or less.'))).toEqual([
+      boltLine('unknown placeholder {UNMAKE_MAX_POWR}', 'did you mean {UNMAKE_MAX_POWER}?'),
+    ]);
+  });
+
+  it('rejects a placeholder that is not a number (rule 3)', () => {
+    expect(errorLines(bolt('Destroy {CONTENT_VERSION}.'))).toEqual([
+      boltLine('{CONTENT_VERSION} is not a number in globals.ts', 'use a numeric global'),
+    ]);
+  });
+
+  it('counts sentences on the rendered text (rule 7)', () => {
+    expect(errorLines(bolt('Destroy {UNMAKE_MAX_POWER} monsters. Again.'))).toEqual([
+      'cards/player-spells.json › fixture-bolt › text has 2 sentences › shorten to one sentence',
+    ]);
+  });
+
+  it('checks objective text with the same rules, using the objective\'s thresholds', () => {
+    const data = fixtureData();
+    const n = G.CONTENT_NUMBERS.UNMAKE_MAX_POWER;
+    data.objectives = [{ id: 'fixture-goal', text: `Win with ${n}+ life`, requiresWin: true, metric: 'playerLife', gte: '$UNMAKE_MAX_POWER' }];
+    expect(errorLines(data)).toEqual([
+      `objectives.json › fixture-goal › text: bare number "${n}" while the objective uses $UNMAKE_MAX_POWER › write {UNMAKE_MAX_POWER} instead of ${n}`,
+    ]);
+  });
+
+  it('checks twist text for malformed and unknown placeholders (rules 1–2)', () => {
+    const data = fixtureData();
+    data.twists = [{ id: 'mire', text: 'Monsters gain {UNMAKE_MAX_POWR} Power.', modifiers: [] }];
+    expect(errorLines(data)).toEqual([
+      'twists.json › mire › text: unknown placeholder {UNMAKE_MAX_POWR} › did you mean {UNMAKE_MAX_POWER}?',
+    ]);
+  });
+});
+
+describe('conditions on a destroyed monster (D-185)', () => {
+  const trap = (): ContentData => {
+    const data = fixtureData();
+    const snare = entry(data.playerTraps, 'fixture-snare');
+    snare.trigger = 'allyDestroyed';
+    snare.effects = [{ op: 'destroy', target: 'destroyed' }];
+    return data;
+  };
+  const message = (leaf: string): string =>
+    `cards/player-traps.json › fixture-snare › condition "${leaf}" can't be checked on a destroyed monster › use type, relic, chimera, element, kind or graftedThisTurn`;
+
+  it('accepts a when that uses only zone-free leaves, through all', () => {
+    const data = trap();
+    entry(data.playerTraps, 'fixture-snare').when = { all: [{ relic: true }, { element: 'ember' }] };
+    expect(errorLines(data)).toEqual([]);
+  });
+
+  it('rejects a board-state leaf in when on an allyDestroyed trap', () => {
+    const data = trap();
+    entry(data.playerTraps, 'fixture-snare').when = { faceUp: true };
+    expect(errorLines(data)).toEqual([message('faceUp')]);
+  });
+
+  it('rejects a board-state leaf in the if of an effect that acts on the destroyed monster', () => {
+    const data = trap();
+    entry(data.playerTraps, 'fixture-snare').effects = [{ op: 'destroy', target: 'destroyed', if: { not: { powerGte: 3 } } }];
+    expect(errorLines(data)).toEqual([message('powerGte')]);
   });
 });

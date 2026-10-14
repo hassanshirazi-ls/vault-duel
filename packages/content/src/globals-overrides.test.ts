@@ -3,7 +3,7 @@
 // deep-frozen. Each case uses the engine fixture as the base, so no live value is involved (D-168).
 import { describe, expect, it } from 'vitest';
 import { TEST_GLOBALS as BASE } from '@vault-duel/engine/test-utils/globals';
-import { withOverrides } from './globals';
+import { OverridesError, withOverrides } from './globals';
 import { GlobalsSchema } from './schemas/globals';
 
 const NUMBER = 'UNMAKE_MAX_POWER'; // a CONTENT_NUMBERS name in the engine fixture (D-171)
@@ -52,10 +52,41 @@ describe('withOverrides', () => {
     expect(withOverrides(BASE, [`CONTENT_NUMBERS.${NUMBER}=7`]).CONTENT_NUMBERS[NUMBER]).toBe(7);
   });
 
-  it('rejects an unknown key, including a whole CONTENT_NUMBERS record (a --set never adds a number)', () => {
+  it('rejects an unknown key (a --set never adds a number)', () => {
     expect(() => withOverrides(BASE, ['NOT_A_KEY=1'])).toThrow('globals.ts › NOT_A_KEY › unknown key');
-    expect(() => withOverrides(BASE, ['CONTENT_NUMBERS={"NEW_ONE":1}'])).toThrow('globals.ts › CONTENT_NUMBERS › unknown key');
     expect(() => withOverrides(BASE, ['CONTENT_NUMBERS.NEW_ONE=1'])).toThrow('globals.ts › CONTENT_NUMBERS.NEW_ONE › unknown key');
+  });
+
+  it('rejects a whole-object FLAGS or CONTENT_NUMBERS override, set one entry at a time (D-199)', () => {
+    expect(() => withOverrides(BASE, ['CONTENT_NUMBERS={"NEW_ONE":1}'])).toThrow(
+      'globals.ts › CONTENT_NUMBERS › set one entry at a time › write CONTENT_NUMBERS.<NAME>=<value>',
+    );
+    expect(() => withOverrides(BASE, ['FLAGS={"ASCEND":false}'])).toThrow(
+      'globals.ts › FLAGS › set one entry at a time › write FLAGS.<NAME>=<value>',
+    );
+  });
+
+  it('does not treat an inherited property name as a whole-object key', () => {
+    expect(() => withOverrides(BASE, ['toString=1'])).toThrow('globals.ts › toString › unknown key');
+  });
+
+  it('throws an OverridesError whose records are §10.3 globals.ts entries (D-199)', () => {
+    let caught: unknown;
+    try {
+      withOverrides(BASE, ['WARD_CHARGES=2', 'PLAYER_LIFE=-1']);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(OverridesError);
+    const errors = (caught as OverridesError).errors;
+    expect(errors).toEqual([
+      { file: 'globals.ts', id: 'PLAYER_LIFE', field: '', problem: 'must be 0 or more', fix: 'use 0 or more' },
+      { file: 'globals.ts', id: 'WARD_CHARGES', field: '', problem: 'must be 1 until the engine supports other values', fix: 'keep 1' },
+    ]);
+    expect((caught as Error).message.split('\n')).toEqual([
+      'globals.ts › PLAYER_LIFE › must be 0 or more › use 0 or more',
+      'globals.ts › WARD_CHARGES › must be 1 until the engine supports other values › keep 1',
+    ]);
   });
 
   it('rejects an unknown flag', () => {
@@ -69,7 +100,7 @@ describe('withOverrides', () => {
   });
 
   it('validates the merged object with GlobalsSchema, sanity checks included', () => {
-    expect(() => withOverrides(BASE, ['WARD_CHARGES=2'])).toThrow('D-133');
+    expect(() => withOverrides(BASE, ['WARD_CHARGES=2'])).toThrow('must be 1 until the engine supports other values');
     expect(() => withOverrides(BASE, [`APPRAISAL_ROUNDS=[${BASE.MAX_ROUNDS + 1}]`])).toThrow(
       `globals.ts › APPRAISAL_ROUNDS › round ${BASE.MAX_ROUNDS + 1} > MAX_ROUNDS=${BASE.MAX_ROUNDS} › remove it`,
     );

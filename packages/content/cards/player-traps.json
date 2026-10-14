@@ -4,12 +4,12 @@
     "trigger": "enemyAttack", "effects": [ { "op": "cancelAttack" } ]
   },
   {
-    "id": "mirror-sigil", "type": "trap", "name": "Mirror Sigil", "text": "When an enemy monster attacks, it loses 3 Power permanently before combat.",
+    "id": "mirror-sigil", "type": "trap", "name": "Mirror Sigil", "text": "When an enemy monster attacks, it loses {MIRROR_SIGIL_PENALTY} Power permanently before combat.",
     "trigger": "enemyAttack",
     "effects": [ { "op": "modifyStats", "target": "attacker", "power": "-$MIRROR_SIGIL_PENALTY", "duration": "permanent" } ]
   },
   {
-    "id": "last-rites", "type": "trap", "name": "Last Rites", "text": "When your monster is destroyed, draw 1 card.",
+    "id": "last-rites", "type": "trap", "name": "Last Rites", "text": "When your monster is destroyed, draw {LAST_RITES_DRAW|card|cards}.",
     "trigger": "allyDestroyed", "effects": [ { "op": "draw", "who": "self", "n": "$LAST_RITES_DRAW" } ]
   },
   {

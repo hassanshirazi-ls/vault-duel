@@ -1,6 +1,6 @@
 [
   { "id": "win-without-grafting", "text": "Win without grafting", "requiresWin": true, "metric": "grafts", "lte": 0 },
-  { "id": "win-with-15-life", "text": "Win with 15+ life", "requiresWin": true, "metric": "playerLife", "gte": "$OBJ_HIGH_LIFE" },
-  { "id": "win-by-round-8", "text": "Win by round 8", "requiresWin": true, "metric": "round", "lte": "$OBJ_WIN_BY_ROUND" },
+  { "id": "win-with-15-life", "text": "Win with {OBJ_HIGH_LIFE}+ life", "requiresWin": true, "metric": "playerLife", "gte": "$OBJ_HIGH_LIFE" },
+  { "id": "win-by-round-8", "text": "Win by round {OBJ_WIN_BY_ROUND}", "requiresWin": true, "metric": "round", "lte": "$OBJ_WIN_BY_ROUND" },
   { "id": "never-lose-a-monster-to-appraisal", "text": "Never lose a monster to Appraisal", "requiresWin": true, "metric": "appraisedLost", "lte": 0 }
 ]

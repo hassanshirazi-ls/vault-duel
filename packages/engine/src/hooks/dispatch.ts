@@ -1,20 +1,22 @@
 // Hook dispatch (ARCHITECTURE.md §8.3, §8.5). One Dispatcher serves one dispatch: build it from
 // the current Tx state immediately before dispatching. Subscribers are collected up front into a
-// local list (Tx caller contract 1), then called; calling hooks never writes state.
+// local list (Tx caller contract 1), then called. A trap subscriber's spendTrap writes during the list, so the
+// contexts read the state live through a StateSource (D-186) instead of keeping the state they were built over.
 import { makeRefs } from '../effects/targets';
 import type { EffectSink } from '../effects/run';
 import { activeKwOf, activeSide, locate, locSide, locSlot, monsterOf } from '../stats';
 import type { KwMask } from '../types/content';
 import type {
   AttackEvt,
+  EventHookName,
   CombatSnapshot,
   DestroyEvt,
   DestroyedEvt,
   GraftEvt,
-  HookName,
   Hooks,
   SummonEvt,
   SummonReq,
+  TrapHooks,
   TurnEvt,
 } from '../types/hooks';
 import type { GameState, Iid, Side } from '../types/state';
@@ -24,8 +26,9 @@ import {
   EventContext,
   QueryContext,
   TargetQueryContext,
+  sourceOf,
 } from './context';
-import type { CombatFlags } from './context';
+import type { CombatFlags, StateRef, StateSource } from './context';
 import { lowBit } from './registry';
 import type { Env } from './registry';
 
@@ -35,17 +38,26 @@ interface Sub {
   /** keyword bits of this card that implement the hook (monsters); 0 for traps */
   readonly mask: KwMask;
   /** compiled trap hook table (traps only) */
-  readonly trap: Hooks | null;
+  readonly trap: TrapHooks | null;
   /** DefIdx of a trap (identical-trap rule, D-071); -1 for monsters */
   readonly def: number;
 }
 
 export class Dispatcher {
+  private readonly src: StateSource;
+
+  /** `s` is a fixed state, or a live source such as the `Run` (D-186). */
   constructor(
     readonly env: Env,
-    readonly s: GameState,
+    s: StateRef,
     readonly sink: EffectSink,
-  ) {}
+  ) {
+    this.src = sourceOf(s);
+  }
+
+  get s(): GameState {
+    return this.src.state;
+  }
 
   /**
    * Subscribers for one event in §8.3.1 order: (b) `own` first (onDestroyed's destroyed monster),
@@ -53,7 +65,7 @@ export class Dispatcher {
    * slot order, (f) inactive side's. Keyword bits inside a card run in registry (bit) order.
    * (a), engine system rules, are the caller's business (§5).
    */
-  private collect(hook: HookName, own: Sub | null): Sub[] {
+  private collect(hook: EventHookName, own: Sub | null): Sub[] {
     const { s, env } = this;
     const subs: Sub[] = [];
     if (own !== null) subs.push(own);
@@ -83,11 +95,11 @@ export class Dispatcher {
     return subs;
   }
 
-  private run<C extends QueryContext>(subs: readonly Sub[], ctx: C, call: (h: Hooks, ctx: C) => void): void {
+  private run<C extends QueryContext>(subs: readonly Sub[], ctx: C, call: (h: Hooks | TrapHooks, ctx: C) => void): void {
     const spent: number[] = []; // trap defs (x2 + side) already spent in this dispatch
     for (let i = 0; i < subs.length; i++) {
       const sub = subs[i] as Sub;
-      ctx.bind(sub.iid, sub.side);
+      ctx.bind(sub.iid, sub.side, sub.trap !== null);
       if (sub.trap !== null) {
         // Two identical traps of one side: only the leftmost is used (D-071). Judgment call: implemented per dispatch,
         // so each monster of a destruction batch can still use one trap of the pair (D-158).
@@ -105,14 +117,14 @@ export class Dispatcher {
   }
 
   onSummon(evt: SummonEvt): void {
-    const ctx = new EventContext(this.env, this.s, this.sink, evt, makeRefs({}));
+    const ctx = new EventContext(this.env, this.src, this.sink, evt, makeRefs({}));
     this.run(this.collect('onSummon', null), ctx, (h, c) => h.onSummon?.(c));
   }
 
   /** Returns the iid that cancelled the attack, or -1 (§8.3.4). */
   onAttackDeclared(evt: AttackEvt): Iid | -1 {
     const refs = makeRefs({ attacker: evt.attacker, defender: evt.target });
-    const ctx = new AttackContext(this.env, this.s, this.sink, evt, refs, evt.attacker);
+    const ctx = new AttackContext(this.env, this.src, this.sink, evt, refs, evt.attacker);
     this.run(this.collect('onAttackDeclared', null), ctx, (h, c) => h.onAttackDeclared?.(c));
     return ctx.cancelledBy;
   }
@@ -121,7 +133,7 @@ export class Dispatcher {
   beforeCombat(evt: AttackEvt, snapshot: CombatSnapshot): { readonly pierce: boolean; readonly brittleWin: boolean } {
     const flags: CombatFlags = { pierce: false, brittleWin: false };
     const refs = makeRefs({ attacker: evt.attacker, defender: evt.target });
-    const ctx = new CombatContext(this.env, this.s, this.sink, evt, refs, snapshot, flags);
+    const ctx = new CombatContext(this.env, this.src, this.sink, evt, refs, snapshot, flags);
     this.run(this.collect('beforeCombat', null), ctx, (h, c) => h.beforeCombat?.(c));
     return { pierce: flags.pierce, brittleWin: flags.brittleWin };
   }
@@ -131,17 +143,17 @@ export class Dispatcher {
     const mask = evt.kw & this.env.reg.masks.onDestroyed;
     const own: Sub | null = mask !== 0 ? { iid: evt.iid, side: evt.side, mask, trap: null, def: -1 } : null;
     const refs = makeRefs({ destroyed: evt.iid, destroyer: evt.by });
-    const ctx = new EventContext(this.env, this.s, this.sink, evt, refs);
+    const ctx = new EventContext(this.env, this.src, this.sink, evt, refs);
     this.run(this.collect('onDestroyed', own), ctx, (h, c) => h.onDestroyed?.(c));
   }
 
   onTurn(hook: 'onTurnStart' | 'onTurnEnd', evt: TurnEvt): void {
-    const ctx = new EventContext(this.env, this.s, this.sink, evt, makeRefs({}));
+    const ctx = new EventContext(this.env, this.src, this.sink, evt, makeRefs({}));
     this.run(this.collect(hook, null), ctx, (h, c) => (hook === 'onTurnStart' ? h.onTurnStart?.(c) : h.onTurnEnd?.(c)));
   }
 
   onGraft(evt: GraftEvt): void {
-    const ctx = new EventContext(this.env, this.s, this.sink, evt, makeRefs({ grafted: evt.iid }));
+    const ctx = new EventContext(this.env, this.src, this.sink, evt, makeRefs({ grafted: evt.iid }));
     this.run(this.collect('onGraft', null), ctx, (h, c) => h.onGraft?.(c));
   }
 
@@ -155,7 +167,7 @@ export class Dispatcher {
     const mask = activeKwOf(this.s, this.env, m) & this.env.reg.masks.beforeDestroy;
     if (mask === 0) return 'allow';
     const loc = locate(this.s, evt.iid);
-    const ctx = new EventContext(this.env, this.s, this.sink, evt, makeRefs({ destroyed: evt.iid, destroyer: evt.by }));
+    const ctx = new EventContext(this.env, this.src, this.sink, evt, makeRefs({ destroyed: evt.iid, destroyer: evt.by }));
     ctx.bind(evt.iid, locSide(loc));
     for (let b = mask | 0; b !== 0; b &= b - 1) {
       if (this.env.reg.kw[lowBit(b)]?.beforeDestroy?.(ctx) === 'prevent') return 'prevent';

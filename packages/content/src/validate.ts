@@ -1,12 +1,14 @@
-// Cross-file validator (ARCHITECTURE.md §10.3, D-109, D-145). It runs after the zod pass, on whatever parsed:
-// a rule whose input file failed to parse is skipped, because that file already has zod errors, so every
-// problem is reported in one run. Messages follow the §10.3 examples. Stat-budget and art-brief problems are
-// warnings (D-167, D-174); the pool capacity is an error (D-170).
+// Cross-file validator (ARCHITECTURE.md §10.3, D-109, D-145, D-172, D-185, D-198). It runs after the zod pass, on
+// whatever parsed: a rule whose input file failed to parse is skipped, because that file already has zod errors, so
+// every problem is reported in one run. Messages follow the §10.3 examples. Stat-budget, art-brief and placeholder
+// problems that don't break play are warnings (D-167, D-172, D-174); the pool capacity is an error (D-170).
+// Browser-safe: it imports nothing from node:*.
 import type { Cond, Effect, Globals, KeywordDef, TrapTrigger } from '@vault-duel/engine';
 import { KEYWORDS } from '../keywords/index.gen';
 import { DEFAULT_GLOBALS } from './globals';
-import { CONTENT_FILES, type ContentData, type ContentError, type ContentKey } from './load';
-import { globalNameProblem } from './global-names';
+import { CONTENT_FILES, type ContentData, type ContentError, type ContentKey } from './files';
+import { globalNameProblem, placeholderProblem } from './global-names';
+import { parseTemplate, plainText, renderText, type ParsedTemplate } from './text';
 import { GlobalsSchema, globalsProblems } from './schemas/globals';
 
 export interface ValidationResult {
@@ -48,6 +50,7 @@ const CANCEL_ATTACK_FIX = 'remove it or change the trigger';
 
 type Spells = NonNullable<ContentData['playerSpells']>;
 type Traps = NonNullable<ContentData['playerTraps']>;
+type Trap = Traps[number];
 
 interface Sink {
   readonly errors: ContentError[];
@@ -66,6 +69,8 @@ interface Ctx {
   readonly elements: readonly string[] | undefined;
   readonly kinds: readonly string[] | undefined;
   readonly keywords: ReadonlyMap<string, KeywordDef>;
+  /** The registry in the order it was given, for the keyword text rules. */
+  readonly keywordList: readonly KeywordDef[];
 }
 
 const fileOf = (key: ContentKey): string => CONTENT_FILES[key].path;
@@ -74,8 +79,8 @@ function fail(sink: Sink, where: Where, problem: string, fix: string, field = ''
   sink.errors.push({ file: where.file, id: where.id, field, problem, fix });
 }
 
-function warn(sink: Sink, where: Where, problem: string, fix: string): void {
-  sink.warnings.push({ file: where.file, id: where.id, field: '', problem, fix });
+function warn(sink: Sink, where: Where, problem: string, fix: string, field = ''): void {
+  sink.warnings.push({ file: where.file, id: where.id, field, problem, fix });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -108,6 +113,7 @@ export function validateContent(
     elements: data.elements?.map((element) => element.id),
     kinds: data.kinds?.map((kind) => kind.id),
     keywords: new Map(keywords.map((keyword) => [keyword.id, keyword] as const)),
+    keywordList: keywords,
   };
   checkGlobalsSanity(ctx);
   checkDuplicateIds(ctx);
@@ -122,7 +128,7 @@ export function validateContent(
   checkTrapList(ctx, 'playerTraps', data.playerTraps);
   checkTrapList(ctx, 'collectorTraps', data.collectorTraps);
   checkTwistConditions(ctx);
-  checkCardText(ctx);
+  checkTexts(ctx);
   checkGlobalRefs(ctx);
   checkArtBriefs(ctx);
   checkPoolCapacity(ctx);
@@ -374,6 +380,34 @@ function checkTrapList(ctx: Ctx, key: ContentKey, traps: Traps | undefined): voi
         fail(ctx.sink, where, `ref "${ref}" is not available for trigger "${trap.trigger}"`, `use ${allowed.join(' or ')}`);
       }
     }
+    checkDestroyedConditions(ctx, where, trap);
+  }
+}
+
+// D-185: a trap's `when` on an allyDestroyed trigger, and an `if` on an effect that acts on "destroyed", are evaluated
+// after the monster has left the board. Only the leaves that don't read the zone may be used.
+const DESTROYED_LEAVES: readonly string[] = ['type', 'relic', 'chimera', 'element', 'kind', 'graftedThisTurn'];
+const DESTROYED_FIX = 'use type, relic, chimera, element, kind or graftedThisTurn';
+
+/** The leaf keys of a condition that are not in DESTROYED_LEAVES. all/any/not are walked, not reported. */
+function zoneLeaves(cond: Cond): string[] {
+  if ('all' in cond) return cond.all.flatMap(zoneLeaves);
+  if ('any' in cond) return cond.any.flatMap(zoneLeaves);
+  if ('not' in cond) return zoneLeaves(cond.not);
+  const leaf = Object.keys(cond)[0] ?? '';
+  return DESTROYED_LEAVES.includes(leaf) ? [] : [leaf];
+}
+
+function checkDestroyedConditions(ctx: Ctx, where: Where, trap: Trap): void {
+  const conditions: Cond[] = [];
+  if (trap.trigger === 'allyDestroyed' && trap.when) conditions.push(trap.when);
+  for (const effect of trap.effects) {
+    if (effect.if && refOf(effect) === 'destroyed') conditions.push(effect.if);
+  }
+  for (const condition of conditions) {
+    for (const leaf of zoneLeaves(condition)) {
+      fail(ctx.sink, where, `condition "${leaf}" can't be checked on a destroyed monster`, DESTROYED_FIX);
+    }
   }
 }
 
@@ -385,29 +419,130 @@ function checkTwistConditions(ctx: Ctx): void {
   }
 }
 
-// §10.3: a card's text is one sentence (MAX_TEXT_SENTENCES). Sentences end at . ! or ? followed by a space.
-function checkCardText(ctx: Ctx): void {
-  const { data } = ctx;
-  const texts: [string, readonly { readonly id: string; readonly text?: string | undefined }[] | undefined][] = [
-    [fileOf('playerMonsters'), data.playerMonsters],
-    [fileOf('relics'), data.relics],
-    [fileOf('playerSpells'), data.playerSpells],
-    [fileOf('playerTraps'), data.playerTraps],
-    [fileOf('collectorSpells'), data.collectorSpells],
-    [fileOf('collectorTraps'), data.collectorTraps],
-  ];
-  for (const [file, entries] of texts) {
-    for (const entry of entries ?? []) {
-      if (entry.text === undefined) continue;
-      const sentences = entry.text.trim().split(/(?<=[.!?])\s+/).length;
-      if (sentences > ctx.globals.MAX_TEXT_SENTENCES) {
-        fail(ctx.sink, { file, id: entry.id }, `text has ${sentences} sentences`, 'shorten to one sentence');
-      }
+// ---- Text (D-172, D-198) -------------------------------------------------------------------------------------------
+// Placeholders are checked in card, objective, twist and keyword text. The sentence rule (D-113) runs on the rendered
+// text, so a placeholder counts as its number and word. Rules 1–3 apply everywhere; the rest are per kind of text.
+
+const TEXT_FIX = 'write {NAME} or {NAME|word|words} with a global name in capitals';
+
+/** Object keys that are not global references: the id, the name and the text itself. */
+const NON_REF_KEYS: ReadonlySet<string> = new Set(['id', 'name', 'text']);
+
+/** The distinct global names an entry refers to (D-074), in order: every "$NAME" or "-$NAME" outside its text. */
+function refNames(entry: unknown): string[] {
+  const names: string[] = [];
+  const walk = (value: unknown): void => {
+    if (typeof value === 'string') {
+      if (GLOBAL_REF.test(value)) names.push(value.replace(/^-?\$/, ''));
+    } else if (Array.isArray(value)) {
+      for (const item of value) walk(item);
+    } else if (isRecord(value)) {
+      for (const item of Object.values(value)) walk(item);
     }
+  };
+  if (isRecord(entry)) {
+    for (const [key, value] of Object.entries(entry)) if (!NON_REF_KEYS.has(key)) walk(value);
+  }
+  return [...new Set(names)];
+}
+
+/** Rules 1–3 on one template. Returns the parsed template when all of its names are clean, else undefined. */
+function checkNames(ctx: Ctx, where: Where, text: string): ParsedTemplate | undefined {
+  const template = parseTemplate(text);
+  let clean = true;
+  for (const raw of template.malformed) {
+    clean = false;
+    fail(ctx.sink, where, `malformed placeholder "${raw}"`, TEXT_FIX, 'text');
+  }
+  for (const name of template.names) {
+    const problem = placeholderProblem(name, ctx.globals);
+    if (problem !== undefined) {
+      clean = false;
+      fail(ctx.sink, where, problem.problem, problem.fix, 'text');
+    }
+  }
+  return clean ? template : undefined;
+}
+
+/** Every distinct run of digits left once the placeholders are removed. */
+function bareNumbers(template: ParsedTemplate): string[] {
+  return [...new Set(plainText(template).match(/\d+/g) ?? [])];
+}
+
+/** §10.3: the rendered text is one sentence (MAX_TEXT_SENTENCES). Sentences end at . ! or ? followed by a space. */
+function checkSentences(ctx: Ctx, where: Where, text: string): void {
+  const sentences = renderText(text, ctx.globals).trim().split(/(?<=[.!?])\s+/).length;
+  if (sentences > ctx.globals.MAX_TEXT_SENTENCES) {
+    fail(ctx.sink, where, `text has ${sentences} sentences`, 'shorten to one sentence');
   }
 }
 
-// Every "$NAME" / "-$NAME" string in the data must name a numeric entry of DEFAULT_GLOBALS (D-074).
+/**
+ * Card and objective text (D-172 rules 1–4, 6, 7). `refs` are the globals the entry uses outside its text. Rule 4
+ * applies only when there are refs, so a card with no globals may keep its digits. Objectives have no sentence rule.
+ */
+function checkEntryText(ctx: Ctx, where: Where, text: string, refs: readonly string[], noun: 'card' | 'objective'): void {
+  const template = checkNames(ctx, where, text);
+  if (template === undefined) return;
+  if (refs.length > 0) {
+    const used = refs.map((name) => `$${name}`).join(', ');
+    for (const number of bareNumbers(template)) {
+      const fix = refs.length === 1
+        ? `write {${refs[0]}} instead of ${number}`
+        : `write one of ${refs.map((name) => `{${name}}`).join(', ')} instead of ${number}`;
+      fail(ctx.sink, where, `bare number "${number}" while the ${noun} uses ${used}`, fix, 'text');
+    }
+  }
+  for (const name of template.names) {
+    if (!refs.includes(name)) {
+      const scope = noun === 'card' ? "this card's effects or conditions" : "this objective's thresholds";
+      warn(ctx.sink, where, `{${name}} is not used by ${scope}`, 'check the name', 'text');
+    }
+  }
+  if (noun === 'card') checkSentences(ctx, where, text);
+}
+
+// Card text (all six card files; monster and Relic text is optional) and objective text.
+function checkTexts(ctx: Ctx): void {
+  const { data } = ctx;
+  const lists: readonly (readonly [ContentKey, readonly { readonly id: string; readonly text?: string | undefined }[] | undefined])[] = [
+    ['playerMonsters', data.playerMonsters],
+    ['relics', data.relics],
+    ['playerSpells', data.playerSpells],
+    ['playerTraps', data.playerTraps],
+    ['collectorSpells', data.collectorSpells],
+    ['collectorTraps', data.collectorTraps],
+  ];
+  for (const [key, entries] of lists) {
+    for (const entry of entries ?? []) {
+      if (entry.text === undefined) continue;
+      checkEntryText(ctx, { file: fileOf(key), id: entry.id }, entry.text, refNames(entry), 'card');
+    }
+  }
+  for (const objective of data.objectives ?? []) {
+    checkEntryText(ctx, { file: fileOf('objectives'), id: objective.id }, objective.text, refNames(objective), 'objective');
+  }
+  for (const twist of data.twists ?? []) {
+    checkNames(ctx, { file: fileOf('twists'), id: twist.id }, twist.text);
+  }
+  checkKeywordTexts(ctx);
+}
+
+// Keyword and Flaw text (D-172 rules 1–3, 5, 7; D-198): the registry is checked, so the browser dev build sees it too.
+// A keyword's numbers always come from globals (§1.3), so any digit left after the placeholders is a bare number.
+function checkKeywordTexts(ctx: Ctx): void {
+  for (const keyword of ctx.keywordList) {
+    const where: Where = { file: `keywords/${keyword.id}.ts`, id: keyword.id };
+    const template = checkNames(ctx, where, keyword.text);
+    if (template === undefined) continue;
+    for (const number of bareNumbers(template)) {
+      fail(ctx.sink, where, `bare number "${number}"`, 'write a {NAME} placeholder for the global the keyword uses', 'text');
+    }
+    checkSentences(ctx, where, keyword.text);
+  }
+}
+
+// Every "$NAME" / "-$NAME" string in the data must name a numeric entry of the globals (D-074, D-171).
 // Scans every data file, so effects, Conds, objectives and AI params are all covered.
 function checkGlobalRefs(ctx: Ctx): void {
   const keys: readonly ContentKey[] = [

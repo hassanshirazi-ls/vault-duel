@@ -7,7 +7,8 @@ import { pathToFileURL } from 'node:url';
 import type { Globals, KeywordDef } from '@vault-duel/engine';
 import { DEFAULT_GLOBALS } from './globals';
 import { globalNameProblem } from './global-names';
-import { CONTENT_ROOT, type ContentError } from './load';
+import type { ContentError } from './files';
+import { CONTENT_ROOT } from './load';
 
 export const KEYWORD_DIR = 'keywords';
 /** Generated barrel path, relative to packages/content. */
@@ -92,12 +93,10 @@ function problem(file: string, id: string, text: string, fix: string): ContentEr
 
 /**
  * File-level rules (§10.3, "keyword file problems"): id equals the file name, ids are unique and kebab-case,
- * kind and display strings are set, text is one sentence, and at most MAX_KEYWORDS entries exist.
+ * display strings are set, and at most MAX_KEYWORDS entries exist. The text rules (sentences on the rendered text,
+ * placeholders) run in validateContent over the registry (D-172, D-198), so they are not repeated here.
  */
-export function checkKeywordSources(
-  sources: readonly KeywordSource[],
-  maxSentences: number = DEFAULT_GLOBALS.MAX_TEXT_SENTENCES,
-): ContentError[] {
+export function checkKeywordSources(sources: readonly KeywordSource[]): ContentError[] {
   const errors: ContentError[] = [];
   const firstFile = new Map<string, string>();
   for (const { file, stem, def } of sources) {
@@ -108,10 +107,6 @@ export function checkKeywordSources(
     else errors.push(problem(file, def.id, `duplicate id (also in ${first})`, 'rename one of them'));
     for (const field of ['name', 'icon', 'visual'] as const) {
       if (def[field].trim() === '') errors.push(problem(file, def.id, `${field} is empty`, `set ${field} to a non-empty string`));
-    }
-    const sentences = def.text.trim().split(/(?<=[.!?])\s+/).length;
-    if (sentences > maxSentences) {
-      errors.push(problem(file, def.id, `text has ${sentences} sentences`, 'shorten to one sentence'));
     }
   }
   if (sources.length > MAX_KEYWORDS) {

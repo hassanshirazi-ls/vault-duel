@@ -5,6 +5,7 @@ import type { Env } from '../src/hooks/registry';
 import type { CompiledContent } from '../src/types/content';
 import type { KeywordDef } from '../src/types/hooks';
 import { buildContent } from './content-builder';
+import { dslFillerSpec } from './content-builder';
 import type { ContentSpec, DefSpec } from './content-builder';
 import { TEST_GLOBALS } from './globals';
 import type { Globals } from '../src/types/globals';
@@ -43,7 +44,7 @@ export const FX_KEYWORDS: readonly KeywordDef[] = [
     summonRequirement: () => ({ kind: 'sacrifice', appraised: true, zones: ['board', 'vault'] }),
   }),
   k('fx-slow', 'flaw', {
-    attackPermission: (q) => (q.enteredThisTurn(q.self) ? { restrict: 'none' } : {}),
+    attackPermission: (q) => (q.ownTurnsSinceEntered(q.self) < q.g.SLOW_TURNS ? { restrict: 'none' } : {}),
   }),
   k('fx-tethered', 'flaw', {
     staticPower: (q) => (q.monsters(q.side).length === 1 ? -q.g.TETHERED_PENALTY : 0),
@@ -52,6 +53,7 @@ export const FX_KEYWORDS: readonly KeywordDef[] = [
 ];
 
 export const FX_DEFS: readonly DefSpec[] = [
+  dslFillerSpec({ elements: [{ id: 'fx-ember', beats: [] }], kinds: ['fx-beast'] }), // D-193: the board DSL's inert filler (first element and kind of FX_SPEC)
   { id: 'fx-ember-whelp', type: 'monster', power: 3, guard: 2, element: 'fx-ember', kind: 'fx-beast' },
   { id: 'fx-tide-sprite', type: 'monster', power: 2, guard: 4, element: 'fx-tide', kind: 'fx-spirit' },
   { id: 'fx-umbra-beast', type: 'monster', power: 5, guard: 3, element: 'fx-umbra', kind: 'fx-beast' },

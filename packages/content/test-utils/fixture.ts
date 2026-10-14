@@ -4,7 +4,7 @@
 // validate.test.ts). Keyword and Flaw ids come from the registry (keywords/index.gen.ts), which is rules, not data.
 import { withGlobals } from '@vault-duel/engine/test-utils/globals';
 import type { Globals } from '@vault-duel/engine';
-import type { ContentData } from '../src/load';
+import type { ContentData } from '../src/files';
 
 /** TEST_GLOBALS with small deck sizes, so the fixture needs only a handful of cards. */
 export const FIXTURE_GLOBALS: Globals = withGlobals({

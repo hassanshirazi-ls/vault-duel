@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { GC, GRAFT_SPEC } from './graft-fixture';
 import { TEST_GLOBALS, withGlobals } from './globals';
 import { buildScenario, parseScenario, runScenario, runScenarioOn, ScenarioError, scenarioEngine, withDeclared } from './board-dsl';
-import { buildContent } from './content-builder';
+import { buildContent, DSL_FILLER_ID } from './content-builder';
 import { moodOf } from '../src/mood';
+import { Pool } from '../src/types/content';
 
 const engine = scenarioEngine(GC, TEST_GLOBALS);
 const build = (text: string, g = TEST_GLOBALS) => buildScenario(parseScenario(text), GC, g);
@@ -53,6 +54,16 @@ describe('parseScenario / buildScenario (§17)', () => {
     const all = [...state.sides[0].deck, ...state.sides[0].hand, ...state.sides[1].deck].sort((a, b) => a - b);
     expect(all).toEqual(state.inst.map((_, i) => i));
     expect(build('P deck fx-bolt fx-scry').state.sides[0].deck).toHaveLength(2);
+  });
+
+  it('every filler card is the reserved dsl-filler: 1/1, no keywords, first element and kind (D-193)', () => {
+    const { state } = build('P hand *');
+    const filler = GC.index.get(DSL_FILLER_ID) as number;
+    for (const iid of [...state.sides[0].hand, ...state.sides[0].deck, ...state.sides[1].deck]) expect(state.inst[iid]?.def).toBe(filler);
+    expect([GC.power[filler], GC.guard[filler], GC.kw[filler]]).toEqual([1, 1, 0]);
+    expect(GC.element[filler]).toBe(0);
+    expect(GC.kind[filler]).toBe(0);
+    expect(GC.pool[filler]).toBe(Pool.Player);
   });
 
   it('flags: moved done p+N g-N p+N@T unstable@T shroud@T and chimera(...)', () => {
@@ -229,6 +240,15 @@ describe('card declarations (D-169)', () => {
       TEST_GLOBALS,
     );
     expect(r.content.index.has('fx-decl-a')).toBe(true);
+  });
+  it('withDeclared adds dsl-filler once, and declaring that id is a parse error (D-193)', () => {
+    const bare = { ...GRAFT_SPEC, defs: GRAFT_SPEC.defs.filter((d) => d.id !== DSL_FILLER_ID) };
+    const added = withDeclared(bare, []);
+    expect(added.defs.filter((d) => d.id === DSL_FILLER_ID)).toHaveLength(1);
+    expect(withDeclared(added, []).defs.filter((d) => d.id === DSL_FILLER_ID)).toHaveLength(1);
+    expect(() => parseScenario('card dsl-filler P fx-ember fx-beast 1/1')).toThrow(/line 1: .*reserved/);
+    expect(() => buildScenario(parseScenario('P hand *'), buildContent(bare), TEST_GLOBALS)).toThrow(/dsl-filler/);
+    expect(buildScenario(parseScenario('P hand *'), buildContent(added), TEST_GLOBALS).state.sides[0].hand).toHaveLength(TEST_GLOBALS.HAND_SIZE);
   });
   it('rejects malformed, colliding and unresolvable declarations', () => {
     expect(() => parseScenario('card fx-x P fx-ember fx-beast')).toThrow(/line 1: card needs/);

@@ -11,6 +11,9 @@ import { effectivePower } from '../stats';
 import { attackTargets, Dispatcher, mustAttack, summonRequirement } from './dispatch';
 import { defineKeyword } from './define';
 import { createEnv } from './registry';
+import { harness } from '../../test-utils/run';
+import { EngineError } from '../errors';
+import type { TrapHooks } from '../types/hooks';
 
 // ---- recording content -----------------------------------------------------------------------
 // Two recorder keywords whose hooks append "<keyword>@<self iid>" to a shared log.
@@ -491,5 +494,44 @@ describe('globals reach the hooks', () => {
     const sk = sink();
     new Dispatcher(e, s, sk).onDestroyed({ iid: shade, side: 0, slot: 0, cause: 'combat', by: killer, power: 3, guard: 3, kw: fxKw(FX, 'fx-haunt') });
     expect(sk.queued[0]?.effect).toMatchObject({ op: 'modifyStats', power: '-$HAUNT_PENALTY' });
+  });
+});
+
+describe('live state in contexts and the trap-only spendTrap (D-186)', () => {
+  const sc = buildContent({
+    ...FX_SPEC,
+    defs: [
+      ...FX_SPEC.defs,
+      { id: 'fx-spender', type: 'trap' },
+      { id: 'fx-reader', type: 'trap' },
+      { id: 'fx-bad-spender', type: 'monster', power: 1, guard: 1, element: 'fx-ember', kind: 'fx-beast', kw: ['fx-spend-kw'] },
+    ],
+    keywords: [...FX_SPEC.keywords, kwdef('fx-spend-kw', { onSummon: (ctx) => (ctx as unknown as { spendTrap(): void }).spendTrap() })],
+  });
+  const spender = sc.index.get('fx-spender') as number;
+  const reader = sc.index.get('fx-reader') as number;
+  const seen: (number | null)[] = [];
+  const hooks: (TrapHooks | null)[] = [];
+  hooks[spender] = { onSummon: (ctx) => ctx.spendTrap() };
+  // Reads the player's trap slot 0 after the spender (slot 0) already left it.
+  hooks[reader] = { onSummon: (ctx) => void seen.push(ctx.s.sides[0].traps[0]?.iid ?? null) };
+  const env = createEnv(sc, TEST_GLOBALS, hooks, true);
+
+  it('a trap subscriber sees the writes of the subscribers before it (would fail with a captured state)', () => {
+    seen.length = 0;
+    const b = new StateBuilder(sc).turn(2);
+    const t0 = b.card('fx-spender', 0);
+    const t1 = b.card('fx-reader', 0);
+    const h = harness(b.setTrap(0, 0, t0).setTrap(0, 1, t1).build(), env);
+    h.run.dispatcher().onSummon({ iid: 0, side: 0, slot: 0, covetous: false });
+    expect(seen).toEqual([null]); // a captured state would still show t0
+    expect(h.done().sides[0].traps.map((t) => t?.iid ?? null)).toEqual([null, t1]);
+  });
+
+  it('a keyword hook cannot spend a trap', () => {
+    const b = new StateBuilder(sc).turn(2);
+    const m = b.card('fx-bad-spender', 0);
+    const h = harness(b.place(0, 0, m).build(), env);
+    expect(() => h.run.dispatcher().onSummon({ iid: m, side: 0, slot: 0, covetous: false })).toThrow(EngineError);
   });
 });

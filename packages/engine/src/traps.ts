@@ -5,10 +5,10 @@
 // context in card order: `cancelAttack` runs at once (AttackContext), the rest are queued.
 import type { CompiledContent, DefIdx } from './types/content';
 import type { Effect, TrapDef, TrapTrigger } from './types/effects';
-import type { AttackCtx, HookCtx, Hooks } from './types/hooks';
+import type { AttackCtx, HookCtx, TrapCtx, TrapHooks } from './types/hooks';
 import type { Iid } from './types/state';
 
-function fire(ctx: HookCtx<unknown>, def: TrapDef, subject: Iid): void {
+function fire(ctx: TrapCtx<HookCtx<unknown>>, def: TrapDef, subject: Iid): void {
   // `TrapDef.when` is checked when the trap's turn comes (D-071). Judgment call: its subject is the triggering
   // monster (attacker / destroyed / grafted); §9.1 does not say what a `when` condition is evaluated on.
   if (def.when !== undefined && !ctx.holds(def.when, subject)) return;
@@ -17,17 +17,17 @@ function fire(ctx: HookCtx<unknown>, def: TrapDef, subject: Iid): void {
 }
 
 /** Per-trigger hook tables. A new trigger fails to compile until it is added here. */
-const COMPILERS: Readonly<Record<TrapTrigger, (def: TrapDef) => Hooks>> = {
+const COMPILERS: Readonly<Record<TrapTrigger, (def: TrapDef) => TrapHooks>> = {
   // An enemy monster declares an attack (any target). A cancelled attack is no longer an attack for later traps.
   enemyAttack: (def) => ({
-    onAttackDeclared: (ctx: AttackCtx) => {
+    onAttackDeclared: (ctx: TrapCtx<AttackCtx>) => {
       if (ctx.cancelled || ctx.controller(ctx.evt.attacker) === ctx.side) return;
       fire(ctx, def, ctx.evt.attacker);
     },
   }),
   // An enemy monster declares a direct attack on the trap's owner.
   enemyDirectAttack: (def) => ({
-    onAttackDeclared: (ctx: AttackCtx) => {
+    onAttackDeclared: (ctx: TrapCtx<AttackCtx>) => {
       if (ctx.cancelled || ctx.evt.target >= 0 || ctx.controller(ctx.evt.attacker) === ctx.side) return;
       fire(ctx, def, ctx.evt.attacker);
     },
@@ -49,13 +49,13 @@ const COMPILERS: Readonly<Record<TrapTrigger, (def: TrapDef) => Hooks>> = {
 };
 
 /** Hooks for one trap definition. */
-export function compileTrap(def: TrapDef): Hooks {
+export function compileTrap(def: TrapDef): TrapHooks {
   return COMPILERS[def.trigger](def);
 }
 
 /** DefIdx -> compiled trap hooks (null for every non-trap definition); pass to `createEnv`. */
-export function compileTraps(c: CompiledContent): (Hooks | null)[] {
-  const out: (Hooks | null)[] = [];
+export function compileTraps(c: CompiledContent): (TrapHooks | null)[] {
+  const out: (TrapHooks | null)[] = [];
   for (let d: DefIdx = 0; d < c.ids.length; d++) {
     const t = c.trap[d];
     out.push(t === null || t === undefined ? null : compileTrap(t));

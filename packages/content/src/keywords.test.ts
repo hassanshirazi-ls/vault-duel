@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { HOOK_NAMES } from '@vault-duel/engine';
 import type { CombatCtx, DestroyedEvt, GameEvent, HookCtx, KeywordDef, QueryCtx, Effect } from '@vault-duel/engine';
 import { TEST_GLOBALS } from '@vault-duel/engine/test-utils/globals';
 import { KEYWORDS } from '../keywords/index.gen';
@@ -33,43 +34,25 @@ function queryCtx(over: Partial<Record<keyof QueryCtx, unknown>> = {}): QueryCtx
     g: TEST_GLOBALS,
     monsters: () => [],
     enteredThisTurn: () => false,
+    ownTurnsSinceEntered: () => 0,
     ...over,
   } as unknown as QueryCtx;
 }
 
-const EXPECTED: readonly { id: string; kind: 'keyword' | 'flaw'; hooks: readonly string[] }[] = [
-  { id: 'echo', kind: 'keyword', hooks: ['onDestroyed'] },
-  { id: 'haunt', kind: 'keyword', hooks: ['onDestroyed'] },
-  { id: 'pierce', kind: 'keyword', hooks: ['beforeCombat'] },
-  { id: 'sentinel', kind: 'keyword', hooks: ['restrictTargets'] },
-  { id: 'swift', kind: 'keyword', hooks: ['attackPermission'] },
-  { id: 'ward', kind: 'keyword', hooks: ['beforeDestroy'] },
-  { id: 'brittle', kind: 'flaw', hooks: ['beforeCombat'] },
-  { id: 'covetous', kind: 'flaw', hooks: ['summonRequirement'] },
-  { id: 'slow', kind: 'flaw', hooks: ['attackPermission'] },
-  { id: 'tethered', kind: 'flaw', hooks: ['staticPower'] },
-  { id: 'vain', kind: 'flaw', hooks: ['mustAttack'] },
-];
-
+// The registry is data-driven (D-111): no test lists its ids. Adding a keyword is one file plus pnpm content:gen.
+// Each keyword's behaviour is tested below by id, so those tests are the only ones a rename or removal touches.
 describe('registry (KW-1, FL-1, D-111)', () => {
-  it('is the rule set of keywords and Flaws, in bit order (keywords by id, then Flaws by id)', () => {
-    expect(KEYWORDS.map((keyword) => keyword.id)).toEqual(EXPECTED.map((entry) => entry.id));
-    expect(KEYWORDS.map((keyword) => keyword.kind)).toEqual(EXPECTED.map((entry) => entry.kind));
+  it('is in bit order (keywords by id, then Flaws by id) and has unique ids', () => {
+    const sources: KeywordSource[] = KEYWORDS.map((def) => ({ file: `keywords/${def.id}.ts`, stem: def.id, def }));
+    expect(KEYWORDS.map((keyword) => keyword.id)).toEqual(sortKeywords(sources).map((source) => source.def.id));
+    expect(new Set(KEYWORDS.map((keyword) => keyword.id)).size).toBe(KEYWORDS.length);
   });
 
-  it('uses exactly the hook names of ARCHITECTURE.md §8.5 for each keyword and Flaw', () => {
-    for (const entry of EXPECTED) {
-      const hooks = Object.keys(byId(entry.id).hooks).sort();
-      expect(hooks, entry.id).toEqual([...entry.hooks].sort());
-    }
-  });
-
-  it('has a text of one sentence and non-empty display fields for every entry', () => {
+  it('uses only hook names the engine defines, and each keyword or Flaw defines at least one', () => {
     for (const keyword of KEYWORDS) {
-      expect(keyword.text.split(/(?<=[.!?])\s+/), keyword.id).toHaveLength(1);
-      expect(keyword.name.trim(), keyword.id).not.toBe('');
-      expect(keyword.icon.trim(), keyword.id).not.toBe('');
-      expect(keyword.visual.trim(), keyword.id).not.toBe('');
+      const hooks = Object.keys(keyword.hooks);
+      expect(hooks.length, keyword.id).toBeGreaterThan(0);
+      for (const hook of hooks) expect(HOOK_NAMES, `${keyword.id}.${hook}`).toContain(hook);
     }
   });
 
@@ -216,11 +199,6 @@ describe('file checks (§8.4, §10.3 keyword file problems)', () => {
     expect(checkKeywordSources(many).map((error) => error.problem)).toEqual([
       '33 keywords and Flaws, the bit mask holds 32',
     ]);
-  });
-
-  it('reports text longer than one sentence', () => {
-    const problems = checkKeywordSources([source('swift', { text: 'One. Two.' })]);
-    expect(problems.map((error) => error.problem)).toEqual(['text has 2 sentences']);
   });
 
   it('renders the barrel in bit order whatever order the sources arrive in', () => {

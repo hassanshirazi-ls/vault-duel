@@ -1,6 +1,6 @@
-// Hook contexts (ARCHITECTURE.md §8.2). A context is created per dispatch over the state as it is
-// at dispatch time; no write happens while a subscriber list runs (hooks only queue effects), so
-// that snapshot equals the live Tx view for the whole list. `bind` re-targets it per subscriber.
+// Hook contexts (ARCHITECTURE.md §8.2). A context is created per dispatch and reads the state through a
+// `StateSource` on every access (D-186): a trap subscriber's `spendTrap` writes during the subscriber list, so a
+// state captured at construction would go stale (§4.1 contract 1). `bind` re-targets it per subscriber.
 import { evalCond } from '../effects/conditions';
 import { globalByName } from '../effects/num';
 import type { EffectSink, Refs } from '../effects/run';
@@ -18,9 +18,22 @@ import type {
   HookCtx,
   QueryCtx,
   TargetQueryCtx,
+  TrapCtx,
 } from '../types/hooks';
 import type { GameState, Iid, Side } from '../types/state';
 import type { Env } from './registry';
+
+/** Where a context reads the current state from; a `Run` is one (`run.state` is the live Tx view). */
+export interface StateSource {
+  readonly state: GameState;
+}
+
+/** A fixed state (read-only query folds, tests) or a live source. */
+export type StateRef = GameState | StateSource;
+
+export function sourceOf(r: StateRef): StateSource {
+  return 'state' in r ? r : { state: r };
+}
 
 export class QueryContext implements QueryCtx {
   readonly g: Globals;
@@ -28,16 +41,20 @@ export class QueryContext implements QueryCtx {
   self: Iid;
   side: Side;
   protected readonly attackerIid: Iid | -1;
+  protected readonly src: StateSource;
   /** set by EventContext.spendTrap; the dispatcher reads and clears it per subscriber (D-071) */
   trapSpent = false;
+  /** true while a compiled trap's subscriber runs; only then may `spendTrap` be called (D-186) */
+  protected inTrap = false;
 
   constructor(
     protected readonly env: Env,
-    readonly s: GameState,
+    s: StateRef,
     self: Iid,
     side: Side,
     attacker: Iid | -1 = -1,
   ) {
+    this.src = sourceOf(s);
     this.g = env.g;
     this.c = env.c;
     this.self = self;
@@ -45,11 +62,17 @@ export class QueryContext implements QueryCtx {
     this.attackerIid = attacker;
   }
 
+  /** The state as it is now. */
+  get s(): GameState {
+    return this.src.state;
+  }
+
   /** Re-target at the next subscriber of the same dispatch. */
-  bind(self: Iid, side: Side): void {
+  bind(self: Iid, side: Side, trap = false): void {
     this.self = self;
     this.side = side;
     this.trapSpent = false;
+    this.inTrap = trap;
   }
 
   power(i: Iid): number {
@@ -86,6 +109,15 @@ export class QueryContext implements QueryCtx {
   enteredThisTurn(i: Iid): boolean {
     return monsterOf(this.s, i)?.entered === this.s.turn;
   }
+  ownTurnsSinceEntered(i: Iid): number {
+    const loc = locate(this.s, i);
+    if (loc < 0) return -1;
+    const m = this.s.sides[locSide(loc)].board[locSlot(loc)];
+    if (m === null || m === undefined) return -1;
+    // Turns with index parity x are the controller's own; the arithmetic shift also handles the DSL's entered = -1.
+    const x = locSide(loc);
+    return ((this.s.turn - x) >> 1) - ((m.entered - x) >> 1);
+  }
   isAttacker(i: Iid): boolean {
     return i === this.attackerIid;
   }
@@ -97,7 +129,7 @@ export class QueryContext implements QueryCtx {
 export class TargetQueryContext extends QueryContext implements TargetQueryCtx {
   constructor(
     env: Env,
-    s: GameState,
+    s: StateRef,
     self: Iid,
     side: Side,
     readonly attacker: Iid,
@@ -106,10 +138,10 @@ export class TargetQueryContext extends QueryContext implements TargetQueryCtx {
   }
 }
 
-export class EventContext<E> extends QueryContext implements HookCtx<E> {
+export class EventContext<E> extends QueryContext implements HookCtx<E>, TrapCtx<HookCtx<E>> {
   constructor(
     env: Env,
-    s: GameState,
+    s: StateRef,
     protected readonly sink: EffectSink,
     readonly evt: E,
     protected readonly refs: Refs,
@@ -134,8 +166,9 @@ export class EventContext<E> extends QueryContext implements HookCtx<E> {
     return evalCond(cond, { s: this.s, env: this.env, refs: this.refs }, iid);
   }
 
-  /** Immediate and visible to every later subscriber of the same destruction batch (D-158). Not an effect. */
+  /** Trap subscribers only (TrapCtx, D-186). Immediate and visible to every later subscriber of the same destruction batch (D-158). Not an effect. */
   spendTrap(): void {
+    if (!this.inTrap) throw new EngineError('spendTrap is only available to trap hooks (D-186)');
     this.sink.spendTrap(this.side, this.self);
     this.trapSpent = true;
   }
@@ -180,7 +213,7 @@ export class CombatContext extends EventContext<AttackEvt> implements CombatCtx 
 
   constructor(
     env: Env,
-    s: GameState,
+    s: StateRef,
     sink: EffectSink,
     evt: AttackEvt,
     refs: Refs,

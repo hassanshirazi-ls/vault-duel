@@ -71,8 +71,34 @@ export default tseslint.config(
     files: ['packages/engine/src/freeze.ts'],
     rules: { 'no-restricted-properties': ['error', mathRandom] },
   },
+  // canonicalJson sorts own keys before writing them, so its output is independent of key order (D-191).
+  {
+    files: ['packages/engine/src/canonical.ts'],
+    rules: { 'no-restricted-properties': ['error', mathRandom] },
+  },
   layer(['packages/engine/**/*.ts'], 'engine', ['content', 'ai', 'sim'], true),
   layer(['packages/content/**/*.ts'], 'content', ['ai', 'sim'], false),
+  // D-176: content's src is browser-safe. Only load.ts and keyword-files.ts (the "./node" entry) may use node:*.
+  // Test files run under Node, so they are left out. A later block replaces the earlier no-restricted-imports for
+  // the files it matches, so the ai and sim bans of the layer above are repeated here.
+  {
+    files: ['packages/content/src/**/*.ts'],
+    ignores: ['packages/content/src/load.ts', 'packages/content/src/keyword-files.ts', 'packages/content/src/**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['node:*'], message: 'content src is browser-safe (D-176); Node APIs live in load.ts and keyword-files.ts (./node).' },
+            ...['ai', 'sim'].map((dep) => ({
+              group: [`@vault-duel/${dep}`, `@vault-duel/${dep}/*`],
+              message: `content must not depend on ${dep} (ARCHITECTURE.md §2).`,
+            })),
+          ],
+        },
+      ],
+    },
+  },
   layer(['packages/content/keywords/**/*.ts'], 'content', ['ai', 'sim'], true),
   layer(['packages/ai/**/*.ts'], 'ai', ['sim'], true),
   {

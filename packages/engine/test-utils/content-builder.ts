@@ -19,6 +19,17 @@ export interface DefSpec {
   readonly trap?: TrapDef;
 }
 
+/** D-193: the reserved inert filler card of the board DSL. A scenario's `card` lines may not declare this id. */
+export const DSL_FILLER_ID = 'dsl-filler';
+
+/** The filler: player pool, the spec's first element and kind, 1/1, no keywords. */
+export function dslFillerSpec(base: Pick<ContentSpec, 'elements' | 'kinds'>): DefSpec {
+  const element = base.elements[0]?.id;
+  const kind = base.kinds[0];
+  if (element === undefined || kind === undefined) throw new Error('dsl filler needs at least one element and one kind');
+  return { id: DSL_FILLER_ID, type: 'monster', pool: 'player', power: 1, guard: 1, element, kind };
+}
+
 export interface ContentSpec {
   /** element id and the ids it beats */
   readonly elements: readonly { readonly id: string; readonly beats: readonly string[] }[];

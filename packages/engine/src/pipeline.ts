@@ -63,9 +63,9 @@ export class Run implements EffectSink {
     this.fx.queue(q);
   }
 
-  /** A dispatcher over the state as it is now; build one immediately before every dispatch. */
+  /** A dispatcher whose contexts read this run's live state (D-186); build one immediately before every dispatch. */
   dispatcher(): Dispatcher {
-    return new Dispatcher(this.env, this.tx.state, this);
+    return new Dispatcher(this.env, this, this);
   }
 
   /**
