@@ -885,6 +885,151 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - Also settled: `twists.json` ships empty because DESIGN says weekly twists are not in v0.1, and the Collector deck is all 20 listed Relics, spells and traps, in DESIGN order.
 - Reason: the schemas need concrete values, and inventing them silently would break the "never invent content" rule. This entry is the record of which content values didn't come from DESIGN.md.
 
+**D-131 · Engine-internal effect and hook interfaces**
+- Date: 2026-10-14
+- Question: Engine milestone 2 introduced `Refs`, `QueuedEffect`, `EffectSink`, `EffectHost` (in `effects/run.ts`) and `Env`, `HookRegistry` (in `hooks/registry.ts`). ARCHITECTURE doesn't name them.
+- Decision: Confirmed in those files, as engine-internal types that are not exported from the package root. Their roles are fixed as follows:
+  - `Env { c, g, reg }` holds everything a rule needs besides the state.
+  - `HookRegistry { kw, masks, trapHooks }` maps a keyword bit to its hooks, a hook name to its bit mask (the same object as `c.hookMask`, checked against the hook tables at creation), and a trap `DefIdx` to the hooks compiled by `traps.ts`.
+  - `Refs` has one field per DSL `Ref`, bound when an effect is queued.
+  - `QueuedEffect { effect, refs, source, side }`: `side` is the source card's controller at queue time, and every duration is relative to it (D-136).
+  - `EffectSink { queue, emit }` is what hook contexts write into.
+  - `EffectHost { emit, destroy, lifeChanged }` is how the interpreter reaches later pipelines. `destroy` always means cause `'effect'` with no destroyer. Unstable expiry and combat call `destroyBatch` (§5.5) directly with their own cause.
+  ARCHITECTURE §8.6 lists them.
+- Reason: the names and files match the §2 layout. Keeping them internal keeps the public surface to `createEngine`, `applyAction`, `getLegalActions` and the content-facing types.
+
+**D-132 · `EngineError` is a public export**
+- Date: 2026-10-14
+- Question: `EngineError` lives in `src/errors.ts` and is not exported from `index.ts`. Do consumers need it?
+- Decision: Yes. Export the class from the package root. The sim worker catches it to record the failing seed and action index and keep the batch running. The web app catches it when resuming a save: a replay that hits an illegal action or a config mismatch voids the duel without a loss (D-108), whereas any other error is a bug. No error codes for now; the message is enough for logs.
+- Reason: callers can only tell engine-reported failures from crashes with `instanceof`, and that needs the class.
+
+**D-133 · A used Ward switches off every `beforeDestroy` bit**
+- Date: 2026-10-14
+- Question: To avoid hard-coding the `ward` id, the engine drops every keyword bit that has a `beforeDestroy` hook once `wardUsed` is set (D-044). A future keyword with `beforeDestroy` would be switched off too.
+- Decision: Confirmed, as an explicit contract: **a `beforeDestroy` keyword is a one-shot destruction replacement.** When any of a monster's `beforeDestroy` bits returns `'prevent'`, the engine sets `wardUsed`, and all of that monster's `beforeDestroy` bits become inactive until it leaves the board (D-043). The contract goes in §8.4 and in CONTENT_GUIDE's keyword checklist. If a future keyword needs a reusable or separate replacement, `wardUsed: boolean` becomes a per-bit `spentKw: KwMask` (same cost, one int). That change is deferred until such a keyword exists. `WARD_CHARGES` is not consumed by the engine yet, because Ward is a boolean (§4). Until a charge counter exists, the globals sanity check (§10.3) rejects any `WARD_CHARGES` other than 1, so the global can't silently do nothing.
+- Reason: this is the simplest generic rule that is exactly right for the only launch replacement keyword. Writing the contract down makes the coupling visible to whoever adds the next one.
+
+**D-134 · `beforeDestroy` asks only the monster being destroyed**
+- Date: 2026-10-14
+- Question: Engine milestone 2 asks only the destroyed monster's own active keywords, in bit order, and stops at the first `'prevent'`. The generic §8.3.1 subscriber order would also ask other monsters, so a neighbour's Ward (whose hook is just `() => 'prevent'`) would block this monster's destruction.
+- Decision: Confirmed. `beforeDestroy` is a per-monster replacement query. The subscribers are the destroyed monster's own active keyword bits in registry order; neighbours and traps are never asked. This is an exception to §8.3.1, recorded in §8.3 rule 1 and §5.5.
+- Reason: Ward's text is about itself ("it loses Ward instead"), and `wardUsed` is set on the monster that was saved. Asking other cards would be a bug, not a feature.
+
+**D-135 · `beforeCombat` uses the §8.3.1 subscriber order**
+- Date: 2026-10-14
+- Question: Engine milestone 2 dispatches `beforeCombat` in the generic §8.3.1 order, not §5.4's "A's hooks then T's hooks".
+- Decision: Confirmed. The two orders are consistent: the attacker is always on the active side and the target on the inactive side, so §8.3.1 always runs A before T. The only difference is that other board monsters (and traps) with a `beforeCombat` hook are also called. Keyword hooks must check `ctx.isAttacker(ctx.self)` or `ctx.evt.target === ctx.self`, as Pierce and Brittle already do (§8.5). Flags can't depend on order (D-124). Queued effects and events follow the same deterministic order as every other event hook. §5.4 is reworded to cite §8.3.1.
+- Reason: one dispatch rule for all event hooks is simpler, and it allows a future keyword that reacts to fights it isn't in.
+
+**D-136 · Durations are relative to the source's controller**
+- Date: 2026-10-14
+- Question: §9.1 says durations are "relative to the card's controller at cast/trigger time". Engine milestone 2 defines `n` = the controller's next own turn = `turn + DURATION_NEXT_OWN_TURN` (2) when the controller is the active side, otherwise `turn + 1`. It then stores:
+  - `thisTurn` → `until = turn`
+  - `untilEndOfYourNextTurn` → `until = n`
+  - `untilYourNextTurn` on `modifyStats` → `until = n − 1`
+  - `preventAppraisal` → `shroudUntil = max(old, n)`
+  Does this match DESIGN?
+- Decision: Confirmed. Every DESIGN duration comes from a spell, and spells are cast on their caster's own turn t:
+  - Bloodlust "this turn" ends after turn t.
+  - Gilt Frame "until the end of his next turn" applies through t+2 (D-069).
+  - Shroud "until your next turn" protects on turns t and t+1, so it covers the Collector's Appraisal, and expires as turn t+2 starts (§5.2).
+  The different storage (`TimedMod.until` is inclusive, `shroudUntil` is exclusive, §4) encodes the same moment: the start of turn `n`. The off-turn branch (`n = turn + 1`) applies only to a timed effect triggered on the opponent's turn. No launch card does that: Mirror Sigil and Counterfeit are permanent, and Last Rites and Insurance Claim have no duration. The branch reads "your next turn" as the next turn of yours that begins after now, so an off-turn "until your next turn" ends when the current turn ends. A shroud never shortens an existing one. §9.1 now has the table.
+- Reason: this is a literal reading of DESIGN's three durations for every launch card, and it is the only sensible reading of "your next turn" for off-turn triggers. No game feel changes, because the off-turn branch can't be reached in v0.1.
+
+**D-137 · Folding `summonRequirement` across several Flaws**
+- Date: 2026-10-14
+- Question: Engine milestone 2 folds several `summonRequirement` results like this: any `sacrifice` beats `normal`, and two `sacrifice` results intersect their `zones`. An empty intersection makes the card unsummonable.
+- Decision: Confirmed. That is "most restrictive" (§8.3.6), it can't depend on order, and with an empty intersection neither `summon` nor `summonCovetous` is legal. With launch content it never comes up: every Relic has exactly one Flaw (D-114), and only the ace has Covetous. `legal.ts` enumerates sacrifice candidates in a fixed order (own board in slot order, then the vault in vault order), filtered by `zones`, never in the order of the `zones` array.
+- Reason: the intersection is the only fold that respects every Flaw. A fixed enumeration order keeps the legal-action list independent of keyword bit order.
+
+**D-138 · `changePosition` on a face-down monster fizzles**
+- Date: 2026-10-14
+- Question: Engine milestone 2 makes `changePosition` fizzle (no write, no event) when the target is face-down.
+- Decision: Confirmed, for both `to: 'guard'` (already guard) and `to: 'attack'`. An effect never reveals or flips a face-down monster: DESIGN reveals them only through reposition ("flipped to attack is revealed") and attacks. Unreachable with launch content, because Thornwall and Display Case target the attacker, which is always face-up in attack position.
+- Reason: it is the simplest rule, and it keeps hidden information from leaking through effects (D-037).
+
+**D-139 · `graftedThisTurn` means "created by a Graft this turn"** (changed)
+- Date: 2026-10-14
+- Question: Engine milestone 2 makes `graftedThisTurn` true for any Chimera whose board record has `entered === turn`. That includes a Chimera re-summoned from hand this turn and a Chimera Appraised this turn (D-077). Should those count?
+- Decision: Changed. They don't count. `ChimeraInfo` gets `readonly grafted: number`, the turn index of the Graft that created the instance (set once at commit, §5.6; `Instance` is immutable). The condition is `inst.chimera !== null && inst.chimera.grafted === state.turn`, and it doesn't care where the card is (combine it with `onBoard` if needed). No launch card uses this condition: Counterfeit targets the `grafted` ref of `onGraft`.
+- Reason: the condition is named after Counterfeit's text "a Chimera grafted this turn". Re-summoning or stealing is not grafting. One immutable integer gives the exact answer without inspecting the board.
+
+**D-140 · `FLAGS.CHIMERA_TO_HAND = false` (proposal M-12 lever)**
+- Date: 2026-10-14
+- Question: With the flag off, engine milestone 2's `returnToHand` never returns a Chimera (it stays where it is). Engine-dev left it to `legal.ts` whether Grave Recall can target a Chimera.
+- Decision: The interpreter is confirmed. With the flag off, `returnToHand` on a Chimera fizzles wherever the Chimera is: a destroyed Echo Chimera stays in the discard, which is M-12's intent. A Chimera on the board stays on the board; no launch card bounces from the board, so this case only needs revisiting if one is added while M-12 is under test. Changed for legality: with the flag off, a spell whose effects include `returnToHand` on `chosen` doesn't offer Chimeras as targets, so Grave Recall can't target a Chimera, as M-12 says. The filter lives in `effects/targets.ts › targetCandidates`, the single place for spell targets, not in a card-specific branch in `legal.ts`. With the flag on (default, DESIGN as written), nothing changes (D-046, D-068).
+- Reason: offering a target that is certain to fizzle would be a wasted play by accident, which D-067 forbids. Putting the filter in the generic candidate function keeps it data-driven.
+
+**D-141 · `CombatSnapshot` is frozen in dev mode only; dev mode is an engine option**
+- Date: 2026-10-14
+- Question: `CombatSnapshot` is readonly only at the type level. Should `combat.ts` `Object.freeze` it, given the §18 budget?
+- Decision: Freeze it when the engine runs in dev mode, and not in production. That is the same policy as the other dev-only safety checks (§18.9). Dev mode is an explicit option, `createEngine(…, { dev: true })`, stored as `Env.dev`, because the engine must not read `process.env.NODE_ENV` (no Node APIs, §1.2). Tests, the board-DSL fixtures and the web dev build set it. The sim and the production web build don't. In dev mode the engine also deep-freezes every committed state (§18.9). A `MAX_TRIGGER_CHAIN` overrun throws `EngineError` in every mode, as milestone 2 already does. §8.3 rule 7 is corrected from "in dev/test", because a runaway chain must not continue silently in production either.
+- Reason: ES modules are strict, so a hook that writes to a frozen snapshot throws during keyword-example and scenario tests, where content is exercised. Production pays nothing. The cost would be negligible anyway (about 30 snapshots per duel), but one consistent dev switch is simpler than a special case.
+
+**D-142 · Round-1 attack ban reads `FIRST_ATTACK_ROUND_PLAYER`**
+- Date: 2026-10-14
+- Question: Engine milestone 2 implements the ban as `round < FIRST_ATTACK_ROUND_PLAYER`, while §6.2 says `round === 1`.
+- Decision: Confirmed. The global already exists for this rule (D-015). With the default of 2 the two are identical. §6.2 is corrected to the global form.
+- Reason: every number goes through globals, and the doc literal was the outlier.
+
+**D-143 · Guard against drift in the engine's test globals**
+- Date: 2026-10-14
+- Question: `packages/engine/test-utils/globals.ts` copies the §11 values so engine tests needn't import content (which would break the dependency direction). The copy can drift.
+- Decision: Keep the copy and guard it from the content side, which may import engine. The engine package exports its test utilities as a subpath (`"./test-utils/*": "./test-utils/*.ts"`), which §2 already intends for the board DSL. `packages/content/src/test-globals.test.ts` asserts that `{ ...TEST_GLOBALS, CONTENT_VERSION: DEFAULT_GLOBALS.CONTENT_VERSION }` deep-equals `DEFAULT_GLOBALS`, FLAGS included, and that `TEST_GLOBALS.CONTENT_VERSION === DEFAULT_GLOBALS.CONTENT_VERSION + '-fixture'`. `pnpm test` runs both packages, so any drift fails CI.
+- Reason: this is the smallest guard that keeps `engine ← content`. The deliberate `-fixture` suffix stays visible, so fixture state hashes can never be mistaken for real ones.
+
+**D-144 · Forfeit's "your monsters" are the player's**
+- Date: 2026-10-14
+- Question: DESIGN lists Forfeit as "destroy one of your monsters with Power 4 or less" in the Collector section; §9.2 uses target side `enemy`.
+- Decision: Confirmed. DESIGN addresses the player as "you" everywhere, including the Collector section ("he takes your highest-Power face-up monster"). So Forfeit, cast by the Collector, targets the player's board: `side: 'enemy'` from the caster's point of view. The card text stays as DESIGN wrote it, which reads correctly to the player who sees it.
+- Reason: the only reading consistent with the rest of DESIGN. Read the other way, the Collector would destroy his own Relic.
+
+**D-145 · `collector.json › ai` ids are closed enums checked by content, mirrored by ai**
+- Date: 2026-10-14
+- Question: §10.2 has no schema for `collector.json › ai`. Content-author's schema accepts any string for rule ids and parameter values (`guardUnlessBeater`, `allAttack`, `attackAnything`, `fewerOrEqual`, `previewAttack`, …). Should the validator check them against `ai/collector/rules`?
+- Decision: Yes, but without content importing `ai` (that would break `engine ← content ← ai`):
+  - **Closed enums in `packages/content/src/schemas/collector.ts`:**
+    - `AI_PLAY_RULES`: `winThisTurn`, `summonAce`, `summonBeater`, `setTrapWhenBehind`, `castHighValueSpell`, `summonFallback`, `utility`
+    - `AI_ATTACK_RULES`: `lethal`, `killWithoutLoss`, `faceDownIfStrong`, `directIfEmpty`, `holdExceptVain`, `attackAnything`
+    - `AI_REPOSITION`: `toAttackIfUsable`, `allAttack`
+    - Parameter values: `compare` takes `fewer` / `fewerOrEqual` for `setTrapWhenBehind` and `previewAttack` for `summonBeater`; `position` takes `attack` / `guard` / `guardUnlessBeater`; `slowPick` takes `highestGuard`; `pick` takes `highestPower`; `when` takes `contestedAttack`; `utility.order` takes `castDrawSpell` / `setTrap` / `pass`; `tieBreak` takes `leftmostSlot` / `cardId` / `instanceId`.
+    Unknown values become zod `invalid_value` errors, which §10.3 already renders as "use one of: …".
+  - **Cross-file validator rule:** `trapPreference` ids and the `castHighValueSpell` keys must be Collector-pool trap/spell ids present in `collector.json › deck`.
+  - **ai mirror:** a test in `packages/ai` asserts that the `ai/collector/rules/` registry keys equal `AI_PLAY_RULES ∪ AI_ATTACK_RULES` and that every enum value has a handler. Adding a rule then means one enum entry plus one rule file, and the build fails if either is missing.
+- Reason: catching typos at `content:check` time is the point of the validator. The ai-side test closes the loop, the dependency direction stays intact, and every value is a data field (the M-13 A/B variant only uses existing ids).
+
+**D-146 · Zod 4 conventions in the schemas**
+- Date: 2026-10-14
+- Question: §10.2/§10.3 were written in zod 3 style. With zod 4 (D-119 toolchain, `zod ^4.6`), a quoted number reports `expected number`. Content-author also maps optional fields to `z.exactOptional()` because of `exactOptionalPropertyTypes`.
+- Decision: Confirmed, and the docs now follow zod 4:
+  - `z.int()` instead of `z.number().int()`.
+  - `z.exactOptional(x)` for every optional field (so an explicit `undefined` is rejected, matching the engine types).
+  - `.strict()` objects.
+  - `Num` is `z.union([z.int(), GlobalRef])`, where `GlobalRef` is a `z.custom` refinement typed as the template literal.
+  - Spell/trap schemas carry the compile-time proof `z.ZodType<SpellDef>` / `z.ZodType<TrapDef>`.
+  - The §10.3 line format is `<file> › <entry> › <field>: <problem> › <how to fix>`, and the example reads `power: expected number, got "7"`.
+- Reason: the docs describe the code. Matching optionality between zod output and the engine types is what makes the `satisfies` and `ZodType<…>` checks meaningful.
+
+**D-147 · Where `deepFreeze`, `GlobalsSchema` and `withOverrides` live**
+- Date: 2026-10-14
+- Question: §11 uses `deepFreeze` and `withOverrides` without defining them. Content-author defined `deepFreeze` locally in `globals.ts`. `withOverrides` needs a `GlobalsSchema` that doesn't exist yet.
+- Decision:
+  - **`deepFreeze`:** `packages/engine/src/freeze.ts`, exported from the engine root. The engine needs it for dev-mode state freezing (D-141), and content imports it rather than keeping a copy. It iterates own property values. That is the one allowed key iteration in the engine, because freezing doesn't depend on order; it carries a single documented lint exception.
+  - **`GlobalsSchema`:** `packages/content/src/schemas/globals.ts`, a strict zod object for every `Globals` key, with the compile-time proof `z.ZodType<Globals>` (as for spells/traps). It also runs the globals sanity checks of §10.3: `Range` min ≤ max, `APPRAISAL_ROUNDS` within 1…`MAX_ROUNDS`, `WARD_CHARGES = 1` (D-133).
+  - **`withOverrides(base, sets)`:** `packages/content/src/globals.ts`, exported from the content root. Each `"KEY=VALUE"` / `"FLAGS.KEY=VALUE"` is parsed as JSON (a bare word is a string). Unknown keys are rejected. The merged object is validated with `GlobalsSchema` and returned deep-frozen. Card overrides (`card.<id>.…`) stay in `sim/overrides.ts` (§15).
+- Reason: one freeze implementation in the lowest package that needs it, and the globals schema next to the other content schemas. `withOverrides` stays where §11 already shows it.
+
+**D-148 · Objective metrics (owner-approved 2026-10-14)**
+- Date: 2026-10-14
+- Question: DESIGN.md lists four example objectives (D-102) but doesn't name the §10.3 metric each one checks.
+- Decision: final, as in `objectives.json`. Every objective has `requiresWin: true`.
+  - "Win without grafting" → `grafts` lte `0`
+  - "Win with 15+ life" → `playerLife` gte `$OBJ_HIGH_LIFE` (15)
+  - "Win by round 8" → `round` lte `$OBJ_WIN_BY_ROUND` (8)
+  - "Never lose a monster to Appraisal" → `appraisedLost` lte `0`
+- Reason: each maps one-to-one onto a §10.3 metric. The two numeric thresholds come from globals rather than literals, so balance can tune them with `--set`.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

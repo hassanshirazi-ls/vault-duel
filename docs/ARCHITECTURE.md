@@ -33,6 +33,8 @@ project-daily/
 │  │     ├─ index.ts            # createEngine(), public types
 │  │     ├─ types/{state,actions,events,content,globals,hooks,effects}.ts
 │  │     ├─ rng.ts              # cyrb128, sfc32, int(), shuffle()
+│  │     ├─ errors.ts           # EngineError (public, D-132)
+│  │     ├─ freeze.ts           # deepFreeze (public; dev-mode states, content globals; D-147)
 │  │     ├─ setup/{seed,deckgen,shuffle,initial-state}.ts
 │  │     ├─ tx.ts               # copy-on-write transaction (draft) over GameState
 │  │     ├─ reducer.ts          # applyAction dispatch
@@ -51,11 +53,12 @@ project-daily/
 │  │     ├─ meta/{objectives,share-grid,track}.ts      # pure post-game summaries
 │  │     ├─ replay.ts           # replay(seed, actions), hashState()
 │  │     └─ view/redact.ts      # redacted views (Collector view, player view)
-│  │  └─ test-utils/board-dsl.ts  # scenario DSL parser (§17), exported for content tests
+│  │  └─ test-utils/{board-dsl,globals,…}.ts  # scenario DSL parser (§17), TEST_GLOBALS; package subpath
+│  │                                         # "@vault-duel/engine/test-utils/*" for content tests (D-143)
 │  ├─ content/                  # data + schemas + validator; depends on engine (types, defineKeyword)
 │  │  ├─ src/
 │  │  │  ├─ globals.ts          # every number + feature flags (§11)
-│  │  │  ├─ schemas/{element,kind,card,effect,recipe,collector,objective,twist,art-brief}.ts
+│  │  │  ├─ schemas/{element,kind,card,effect,recipe,collector,objective,twist,art-brief,globals}.ts
 │  │  │  ├─ load.ts             # reads JSON, parses with zod
 │  │  │  ├─ compile.ts          # → CompiledContent (dense typed arrays)
 │  │  │  └─ validate.ts         # cross-file rules (§10.3)
@@ -193,6 +196,7 @@ export interface ChimeraInfo {
   readonly kw: KwMask;             // inherited keywords (≤ MAX_INHERITED_KEYWORDS bits)
   readonly ascended: boolean;      // +ASCEND_POWER / +ASCEND_GUARD
   readonly materials: readonly Iid[];
+  readonly grafted: number;        // turn index of the Graft that created it (Cond graftedThisTurn, D-139)
 }
 
 export interface TimedMod {        // Bloodlust, Gilt Frame
@@ -311,7 +315,7 @@ Checklist of required fields → where they live:
 
 ### 4.1 Copy-on-write transaction (`tx.ts`) — D-128
 
-`applyAction` opens one `Tx` over the input state. Every pipeline in §5 writes through it, and `commit()` returns the new state. The input state is never written, so an `EngineError` thrown mid-action leaves the caller's state intact (actions are atomic).
+`applyAction` opens one `Tx` over the input state. Every pipeline in §5 writes through it, and `commit()` returns the new state. The input state is never written, so an `EngineError` thrown mid-action leaves the caller's state intact (actions are atomic). `EngineError` (`errors.ts`) is exported from the package root so the sim and web can tell engine-reported failures from crashes (D-132).
 
 ```ts
 // packages/engine/src/tx.ts — engine-internal (not exported from the package root)
@@ -400,9 +404,9 @@ declare(attacker A, target T | direct):
   if direct: damage(defender side, power(A)); checkWin; return
   if T.faceDown: reveal T (faceDown=false, pos=guard); emit Revealed
   combat = snapshot { aP = power(A) + (advantage(A,T) ? ELEMENT_BONUS : 0), dP = power(T), dG = guard(T),
-                      defPos = T.pos, advantage }          // CombatSnapshot, read-only to hooks (D-124)
+                      defPos = T.pos, advantage }          // CombatSnapshot, read-only to hooks (D-124); Object.freeze in dev mode (D-141)
   pierce = brittleWin = false                             // combat.ts locals, never visible to hooks
-  dispatch beforeCombat (A's hooks then T's hooks)        // Pierce: ctx.setPierce(); Brittle: ctx.setBrittleWin() (D-049, D-124)
+  dispatch beforeCombat (§8.3.1 order, so A's hooks run before T's; D-135)   // Pierce: ctx.setPierce(); Brittle: ctx.setBrittleWin() (D-049, D-124)
   run effects queued by beforeCombat                      // cannot change the snapshot (D-032); if A or T left the board → attack fizzles
   outcome = resolve(combat, pierce, brittleWin):
      brittleWin   → destroyed {T}; dmg to T.side = defPos=atk ? max(0,aP−dP) : (pierce ? max(0,aP−dG) : 0)
@@ -420,7 +424,8 @@ declare(attacker A, target T | direct):
 ```
 destroyBatch(list, cause, destroyerOf?):
   order list: active side first, then slot order
-  for each m: dispatch beforeDestroy (Ward)      → 'prevent' ⇒ wardUsed = true; emit WardBroken; drop from list
+  for each m: ask beforeDestroy of m's OWN active keywords only, bit order (Ward; D-134)
+              → 'prevent' ⇒ wardUsed = true (all of m's beforeDestroy bits go inactive, D-133); emit WardBroken; drop from list
   snapshot last-known info (LKI) for each remaining m (stats, keywords, controller, slot, destroyer)
   remove all remaining from boards simultaneously → owner's discard (D-047); emit Destroyed{iid, cause, by}
   track: player-controlled → round[round−1] |= RoundFlag.LostMonster
@@ -442,7 +447,7 @@ graftPosition pos          → COMMIT:
      family = recipe[kind(m0), kind(m1)]; element = element(m0)
      unstable = FLAGS.UNSTABLE && any pair of material elements opposes
      sacrifice board materials and hand materials → owner's discard (emit Sacrificed; no hooks)
-     inst.push({ def: family, owner, chimera: { element, kw, ascended: mats.length === 3, materials } })
+     inst.push({ def: family, owner, chimera: { element, kw, ascended: mats.length === 3, materials, grafted: turn } })
      place in leftmost free slot: { pos, entered: turn, unstableUntil: unstable ? turn + 2 : -1, … }
      played = true; step = 'attack'; track.grafts++, round[round−1] |= RoundFlag.Grafted, families ∪= family
      emit Grafted{…}; dispatch onGraft (Counterfeit; D-065). A Graft does not dispatch onSummon.
@@ -537,7 +542,7 @@ Graft stage actions:
 **Attack permission** (`stats.ts › attackPermission`) folds the lattice `none < monstersOnly < any`:
 
 ```
-if round === 1 && side === Player: perm = none          // D-015, absolute (D-042)
+if side === Player && round < FIRST_ATTACK_ROUND_PLAYER: perm = none   // D-015, absolute (D-042); global form per D-142
 else:
   base   = (m.entered === turn) ? none : any            // universal summoning sickness (D-022)
   grants = max over hooks.attackPermission(...).grant   // Swift: monstersOnly on entered turn
@@ -702,13 +707,13 @@ Hooks never touch the `Tx` directly: they read through `QueryCtx` and act throug
 
 ### 8.3 Ordering rules
 
-1. **Subscriber order for one event**: (a) engine system rules (fixed, documented in §5); (b) for `onDestroyed`, the destroyed monster's own hooks first, using last-known information; (c) active side's board monsters in slot order; (d) inactive side's board monsters in slot order; (e) active side's traps in slot order; (f) inactive side's traps in slot order. Within one card: keyword bits in registry order (keywords sorted by id, then Flaws sorted by id).
+1. **Subscriber order for one event**: (a) engine system rules (fixed, documented in §5); (b) for `onDestroyed`, the destroyed monster's own hooks first, using last-known information; (c) active side's board monsters in slot order; (d) inactive side's board monsters in slot order; (e) active side's traps in slot order; (f) inactive side's traps in slot order. Within one card: keyword bits in registry order (keywords sorted by id, then Flaws sorted by id). Every event hook uses this order, `beforeCombat` included, so bystander monsters are called too and keyword hooks check whether `self` is a combatant (D-135). **Exception:** `beforeDestroy` asks only the monster being destroyed (its own active bits), never neighbours or traps (D-134).
 2. **Queue, no recursion**: effects queued by hooks run after the current subscriber list finishes; events those effects raise (e.g. a destruction) are processed FIFO. Simultaneous destructions are one batch (§5.5).
 3. **Traps fire once**: a trap is moved to its owner's discard *before* its effects run (emit `TrapTriggered`), so it cannot re-trigger; identical traps → only the leftmost fires (D-071).
 4. **Cancellation is visible**: after `cancelAttack`, later `onAttackDeclared` subscribers see `ctx.cancelled === true`; trap conditions on an attacking monster fail, so later traps stay set.
 5. **Game over stops everything**: once `result` is set, the queue is dropped.
-6. **Query hooks are order-independent**: permission is a lattice (§6.2), `restrictTargets` is an intersection, `mustAttack` is OR, `staticPower` is a sum, `summonRequirement` takes the most restrictive, `beforeDestroy` stops at the first `'prevent'`. The same holds for `beforeCombat` flags: hooks read only the pre-hook `CombatSnapshot`, and `setPierce`/`setBrittleWin` are OR-folded after the list (D-124).
-7. **Safety**: a chain longer than `MAX_TRIGGER_CHAIN` (64) throws `EngineError` in dev/test (unreachable with launch content).
+6. **Query hooks are order-independent**: permission is a lattice (§6.2), `restrictTargets` is an intersection, `mustAttack` is OR, `staticPower` is a sum, `summonRequirement` takes the most restrictive (any `sacrifice` beats `normal`; several `sacrifice` results intersect their `zones`, and an empty intersection means the card can't be summoned; D-137), `beforeDestroy` stops at the first `'prevent'`. The same holds for `beforeCombat` flags: hooks read only the pre-hook `CombatSnapshot`, and `setPierce`/`setBrittleWin` are OR-folded after the list (D-124).
+7. **Safety**: a chain longer than `MAX_TRIGGER_CHAIN` (64) throws `EngineError` in every mode (unreachable with launch content; D-141).
 8. **Fast skip**: dispatch iterates ≤ 6 monsters and ≤ 4 traps, testing `activeKw(m) & hookMask[hook]` before calling anything.
 
 ### 8.4 `defineKeyword` and auto-registration
@@ -730,6 +735,8 @@ export interface KeywordDef {
 export type { KeywordDef } from '../types/hooks';
 export const defineKeyword = (k: KeywordDef): KeywordDef => k;
 ```
+
+**Replacement keywords are one-shot (D-133).** A keyword with a `beforeDestroy` hook is a single-use destruction replacement. When one of a monster's `beforeDestroy` bits returns `'prevent'`, the engine sets `wardUsed`, and every `beforeDestroy` bit of that monster stops being active until it leaves the board. The engine finds Ward by this hook, never by its id. A future reusable or independent replacement keyword requires replacing `wardUsed` with a per-bit spent mask first.
 
 `pnpm content:gen` scans `packages/content/keywords/*.ts` and writes `index.gen.ts` exporting `KEYWORDS: readonly KeywordDef[]` sorted (keywords by id, then flaws by id) — this order is the bit order. `content:check` fails if the barrel is stale, if `id` ≠ file name, if two files share an id, or if more than 32 keywords exist (mask width).
 
@@ -778,7 +785,7 @@ export default defineKeyword({
 | Swift | `attackPermission` | `grant: 'monstersOnly'` when `enteredThisTurn(self)`; direct attacks need `'any'` (D-041, D-042) |
 | Sentinel | `restrictTargets` | face-up Sentinels on the defending board become the only legal targets (D-037, D-038) |
 | Pierce | `beforeCombat` | if self is attacker and `combat.defPos` is guard: `ctx.setPierce()` → damage `aP − dG` (D-039, D-040, D-124) |
-| Ward | `beforeDestroy` | `'prevent'` once; engine sets `wardUsed` and emits `WardBroken` (D-034, D-035, D-044) |
+| Ward | `beforeDestroy` | `'prevent'` once; asked only for its own monster; engine sets `wardUsed` and emits `WardBroken` (D-034, D-035, D-044, D-133, D-134) |
 | Haunt | `onDestroyed` | destroyer gets `modifyStats −HAUNT_PENALTY permanent` if still on board (D-045) |
 | Echo | `onDestroyed` | `returnToHand self` (from discard to owner's hand) (D-046) |
 | Slow | `attackPermission` | `restrict: 'none'` when `enteredThisTurn(self)` (D-053, PROPOSAL) |
@@ -788,6 +795,18 @@ export default defineKeyword({
 | Covetous | `summonRequirement` | `{ kind:'sacrifice', appraised:true, zones:['board','vault'] }` → only `summonCovetous` is legal (D-054, D-055) |
 
 The five legality-constraining keywords (Sentinel, Swift, Vain, Slow, Covetous) use only query hooks, which `legal.ts` calls while enumerating — so the UI, AI and bots see the constraint in `getLegalActions` with no extra code.
+
+### 8.6 Engine-internal plumbing (not exported) — D-131
+
+| Type | File | Role |
+| --- | --- | --- |
+| `Env { c, g, reg, dev }` | `hooks/registry.ts` | Everything a rule needs besides the state: compiled content, bound globals, hook registry, dev-mode switch (D-141) |
+| `HookRegistry { kw, masks, trapHooks }` | `hooks/registry.ts` | Keyword bit → `Hooks`. Hook name → bit mask (same object as `c.hookMask`, checked against the hook tables by `createRegistry`). Trap `DefIdx` → hooks compiled by `traps.ts` |
+| `Refs` | `effects/run.ts` | One field per DSL `Ref` (§9.1), bound when an effect is queued; `-1` = absent |
+| `QueuedEffect { effect, refs, source, side }` | `effects/run.ts` | One queued primitive. `side` = the source's controller at queue time; durations are relative to it (D-136) |
+| `EffectSink { queue, emit }` | `effects/run.ts` | What hook contexts write into |
+| `EffectHost { emit, destroy, lifeChanged }` | `effects/run.ts` | How the interpreter reaches later pipelines. `destroy` = `destroyBatch(…, cause 'effect', no destroyer)`; Unstable expiry and combat call `destroyBatch` (§5.5) with their own cause |
+| `Dispatcher` | `hooks/dispatch.ts` | One per dispatch. Collects subscribers into a local list first (§4.1 contract 1), then calls them in §8.3 order |
 
 ---
 
@@ -802,13 +821,13 @@ export type Who = 'self' | 'opponent';                       // relative to the 
 export type Duration =
   | 'permanent'                 // while on the board (D-043)
   | 'thisTurn'                  // until end of current turn
-  | 'untilEndOfYourNextTurn'    // until end of turn + 2
-  | 'untilYourNextTurn';        // until start of turn + 2
+  | 'untilEndOfYourNextTurn'    // until end of the controller's next own turn (turn + 2 when cast on own turn)
+  | 'untilYourNextTurn';        // until start of the controller's next own turn (turn + 2 when cast on own turn); D-136
 
 export type Cond =
   | { faceUp: true } | { powerLte: Num } | { powerGte: Num }
   | { type: 'monster' } | { relic: true } | { chimera: true } | { onBoard: true }
-  | { directAttack: boolean } | { graftedThisTurn: true }
+  | { directAttack: boolean } | { graftedThisTurn: true }        // graftedThisTurn: chimera.grafted === turn (D-139)
   | { element: string } | { kind: string } | { keyword: string }
   | { all: readonly Cond[] } | { any: readonly Cond[] } | { not: Cond };
 
@@ -826,8 +845,8 @@ export type Effect = (
   | { op: 'heal'; who: Who; n: Num }                                   // no life cap (D-019)
   | { op: 'modifyStats'; target: Ref; power?: Num; guard?: Num; duration: Duration }
   | { op: 'destroy'; target: Ref }                                     // Ward may prevent
-  | { op: 'returnToHand'; target: Ref }                                // board or discard → owner's hand
-  | { op: 'changePosition'; target: Ref; to: 'attack' | 'guard' }      // not a reposition (D-024)
+  | { op: 'returnToHand'; target: Ref }                                // board or discard → owner's hand (Chimera + CHIMERA_TO_HAND off: fizzles, D-140)
+  | { op: 'changePosition'; target: Ref; to: 'attack' | 'guard' }      // not a reposition (D-024); face-down target: fizzles (D-138)
   | { op: 'preventAppraisal'; target: Ref; duration: 'untilYourNextTurn' }
   | { op: 'cancelAttack' }                                             // only inside onAttackDeclared
 ) & { readonly if?: Cond };                                            // per-effect guard on its target
@@ -845,7 +864,18 @@ export interface TrapDef  { readonly trigger: TrapTrigger; readonly when?: Cond;
 Semantics:
 - Targets: `chosen` = the action's `target`; event refs come from the triggering event (`attacker`, `defender`, `destroyed`, `destroyer`, `grafted`). A ref that no longer points to a valid object (e.g. left the board) makes that effect fizzle silently.
 - Conditions: `TargetSpec.where` filters candidates during legality; `TrapDef.when` is checked when the trap's turn in the subscriber list comes (D-071); `Effect.if` is checked just before the effect resolves.
-- Durations are relative to the card's controller at cast/trigger time and stored as absolute turn indices (`TimedMod.until`, `shroudUntil`).
+- Durations are relative to the card's controller at cast/trigger time (`QueuedEffect.side`) and stored as absolute turn indices (`TimedMod.until`, `shroudUntil`). Let `n` be the controller's next own turn: `turn + DURATION_NEXT_OWN_TURN` if the controller is the active side, else `turn + 1` (D-136):
+
+  | Duration | Stored as | Applies while | Launch cards (cast on own turn t) |
+  | --- | --- | --- | --- |
+  | `permanent` | `permP` / `permG` | on the board (D-043) | Mirror Sigil, Counterfeit, Haunt |
+  | `thisTurn` | `until = turn` | `turn ≤ until` | Bloodlust: t |
+  | `untilEndOfYourNextTurn` | `until = n` | `turn ≤ until` | Gilt Frame: t … t+2 |
+  | `untilYourNextTurn` (`modifyStats`) | `until = n − 1` | `turn ≤ until` | — |
+  | `untilYourNextTurn` (`preventAppraisal`) | `shroudUntil = max(old, n)` | `turn < shroudUntil` | Shroud: t, t+1 (covers his Appraisal) |
+
+  Off-turn triggers (`n = turn + 1`) can't happen with launch content.
+- Spell target candidates (`effects/targets.ts › targetCandidates`) leave out Chimeras when `FLAGS.CHIMERA_TO_HAND` is off and the spell has `returnToHand` on `chosen`, so Grave Recall never offers a target that is certain to fizzle (D-140).
 - Effects in one card resolve top to bottom; destructions from one effect form one batch.
 - Engine-internal mechanics reuse the same primitives (Haunt → `modifyStats`, Echo → `returnToHand`, Unstable expiry → `destroy`).
 
@@ -920,6 +950,8 @@ Semantics:
 ]
 ```
 
+Card text is DESIGN's, written to the player, so in a Collector card "your monsters" means the player's: Forfeit targets `side: "enemy"` from the caster's point of view (D-144).
+
 All 17 launch spells/traps need zero code. Keyword-driven mechanics use the same primitives (§8.5). `traps.ts` compiles each `TrapDef` into a subscriber on the matching event hook (`enemyAttack`/`enemyDirectAttack` → `onAttackDeclared`, `allyDestroyed` → `onDestroyed`, `enemyGraft` → `onGraft`).
 
 ---
@@ -945,44 +977,68 @@ All 17 launch spells/traps need zero code. Keyword-driven mechanics use the same
 ### 10.2 zod schemas (excerpt)
 
 ```ts
-// packages/content/src/schemas/card.ts
-const Id = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'ids are kebab-case');
-const Num = z.union([z.number().int(), z.string().regex(/^-?\$[A-Z0-9_]+$/)]);
-const Stat = z.number().int().min(0).max(20);
+// Zod 4 conventions (D-146): z.int(); z.exactOptional(x) for every optional field (exactOptionalPropertyTypes:
+// an explicit undefined is rejected, like the engine types); .strict() objects; compile-time ZodType<…> proofs.
 
+// packages/content/src/schemas/common.ts
+export const Id = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'ids are kebab-case');
+const GlobalRef = z.custom<`$${string}` | `-$${string}`>(
+  (v) => typeof v === 'string' && /^-?\$[A-Z0-9_]+$/.test(v), { message: 'expected a global reference like "$NAME" or "-$NAME"' });
+export const Num: z.ZodType<EngineNum> = z.union([z.int(), GlobalRef]);
+export const Stat = z.int().min(0).max(20);
+
+// packages/content/src/schemas/card.ts
 export const PlayerMonster = z.object({
   id: Id, type: z.literal('monster'), name: z.string().min(1),
   element: Id, kind: Id, power: Stat, guard: Stat,
   keywords: z.array(Id).max(1).default([]),
-  text: z.string().optional(),
+  text: z.exactOptional(z.string()),
 }).strict();
 
 export const Relic = PlayerMonster.extend({ flaw: Id }).strict();
 
 export const Spell = z.object({
   id: Id, type: z.literal('spell'), name: z.string(), text: z.string(),
-  target: TargetSpec.optional(), effects: z.array(Effect).min(1),
+  target: z.exactOptional(TargetSpec), effects: z.array(Effect).min(1),
 }).strict();
 
 export const Trap = z.object({
   id: Id, type: z.literal('trap'), name: z.string(), text: z.string(),
   trigger: z.enum(['enemyAttack', 'enemyDirectAttack', 'allyDestroyed', 'enemyGraft']),
-  when: Cond.optional(), effects: z.array(Effect).min(1),
+  when: z.exactOptional(Cond), effects: z.array(Effect).min(1),
 }).strict();
 
-// effect.ts — discriminated union on `op`, mirroring §9.1 exactly (types are inferred from schemas
-// and checked against engine types with a compile-time `satisfies` test).
+export const SpellDefShape: z.ZodType<SpellDef> = Spell;   // compile-time proof against the engine DSL (D-120)
+export const TrapDefShape: z.ZodType<TrapDef> = Trap;
+
+// effect.ts — discriminated union on `op`, mirroring §9.1 exactly
+const opt = z.exactOptional;
 export const Effect = z.discriminatedUnion('op', [
-  z.object({ op: z.literal('draw'), who: Who, n: Num, if: Cond.optional() }).strict(),
-  z.object({ op: z.literal('damage'), who: Who, n: Num, if: Cond.optional() }).strict(),
-  z.object({ op: z.literal('heal'), who: Who, n: Num, if: Cond.optional() }).strict(),
-  z.object({ op: z.literal('modifyStats'), target: Ref, power: Num.optional(), guard: Num.optional(), duration: Duration, if: Cond.optional() }).strict(),
-  z.object({ op: z.literal('destroy'), target: Ref, if: Cond.optional() }).strict(),
-  z.object({ op: z.literal('returnToHand'), target: Ref, if: Cond.optional() }).strict(),
-  z.object({ op: z.literal('changePosition'), target: Ref, to: z.enum(['attack', 'guard']), if: Cond.optional() }).strict(),
-  z.object({ op: z.literal('preventAppraisal'), target: Ref, duration: z.literal('untilYourNextTurn'), if: Cond.optional() }).strict(),
-  z.object({ op: z.literal('cancelAttack'), if: Cond.optional() }).strict(),
+  z.object({ op: z.literal('draw'), who: Who, n: Num, if: opt(Cond) }).strict(),
+  z.object({ op: z.literal('damage'), who: Who, n: Num, if: opt(Cond) }).strict(),
+  z.object({ op: z.literal('heal'), who: Who, n: Num, if: opt(Cond) }).strict(),
+  z.object({ op: z.literal('modifyStats'), target: Ref, power: opt(Num), guard: opt(Num), duration: Duration, if: opt(Cond) }).strict(),
+  z.object({ op: z.literal('destroy'), target: Ref, if: opt(Cond) }).strict(),
+  z.object({ op: z.literal('returnToHand'), target: Ref, if: opt(Cond) }).strict(),
+  z.object({ op: z.literal('changePosition'), target: Ref, to: z.enum(['attack', 'guard']), if: opt(Cond) }).strict(),
+  z.object({ op: z.literal('preventAppraisal'), target: Ref, duration: z.literal('untilYourNextTurn'), if: opt(Cond) }).strict(),
+  z.object({ op: z.literal('cancelAttack'), if: opt(Cond) }).strict(),
 ]);
+
+// collector.ts — closed enums for collector.json › ai (D-145); packages/ai has a test that its rule registry
+// equals AI_PLAY_RULES ∪ AI_ATTACK_RULES
+export const AI_PLAY_RULES = z.enum(['winThisTurn', 'summonAce', 'summonBeater', 'setTrapWhenBehind',
+  'castHighValueSpell', 'summonFallback', 'utility']);
+export const AI_ATTACK_RULES = z.enum(['lethal', 'killWithoutLoss', 'faceDownIfStrong', 'directIfEmpty',
+  'holdExceptVain', 'attackAnything']);
+export const AI_REPOSITION = z.enum(['toAttackIfUsable', 'allAttack']);
+// params: setTrapWhenBehind.compare ∈ {fewer, fewerOrEqual}; summonBeater.compare ∈ {previewAttack};
+// summonFallback.position/slowPosition ∈ {attack, guard, guardUnlessBeater} / {attack, guard}; slowPick ∈ {highestGuard};
+// castHighValueSpell.*.pick ∈ {highestPower}; .when ∈ {contestedAttack}; utility.order[] ∈ {castDrawSpell, setTrap, pass};
+// tieBreak[] ∈ {leftmostSlot, cardId, instanceId}
+
+// globals.ts — GlobalsSchema: a strict object for every Globals key, proof `z.ZodType<Globals>`, plus the
+// "globals sanity" refinements of §10.3 (D-147)
 
 // element.ts
 export const Element = z.object({
@@ -999,12 +1055,16 @@ export const Recipe = z.object({ id: Id, name: z.string(), kinds: z.tuple([Id, I
 Error format, one line per problem, all problems reported at once, non-zero exit:
 
 ```
-<file> › <entry id or index> › <problem> › <how to fix>
+<file> › <entry id or index> › <field>: <problem> › <how to fix>
 ```
+
+Parse errors come from zod 4 issues rendered by `load.ts › describeIssue` (D-146). Cross-file rules produce the same record shape.
 
 | Rule | Example message |
 | --- | --- |
-| zod parse error | `cards/player-monsters.json › kiln-whelp › power: expected integer, got "7" › write numbers without quotes` |
+| zod parse error | `cards/player-monsters.json › kiln-whelp › power: expected number, got "7" › write numbers without quotes` |
+| unknown AI rule id / param value (zod enum, D-145) | `collector.json › ai › play.[2]: got "summonBeeter" › use one of: winThisTurn, summonAce, summonBeater, …` |
+| AI card refs (D-145) | `collector.json › ai › trapPreference.[1]: "snare" is not a Collector trap in the deck › use a trap id from collector.json › deck` (same for `castHighValueSpell` keys and Collector spells) |
 | duplicate id (any file, incl. families) | `cards/relics.json › halo-stag › duplicate id (also in cards/player-monsters.json) › rename one of them` |
 | unknown element/kind | `cards/player-monsters.json › stormcrow › unknown element "wind" › use one of: ember, gale, tide, lumen, umbra, or add it to elements.json` |
 | unregistered keyword/Flaw | `cards/relics.json › reliquary-hound › keyword "hant" is not registered › use one of: echo, haunt, pierce, sentinel, swift, ward, or add packages/content/keywords/hant.ts` |
@@ -1026,7 +1086,7 @@ Error format, one line per problem, all problems reported at once, non-zero exit
 | objective metric unknown | `objectives.json › win-fast › unknown metric "rounds" › use one of: grafts, playerLife, round, appraisedLost` |
 | keyword file problems | `keywords/haunt.ts › id "haunted" ≠ file name › rename the file or the id` / `keywords/index.gen.ts › stale › run pnpm content:gen` |
 | deckgen feasibility | `cards/player-monsters.json › pool › deck constraints unsatisfiable on 3 of 1000 test dates › relax DECK_MIN_KINDS or add monsters` |
-| globals sanity | `globals.ts › APPRAISAL_ROUNDS › round 13 > MAX_ROUNDS=12 › remove it` |
+| globals sanity (`GlobalsSchema`, D-147) | `globals.ts › APPRAISAL_ROUNDS › round 13 > MAX_ROUNDS=12 › remove it`; also every `Range` has min ≤ max, and `WARD_CHARGES` must be 1 until the engine has a charge counter (D-133) |
 | delete-a-card reverse refs | `collector.json › deck[7] › "kiln-born-leviathan" no longer exists › remove the reference` |
 
 Pool-size expectations (25/6/4) are warnings, not errors, so content can grow.
@@ -1037,7 +1097,9 @@ Pool-size expectations (25/6/4) are warnings, not errors, so content can grow.
 
 ```ts
 // packages/content/src/globals.ts
+import { deepFreeze } from '@vault-duel/engine';        // one implementation, engine/src/freeze.ts (D-147)
 import type { Globals } from '@vault-duel/engine';
+import { GlobalsSchema } from './schemas/globals';     // used by withOverrides (D-147)
 
 export const DEFAULT_GLOBALS = deepFreeze({
   // Identity & seeding
@@ -1111,10 +1173,12 @@ export const DEFAULT_GLOBALS = deepFreeze({
 } as const satisfies Globals);
 
 export function withOverrides(base: Globals, sets: readonly string[]): Globals; // "KEY=VALUE", "FLAGS.ASCEND=false",
-// "APPRAISAL_ROUNDS=[3,6]"; parsed with the zod GlobalsSchema (type-checked, unknown keys rejected),
-// returns a new frozen object. Card stat overrides ("card.kiln-whelp.power=6") are applied to raw content
-// before compile.
+// "APPRAISAL_ROUNDS=[3,6]"; each VALUE is JSON-parsed (a bare word is a string); unknown keys are rejected; the merged
+// object is validated with GlobalsSchema (schemas/globals.ts, incl. sanity checks) and returned deep-frozen (D-147).
+// Card stat overrides ("card.kiln-whelp.power=6") live in sim/overrides.ts and are applied to raw content before compile.
 ```
+
+Where things live (D-147): `deepFreeze` is in `packages/engine/src/freeze.ts` and exported from the engine root. It is the engine's one order-insensitive key iteration, with a documented lint exception. `GlobalsSchema` is in `packages/content/src/schemas/globals.ts`. `DEFAULT_GLOBALS` and `withOverrides` are in `packages/content/src/globals.ts`, exported from the content root. The engine's test copy `packages/engine/test-utils/globals.ts › TEST_GLOBALS` must equal `DEFAULT_GLOBALS` except for its `CONTENT_VERSION` suffix `-fixture`, which a content test enforces (D-143).
 
 `Globals` is an engine-side interface (`packages/engine/src/types/globals.ts`, widened types of the object above), so the engine is typed against it without importing content. The widening (D-126) is: numbers → `number` and strings → `string`. Min/max pairs (`TARGET_*`) → `Range = readonly [number, number]`, with the sanity check `min ≤ max`. `DIFFICULTY_STAR_CUTS` → `StarCuts = readonly [number, number]` (descending cuts, not a range). `APPRAISAL_ROUNDS` → `readonly number[]`. `UNSTABLE_EXPIRY` → `'endOfNextOwnTurn' | 'startOfOwnTurnAfterNext'`. `FLAGS` → `Flags`: 13 booleans, DESIGN's 10 plus the 3 proposal levers. `NumericGlobal` (the keys whose type is `number`) is the set of names an effect `Num` ref (`"$NAME"`) may use (D-120). Globals and content are bound into the engine by `createEngine(compiled, globals, policies, options)`; a hash of both is stored in `state.cfg` and checked on replay.
 
@@ -1270,7 +1334,7 @@ export interface CollectorView {
 }
 ```
 
-`reposition: "toAttackIfUsable"` = a guard monster switches to attack only if that gives it a rule 1, 2 or 4 attack; never attack → guard (D-089). `summonBeater.compare: "previewAttack"` = "beats" means `previewAttack` with post-summon stats and element bonus (D-083); `skipBrittleCountered` is the A/B switch for proposal M-10. Each rule id maps to a function in `ai/collector/rules/<id>.ts`: `(view, params) → ViewChoice | null`. The policy walks the mood's list (mood overrides merge over the base) and takes the first non-null choice; if none, `endTurn` (or the forced Vain attack — `holdExceptVain` returns Vain attacks via `bestTarget`, D-091). Rule semantics: D-081…D-093.
+`reposition: "toAttackIfUsable"` = a guard monster switches to attack only if that gives it a rule 1, 2 or 4 attack; never attack → guard (D-089). `summonBeater.compare: "previewAttack"` = "beats" means `previewAttack` with post-summon stats and element bonus (D-083); `skipBrittleCountered` is the A/B switch for proposal M-10. Each rule id maps to a function in `ai/collector/rules/<id>.ts`: `(view, params) → ViewChoice | null`. Rule ids, reposition modes and string parameter values are closed zod enums in `content/src/schemas/collector.ts` (§10.2). A test in `packages/ai` asserts that the rule registry equals `AI_PLAY_RULES ∪ AI_ATTACK_RULES`, so a typo fails `content:check` and a missing rule file fails the tests (D-145). The policy walks the mood's list (mood overrides merge over the base) and takes the first non-null choice; if none, `endTurn` (or the forced Vain attack — `holdExceptVain` returns Vain attacks via `bestTarget`, D-091). Rule semantics: D-081…D-093.
 
 ### 13.3 Turn procedure
 
@@ -1379,7 +1443,7 @@ expect legal attack P1 > C0
 expect illegal attack P1 > face
 ```
 
-Monster token: `[<card-id> <A|G|D> flags…]` where `D` = face-down guard. Flags: `new` (entered this turn), `moved` (repositioned this turn), `done` (attacked this turn), `ward-used`, `p±N` / `g±N` (permanent), `p+N@T` (timed until end of turn T), `unstable@T`, `shroud@T`, `appraised`, `chimera(<family>,<element>,<kw,kw>[,asc])`. Slots are addressed `P0..P2`, `C0..C2`; `face` = direct.
+Monster token: `[<card-id> <A|G|D> flags…]` where `D` = face-down guard. Flags: `new` (entered this turn), `moved` (repositioned this turn), `done` (attacked this turn), `ward-used`, `p±N` / `g±N` (permanent), `p+N@T` (timed until end of turn T), `unstable@T`, `shroud@T`, `appraised`, `chimera(<family>,<element>,<kw,kw>[,asc][,grafted@T])` (`grafted` defaults to the monster's entered turn, D-139). Slots are addressed `P0..P2`, `C0..C2`; `face` = direct.
 
 ---
 
@@ -1395,7 +1459,7 @@ Budget: a duel ≈ 24 turns × ~6–8 actions ≈ 150–200 actions incl. AI dec
 6. **Hook fast path**: `activeKw & hookMask[hook]` before any call; ≤ 10 subscribers scanned per event.
 7. **Monomorphic objects**: every `Monster`/`SideState` created by one factory with all fields in fixed order (stable hidden classes); integer-only math.
 8. **AI on the facade**: the Collector view is an accessor object over the state (lazy), not a deep copy; `previewCombat` instead of engine clones for evaluations.
-9. **Dev-only safety**: `deepFreeze` of states and `isLegal` validation only when `NODE_ENV !== 'production'` or in tests.
+9. **Dev-only safety**: dev mode is the explicit engine option `createEngine(…, { dev: true })`, stored as `Env.dev`. The engine never reads `process.env` (§1.2). Tests, board-DSL fixtures and the web dev build set it; the sim and production web don't. In dev mode every committed state is `deepFreeze`d and each `CombatSnapshot` is `Object.freeze`d before `beforeCombat`, so a hook that writes throws (D-141). `isLegal` validation is skipped only with `{ trusted: true }` (§6.2).
 10. **Measurement**: `pnpm bench` runs 5,000 expert-vs-Collector duels single-threaded and fails below `PERF_DUELS_PER_SEC_PER_CORE`; the sim report prints duels/sec/core. Profiling hot spots with `--cpu-prof` before optimizing further.
 11. **Worker threads**: §15; linear scaling expected because workers share nothing and return aggregates.
 
@@ -1404,7 +1468,8 @@ Budget: a duel ≈ 24 turns × ~6–8 actions ≈ 150–200 actions incl. AI dec
 ## 19. Determinism and review checklist (applied to every engine PR)
 
 - [ ] No `Math.random`, `Date`, `performance.now`, timers, DOM, Node APIs in engine/content keywords/ai (ESLint `no-restricted-globals`/`no-restricted-properties`).
-- [ ] No `for…in`, `Object.keys/values/entries` or `Map`/`Set` iteration whose order affects outcomes (arrays and slot order only).
+- [ ] No `for…in`, `Object.keys/values/entries` or `Map`/`Set` iteration whose order affects outcomes (arrays and slot order only). The single allowed exception is `freeze.ts › deepFreeze`, which doesn't depend on order (D-147).
+- [ ] Dev-only checks go through `Env.dev`, never `process.env` (D-141).
 - [ ] Only integer arithmetic in rules; `Sfc32.int` is the only float operation and is exact.
 - [ ] Every rule number comes from `globals`; every mechanic checks its flag.
 - [ ] All state changes go through `Tx` and the effect interpreter; hooks only `effect()` (plus `cancelAttack` and the `beforeCombat` flag setters, §8.2).
@@ -1451,7 +1516,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | SU-3 | Each side draws 5 | `setup/initial-state.ts` | D-009 |
 | SU-4 | One redraw: hand to bottom, next 5 drawn | `reducer.ts` (`redraw`), `legal.ts` (mulligan) | D-008 |
 | SU-5 | ≥ 2 monsters in both opening hands (and redraw) | `setup/shuffle.ts` | D-007, D-118 |
-| SU-6 | Player first; cannot attack round 1 | `stats.ts › attackPermission` | D-015, D-042 |
+| SU-6 | Player first; cannot attack round 1 | `stats.ts › attackPermission` | D-015, D-042, D-142 |
 | RD-1 | Round = player turn then Collector turn | `turn.ts` (turn index) | — |
 | RD-2 | Draw up to 5, at most 2/turn; effects ignore cap | `turn.ts › drawStep`, `effects/run.ts › draw` | D-011…D-013 |
 | RD-3 | Reposition once, not on summon turn; face-down flipped to attack is revealed | `legal.ts`, `reducer.ts` (`reposition`) | D-014, D-022, D-023, D-024 |
@@ -1494,9 +1559,9 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | KW-5 | Swift | `keywords/swift.ts` (`attackPermission`) | D-041, D-042 |
 | KW-6 | Sentinel | `keywords/sentinel.ts` (`restrictTargets`) | D-037, D-038 |
 | KW-7 | Pierce | `keywords/pierce.ts` (`beforeCombat`), `combat.ts` | D-039, D-040, D-124 |
-| KW-8 | Ward | `keywords/ward.ts` (`beforeDestroy`), `destroy.ts` | D-034, D-035, D-043, D-044 |
+| KW-8 | Ward | `keywords/ward.ts` (`beforeDestroy`), `destroy.ts`, `hooks/dispatch.ts › beforeDestroy`, `stats.ts › activeKwOf` | D-034, D-035, D-043, D-044, D-133, D-134 |
 | KW-9 | Haunt | `keywords/haunt.ts` (`onDestroyed`) | D-045 |
-| KW-10 | Echo | `keywords/echo.ts` (`onDestroyed`) | D-046 |
+| KW-10 | Echo | `keywords/echo.ts` (`onDestroyed`), `effects/run.ts › returnToHand` | D-046, D-140 |
 | FL-1 | Flaws only on Relics, exactly one each | validator | D-114 |
 | FL-2 | Slow | `keywords/slow.ts` (`attackPermission`) | D-053 |
 | FL-3 | Vain | `keywords/vain.ts` (`mustAttack`), `legal.ts`, `ai/collector/best-target.ts` | D-052, D-091 |
@@ -1534,7 +1599,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | PP-4 | Stats are placeholders for the sim to tune | `--set card.<id>.power` in `sim/overrides.ts` | D-074 |
 | PP-5 | Stat budget P+G 8–10, keyword ≈ 1 | validator | D-109 |
 | PP-6 | Spells cast as the one play, resolve immediately | `legal.ts`, `effects/run.ts` | D-067 |
-| PP-7 | Unmake, Bloodlust, Grave Recall, Scrying Bones, Shroud, Siphon | `cards/player-spells.json` (§9.2) | D-067…D-070 |
+| PP-7 | Unmake, Bloodlust, Grave Recall, Scrying Bones, Shroud, Siphon | `cards/player-spells.json` (§9.2), `effects/run.ts`, `effects/targets.ts` | D-067…D-070, D-136, D-140 |
 | PP-8 | Traps set face-down as the play; trigger automatically, then discard | `summon.ts › setTrap`, `traps.ts`, `hooks/dispatch.ts` | D-071, D-072, D-122 |
 | PP-9 | Snare, Mirror Sigil, Last Rites, Thornwall | `cards/player-traps.json` (§9.2) | D-036, D-073 |
 | PP-10 | One-line art brief per card | `art-briefs.json`, validator | D-110 |
@@ -1545,8 +1610,8 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | --- | --- | --- | --- |
 | CO-1 | Fixed 20-card Relic deck; never grafts; each Relic has one Flaw | `collector.json`, `legal.ts` (`canGraft`), validator | D-026, D-114 |
 | CO-2 | 13 Relic monsters table | `cards/relics.json` | — |
-| CO-3 | Spells: Provenance Ledger, Restoration, Gilt Frame, Forfeit | `cards/collector-spells.json` (§9.2) | D-067…D-069 |
-| CO-4 | Traps: Display Case, Counterfeit, Insurance Claim | `cards/collector-traps.json` (§9.2) | D-065, D-073 |
+| CO-3 | Spells: Provenance Ledger, Restoration, Gilt Frame, Forfeit | `cards/collector-spells.json` (§9.2) | D-067…D-069, D-136, D-144 |
+| CO-4 | Traps: Display Case, Counterfeit, Insurance Claim | `cards/collector-traps.json` (§9.2) | D-065, D-073, D-139 |
 | AP-1 | Appraisal at start of his turns in rounds 3, 6, 9 | `turn.ts › startTurn`, `appraisal.ts`, `FLAGS.APPRAISAL` | D-016, D-075 |
 | AP-2 | Takes highest-Power face-up monster with Power ≥ 7; tie leftmost | `appraisal.ts` | D-076 |
 | AP-3 | Goes to open slot, or vault if full | `appraisal.ts`, `SideState.vault` | D-077, D-078 |
@@ -1605,7 +1670,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | BT-6 | 30–60% Appraisals succeed | `state.appraisal`, `sim/report.ts` | D-079 |
 | BT-7 | Unpriced appears in 20–40% | `track.unpriced`, `sim/report.ts` | — |
 | BT-8 | < 15% seeds rejected | `sim/difficulty-batch.ts` | — |
-| GL-1 | Every number is a global in one file | `content/src/globals.ts`, `engine/src/types/globals.ts` | D-074, D-126 |
+| GL-1 | Every number is a global in one file | `content/src/globals.ts`, `content/src/schemas/globals.ts`, `engine/src/types/globals.ts` | D-074, D-126, D-143, D-147 |
 | GL-2 | Feature flags (10) | `globals.FLAGS` | — |
 
 ### Technical architecture and content pipeline
@@ -1621,7 +1686,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | TA-7 | Hook registry (7 hooks) for keywords, Flaws, spells/traps | `types/hooks.ts`, `hooks/*`, `traps.ts` | D-112, D-122, D-124, D-127 |
 | TA-8 | No deep cloning; structural sharing; small integer ids | `tx.ts` (§4.1), §18 | D-006, D-128 |
 | TA-9 | Reproducible from seed + action log (leaderboards later) | `replay.ts`, `state.log` | D-108 |
-| CP-1 | JSON validated by zod at build and in `content:check` | `content/src/schemas/*`, `scripts/content-check.ts`, `build` script | — |
+| CP-1 | JSON validated by zod at build and in `content:check` | `content/src/schemas/*`, `content/src/load.ts`, `scripts/content-check.ts`, `build` script | D-145, D-146 |
 | CP-2 | Effect primitives with targets, conditions, durations | `types/effects.ts`, `effects/*` | D-074, D-120, D-129 |
 | CP-3 | New keyword/Flaw = one `defineKeyword` file, auto-registered | `hooks/define.ts` (type in `types/hooks.ts`), `scripts/gen-keyword-index.ts` | D-111, D-123 |
 | CP-4 | Validator fails on unknown refs, missing recipes, budget, duplicate ids, Collector deck ≠ 20 | `content/src/validate.ts` (§10.3) | D-109 |
