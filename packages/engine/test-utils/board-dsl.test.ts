@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { GC } from './graft-fixture';
+import { GC, GRAFT_SPEC } from './graft-fixture';
 import { TEST_GLOBALS, withGlobals } from './globals';
-import { buildScenario, parseScenario, runScenario, ScenarioError, scenarioEngine } from './board-dsl';
+import { buildScenario, parseScenario, runScenario, runScenarioOn, ScenarioError, scenarioEngine, withDeclared } from './board-dsl';
+import { buildContent } from './content-builder';
 import { moodOf } from '../src/mood';
 
 const engine = scenarioEngine(GC, TEST_GLOBALS);
@@ -186,5 +187,58 @@ describe('runScenario', () => {
     expect(() => runScenario('turn 4\ndo attack P2 > face', engine)).toThrow(/P2 is empty/);
     expect(() => runScenario('turn 4\nexpect event Destroyed', engine)).toThrow(/missing event/);
     expect(() => runScenario('turn 4\ndo frobnicate', engine)).toThrow(/unknown action/);
+  });
+});
+
+describe('card declarations (D-169)', () => {
+  const text = `
+    card fx-decl-a P fx-ember fx-beast 6/2 fx-pierce,fx-swift
+    card fx-decl-b C fx-tide fx-spirit 4/5 fx-slow
+    card fx-decl-c P fx-umbra fx-beast 1/1
+    turn 4
+    P board [fx-decl-a A]
+    C board [fx-decl-b G]
+  `;
+  it('parseScenario returns declared cards apart from the board', () => {
+    const sc = parseScenario(text);
+    expect(sc.declared.map((d) => d.id)).toEqual(['fx-decl-a', 'fx-decl-b', 'fx-decl-c']);
+    expect(sc.declared[0]).toMatchObject({ pool: 'player', element: 'fx-ember', kind: 'fx-beast', power: 6, guard: 2, kw: ['fx-pierce', 'fx-swift'], line: 2 });
+    expect(sc.declared[1]).toMatchObject({ pool: 'collector', power: 4, guard: 5, kw: ['fx-slow'] });
+    expect(sc.declared[2]?.kw).toEqual([]);
+    expect(sc.sides[0].board).toHaveLength(1);
+  });
+  it('builds content from the base spec plus the declared cards', () => {
+    const sc = parseScenario(text);
+    const c = buildContent(withDeclared(GRAFT_SPEC, sc.declared));
+    const a = c.index.get('fx-decl-a') as number;
+    expect([c.power[a], c.guard[a], c.pool[a]]).toEqual([6, 2, 0]);
+    expect(c.kw[a]).not.toBe(0);
+    expect(c.pool[c.index.get('fx-decl-b') as number]).toBe(1);
+    expect(GRAFT_SPEC.defs.some((d) => d.id === 'fx-decl-a')).toBe(false);
+  });
+  it('runScenarioOn runs a scenario that uses only declared cards', () => {
+    const r = runScenarioOn(
+      `
+      card fx-decl-a P fx-ember fx-beast 6/2
+      turn 4
+      P board [fx-decl-a A]
+      expect P0 power 6
+      expect P0 card fx-decl-a
+      `,
+      GRAFT_SPEC,
+      TEST_GLOBALS,
+    );
+    expect(r.content.index.has('fx-decl-a')).toBe(true);
+  });
+  it('rejects malformed, colliding and unresolvable declarations', () => {
+    expect(() => parseScenario('card fx-x P fx-ember fx-beast')).toThrow(/line 1: card needs/);
+    expect(() => parseScenario('card fx-x Q fx-ember fx-beast 1/1')).toThrow(/pool must be P or C/);
+    expect(() => parseScenario('card fx-x P fx-ember fx-beast 1-1')).toThrow(/<power>\/<guard>/);
+    expect(() => parseScenario('card fx-x P fx-ember fx-beast 1/1 a extra')).toThrow(/card needs/);
+    expect(() => withDeclared(GRAFT_SPEC, parseScenario('card fx-ember-whelp P fx-ember fx-beast 1/1').declared)).toThrow(/collides/);
+    expect(() => withDeclared(GRAFT_SPEC, parseScenario('card fx-x P fx-ember fx-beast 1/1\ncard fx-x P fx-ember fx-beast 1/1').declared)).toThrow(/line 2: .*collides/);
+    expect(() => withDeclared(GRAFT_SPEC, parseScenario('card fx-x P nope fx-beast 1/1').declared)).toThrow(/unknown element/);
+    expect(() => withDeclared(GRAFT_SPEC, parseScenario('card fx-x P fx-ember nope 1/1').declared)).toThrow(/unknown kind/);
+    expect(() => withDeclared(GRAFT_SPEC, parseScenario('card fx-x P fx-ember fx-beast 1/1 nope').declared)).toThrow(/unknown keyword/);
   });
 });

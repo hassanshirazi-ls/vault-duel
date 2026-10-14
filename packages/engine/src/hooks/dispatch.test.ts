@@ -7,6 +7,7 @@ import type { QueuedEffect } from '../effects/run';
 import type { GameEvent } from '../types/events';
 import type { CombatSnapshot, Hooks } from '../types/hooks';
 import type { GameState, Iid, Side } from '../types/state';
+import { effectivePower } from '../stats';
 import { attackTargets, Dispatcher, mustAttack, summonRequirement } from './dispatch';
 import { defineKeyword } from './define';
 import { createEnv } from './registry';
@@ -424,6 +425,23 @@ describe('query folds', () => {
     const d = b.card('fx-r-card', 1);
     attackTargets(createEnv(rc, TEST_GLOBALS, [], true), b.place(0, 0, atk).place(1, 1, d).build(), atk, 1);
     expect(seenCtx).toEqual([{ self: d, attacker: atk, isAtk: true }]);
+  });
+  it('QueryCtx.num reads CONTENT_NUMBERS then core globals (D-171)', () => {
+    const seen: number[] = [];
+    const rc = buildContent({
+      ...FX_SPEC,
+      keywords: [
+        ...FX_SPEC.keywords,
+        kwdef('fx-n', { staticPower: (q) => { seen.push(q.num('FX_ONLY_NUMBER'), q.num('HAUNT_PENALTY')); return q.num('FX_ONLY_NUMBER'); } }),
+      ],
+      defs: [...FX_SPEC.defs, { id: 'fx-n-card', type: 'monster', power: 1, guard: 1, element: 'fx-ember', kind: 'fx-beast', kw: ['fx-n'] }],
+    });
+    const g = withGlobals({ CONTENT_NUMBERS: { FX_ONLY_NUMBER: 6 } });
+    const b = new StateBuilder(rc);
+    const m = b.card('fx-n-card', 0);
+    const s = b.place(0, 0, m).build();
+    expect(effectivePower(s, createEnv(rc, g, [], true), m)).toBe(7);
+    expect(seen).toEqual([6, g.HAUNT_PENALTY]);
   });
   it('mustAttack is an OR over active keywords (Vain)', () => {
     const b = new StateBuilder(FX);

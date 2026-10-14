@@ -92,7 +92,7 @@ export function runEffect(tx: Tx, env: Env, q: QueuedEffect, host: EffectHost): 
   switch (e.op) {
     case 'draw': {
       const side = e.who === 'self' ? q.side : otherSide(q.side);
-      const n = resolveNum(e.n, env.g);
+      const n = resolveNum(env.g, e.n);
       if (n <= 0) return;
       const drawn = tx.zoneTake(side, 'deck', n);
       for (let i = 0; i < drawn.length; i++) {
@@ -105,7 +105,7 @@ export function runEffect(tx: Tx, env: Env, q: QueuedEffect, host: EffectHost): 
     }
     case 'damage': {
       const side = e.who === 'self' ? q.side : otherSide(q.side);
-      const amount = resolveNum(e.n, env.g);
+      const amount = resolveNum(env.g, e.n);
       if (amount <= 0) return;
       const lifeAfter = tx.state.sides[side].life - amount;
       tx.setLife(side, lifeAfter);
@@ -115,7 +115,7 @@ export function runEffect(tx: Tx, env: Env, q: QueuedEffect, host: EffectHost): 
     }
     case 'heal': {
       const side = e.who === 'self' ? q.side : otherSide(q.side);
-      const amount = resolveNum(e.n, env.g);
+      const amount = resolveNum(env.g, e.n);
       if (amount <= 0) return;
       const lifeAfter = tx.state.sides[side].life + amount; // no life cap (D-019)
       tx.setLife(side, lifeAfter);
@@ -127,8 +127,8 @@ export function runEffect(tx: Tx, env: Env, q: QueuedEffect, host: EffectHost): 
       const target = resolveRef(refs, e.target);
       const loc = target < 0 ? -1 : locate(tx.state, target);
       if (loc < 0) return; // fizzle: not on a board
-      const p = e.power === undefined ? 0 : resolveNum(e.power, env.g);
-      const g = e.guard === undefined ? 0 : resolveNum(e.guard, env.g);
+      const p = e.power === undefined ? 0 : resolveNum(env.g, e.power);
+      const g = e.guard === undefined ? 0 : resolveNum(env.g, e.guard);
       if (p === 0 && g === 0) return;
       const side = locSide(loc);
       const slot = locSlot(loc);

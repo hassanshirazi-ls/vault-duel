@@ -4,8 +4,9 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { KeywordDef } from '@vault-duel/engine';
+import type { Globals, KeywordDef } from '@vault-duel/engine';
 import { DEFAULT_GLOBALS } from './globals';
+import { globalNameProblem } from './global-names';
 import { CONTENT_ROOT, type ContentError } from './load';
 
 export const KEYWORD_DIR = 'keywords';
@@ -115,6 +116,33 @@ export function checkKeywordSources(
   }
   if (sources.length > MAX_KEYWORDS) {
     errors.push(problem(`${KEYWORD_DIR}/`, '(all)', `${sources.length} keywords and Flaws, the bit mask holds ${MAX_KEYWORDS}`, 'remove one'));
+  }
+  return errors;
+}
+
+// D-171: a keyword source names a global either as a '$NAME' / '-$NAME' string (an effect value) or as num('NAME')
+// (a query hook). Every such literal must resolve in either namespace. Reads the source text, so it is run on disk.
+const REF_LITERAL = /['"](-?)\$([A-Za-z0-9_]+)['"]/g;
+const NUM_LITERAL = /\bnum\(\s*['"]([A-Za-z0-9_]+)['"]\s*\)/g;
+
+export function checkKeywordGlobalRefs(
+  sources: readonly KeywordSource[],
+  globals: Globals = DEFAULT_GLOBALS,
+  root: string = CONTENT_ROOT,
+): ContentError[] {
+  const errors: ContentError[] = [];
+  for (const { file, stem } of sources) {
+    const text = readFileSync(join(root, file), 'utf8');
+    for (const match of text.matchAll(REF_LITERAL)) {
+      const [, sign = '', name = ''] = match;
+      const issue = globalNameProblem(name, globals, `"${match[0].slice(1, -1)}"`, sign);
+      if (issue) errors.push(problem(file, stem, issue.problem, issue.fix));
+    }
+    for (const match of text.matchAll(NUM_LITERAL)) {
+      const name = match[1] ?? '';
+      const issue = globalNameProblem(name, globals, `num('${name}')`);
+      if (issue) errors.push(problem(file, stem, issue.problem, issue.fix));
+    }
   }
   return errors;
 }

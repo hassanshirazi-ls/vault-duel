@@ -1,10 +1,12 @@
 // Cross-file validator (ARCHITECTURE.md §10.3, D-109, D-145). It runs after the zod pass, on whatever parsed:
 // a rule whose input file failed to parse is skipped, because that file already has zod errors, so every
-// problem is reported in one run. Messages follow the §10.3 examples. Pool-size checks are warnings and never fail.
+// problem is reported in one run. Messages follow the §10.3 examples. Stat-budget and art-brief problems are
+// warnings (D-167, D-174); the pool capacity is an error (D-170).
 import type { Cond, Effect, Globals, KeywordDef, TrapTrigger } from '@vault-duel/engine';
 import { KEYWORDS } from '../keywords/index.gen';
 import { DEFAULT_GLOBALS } from './globals';
 import { CONTENT_FILES, type ContentData, type ContentError, type ContentKey } from './load';
+import { globalNameProblem } from './global-names';
 import { GlobalsSchema, globalsProblems } from './schemas/globals';
 
 export interface ValidationResult {
@@ -123,7 +125,7 @@ export function validateContent(
   checkCardText(ctx);
   checkGlobalRefs(ctx);
   checkArtBriefs(ctx);
-  checkPoolSizes(ctx);
+  checkPoolCapacity(ctx);
   return { errors: sink.errors, warnings: sink.warnings };
 }
 
@@ -215,8 +217,8 @@ function checkEffectConditions(ctx: Ctx, where: Where, effects: readonly Effect[
   for (const effect of effects) if (effect.if) checkCond(ctx, where, effect.if);
 }
 
-// D-109: Power + Guard + KEYWORD_COST × keywords must lie in [STAT_BUDGET_MIN, STAT_BUDGET_MAX].
-// Base player monsters only: Relics and Chimeras are exempt.
+// D-109, D-167: Power + Guard + KEYWORD_COST × keywords must lie in [STAT_BUDGET_MIN, STAT_BUDGET_MAX].
+// Base player monsters only: Relics and Chimeras are exempt. A miss is a warning, never an error (D-167).
 function checkStatBudget(ctx: Ctx): void {
   const { data, globals, sink } = ctx;
   if (!data.playerMonsters) return;
@@ -229,7 +231,7 @@ function checkStatBudget(ctx: Ctx): void {
     const keywordPart = cost > 0 ? `+${cost}kw` : '';
     const problem = `budget ${total} (P${monster.power}+G${monster.guard}${keywordPart}) outside ${min}–${max}`;
     const fix = total > max ? `lower Power or Guard by ${total - max}` : `raise Power or Guard by ${min - total}`;
-    fail(sink, { file: fileOf('playerMonsters'), id: monster.id }, problem, fix);
+    warn(sink, { file: fileOf('playerMonsters'), id: monster.id }, problem, `${fix} if this is not intended`);
   }
 }
 
@@ -441,41 +443,12 @@ function scanGlobalRefs(ctx: Ctx, where: Where, value: unknown): void {
 
 function checkGlobalRef(ctx: Ctx, where: Where, ref: string): void {
   const name = ref.replace(/^-?\$/, '');
-  const values = ctx.globals as unknown as Readonly<Record<string, unknown>>;
-  if (Object.hasOwn(values, name)) {
-    if (typeof values[name] !== 'number') {
-      fail(ctx.sink, where, `"${ref}" is not a number in globals.ts`, 'use a numeric global from globals.ts');
-    }
-    return;
-  }
-  let suggestion: string | undefined;
-  let bestDistance = 3; // suggest only names within two edits
-  for (const candidate of Object.keys(values)) {
-    const distance = editDistance(name, candidate);
-    if (distance < bestDistance) {
-      suggestion = candidate;
-      bestDistance = distance;
-    }
-  }
   const sign = ref.startsWith('-') ? '-' : '';
-  const fix = suggestion === undefined ? 'use a name from globals.ts' : `did you mean ${sign}$${suggestion}?`;
-  fail(ctx.sink, where, `"${ref}" not in globals.ts`, fix);
+  const problem = globalNameProblem(name, ctx.globals, `"${ref}"`, sign);
+  if (problem) fail(ctx.sink, where, problem.problem, problem.fix);
 }
 
-function editDistance(a: string, b: string): number {
-  let row = Array.from({ length: b.length + 1 }, (_, index) => index);
-  for (let i = 1; i <= a.length; i++) {
-    const next: number[] = [i];
-    for (let j = 1; j <= b.length; j++) {
-      const substitution = (row[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1);
-      next[j] = Math.min((row[j] ?? 0) + 1, (next[j - 1] ?? 0) + 1, substitution);
-    }
-    row = next;
-  }
-  return row[b.length] ?? Number.POSITIVE_INFINITY;
-}
-
-// art-briefs.json: one brief per card and Chimera family, and no briefs for ids that don't exist (D-110).
+// art-briefs.json: one brief per card and Chimera family, and no briefs for ids that don't exist (D-110, D-174: warnings).
 // Runs only when every card file parsed, so a missing file can't produce false "missing" errors.
 function checkArtBriefs(ctx: Ctx): void {
   const { data, sink } = ctx;
@@ -487,11 +460,11 @@ function checkArtBriefs(ctx: Ctx): void {
   const ids = new Set(lists.flatMap((list) => (list ?? []).map((entry) => entry.id)));
   for (const id of ids) {
     if (!Object.hasOwn(briefs, id)) {
-      fail(sink, { file, id }, 'missing art brief', 'add a one-line "mood · pose · palette"');
+      warn(sink, { file, id }, 'missing art brief', 'add a one-line "mood · pose · palette"');
     }
   }
   for (const id of Object.keys(briefs)) {
-    if (!ids.has(id)) fail(sink, { file, id }, 'orphan brief, no card or Chimera family has this id', 'delete the entry');
+    if (!ids.has(id)) warn(sink, { file, id }, 'orphan brief, no card or Chimera family has this id', 'delete the entry');
   }
 }
 
@@ -545,21 +518,24 @@ function checkGlobalsSanity(ctx: Ctx): void {
   }
 }
 
-// Pool-size expectations (§10.3): warnings only, so content can grow.
-function checkPoolSizes(ctx: Ctx): void {
+// D-170: a player pool must hold enough distinct cards to fill its deck, when each card may be used MAX_COPIES times.
+// Checked for monsters, spells and traps. Adding the missing cards is the fix; the count is ceil(DECK / MAX_COPIES).
+function checkPoolCapacity(ctx: Ctx): void {
   const { data, globals, sink } = ctx;
   const pools: readonly [ContentKey, readonly unknown[] | undefined, number, string, string][] = [
-    ['playerMonsters', data.playerMonsters, globals.POOL_MONSTERS, 'POOL_MONSTERS', 'monsters'],
-    ['playerSpells', data.playerSpells, globals.POOL_SPELLS, 'POOL_SPELLS', 'spells'],
-    ['playerTraps', data.playerTraps, globals.POOL_TRAPS, 'POOL_TRAPS', 'traps'],
+    ['playerMonsters', data.playerMonsters, globals.DECK_MONSTERS, 'monster', 'DECK_MONSTERS'],
+    ['playerSpells', data.playerSpells, globals.DECK_SPELLS, 'spell', 'DECK_SPELLS'],
+    ['playerTraps', data.playerTraps, globals.DECK_TRAPS, 'trap', 'DECK_TRAPS'],
   ];
-  for (const [key, entries, expected, name, label] of pools) {
-    if (!entries || entries.length === expected) continue;
-    warn(
+  for (const [key, entries, deck, label, name] of pools) {
+    if (!entries) continue;
+    const needed = Math.ceil(deck / globals.MAX_COPIES);
+    if (entries.length >= needed) continue;
+    fail(
       sink,
       { file: fileOf(key), id: 'pool' },
-      `has ${entries.length} ${label}, expects ${name}=${expected}`,
-      `add or remove ${label}, or change ${name} in globals.ts`,
+      `${plural(entries.length, label)} × MAX_COPIES=${globals.MAX_COPIES} can't fill ${name}=${deck}`,
+      `add ${plural(needed - entries.length, label)}, or lower ${name} or raise MAX_COPIES in globals.ts`,
     );
   }
 }

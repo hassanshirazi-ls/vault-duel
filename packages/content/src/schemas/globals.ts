@@ -7,6 +7,9 @@ import type { Globals } from '@vault-duel/engine';
 const Int = z.int();
 const Decimal = z.number();
 
+/** A CONTENT_NUMBERS name (D-171): capitals, digits and underscores, the same shape as a $NAME ref. */
+const CONTENT_NAME = /^[A-Z][A-Z0-9_]*$/;
+
 /** A min/max pair; the sanity check of §10.3 (min ≤ max). */
 const Range = z
   .tuple([z.number(), z.number()])
@@ -40,7 +43,7 @@ const Flags = z
   .strict();
 
 /** Every key of Globals (engine types/globals.ts), in §11 order. */
-export const GlobalsSchema = z
+const GlobalsShape = z
   .object({
     // Identity & seeding
     CONTENT_VERSION: z.string().min(1),
@@ -50,18 +53,11 @@ export const GlobalsSchema = z
     COLLECTOR_LIFE: Int,
     MAX_ROUNDS: Int,
     // Decks
-    PLAYER_DECK_SIZE: Int,
     COLLECTOR_DECK_SIZE: Int,
-    COLLECTOR_DECK_MONSTERS: Int,
-    COLLECTOR_DECK_SPELLS: Int,
-    COLLECTOR_DECK_TRAPS: Int,
     DECK_MONSTERS: Int,
     DECK_SPELLS: Int,
     DECK_TRAPS: Int,
     MAX_COPIES: Int,
-    POOL_MONSTERS: Int,
-    POOL_SPELLS: Int,
-    POOL_TRAPS: Int,
     // Hand, draw, turn
     OPENING_HAND: Int,
     HAND_SIZE: Int,
@@ -102,20 +98,7 @@ export const GlobalsSchema = z
     KEYWORD_COST: Int,
     MAX_TEXT_SENTENCES: Int,
     // Player spells & traps
-    UNMAKE_MAX_POWER: Int,
-    BLOODLUST_POWER: Int,
-    SCRYING_DRAW: Int,
-    SIPHON_DRAIN: Int,
-    SIPHON_GAIN: Int,
-    MIRROR_SIGIL_PENALTY: Int,
-    LAST_RITES_DRAW: Int,
     // Collector spells & traps
-    PROVENANCE_DRAW: Int,
-    GILT_POWER: Int,
-    GILT_GUARD: Int,
-    FORFEIT_MAX_POWER: Int,
-    COUNTERFEIT_PENALTY: Int,
-    INSURANCE_HEAL: Int,
     // Durations
     DURATION_NEXT_OWN_TURN: Int,
     // Appraisal
@@ -125,7 +108,6 @@ export const GlobalsSchema = z
     MOOD_AGITATED_AT: Int,
     MOOD_DESPERATE_AT: Int,
     // Collector AI numbers from DESIGN
-    AI_FACEDOWN_ATTACK_MIN_POWER: Int,
     // Deck generation
     DECK_MIN_ELEMENTS: Int,
     DECK_MIN_KINDS: Int,
@@ -146,8 +128,6 @@ export const GlobalsSchema = z
     RESET_HOUR_LOCAL: Int,
     OBJECTIVES_PER_DAY: Int,
     OBJECTIVE_STARS_MAX: Int,
-    OBJ_HIGH_LIFE: Int,
-    OBJ_WIN_BY_ROUND: Int,
     // Balance targets
     TARGET_EXPERT_WINRATE: Range,
     TARGET_NOVICE_WINRATE: Range,
@@ -170,9 +150,23 @@ export const GlobalsSchema = z
     MAX_TRIGGER_CHAIN: Int,
     // Feature flags
     FLAGS: Flags,
+    // Content numbers (D-171): an open record; names must not repeat a core key (checked below).
+    CONTENT_NUMBERS: z.record(z.string().regex(CONTENT_NAME, 'expected a name like UNMAKE_MAX_POWER'), Int),
   })
   .strict()
   .superRefine((globals, ctx) => {
+    // D-171: a CONTENT_NUMBERS name must not repeat a core key, or the two namespaces would collide.
+    for (const name of Object.keys(globals.CONTENT_NUMBERS)) {
+      if (CORE_KEYS.includes(name)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['CONTENT_NUMBERS', name],
+          message: `${name} is already a core key of Globals`,
+          input: name,
+          params: { fix: `rename it, or change the core ${name} instead` },
+        });
+      }
+    }
     // APPRAISAL_ROUNDS within 1…MAX_ROUNDS (§10.3). Reported on the key, not on each round.
     for (const round of globals.APPRAISAL_ROUNDS) {
       if (round < 1 || round > globals.MAX_ROUNDS) {
@@ -186,6 +180,10 @@ export const GlobalsSchema = z
       }
     }
   }) satisfies z.ZodType<Globals>;
+export const GlobalsSchema = GlobalsShape;
+
+/** The core keys of Globals (every shape key except CONTENT_NUMBERS), for the clash check. */
+const CORE_KEYS: readonly string[] = Object.keys(GlobalsShape.shape).filter((key) => key !== 'CONTENT_NUMBERS');
 
 /** One sanity or schema problem in the §10.3 shape: entry = the globals key, field = the rest of the path. */
 export interface GlobalsProblem {

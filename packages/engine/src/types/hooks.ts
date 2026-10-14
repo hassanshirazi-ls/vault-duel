@@ -93,6 +93,8 @@ export interface QueryCtx {
   monsters(side: Side): readonly Iid[];
   enteredThisTurn(i: Iid): boolean;
   isAttacker(i: Iid): boolean;
+  /** A `$NAME` value: `CONTENT_NUMBERS` first, then core globals; EngineError if unknown (D-171). */
+  num(name: string): number;
 }
 
 /** restrictTargets query context. §8.1 names it without defining it; carries the attacker being checked. */

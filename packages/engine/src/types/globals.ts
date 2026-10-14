@@ -27,18 +27,11 @@ export interface Globals {
   readonly COLLECTOR_LIFE: number;
   readonly MAX_ROUNDS: number;
   // Decks
-  readonly PLAYER_DECK_SIZE: number;
   readonly COLLECTOR_DECK_SIZE: number;
-  readonly COLLECTOR_DECK_MONSTERS: number;
-  readonly COLLECTOR_DECK_SPELLS: number;
-  readonly COLLECTOR_DECK_TRAPS: number;
   readonly DECK_MONSTERS: number;
   readonly DECK_SPELLS: number;
   readonly DECK_TRAPS: number;
   readonly MAX_COPIES: number;
-  readonly POOL_MONSTERS: number;
-  readonly POOL_SPELLS: number;
-  readonly POOL_TRAPS: number;
   // Hand, draw, turn
   readonly OPENING_HAND: number;
   readonly HAND_SIZE: number;
@@ -76,21 +69,6 @@ export interface Globals {
   readonly STAT_BUDGET_MAX: number;
   readonly KEYWORD_COST: number;
   readonly MAX_TEXT_SENTENCES: number;
-  // Player spells & traps
-  readonly UNMAKE_MAX_POWER: number;
-  readonly BLOODLUST_POWER: number;
-  readonly SCRYING_DRAW: number;
-  readonly SIPHON_DRAIN: number;
-  readonly SIPHON_GAIN: number;
-  readonly MIRROR_SIGIL_PENALTY: number;
-  readonly LAST_RITES_DRAW: number;
-  // Collector spells & traps
-  readonly PROVENANCE_DRAW: number;
-  readonly GILT_POWER: number;
-  readonly GILT_GUARD: number;
-  readonly FORFEIT_MAX_POWER: number;
-  readonly COUNTERFEIT_PENALTY: number;
-  readonly INSURANCE_HEAL: number;
   // Durations
   readonly DURATION_NEXT_OWN_TURN: number;
   // Appraisal
@@ -99,8 +77,6 @@ export interface Globals {
   // Moods
   readonly MOOD_AGITATED_AT: number;
   readonly MOOD_DESPERATE_AT: number;
-  // Collector AI numbers from DESIGN
-  readonly AI_FACEDOWN_ATTACK_MIN_POWER: number;
   // Deck generation
   readonly DECK_MIN_ELEMENTS: number;
   readonly DECK_MIN_KINDS: number;
@@ -121,8 +97,6 @@ export interface Globals {
   readonly RESET_HOUR_LOCAL: number;
   readonly OBJECTIVES_PER_DAY: number;
   readonly OBJECTIVE_STARS_MAX: number;
-  readonly OBJ_HIGH_LIFE: number;
-  readonly OBJ_WIN_BY_ROUND: number;
   // Balance targets
   readonly TARGET_EXPERT_WINRATE: Range;
   readonly TARGET_NOVICE_WINRATE: Range;
@@ -143,8 +117,15 @@ export interface Globals {
   readonly PERF_DUELS_PER_SEC_PER_CORE: number;
   // Engine safety
   readonly MAX_TRIGGER_CHAIN: number;
+  // Content numbers (D-171): referenced only by name (`$NAME`, `{NAME}`, `q.num('NAME')`); never read as a property
+  readonly CONTENT_NUMBERS: Readonly<Record<string, number>>;
   // Feature flags
   readonly FLAGS: Flags;
+}
+
+/** D-170: the player deck size is derived, never stored. */
+export function playerDeckSize(g: Pick<Globals, 'DECK_MONSTERS' | 'DECK_SPELLS' | 'DECK_TRAPS'>): number {
+  return g.DECK_MONSTERS + g.DECK_SPELLS + g.DECK_TRAPS;
 }
 
 export type NumericGlobal = { [K in keyof Globals]: Globals[K] extends number ? K : never }[keyof Globals];

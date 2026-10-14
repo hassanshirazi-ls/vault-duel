@@ -31,18 +31,11 @@ const GLOBAL_VALUES = {
   COLLECTOR_LIFE: 25,
   MAX_ROUNDS: 12,
   // Decks
-  PLAYER_DECK_SIZE: 24,
   COLLECTOR_DECK_SIZE: 20,
-  COLLECTOR_DECK_MONSTERS: 13,
-  COLLECTOR_DECK_SPELLS: 4,
-  COLLECTOR_DECK_TRAPS: 3,
   DECK_MONSTERS: 15,
   DECK_SPELLS: 5,
   DECK_TRAPS: 4,
   MAX_COPIES: 2,
-  POOL_MONSTERS: 25, // validator warnings only
-  POOL_SPELLS: 6, // validator warnings only
-  POOL_TRAPS: 4, // validator warnings only
   // Hand, draw, turn
   OPENING_HAND: 5,
   HAND_SIZE: 5,
@@ -80,21 +73,6 @@ const GLOBAL_VALUES = {
   STAT_BUDGET_MAX: 10,
   KEYWORD_COST: 1,
   MAX_TEXT_SENTENCES: 1,
-  // Player spells & traps
-  UNMAKE_MAX_POWER: 5,
-  BLOODLUST_POWER: 3,
-  SCRYING_DRAW: 2,
-  SIPHON_DRAIN: 3,
-  SIPHON_GAIN: 3,
-  MIRROR_SIGIL_PENALTY: 3,
-  LAST_RITES_DRAW: 1,
-  // Collector spells & traps
-  PROVENANCE_DRAW: 2,
-  GILT_POWER: 2,
-  GILT_GUARD: 2,
-  FORFEIT_MAX_POWER: 4,
-  COUNTERFEIT_PENALTY: 3,
-  INSURANCE_HEAL: 3,
   // Durations (turn-index offsets)
   DURATION_NEXT_OWN_TURN: 2,
   // Appraisal
@@ -103,8 +81,6 @@ const GLOBAL_VALUES = {
   // Moods (Composed = above AGITATED_AT)
   MOOD_AGITATED_AT: 15,
   MOOD_DESPERATE_AT: 7,
-  // Collector AI numbers from DESIGN
-  AI_FACEDOWN_ATTACK_MIN_POWER: 7,
   // Deck generation
   DECK_MIN_ELEMENTS: 3,
   DECK_MIN_KINDS: 4,
@@ -125,8 +101,6 @@ const GLOBAL_VALUES = {
   RESET_HOUR_LOCAL: 0,
   OBJECTIVES_PER_DAY: 3,
   OBJECTIVE_STARS_MAX: 3,
-  OBJ_HIGH_LIFE: 15,
-  OBJ_WIN_BY_ROUND: 8,
   // Balance targets (sim report pass/fail)
   TARGET_EXPERT_WINRATE: [0.45, 0.55],
   TARGET_NOVICE_WINRATE: [0.2, 0.3],
@@ -149,12 +123,26 @@ const GLOBAL_VALUES = {
   MAX_TRIGGER_CHAIN: 64,
   // Feature flags
   FLAGS,
+  // Content numbers (D-171): referenced only as "$NAME" from data or keyword effects, and as {NAME} in text.
+  // Open record: add a line for a new card number. Names must not repeat a core key.
+  CONTENT_NUMBERS: {
+    // Player spells & traps
+    UNMAKE_MAX_POWER: 5, BLOODLUST_POWER: 3, SCRYING_DRAW: 2, SIPHON_DRAIN: 3, SIPHON_GAIN: 3, MIRROR_SIGIL_PENALTY: 3, LAST_RITES_DRAW: 1,
+    // Collector spells & traps
+    PROVENANCE_DRAW: 2, GILT_POWER: 2, GILT_GUARD: 2, FORFEIT_MAX_POWER: 4, COUNTERFEIT_PENALTY: 3, INSURANCE_HEAL: 3,
+    // Objectives
+    OBJ_HIGH_LIFE: 15, OBJ_WIN_BY_ROUND: 8,
+    // Collector AI params
+    AI_FACEDOWN_ATTACK_MIN_POWER: 7,
+  },
 } as const satisfies Globals;
 
 export const DEFAULT_GLOBALS: Globals = deepFreeze(GLOBAL_VALUES);
 
-const GLOBAL_KEYS: readonly string[] = Object.keys(GlobalsSchema.shape);
+// CONTENT_NUMBERS is not a core key: a --set reaches its entries by name, never the whole record (D-171).
+const GLOBAL_KEYS: readonly string[] = Object.keys(GlobalsSchema.shape).filter((key) => key !== 'CONTENT_NUMBERS');
 const FLAG_KEYS: readonly string[] = Object.keys(GlobalsSchema.shape.FLAGS.shape);
+const CONTENT_PREFIX = 'CONTENT_NUMBERS.';
 
 /** A VALUE is parsed as JSON; text that is not JSON (a bare word) stays a string. */
 function parseOverrideValue(raw: string): unknown {
@@ -197,7 +185,14 @@ export function withOverrides(base: Globals, sets: readonly string[]): Globals {
     } else if (GLOBAL_KEYS.includes(key)) {
       merged[key] = value;
     } else {
-      problems.push(`globals.ts › ${key} › unknown key › use a key from globals.ts`);
+      // D-171: NAME=V routes to CONTENT_NUMBERS when NAME is there; "CONTENT_NUMBERS.NAME=V" is the explicit form.
+      const name = key.startsWith(CONTENT_PREFIX) ? key.slice(CONTENT_PREFIX.length) : key;
+      if (Object.hasOwn(base.CONTENT_NUMBERS, name)) {
+        const current = isRecord(merged['CONTENT_NUMBERS']) ? merged['CONTENT_NUMBERS'] : {};
+        merged['CONTENT_NUMBERS'] = { ...current, [name]: value };
+      } else {
+        problems.push(`globals.ts › ${key} › unknown key › use a key from globals.ts or a name already in CONTENT_NUMBERS`);
+      }
     }
   }
   if (problems.length > 0) throw new Error(problems.join('\n'));

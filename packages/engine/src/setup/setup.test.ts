@@ -20,7 +20,7 @@ const SEED = rerollSeed(seedString(g, '2026-10-14'), 0);
 
 describe('seed strings and streams (§12.2, D-001 to D-003)', () => {
   it('seedString and rerollSeed follow D-001 and D-003', () => {
-    expect(seedString(g, '2026-10-14')).toBe('vault-duel:2026-10-14:0.1.0-fixture');
+    expect(seedString({ SEED_PREFIX: 'p', CONTENT_VERSION: 'v' }, '2026-10-14')).toBe('p:2026-10-14:v');
     expect(rerollSeed('a:b:c', 0)).toBe('a:b:c#0');
     expect(rerollSeed('a:b:c', 7)).toBe('a:b:c#7');
   });

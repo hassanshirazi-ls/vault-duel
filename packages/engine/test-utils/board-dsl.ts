@@ -2,6 +2,12 @@
 // actions applied through the engine and expectations checked. Used by scenario tests and by the
 // generated keyword-example tests (`KeywordDef.examples`, via the "@vault-duel/engine/test-utils/*" subpath).
 //
+//   cards        card <id> <P|C> <element> <kind> <power>/<guard> [<kw>[,<kw>...]]     (D-169)
+//                Declares a monster for this scenario only. `P` = player pool; `C` = Collector pool (a Relic: its
+//                Flaw goes in the keyword list). Element, kind and keywords must exist in the base content. A
+//                declared id that collides with a base content id, or is declared twice, is an error. `parseScenario`
+//                returns the declarations as `Scenario.declared`, apart from the board; build the content with
+//                `withDeclared(baseSpec, sc.declared)` + `buildContent`, or run everything with `runScenarioOn`.
 //   setup        turn 6 | round 4 collector | step main|attack|mulligan | played yes|no | twist N
 //                P|C life N
 //                P|C hand <id> ...        (`*` = filler up to HAND_SIZE)
@@ -38,6 +44,8 @@ import type {
 } from '../src/types/state';
 import { deepFreeze } from '../src/freeze';
 import { makeMonster } from '../src/monster';
+import { buildContent } from './content-builder';
+import type { ContentSpec, DefSpec } from './content-builder';
 import { constantIntent } from './intent';
 
 export class ScenarioError extends Error {
@@ -81,7 +89,21 @@ export interface ScriptLine {
   readonly line: number;
 }
 
+/** A `card` line (D-169): a monster that exists for one scenario only. */
+export interface DeclaredCard {
+  readonly id: string;
+  readonly pool: 'player' | 'collector';
+  readonly element: string;
+  readonly kind: string;
+  readonly power: number;
+  readonly guard: number;
+  readonly kw: readonly string[];
+  readonly line: number;
+}
+
 export interface Scenario {
+  /** cards declared by `card` lines, in source order; not part of any side */
+  readonly declared: DeclaredCard[];
   turn: number | null;
   /** `round R collector|player` resolved at parse time */
   step: Step;
@@ -159,8 +181,44 @@ function bracketed(line: number, text: string): string[] {
   return out;
 }
 
+function parseCard(line: number, words: readonly string[]): DeclaredCard {
+  const [, id, pool, element, kind, stats, kws, ...extra] = words;
+  const usage = 'card <id> <P|C> <element> <kind> <power>/<guard> [<kw>[,<kw>...]]';
+  if (id === undefined || pool === undefined || element === undefined || kind === undefined || stats === undefined || extra.length > 0) {
+    throw new ScenarioError(line, `card needs: ${usage}`);
+  }
+  if (pool !== 'P' && pool !== 'C') throw new ScenarioError(line, `card pool must be P or C, got '${pool}'`);
+  const st = stats.match(/^(\d+)\/(\d+)$/);
+  if (st === null) throw new ScenarioError(line, `card stats must be <power>/<guard>, got '${stats}'`);
+  const kw = kws === undefined ? [] : kws.split(',').filter((k) => k !== '');
+  return { id, pool: pool === 'P' ? 'player' : 'collector', element, kind, power: Number(st[1]), guard: Number(st[2]), kw, line };
+}
+
+/** The `DefSpec`s for declared cards. Reference checks happen in `withDeclared`, which knows the base content. */
+export function declaredDefs(declared: readonly DeclaredCard[]): DefSpec[] {
+  return declared.map((d) => ({
+    id: d.id, type: 'monster', pool: d.pool, power: d.power, guard: d.guard, element: d.element, kind: d.kind, kw: d.kw,
+  }));
+}
+
+/** `base` plus the declared cards. Throws ScenarioError on an id collision or an unknown element, kind or keyword. */
+export function withDeclared(base: ContentSpec, declared: readonly DeclaredCard[]): ContentSpec {
+  const taken = new Set(base.defs.map((d) => d.id));
+  const elements = new Set(base.elements.map((e) => e.id));
+  const kinds = new Set(base.kinds);
+  const keywords = new Set(base.keywords.map((k) => k.id));
+  for (const d of declared) {
+    if (taken.has(d.id)) throw new ScenarioError(d.line, `card '${d.id}' collides with an existing card id`);
+    taken.add(d.id);
+    if (!elements.has(d.element)) throw new ScenarioError(d.line, `card '${d.id}': unknown element '${d.element}'`);
+    if (!kinds.has(d.kind)) throw new ScenarioError(d.line, `card '${d.id}': unknown kind '${d.kind}'`);
+    for (const k of d.kw) if (!keywords.has(k)) throw new ScenarioError(d.line, `card '${d.id}': unknown keyword '${k}'`);
+  }
+  return { ...base, defs: [...base.defs, ...declaredDefs(declared)] };
+}
+
 export function parseScenario(text: string): Scenario {
-  const sc: Scenario = { turn: null, step: 'main', played: false, twist: -1, sides: [emptySide(), emptySide()], script: [] };
+  const sc: Scenario = { declared: [], turn: null, step: 'main', played: false, twist: -1, sides: [emptySide(), emptySide()], script: [] };
   const lines = text.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const lineNo = i + 1;
@@ -172,7 +230,8 @@ export function parseScenario(text: string): Scenario {
       sc.script.push({ kind: head, text: raw.slice(head.length).trim(), line: lineNo });
       continue;
     }
-    if (head === 'turn') sc.turn = num(lineNo, words[1]);
+    if (head === 'card') sc.declared.push(parseCard(lineNo, words));
+    else if (head === 'turn') sc.turn = num(lineNo, words[1]);
     else if (head === 'round') {
       const r = num(lineNo, words[1]);
       const who = words[2] ?? 'player';
@@ -556,4 +615,22 @@ export function runScenario(text: string, engine: EngineInternals): ScenarioResu
   const r = new Runner(engine, built);
   r.run(sc.script);
   return { state: r.state, events: r.events };
+}
+
+/**
+ * D-169: parse `text`, build content from `base` plus the scenario's declared cards, and run it under `g`.
+ * Returns the content the scenario ran on, so callers can look cards up.
+ */
+export function runScenarioOn(
+  text: string,
+  base: ContentSpec,
+  g: Globals,
+): ScenarioResult & { readonly content: CompiledContent } {
+  const sc = parseScenario(text);
+  const content = buildContent(withDeclared(base, sc.declared));
+  const engine = scenarioEngine(content, g);
+  const built = buildScenario(sc, content, g);
+  const r = new Runner(engine, built);
+  r.run(sc.script);
+  return { state: r.state, events: r.events, content };
 }

@@ -7,6 +7,7 @@ export * from './types/hooks';
 export * from './types/effects';
 export { cyrb128, Sfc32 } from './rng';
 export { defineKeyword } from './hooks/define';
+export { resolveNum } from './effects/num';
 export { EngineError } from './errors';
 export { deepFreeze } from './freeze';
 export type { IntentPolicy } from './pipeline';

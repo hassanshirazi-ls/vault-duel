@@ -2,6 +2,7 @@
 // at dispatch time; no write happens while a subscriber list runs (hooks only queue effects), so
 // that snapshot equals the live Tx view for the whole list. `bind` re-targets it per subscriber.
 import { evalCond } from '../effects/conditions';
+import { globalByName } from '../effects/num';
 import type { EffectSink, Refs } from '../effects/run';
 import { EngineError } from '../errors';
 import { activeKw, effectiveGuard, effectivePower, locate, locSide, locSlot, monsterOf } from '../stats';
@@ -87,6 +88,9 @@ export class QueryContext implements QueryCtx {
   }
   isAttacker(i: Iid): boolean {
     return i === this.attackerIid;
+  }
+  num(name: string): number {
+    return globalByName(this.g, name);
   }
 }
 

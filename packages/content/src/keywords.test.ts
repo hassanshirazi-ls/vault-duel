@@ -5,11 +5,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { CombatCtx, DestroyedEvt, GameEvent, HookCtx, KeywordDef, QueryCtx, Effect } from '@vault-duel/engine';
-import { DEFAULT_GLOBALS } from './globals';
+import { TEST_GLOBALS } from '@vault-duel/engine/test-utils/globals';
 import { KEYWORDS } from '../keywords/index.gen';
 import {
   BARREL_FILE,
   checkKeywordBarrel,
+  checkKeywordGlobalRefs,
   checkKeywordSources,
   loadKeywordFiles,
   renderKeywordBarrel,
@@ -29,7 +30,7 @@ function queryCtx(over: Partial<Record<keyof QueryCtx, unknown>> = {}): QueryCtx
   return {
     self: 4,
     side: 0,
-    g: DEFAULT_GLOBALS,
+    g: TEST_GLOBALS,
     monsters: () => [],
     enteredThisTurn: () => false,
     ...over,
@@ -51,7 +52,7 @@ const EXPECTED: readonly { id: string; kind: 'keyword' | 'flaw'; hooks: readonly
 ];
 
 describe('registry (KW-1, FL-1, D-111)', () => {
-  it('has 6 keywords and 5 Flaws, in bit order (keywords by id, then Flaws by id)', () => {
+  it('is the rule set of keywords and Flaws, in bit order (keywords by id, then Flaws by id)', () => {
     expect(KEYWORDS.map((keyword) => keyword.id)).toEqual(EXPECTED.map((entry) => entry.id));
     expect(KEYWORDS.map((keyword) => keyword.kind)).toEqual(EXPECTED.map((entry) => entry.kind));
   });
@@ -81,6 +82,7 @@ describe('registry (KW-1, FL-1, D-111)', () => {
     expect(loaded.errors).toEqual([]);
     expect(checkKeywordSources(loaded.sources)).toEqual([]);
     expect(checkKeywordBarrel(loaded.sources)).toEqual([]);
+    expect(checkKeywordGlobalRefs(loaded.sources)).toEqual([]);
   });
 });
 
@@ -114,7 +116,7 @@ describe('hooks match DESIGN.md and the section E decisions', () => {
 
   it('Tethered is −TETHERED_PENALTY only while it is the only monster on its board (D-051)', () => {
     const hook = need(byId('tethered').hooks.staticPower, 'tethered.staticPower');
-    expect(hook(queryCtx({ monsters: () => [4] }))).toBe(-DEFAULT_GLOBALS.TETHERED_PENALTY);
+    expect(hook(queryCtx({ monsters: () => [4] }))).toBe(-TEST_GLOBALS.TETHERED_PENALTY);
     expect(hook(queryCtx({ monsters: () => [4, 5] }))).toBe(0);
   });
 
@@ -253,6 +255,22 @@ describe('barrel and loader on a scratch copy', () => {
     writeFileSync(join(scratch, BARREL_FILE), '// old\n');
     expect(checkKeywordBarrel([], scratch).map((error) => error.problem)).toEqual([
       'stale, does not match keywords/*.ts',
+    ]);
+  });
+
+  it('reports a $NAME or num() name that is in neither namespace, and suggests the closest one', () => {
+    writeFileSync(
+      join(scratch, 'keywords', 'refs.ts'),
+      "const a = '-$UNMAKE_MAX_POWER';\nconst b = '$UNMAKE_MAX_POWR';\nconst c = q.num('NO_SUCH_NUMBER');\nconst d = '$HAUNT_PENALTY';\n",
+    );
+    const source = { file: 'keywords/refs.ts', stem: 'refs', def: byId('swift') };
+    const found = checkKeywordGlobalRefs([source], TEST_GLOBALS, scratch).map(
+      (error) => `${error.file} › ${error.id} › ${error.problem} › ${error.fix}`,
+    );
+    rmSync(join(scratch, 'keywords', 'refs.ts')); // the loader test below must see only its own file
+    expect(found).toEqual([
+      'keywords/refs.ts › refs › "$UNMAKE_MAX_POWR" not in globals.ts › did you mean $UNMAKE_MAX_POWER?',
+      "keywords/refs.ts › refs › num('NO_SUCH_NUMBER') not in globals.ts › use a name from globals.ts or CONTENT_NUMBERS",
     ]);
   });
 

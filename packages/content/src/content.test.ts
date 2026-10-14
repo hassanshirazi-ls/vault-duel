@@ -1,101 +1,66 @@
-// Content files parse, match the entity counts of ARCHITECTURE.md §10.1 and are internally consistent.
+// Live content (D-168): the only test that reads the real files. It checks that they parse, validate with no errors,
+// compile, and play. It pins no count, id or value. Those are checked by content:check (validator) and the sim (balance).
 import { describe, expect, it } from 'vitest';
+import { createEngine, rerollSeed, seedString, Sfc32 } from '@vault-duel/engine';
+import { compileContent } from './compile';
+import { DEFAULT_GLOBALS, withOverrides } from './globals';
+import { KEYWORDS } from '../keywords/index.gen';
 import { loadContent } from './load';
+import { validateContent } from './validate';
 
 const content = loadContent();
 const { data } = content;
 
-describe('content files', () => {
-  it('parse with their zod schemas without errors', () => {
+describe('live content', () => {
+  it('parses with its zod schemas without errors', () => {
     expect(content.errors.map((error) => error.file + ' ' + error.problem)).toEqual([]);
   });
 
-  it('load every §10.1 file as defined data', () => {
+  it('loads every file as defined data', () => {
     for (const [key, value] of Object.entries(data)) {
       expect(value, key).toBeDefined();
     }
   });
-});
 
-describe('entity counts (§10.1, DESIGN.md)', () => {
-  it('has 5 elements', () => {
-    expect(data.elements).toHaveLength(5);
+  it('validates with zero errors (warnings are reported by content:check, not here)', () => {
+    expect(validateContent(data, DEFAULT_GLOBALS, KEYWORDS).errors.map((error) => error.problem)).toEqual([]);
   });
 
-  it('has 5 kinds', () => {
-    expect(data.kinds).toHaveLength(5);
-  });
-
-  it('has 15 Chimera recipes, one per unordered kind pair', () => {
-    expect(data.recipes).toHaveLength(15);
-    const pairs = new Set(data.recipes?.map((recipe) => [...recipe.kinds].sort().join('+')));
-    expect(pairs.size).toBe(15);
-  });
-
-  it('has 25 player monsters', () => {
-    expect(data.playerMonsters).toHaveLength(25);
-  });
-
-  it('has 6 player spells and 4 player traps', () => {
-    expect(data.playerSpells).toHaveLength(6);
-    expect(data.playerTraps).toHaveLength(4);
-  });
-
-  it('has 13 Relics', () => {
-    expect(data.relics).toHaveLength(13);
-  });
-
-  it('has 4 Collector spells and 3 Collector traps', () => {
-    expect(data.collectorSpells).toHaveLength(4);
-    expect(data.collectorTraps).toHaveLength(3);
-  });
-
-  it('has a Collector deck of 20 cards', () => {
-    expect(data.collector?.deck).toHaveLength(20);
-  });
-
-  it('has 4 bonus objectives and no weekly twists yet', () => {
-    expect(data.objectives).toHaveLength(4);
-    expect(data.twists).toHaveLength(0);
+  it('compiles', () => {
+    const compiled = compileContent(data, KEYWORDS, DEFAULT_GLOBALS);
+    expect(compiled.hash).toMatch(/^[0-9a-f]{32}$/);
   });
 });
 
-describe('ids', () => {
-  const listFiles = [
-    'elements', 'kinds', 'recipes', 'playerMonsters', 'playerSpells', 'playerTraps',
-    'relics', 'collectorSpells', 'collectorTraps', 'objectives', 'twists',
-  ] as const;
+describe('smoke: live content plays to the end', () => {
+  // FLAGS.INTENTS is off, so no intent policy is needed. Everything else is the live configuration.
+  const globals = withOverrides(DEFAULT_GLOBALS, ['FLAGS.INTENTS=false']);
+  const compiled = compileContent(data, KEYWORDS, globals);
+  const engine = createEngine(compiled, globals);
+  const SEED_COUNT = 20;
+  const MAX_STEPS = 10000; // a safety cap; a duel ends by MAX_ROUNDS well before it
+  const DATE = '2026-10-14';
 
-  for (const key of listFiles) {
-    it(`has unique ids within ${key}`, () => {
-      const ids = (data[key] ?? []).map((entry) => entry.id);
-      expect(new Set(ids).size).toBe(ids.length);
-    });
+  /** A uniformly random legal action at each step, for both sides, from a seed-derived stream (no Math.random). */
+  function playToEnd(seed: string): { steps: number; ended: boolean } {
+    const rng = Sfc32.from(`${seed}/smoke`);
+    let state = engine.newGame(seed).state;
+    let steps = 0;
+    while (state.result === null && steps < MAX_STEPS) {
+      const legal = engine.getLegalActions(state);
+      const action = legal[rng.int(legal.length)];
+      if (action === undefined) throw new Error(`no legal action at step ${steps} of ${seed}`);
+      state = engine.applyAction(state, action).state;
+      steps += 1;
+    }
+    return { steps, ended: state.result !== null };
   }
 
-  it('gives every card and Chimera family an art brief and no orphan briefs', () => {
-    const cardIds = [
-      ...(data.playerMonsters ?? []),
-      ...(data.playerSpells ?? []),
-      ...(data.playerTraps ?? []),
-      ...(data.relics ?? []),
-      ...(data.collectorSpells ?? []),
-      ...(data.collectorTraps ?? []),
-      ...(data.recipes ?? []),
-    ].map((entry) => entry.id);
-    const briefIds = Object.keys(data.artBriefs ?? {});
-    expect(briefIds.filter((id) => !cardIds.includes(id))).toEqual([]);
-    expect(cardIds.filter((id) => !briefIds.includes(id))).toEqual([]);
-  });
-
-  it('resolves every Collector deck entry to a Collector-pool card', () => {
-    const collectorIds = new Set([
-      ...(data.relics ?? []),
-      ...(data.collectorSpells ?? []),
-      ...(data.collectorTraps ?? []),
-    ].map((entry) => entry.id));
-    const unknown = (data.collector?.deck ?? []).filter((id) => !collectorIds.has(id));
-    expect(unknown).toEqual([]);
-    expect(collectorIds.has(data.collector?.ace ?? '')).toBe(true);
+  it(`plays ${SEED_COUNT} seeds with no EngineError, each to a result`, () => {
+    const base = seedString(globals, DATE);
+    for (let k = 0; k < SEED_COUNT; k++) {
+      const outcome = playToEnd(rerollSeed(base, k));
+      expect(outcome.ended, `seed ${k}`).toBe(true);
+    }
   });
 });

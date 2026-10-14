@@ -124,7 +124,7 @@ describe('evalCond', () => {
   });
   it('powerLte sees global overrides', () => {
     const w = world();
-    const e2 = fxEnv(withGlobals({ UNMAKE_MAX_POWER: 2 }));
+    const e2 = fxEnv(withGlobals({ CONTENT_NUMBERS: { UNMAKE_MAX_POWER: 2 } }));
     expect(evalCond({ powerLte: '$UNMAKE_MAX_POWER' }, { s: w.s, env: e2 }, w.whelp)).toBe(false);
   });
 });

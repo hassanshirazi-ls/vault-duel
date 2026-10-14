@@ -34,8 +34,8 @@ export function evalCond(cond: Cond, cx: CondCx, iid: Iid): boolean {
     const m = monsterOf(s, iid);
     return m !== null && !m.faceDown;
   }
-  if ('powerLte' in cond) return power(cx, iid) <= resolveNum(cond.powerLte, env.g);
-  if ('powerGte' in cond) return power(cx, iid) >= resolveNum(cond.powerGte, env.g);
+  if ('powerLte' in cond) return power(cx, iid) <= resolveNum(env.g, cond.powerLte);
+  if ('powerGte' in cond) return power(cx, iid) >= resolveNum(env.g, cond.powerGte);
   if ('type' in cond) return isMonsterCard(s, env, iid);
   if ('relic' in cond) {
     // "Relic" = Collector monster card (D-068); a Chimera is not a Relic.

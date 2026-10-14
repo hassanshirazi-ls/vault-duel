@@ -1,15 +1,11 @@
-// Cross-file validator (ARCHITECTURE.md §10.3): the real data passes, and each implemented rule fails on a
-// minimal broken fixture with the exact §10.3 message. Fixtures are copies of the real data; the JSON is never changed.
+// Cross-file validator (ARCHITECTURE.md §10.3): the synthetic fixture passes every rule, and each implemented rule
+// fails on a one-line break of the fixture with the exact §10.3 message (D-168: no test pins a live value).
 import { describe, expect, it } from 'vitest';
-import { formatError, loadContent, type ContentData } from './load';
+import { FIXTURE_GLOBALS, fixtureData } from '../test-utils/fixture';
+import { formatError, type ContentData } from './load';
 import { DEFERRED_RULES, validateContent } from './validate';
 
-/** A deep copy of the parsed real data. Every file must parse, or the fixtures would be meaningless. */
-function realData(): ContentData {
-  const loaded = loadContent();
-  if (loaded.errors.length > 0) throw new Error('the real content does not parse; fix the zod pass first');
-  return structuredClone(loaded.data);
-}
+const G = FIXTURE_GLOBALS;
 
 function need<T>(value: T | undefined, what: string): T {
   if (value === undefined) throw new Error(`fixture: ${what} is missing`);
@@ -17,21 +13,21 @@ function need<T>(value: T | undefined, what: string): T {
 }
 
 function entry<T extends { readonly id: string }>(list: readonly T[] | undefined, id: string): T {
-  return need(
-    list?.find((item) => item.id === id),
-    `entry "${id}"`,
-  );
+  return need(list?.find((item) => item.id === id), `entry "${id}"`);
 }
 
-function errorLines(data: ContentData): string[] {
-  return validateContent(data).errors.map(formatError);
+function run(data: ContentData, globals = G) {
+  const result = validateContent(data, globals);
+  return { errors: result.errors.map(formatError), warnings: result.warnings.map(formatError) };
 }
 
-describe('real content', () => {
+function errorLines(data: ContentData, globals = G): string[] {
+  return run(data, globals).errors;
+}
+
+describe('fixture', () => {
   it('passes every cross-file rule with no errors and no warnings', () => {
-    const result = validateContent(realData());
-    expect(result.errors.map(formatError)).toEqual([]);
-    expect(result.warnings.map(formatError)).toEqual([]);
+    expect(run(fixtureData())).toEqual({ errors: [], warnings: [] });
   });
 
   it('lists the §10.3 rules that are still deferred', () => {
@@ -41,188 +37,244 @@ describe('real content', () => {
 
 describe('ids and vocabulary', () => {
   it('rejects a duplicate id across card files', () => {
-    const data = realData();
-    const copy = { ...entry(data.relics, 'stormglass-hydra'), id: 'kiln-whelp' };
-    need(data.relics, 'relics').push(copy);
+    const data = fixtureData();
+    need(data.collectorSpells, 'collectorSpells').push({
+      id: 'fixture-whelp', type: 'spell', name: 'Copy', text: 'A copy.', effects: [{ op: 'draw', who: 'self', n: 1 }],
+    });
+    need(data.artBriefs, 'artBriefs')['fixture-whelp'] = 'fierce and small · mid-snarl · ember orange, soot black';
     expect(errorLines(data)).toEqual([
-      'cards/relics.json › kiln-whelp › duplicate id (also in cards/player-monsters.json) › rename one of them',
+      'cards/collector-spells.json › fixture-whelp › duplicate id (also in cards/player-monsters.json) › rename one of them',
     ]);
   });
 
   it('rejects an unknown element on a base monster', () => {
-    const data = realData();
-    entry(data.playerMonsters, 'stormcrow').element = 'wind';
+    const data = fixtureData();
+    entry(data.playerMonsters, 'fixture-whelp').element = 'wind';
     expect(errorLines(data)).toEqual([
-      'cards/player-monsters.json › stormcrow › unknown element "wind" › use one of: ember, gale, tide, lumen, umbra, or add it to elements.json',
+      'cards/player-monsters.json › fixture-whelp › unknown element "wind" › use one of: ember, gale, or add it to elements.json',
     ]);
   });
 
   it('rejects an unknown kind on a base monster', () => {
-    const data = realData();
-    entry(data.playerMonsters, 'stormcrow').kind = 'dragon';
+    const data = fixtureData();
+    entry(data.playerMonsters, 'fixture-whelp').kind = 'dragon';
     expect(errorLines(data)).toEqual([
-      'cards/player-monsters.json › stormcrow › unknown kind "dragon" › use one of: beast, knight, wyrm, construct, spirit, or add it to kinds.json',
+      'cards/player-monsters.json › fixture-whelp › unknown kind "dragon" › use one of: beast, spirit, or add it to kinds.json',
     ]);
   });
 
   it('rejects an unknown element named in a condition', () => {
-    const data = realData();
-    entry(data.playerSpells, 'unmake').target = {
+    const data = fixtureData();
+    entry(data.playerSpells, 'fixture-bolt').target = {
       side: 'enemy',
       zone: 'board',
       where: { all: [{ faceUp: true }, { element: 'wind' }] },
     };
     expect(errorLines(data)).toEqual([
-      'cards/player-spells.json › unmake › unknown element "wind" › use one of: ember, gale, tide, lumen, umbra, or add it to elements.json',
+      'cards/player-spells.json › fixture-bolt › unknown element "wind" › use one of: ember, gale, or add it to elements.json',
     ]);
   });
 
   it('rejects an element beats entry that is not an element', () => {
-    const data = realData();
-    entry(data.elements, 'umbra').beats = ['lumin'];
+    const data = fixtureData();
+    entry(data.elements, 'ember').beats = ['lumin'];
     expect(errorLines(data)).toEqual([
-      'elements.json › umbra › beats unknown element "lumin" › use an id from elements.json',
+      'elements.json › ember › beats unknown element "lumin" › use an id from elements.json',
     ]);
   });
 });
 
-describe('stat budget (D-109)', () => {
-  it('rejects a base monster whose budget is above STAT_BUDGET_MAX', () => {
-    const data = realData();
-    entry(data.playerMonsters, 'kiln-whelp').power = 8; // P8 + G3 = 11
-    expect(errorLines(data)).toEqual([
-      'cards/player-monsters.json › kiln-whelp › budget 11 (P8+G3) outside 8–10 › lower Power or Guard by 1',
+describe('stat budget (D-109, D-167: a warning)', () => {
+  it('warns, and does not fail, when a base monster is above STAT_BUDGET_MAX', () => {
+    const data = fixtureData();
+    const whelp = entry(data.playerMonsters, 'fixture-whelp');
+    whelp.power = G.STAT_BUDGET_MAX; // P(max) + G4 is above the budget by 4
+    const total = G.STAT_BUDGET_MAX + whelp.guard;
+    const result = run(data);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([
+      `cards/player-monsters.json › fixture-whelp › budget ${total} (P${G.STAT_BUDGET_MAX}+G4) outside ${G.STAT_BUDGET_MIN}–${G.STAT_BUDGET_MAX} › lower Power or Guard by ${total - G.STAT_BUDGET_MAX} if this is not intended`,
+    ]);
+  });
+
+  it('warns, and does not fail, when a base monster is below STAT_BUDGET_MIN', () => {
+    const data = fixtureData();
+    const whelp = entry(data.playerMonsters, 'fixture-whelp');
+    whelp.power = 0;
+    whelp.guard = 0;
+    const result = run(data);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([
+      `cards/player-monsters.json › fixture-whelp › budget 0 (P0+G0) outside ${G.STAT_BUDGET_MIN}–${G.STAT_BUDGET_MAX} › raise Power or Guard by ${G.STAT_BUDGET_MIN} if this is not intended`,
     ]);
   });
 });
 
 describe('Chimera recipes', () => {
   it('rejects a kind pair with no recipe', () => {
-    const data = realData();
-    const kept = need(data.recipes, 'recipes').filter((recipe) => recipe.id !== 'choir-of-ash');
-    data.recipes = kept;
-    delete need(data.artBriefs, 'artBriefs')['choir-of-ash'];
+    const data = fixtureData();
+    data.recipes = need(data.recipes, 'recipes').filter((recipe) => recipe.id !== 'fixture-choir');
+    delete need(data.artBriefs, 'artBriefs')['fixture-choir'];
     expect(errorLines(data)).toEqual([
       'recipes.json › (spirit, spirit) › no Chimera recipe for this kind pair › add {"kinds":["spirit","spirit"], …}',
     ]);
   });
 
   it('rejects a second recipe for a kind pair', () => {
-    const data = realData();
+    const data = fixtureData();
     need(data.recipes, 'recipes').push({
-      id: 'packmaw-2', name: 'Packmaw Two', kinds: ['beast', 'beast'], power: 7, guard: 4,
+      id: 'fixture-pack-2', name: 'Fixture Pack Two', kinds: ['beast', 'beast'], power: 6, guard: 4,
     });
-    need(data.artBriefs, 'artBriefs')['packmaw-2'] = 'savage and crowded · two packs fused · bone white, blood red, black';
+    need(data.artBriefs, 'artBriefs')['fixture-pack-2'] = 'savage and crowded · two packs fused · bone white, blood red';
     expect(errorLines(data)).toEqual([
-      'recipes.json › packmaw-2 › pair (beast, beast) already defined by packmaw › delete one',
+      'recipes.json › fixture-pack-2 › pair (beast, beast) already defined by fixture-pack › delete one',
     ]);
   });
 });
 
 describe('Collector deck and AI references', () => {
   it('rejects a Collector deck that is not COLLECTOR_DECK_SIZE', () => {
-    const data = realData();
+    const data = fixtureData();
     const collector = need(data.collector, 'collector');
-    // weeping-automaton is referenced nowhere else, so only the deck size is broken.
-    collector.deck = collector.deck.filter((id) => id !== 'weeping-automaton');
+    collector.deck = collector.deck.slice(1);
+    const size = G.COLLECTOR_DECK_SIZE;
     expect(errorLines(data)).toEqual([
-      'collector.json › deck › has 19 cards, needs COLLECTOR_DECK_SIZE=20 › add 1 card id',
+      `collector.json › deck › has ${size - 1} cards, needs COLLECTOR_DECK_SIZE=${size} › add 1 card id`,
     ]);
   });
 
   it('rejects a deck entry that is a player card', () => {
-    const data = realData();
-    need(data.collector, 'collector').deck[4] = 'halo-stag';
+    const data = fixtureData();
+    need(data.collector, 'collector').deck[1] = 'fixture-whelp';
     expect(errorLines(data)).toEqual([
-      'collector.json › deck[4] › "halo-stag" is a player card › use a card from relics.json or collector-*.json',
+      'collector.json › deck[1] › "fixture-whelp" is a player card › use a card from relics.json or collector-*.json',
     ]);
   });
 
   it('rejects a deck entry that no longer exists', () => {
-    const data = realData();
-    need(data.collector, 'collector').deck[7] = 'vanished-idol';
+    const data = fixtureData();
+    need(data.collector, 'collector').deck[1] = 'vanished-idol';
     expect(errorLines(data)).toEqual([
-      'collector.json › deck[7] › "vanished-idol" no longer exists › remove the reference',
+      'collector.json › deck[1] › "vanished-idol" no longer exists › remove the reference',
     ]);
   });
 
   it('rejects a trapPreference id that is not a Collector trap in the deck (D-145)', () => {
-    const data = realData();
-    need(data.collector, 'collector').ai.trapPreference[1] = 'snare';
+    const data = fixtureData();
+    need(data.collector, 'collector').ai.trapPreference[0] = 'snare';
     expect(errorLines(data)).toEqual([
-      'collector.json › ai › trapPreference.[1]: "snare" is not a Collector trap in the deck › use a trap id from collector.json › deck',
+      'collector.json › ai › trapPreference.[0]: "snare" is not a Collector trap in the deck › use a trap id from collector.json › deck',
     ]);
   });
 
   it('rejects a castHighValueSpell key that is not a Collector spell in the deck (D-145)', () => {
-    // Every Collector pool card is already in the 20-card deck, so the swap in forfeit's slot duplicates a card.
-    // Duplicate deck entries are not a §10.3 rule, so only the castHighValueSpell error is reported.
-    const data = realData();
-    const collector = need(data.collector, 'collector');
-    collector.deck = collector.deck.map((id) => (id === 'forfeit' ? 'stormglass-hydra' : id));
+    // The AI schema names the three castable spells; none of them is in this fixture's deck.
+    const data = fixtureData();
+    need(data.collector, 'collector').ai.params.castHighValueSpell = {
+      forfeit: { pick: 'highestPower' },
+      restoration: { pick: 'highestPower' },
+      'gilt-frame': { when: 'contestedAttack' },
+    };
     expect(errorLines(data)).toEqual([
       'collector.json › ai › castHighValueSpell.forfeit: "forfeit" is not a Collector spell in the deck › use a spell id from collector.json › deck',
+      'collector.json › ai › castHighValueSpell.restoration: "restoration" is not a Collector spell in the deck › use a spell id from collector.json › deck',
+      'collector.json › ai › castHighValueSpell.gilt-frame: "gilt-frame" is not a Collector spell in the deck › use a spell id from collector.json › deck',
     ]);
   });
 
   it('rejects Covetous on a Relic that is not the ace', () => {
-    const data = realData();
-    entry(data.relics, 'ashen-duchess').flaw = 'covetous';
+    const data = fixtureData();
+    entry(data.relics, 'fixture-mantle').flaw = 'covetous';
     expect(errorLines(data)).toEqual([
-      'cards/relics.json › ashen-duchess › Covetous is ace-only › change flaw or set collector.json ace',
+      'cards/relics.json › fixture-mantle › Covetous is ace-only › change flaw or set collector.json ace',
     ]);
   });
 });
 
 describe('effects, traps and globals', () => {
   it('rejects a $NAME that is not in globals.ts and suggests the closest name', () => {
-    const data = realData();
-    entry(data.playerSpells, 'unmake').target = {
+    const data = fixtureData();
+    entry(data.playerSpells, 'fixture-bolt').target = {
       side: 'enemy',
       zone: 'board',
       where: { all: [{ faceUp: true }, { powerLte: '$UNMAKE_MAX_POWR' }] },
     };
     expect(errorLines(data)).toEqual([
-      'cards/player-spells.json › unmake › "$UNMAKE_MAX_POWR" not in globals.ts › did you mean $UNMAKE_MAX_POWER?',
+      'cards/player-spells.json › fixture-bolt › "$UNMAKE_MAX_POWR" not in globals.ts › did you mean $UNMAKE_MAX_POWER?',
+    ]);
+  });
+
+  it('accepts a $NAME from CONTENT_NUMBERS and rejects a non-numeric core global', () => {
+    const data = fixtureData();
+    entry(data.playerSpells, 'fixture-bolt').target = {
+      side: 'enemy',
+      zone: 'board',
+      where: { powerLte: '$CONTENT_VERSION' },
+    };
+    expect(errorLines(data)).toEqual([
+      'cards/player-spells.json › fixture-bolt › "$CONTENT_VERSION" is not a number in globals.ts › use a numeric global from globals.ts',
     ]);
   });
 
   it('rejects a spell effect that uses "chosen" without a target spec', () => {
-    const data = realData();
-    delete entry(data.playerSpells, 'bloodlust').target;
+    const data = fixtureData();
+    delete entry(data.playerSpells, 'fixture-bolt').target;
     expect(errorLines(data)).toEqual([
-      'cards/player-spells.json › bloodlust › effect uses target "chosen" but card has no "target" › add a target spec',
+      'cards/player-spells.json › fixture-bolt › effect uses target "chosen" but card has no "target" › add a target spec',
     ]);
   });
 
   it('rejects a spell effect whose ref is not "chosen"', () => {
     // A spell has no event, so "attacker" is not available. The target spec is then unused, which is reported too.
-    const data = realData();
-    const shroud = entry(data.playerSpells, 'shroud');
-    const effect = need(shroud.effects[0], 'shroud effect');
-    if (!('target' in effect)) throw new Error('fixture: shroud effect has no target');
+    const data = fixtureData();
+    const bolt = entry(data.playerSpells, 'fixture-bolt');
+    const effect = need(bolt.effects[0], 'bolt effect');
+    if (!('target' in effect)) throw new Error('fixture: bolt effect has no target');
     effect.target = 'attacker';
     expect(errorLines(data)).toEqual([
-      'cards/player-spells.json › shroud › ref "attacker" is not available for spells › use "chosen" with a target spec',
-      'cards/player-spells.json › shroud › has a "target" but no effect uses "chosen" › remove "target" or use "chosen" in an effect',
+      'cards/player-spells.json › fixture-bolt › ref "attacker" is not available for spells › use "chosen" with a target spec',
+      'cards/player-spells.json › fixture-bolt › has a "target" but no effect uses "chosen" › remove "target" or use "chosen" in an effect',
     ]);
   });
 
   it('rejects a trap ref that its trigger does not provide', () => {
-    const data = realData();
-    const effect = need(entry(data.playerTraps, 'mirror-sigil').effects[0], 'mirror-sigil effect');
-    if (!('target' in effect)) throw new Error('fixture: mirror-sigil effect has no target');
+    const data = fixtureData();
+    const effect = need(entry(data.playerTraps, 'fixture-snare').effects[0], 'snare effect');
+    if (!('target' in effect)) throw new Error('fixture: snare effect has no target');
     effect.target = 'grafted';
     expect(errorLines(data)).toEqual([
-      'cards/player-traps.json › mirror-sigil › ref "grafted" is not available for trigger "enemyAttack" › use attacker or defender',
+      'cards/player-traps.json › fixture-snare › ref "grafted" is not available for trigger "enemyAttack" › use attacker or defender',
     ]);
   });
 
   it('rejects card text longer than one sentence', () => {
-    const data = realData();
-    entry(data.playerSpells, 'bloodlust').text = 'One of your monsters gets +3 Power this turn. It stays strong.';
+    const data = fixtureData();
+    entry(data.playerSpells, 'fixture-bolt').text = 'Destroy a monster. It stays destroyed.';
     expect(errorLines(data)).toEqual([
-      'cards/player-spells.json › bloodlust › text has 2 sentences › shorten to one sentence',
+      'cards/player-spells.json › fixture-bolt › text has 2 sentences › shorten to one sentence',
+    ]);
+  });
+});
+
+describe('pool capacity (D-170)', () => {
+  it('passes when the spell pool can fill DECK_SPELLS with MAX_COPIES copies', () => {
+    expect(errorLines(fixtureData())).toEqual([]);
+  });
+
+  it('rejects a spell pool too small for DECK_SPELLS and says how many to add', () => {
+    const globals = { ...G, DECK_SPELLS: 3 };
+    // 1 spell × MAX_COPIES cannot fill 3 spells, so ceil(3 / MAX_COPIES) − 1 more spells are needed.
+    const needed = Math.ceil(3 / globals.MAX_COPIES) - 1;
+    expect(errorLines(fixtureData(), globals)).toEqual([
+      `cards/player-spells.json › pool › 1 spell × MAX_COPIES=${globals.MAX_COPIES} can't fill DECK_SPELLS=3 › add ${needed} spell${needed === 1 ? '' : 's'}, or lower DECK_SPELLS or raise MAX_COPIES in globals.ts`,
+    ]);
+  });
+
+  it('rejects a trap pool too small for DECK_TRAPS', () => {
+    const globals = { ...G, DECK_TRAPS: 5 };
+    const needed = Math.ceil(5 / globals.MAX_COPIES) - 1;
+    expect(errorLines(fixtureData(), globals)).toEqual([
+      `cards/player-traps.json › pool › 1 trap × MAX_COPIES=${globals.MAX_COPIES} can't fill DECK_TRAPS=5 › add ${needed} trap${needed === 1 ? '' : 's'}, or lower DECK_TRAPS or raise MAX_COPIES in globals.ts`,
     ]);
   });
 });
@@ -231,64 +283,52 @@ describe('cancelAttack placement (D-163)', () => {
   const problem = '"cancelAttack" only works in a trap with trigger enemyAttack or enemyDirectAttack › remove it or change the trigger';
 
   it('rejects cancelAttack in a spell', () => {
-    const data = realData();
-    entry(data.playerSpells, 'bloodlust').effects.push({ op: 'cancelAttack' });
-    expect(errorLines(data)).toEqual([
-      `cards/player-spells.json › bloodlust › ${problem}`,
-    ]);
+    const data = fixtureData();
+    entry(data.playerSpells, 'fixture-bolt').effects.push({ op: 'cancelAttack' });
+    expect(errorLines(data)).toEqual([`cards/player-spells.json › fixture-bolt › ${problem}`]);
   });
 
   it('rejects cancelAttack in a trap whose trigger is allyDestroyed', () => {
-    const data = realData();
-    entry(data.playerTraps, 'last-rites').effects.push({ op: 'cancelAttack' });
-    expect(errorLines(data)).toEqual([
-      `cards/player-traps.json › last-rites › ${problem}`,
-    ]);
+    const data = fixtureData();
+    const trap = entry(data.playerTraps, 'fixture-snare');
+    trap.trigger = 'allyDestroyed';
+    trap.effects = [{ op: 'cancelAttack' }];
+    expect(errorLines(data)).toEqual([`cards/player-traps.json › fixture-snare › ${problem}`]);
   });
 
   it('accepts cancelAttack in a trap whose trigger is enemyAttack', () => {
-    const data = realData();
-    entry(data.playerTraps, 'mirror-sigil').effects.push({ op: 'cancelAttack' });
+    const data = fixtureData();
+    entry(data.playerTraps, 'fixture-snare').effects.push({ op: 'cancelAttack' });
     expect(errorLines(data)).toEqual([]);
   });
 
   it('accepts cancelAttack in a trap whose trigger is enemyDirectAttack', () => {
-    const data = realData();
-    const trap = entry(data.playerTraps, 'last-rites');
+    const data = fixtureData();
+    const trap = entry(data.playerTraps, 'fixture-snare');
     trap.trigger = 'enemyDirectAttack';
-    trap.effects.push({ op: 'cancelAttack' });
+    trap.effects = [{ op: 'cancelAttack' }];
     expect(errorLines(data)).toEqual([]);
   });
 });
 
-describe('art briefs', () => {
-  it('rejects a card with no art brief', () => {
-    const data = realData();
-    delete need(data.artBriefs, 'artBriefs')['gale-serpent'];
-    expect(errorLines(data)).toEqual([
-      'art-briefs.json › gale-serpent › missing art brief › add a one-line "mood · pose · palette"',
+describe('art briefs (D-110, D-174: warnings)', () => {
+  it('warns, and does not fail, when a card has no art brief', () => {
+    const data = fixtureData();
+    delete need(data.artBriefs, 'artBriefs')['fixture-stag'];
+    const result = run(data);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([
+      'art-briefs.json › fixture-stag › missing art brief › add a one-line "mood · pose · palette"',
     ]);
   });
 
-  it('rejects a brief for an id that no card or family has', () => {
-    const data = realData();
+  it('warns, and does not fail, on a brief for an id that no card has', () => {
+    const data = fixtureData();
     need(data.artBriefs, 'artBriefs')['ghost-card'] = 'faded and quiet · drifting in a hall · pale grey, ash, white';
-    expect(errorLines(data)).toEqual([
+    const result = run(data);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([
       'art-briefs.json › ghost-card › orphan brief, no card or Chimera family has this id › delete the entry',
-    ]);
-  });
-});
-
-describe('pool sizes (warnings only)', () => {
-  it('warns, and does not fail, when the base monster pool is not POOL_MONSTERS', () => {
-    const data = realData();
-    const monsters = need(data.playerMonsters, 'playerMonsters');
-    data.playerMonsters = monsters.filter((monster) => monster.id !== 'gale-serpent');
-    delete need(data.artBriefs, 'artBriefs')['gale-serpent'];
-    const result = validateContent(data);
-    expect(result.errors.map(formatError)).toEqual([]);
-    expect(result.warnings.map(formatError)).toEqual([
-      'cards/player-monsters.json › pool › has 24 monsters, expects POOL_MONSTERS=25 › add or remove monsters, or change POOL_MONSTERS in globals.ts',
     ]);
   });
 });
