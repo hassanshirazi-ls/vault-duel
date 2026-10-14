@@ -799,6 +799,83 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: TypeScript is pinned to `~6.0` (TS 7's native compiler is not yet supported by typescript-eslint, whose peer range is `<6.1.0`, and ESLint carries the determinism bans). Vitest projects live in `vitest.config.ts › test.projects`, because Vitest 4+ removed `vitest.workspace.ts`. Node ≥ 24, pnpm 12. Workspace packages are named `@vault-duel/{engine,content,ai,sim}`; the web app stays `web` so `pnpm --filter web` works.
 - Reason: the determinism lint is a hard requirement (§1.2), so the compiler follows what the linter supports. Revisit TS 7 when typescript-eslint widens its peer range.
 
+**D-120 · `CompiledSpell` / `CompiledTrap` are the DSL definitions as written**
+- Date: 2026-10-14
+- Question: ARCHITECTURE §3 uses `CompiledSpell` and `CompiledTrap` but never defines them. Engine milestone 1 aliased them to `SpellDef` / `TrapDef` (§9.1). Should compilation instead resolve `$NAME` refs or translate effects into another form?
+- Decision: Confirmed. `CompiledSpell = SpellDef` and `CompiledTrap = TrapDef`, stored in `CompiledContent.spell` / `.trap` by `DefIdx` (`null` for other card types). `Num` refs stay symbolic in compiled content. `effects/num.ts` resolves them against the globals bound by `createEngine`, and may only read `NumericGlobal` keys (the `Globals` keys whose type is `number`, D-126). Unknown refs are already a validator error (§10.3). If profiling (§18.10) shows `Num` resolution in a hot path, `createEngine` may cache resolved values per engine instance without changing the content shape.
+- Reason: content is compiled once, without globals. Globals are overridden per sim run (`--set`) and bound at `createEngine` (§11). Symbolic refs keep one compiled content valid for every globals variant, and `state.cfg` already hashes both.
+
+**D-121 · `CompiledTwist` is one twists.json row**
+- Date: 2026-10-14
+- Question: §3 uses `CompiledTwist` without defining it.
+- Decision: Confirmed as inferred: `{ id, text, isoWeek?, modifiers: [{ where: Cond, power?, guard? }] }`, the §10.1 row unchanged. `power`/`guard` are plain integers because twist values are content, not globals (§11, D-074). `isoWeek` and `text` stay in compiled content because `prepareDay` picks the week's twist from `CompiledContent.twists` (D-103) and the UI shows its text. The engine only reads `twists[state.twist].modifiers`, inside the effective-stat formula in `stats.ts` (D-031). Evaluating `{ element }` / `{ kind }` conditions in `where` needs the id tables from D-129.
+- Reason: no separate compiled form is needed. The engine never sees dates, so selection stays outside it.
+
+**D-122 · Hook event payloads, `TargetQueryCtx`, and synchronous attack cancellation**
+- Date: 2026-10-14
+- Question: §8.1/§8.2 name `SummonEvt`, `AttackEvt`, `DestroyedEvt`, `DestroyEvt`, `TurnEvt`, `GraftEvt` and `TargetQueryCtx` without defining them. Engine milestone 1 inferred their shapes from the §5 pipelines.
+- Decision: The inferred shapes are confirmed, and these meanings are now fixed:
+  - `SummonEvt { iid, side, slot, covetous }`: dispatched only for a summon or a Covetous summon. Graft and Appraisal never dispatch `onSummon` (§5.6, D-077).
+  - `AttackEvt { attacker, target }`: `target` is `-1` for a direct attack. The `attacker`/`defender` refs and the `directAttack` condition read it. `target` is never `-1` in `beforeCombat`.
+  - `DestroyedEvt { iid, side, slot, cause, by, power, guard, kw }`: the last-known information of §5.5, snapshotted after Ward replacement and before removal. `side` is the **controller** at destruction (D-048). The owner comes from `inst[iid].owner` (D-046, D-047). `power`/`guard` are effective stats (D-031) without the element bonus. `kw` is the active keyword mask at removal (0 if face-down, D-037). Dispatch uses it to select the destroyed monster's own `onDestroyed` hooks, because the monster is no longer on a board. `by` is the destroyer (the `destroyer` ref, D-045).
+  - `DestroyEvt { iid, cause, by }`: the payload of `beforeDestroy` (Ward).
+  - `TurnEvt { turn, round, side }`: the same values as the `TurnStarted` event.
+  - `GraftEvt { iid, side, family, materials }`: describes the final Chimera after Ascend and position (D-065). The `grafted` ref is `iid`.
+  - `TargetQueryCtx = QueryCtx & { attacker }`: `restrictTargets` is asked once per face-up defending monster, with `self` set to that defender.
+  - The `cancelAttack` op is **not queued**. When a trap's subscriber runs, `traps.ts` calls `ctx.cancelAttack(trapIid)` immediately. The card's other effects are queued in card order (§8.3.2).
+- Reason: these are the smallest payloads that cover every launch keyword, trap and DSL ref; anything else can be read through `QueryCtx`. If cancellation were queued like other effects, every later `onAttackDeclared` trap would still see a live attack, so Snare + Mirror Sigil would both fire on one attack. That contradicts §8.3.4 and D-071.
+
+**D-123 · `KeywordDef` is declared in `types/hooks.ts`**
+- Date: 2026-10-14
+- Question: §8.4 places `KeywordDef` in `hooks/define.ts`, but `CompiledContent` (§3, `types/content.ts`) needs the type.
+- Decision: Confirmed. The interface is declared in `types/hooks.ts` next to `Hooks`, which it contains. `hooks/define.ts` re-exports the type and defines `defineKeyword`. The package root exports `defineKeyword` by name, and the type comes through `types/hooks`.
+- Reason: `types/` is a dependency-free layer that every module imports. Declaring the type in `hooks/` would make the type layer depend on a runtime module. Content authors import both names from `@vault-duel/engine`, so nothing changes for them.
+
+**D-124 · `beforeCombat` sets flags through context methods on a read-only snapshot**
+- Date: 2026-10-14
+- Question: Engine milestone 1 made `CombatScratch` fully mutable so that `beforeCombat` hooks can set `pierce` and `brittleWin`. Is that acceptable for determinism and the ordering rules (§8.3)?
+- Decision: Changed. Hooks receive `ctx.combat: CombatSnapshot`, which holds `{ aP, dP, dG, defPos, advantage }`. All five fields are readonly, and the snapshot is taken after the reveal (§5.4). Hooks raise flags through two methods, `ctx.setPierce()` and `ctx.setBrittleWin()`. Both are idempotent, can only turn a flag on, and are not readable by hooks. The engine ORs the flags after the whole `beforeCombat` subscriber list has run, so `pierce`/`brittleWin` are local to `combat.ts` and reported in `CombatResolved`. Effects queued during `beforeCombat` run after the list and before `resolve`. They cannot change the snapshot (D-032). If such an effect removes either combatant from the board, the attack fizzles with no outcome or damage (no launch content can do this; it matches the §9.1 fizzle rule).
+- Reason: a fully mutable scratch has two problems. Any hook could rewrite `aP`/`dP`/`dG`/`advantage` outside the effect interpreter, with no event and no Ward or zone rules. And a later subscriber could read what an earlier one wrote, so outcomes would depend on subscriber order (attacker's hooks before defender's) and on keyword bit order. That is deterministic but fragile, because adding a keyword could change existing fights. A read-only snapshot with OR-folded flags cannot depend on order, like the query-hook lattice (§8.3.6), and costs nothing at run time.
+
+**D-125 · `Sfc32` has two factories and no warm-up switch**
+- Date: 2026-10-14
+- Question: §12.1's constructor always warms up, so it can't resume from `GameState.rng`. Engine milestone 1 added `Sfc32.restore(state)` plus a public 5th constructor parameter `warmUp = true`.
+- Decision: Changed in shape only; the stream is unchanged. The constructor is `private` and never warms up. `Sfc32.from(key)` runs cyrb128 and then 15 warm-up `next()` calls, giving output identical to §12.1, so the known-answer vectors don't change. `Sfc32.restore(rng)` resumes exactly from a `state()` snapshot with no warm-up. There is no `warmUp` parameter.
+- Reason: a public parameter that defaults to warm-up means `new Sfc32(...state.rng)` silently runs the warm-up again and forks the stream, which is the replay bug `restore` exists to prevent. With a private constructor, the only two ways in are the two factories, and each states its intent.
+
+**D-126 · Types of `Globals`**
+- Date: 2026-10-14
+- Question: §11 says `Globals` is "widened types of the object above" without spelling them out. Engine milestone 1 chose: `Range = readonly [number, number]` for pairs, `readonly number[]` for `APPRAISAL_ROUNDS`, the union `'endOfNextOwnTurn' | 'startOfOwnTurnAfterNext'` for `UNSTABLE_EXPIRY`, and 13 `Flags`.
+- Decision: Confirmed, with one correction. `Range` covers the min/max pairs (`TARGET_*` ranges). `DIFFICULTY_STAR_CUTS` is not a range: it holds two descending cut points (D-098). It gets its own alias, `StarCuts = readonly [number, number]`, so the globals sanity check can enforce `min ≤ max` on every `Range` without an exception. `APPRAISAL_ROUNDS` stays a variable-length `readonly number[]` so `--set APPRAISAL_ROUNDS=[3,6]` works. The `UNSTABLE_EXPIRY` union lists the DESIGN rule (`'endOfNextOwnTurn'`, the default) and the M-02 lever. `Flags` has 13 entries: DESIGN's 10 plus the three proposal levers of §11, with defaults equal to DESIGN as written. `types/globals.ts` also exports `NumericGlobal = { [K in keyof Globals]: Globals[K] extends number ? K : never }[keyof Globals]`, the set of names a `$NAME` ref may use (D-120).
+- Reason: these are the narrowest types that still accept every `--set` override §11 promises. A separate star-cut type keeps the range invariant checkable.
+
+**D-127 · `RoundFlag` and `HOOK_NAMES` are public exports**
+- Date: 2026-10-14
+- Question: neither is in the docs. `RoundFlag` gives names to the §4 Track bit comment, and `HOOK_NAMES` is a fixed-order array so code never iterates object keys.
+- Decision: Both confirmed. `RoundFlag = { Attacked: 1, Grafted: 2, LostMonster: 4, Appraised: 8 }` (plain `as const`, like `DefType`/`Pool`). These names replace the `ATTACKED`/`LOST`/`GRAFTED`/`APPRAISED` placeholders in §5. `Track.round` is created by `newGame` with length `MAX_ROUNDS`, zero-filled, and indexed by `round − 1`, recording player-side events only (§5). For `HOOK_NAMES`, one change: derive the type from the array (`type HookName = (typeof HOOK_NAMES)[number]`) instead of checking the array with `satisfies readonly HookName[]`, because `satisfies` doesn't catch a missing name. `compile.ts` builds `hookMask` by iterating `HOOK_NAMES`, never `Object.keys(hooks)`.
+- Reason: named bits remove magic numbers from four pipelines. A pre-sized round array is monomorphic and never has holes. A single source for hook names means adding a hook can't leave it out of `hookMask`.
+
+**D-128 · `Tx` API (copy-on-write transaction)**
+- Date: 2026-10-14
+- Question: §4 and §18.2 require a copy-on-write `Tx` but never specify its API. Engine milestone 1 implemented: `state`, `dirty`, `commit`, `set(rootField)`, `pushInstance`, `setLife`, `setZone`, `zonePush`, `zoneUnshift`, `zoneRemove`, `zoneTake`, `setSlot`, `patchMonster`, `setTrap`.
+- Decision: Confirmed as the engine's only state-writing API, documented in ARCHITECTURE §4.1, with this contract:
+  1. `tx.state` is a live draft. An array read from it may be mutated by the next write in the same transaction, so no zone or board reference may be held across a write. Pipelines first collect the iids/slots they will act on into a local array (destroy batch order, draw loops, trap scans).
+  2. Only engine modules construct a `Tx`. It is not part of the package's public API, so UI, AI and sim can only advance a duel through `applyAction`. Hooks never see it (§8.2).
+  3. Nested root records (`track`, `appraisal`, `collector`, `pending`) and `Monster`/`TrapSlot` records are always replaced, never mutated.
+  4. Randomness: `Sfc32.restore(tx.state.rng)` … `tx.set('rng', r.state())` (D-125).
+  5. Because the base state is never written, an `EngineError` thrown mid-action leaves the caller's state intact: actions are atomic.
+
+  Determinism review: the `Tx` uses no randomness, clock or key iteration (`ZONE_BIT` is read by key only). Output depends only on the base state and the call sequence. Performance review: per action, at most one root copy (18 fields), two side copies (7 fields each), one slice per touched zone (≤ 24 entries) and one 13-field record per patched monster. The base state is never cloned, untouched branches are shared, and a transaction with no writes returns the base state itself. That fits §18's roughly 5 µs/action budget. Pipeline fitness: every write in §5.2–§5.8 maps onto these methods (draws: `zoneTake` + `zonePush`; destroy: `setSlot(null)` + `zonePush(owner, 'discard')`; Ward, reveal, modifiers, position: `patchMonster`; traps: `setTrap(null)` + `zonePush`; Graft commit: `zoneRemove`/`setSlot` + `pushInstance` + `setSlot`; Echo/Recall: `zoneRemove` + `zonePush`; redraw: `setZone`; life: `setLife`; turn, step, result, log: `set`).
+
+  Small code changes: remove `Tx` from the package root exports; type `set`'s value as `GameState[K]` (drops the duplicate `RootFieldTypes`); exclude `iid` from `patchMonster`'s patch; throw `EngineError` instead of `Error` once it exists.
+- Reason: the API is small, covers every pipeline, and meets the copy-on-write and performance rules of §18. The live-view rule is the one hazard copy-on-write introduces, so it is written down and added to the review checklist (§19).
+
+**D-129 · `CompiledContent` carries element and kind id tables**
+- Date: 2026-10-14
+- Question: found while reviewing D-121. `Cond` has `{ element: id }` and `{ kind: id }` (§9.1), which the validator accepts in `TargetSpec.where`, `TrapDef.when`, `Effect.if` and twist modifiers. But `CompiledContent` (§3) only has `ElemIdx`/`KindIdx` arrays and counts, with no index → id mapping, so these conditions can't be evaluated.
+- Decision: Add `elementIds: readonly string[]` (`ElemIdx` → element id) and `kindIds: readonly string[]` (`KindIdx` → kind id) to `CompiledContent`. They use the same index order as `element`, `kind`, `beats` and `recipe`. `effects/conditions.ts` evaluates `{ element }` as `elementIds[elementOf(i)] === cond.element`, where a Chimera's element comes from `inst[i].chimera.element`. It evaluates `{ kind }` as `kindIds[kind[def]] === cond.kind`, which is false for Chimeras: they have no kind (family `kind = -1`, D-056).
+- Reason: no launch spell or trap uses these conditions, but DESIGN's twist example ("Umbra monsters +1 Power") does, and the flag exists. Two small string arrays are the simplest fix: no maps, no key iteration, and `Cond` keeps the same shape in JSON and in the engine.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

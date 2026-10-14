@@ -119,6 +119,9 @@ All sim commands accept `--set KEY=VALUE` (repeatable), `--from YYYY-MM-DD`, `--
 
 ```ts
 // packages/engine/src/types/content.ts
+import type { Cond, SpellDef, TrapDef } from './effects';
+import type { HookName, KeywordDef } from './hooks';      // KeywordDef is declared in types/hooks.ts (D-123)
+
 export type DefIdx = number;   // index into defs (base cards AND Chimera families)
 export type ElemIdx = number;
 export type KindIdx = number;
@@ -126,6 +129,18 @@ export type KwMask = number;   // bit i = keyword/Flaw registry index i (≤ 32)
 
 export const DefType = { Monster: 0, Spell: 1, Trap: 2, Family: 3 } as const; // plain consts (isolatedModules-safe)
 export const Pool = { Player: 0, Collector: 1 } as const;
+
+/** Spell/trap definitions are kept as written in the DSL (§9.1); `$NAME` refs are resolved by effects/num.ts (D-120). */
+export type CompiledSpell = SpellDef;
+export type CompiledTrap = TrapDef;
+
+/** One twists.json row (§10.1). Chosen by ISO week outside the engine (D-103); stats.ts reads `modifiers` (D-121). */
+export interface CompiledTwist {
+  readonly id: string;
+  readonly text: string;
+  readonly isoWeek?: string;
+  readonly modifiers: readonly { readonly where: Cond; readonly power?: number; readonly guard?: number }[];
+}
 
 export interface CompiledContent {
   readonly version: string;              // CONTENT_VERSION
@@ -139,6 +154,8 @@ export interface CompiledContent {
   readonly spell: readonly (CompiledSpell | null)[];
   readonly trap: readonly (CompiledTrap | null)[];
   readonly nElements: number; readonly nKinds: number;
+  readonly elementIds: readonly string[];  // ElemIdx → element id, for Cond { element } (D-129)
+  readonly kindIds: readonly string[];     // KindIdx → kind id, for Cond { kind } (D-129)
   readonly beats: Uint8Array;            // [a * nElements + b] = 1 if a beats b
   readonly opposes: Uint8Array;          // beats[a,b] | beats[b,a]
   readonly recipe: Int16Array;           // [k1 * nKinds + k2] = family DefIdx (symmetric)
@@ -229,12 +246,13 @@ export interface AppraisalState {
 }
 
 export interface Track {           // counters for objectives, share grid and sim (updated in the Tx, not from events)
-  readonly round: readonly number[];   // per round bit flags: 1 attacked, 2 grafted, 4 lost monster, 8 appraised
+  readonly round: readonly number[];   // length MAX_ROUNDS, zero-filled by newGame, index round − 1; RoundFlag bits (D-127)
   readonly grafts: number;
   readonly families: readonly DefIdx[]; // families created this duel (Binder)
   readonly unpriced: boolean;          // The Unpriced entered play
   readonly appraisedLost: number;
 }
+export const RoundFlag = { Attacked: 1, Grafted: 2, LostMonster: 4, Appraised: 8 } as const; // player-side events (D-127)
 
 export interface Result {
   readonly winner: Side;
@@ -291,6 +309,44 @@ Checklist of required fields → where they live:
 
 **Derived, never stored:** effective stats (D-031), active keywords (`printed | chimera.kw`, minus Ward if used, none if face-down), round, active side, next Appraisal round, Tethered, element advantage.
 
+### 4.1 Copy-on-write transaction (`tx.ts`) — D-128
+
+`applyAction` opens one `Tx` over the input state. Every pipeline in §5 writes through it, and `commit()` returns the new state. The input state is never written, so an `EngineError` thrown mid-action leaves the caller's state intact (actions are atomic).
+
+```ts
+// packages/engine/src/tx.ts — engine-internal (not exported from the package root)
+export type IidZone = 'deck' | 'hand' | 'discard' | 'vault';
+export type RootField = 'rng' | 'turn' | 'step' | 'played' | 'redrawsLeft' | 'pending' | 'appraisal'
+                      | 'collector' | 'twist' | 'track' | 'result' | 'log' | 'nActions';   // not: v, cfg, seed, sides, inst
+
+export class Tx {
+  constructor(base: GameState);
+  readonly base: GameState;
+  get state(): GameState;                       // LIVE draft view (base until the first write)
+  get dirty(): boolean;
+  commit(): GameState;                          // the base itself if nothing was written; writes after commit throw
+  set<K extends RootField>(key: K, value: GameState[K]): void;          // whole-value replacement
+  pushInstance(inst: Instance): Iid;            // append (Chimeras, §5.6); returns the new iid
+  setLife(side: Side, life: number): void;
+  setZone(side: Side, zone: IidZone, iids: readonly Iid[]): void;       // adopts the array; a later edit copies it first
+  zonePush(side: Side, zone: IidZone, iid: Iid): void;
+  zoneUnshift(side: Side, zone: IidZone, iid: Iid): void;               // top of deck = index 0
+  zoneRemove(side: Side, zone: IidZone, iid: Iid): boolean;             // first occurrence; no copy when absent
+  zoneTake(side: Side, zone: IidZone, n: number): Iid[];                // remove and return the first n (draws)
+  setSlot(side: Side, slot: number, m: Monster | null): void;           // m from the Monster factory (§18.7)
+  patchMonster(side: Side, slot: number, patch: Partial<Omit<Monster, 'iid'>>): Monster; // replaces the record
+  setTrap(side: Side, slot: number, t: TrapSlot | null): void;
+}
+```
+
+**Copy rule.** The first write to a path copies only that path: root → `sides` tuple → one `SideState` → one zone array. Later writes in the same `Tx` mutate those copies in place. `Monster`, `TrapSlot`, `Track`, `AppraisalState` and `PendingGraft` records are always replaced, never mutated. Per action that is at most one 18-field root copy, two 7-field side copies, one slice of ≤ 24 entries per touched zone, and one record per patched monster.
+
+**Caller contract.**
+1. `tx.state` is live. An array read from it can change at the next write in the same `Tx`, so a zone or board reference must never be held across a write. Collect the iids/slots to act on into a local array first (destroy batches, draw loops, trap scans).
+2. Only engine modules construct a `Tx`. Hooks never see it (§8.2), and UI, AI and sim advance a duel only through `applyAction`.
+3. Nested records are updated by replacement, e.g. `tx.set('track', { ...t, round: withBit(t.round, round - 1, RoundFlag.Attacked) })`.
+4. Randomness (none in v0.1 cards): `const r = Sfc32.restore(tx.state.rng); …; tx.set('rng', r.state())` (D-125).
+
 ---
 
 ## 5. Turn structure and engine pipelines
@@ -336,7 +392,7 @@ Timed modifiers and Gilt Frame need no cleanup: they stop applying when `turn > 
 
 ```
 declare(attacker A, target T | direct):
-  A.attacked = turn; track.round |= ATTACKED (player)
+  A.attacked = turn; track.round[round−1] |= RoundFlag.Attacked (player)
   emit AttackDeclared
   ctx = { cancelled: false }
   dispatch onAttackDeclared (attacker-side monsters, then defender traps in slot order)   // Snare, Mirror Sigil, Thornwall, Display Case
@@ -344,9 +400,11 @@ declare(attacker A, target T | direct):
   if direct: damage(defender side, power(A)); checkWin; return
   if T.faceDown: reveal T (faceDown=false, pos=guard); emit Revealed
   combat = snapshot { aP = power(A) + (advantage(A,T) ? ELEMENT_BONUS : 0), dP = power(T), dG = guard(T),
-                      defPos = T.pos, advantage, pierce: false, brittleWin: false }
-  dispatch beforeCombat (A's hooks then T's hooks)        // Pierce sets pierce; Brittle sets brittleWin (D-049)
-  outcome = resolve(combat):
+                      defPos = T.pos, advantage }          // CombatSnapshot, read-only to hooks (D-124)
+  pierce = brittleWin = false                             // combat.ts locals, never visible to hooks
+  dispatch beforeCombat (A's hooks then T's hooks)        // Pierce: ctx.setPierce(); Brittle: ctx.setBrittleWin() (D-049, D-124)
+  run effects queued by beforeCombat                      // cannot change the snapshot (D-032); if A or T left the board → attack fizzles
+  outcome = resolve(combat, pierce, brittleWin):
      brittleWin   → destroyed {T}; dmg to T.side = defPos=atk ? max(0,aP−dP) : (pierce ? max(0,aP−dG) : 0)
      defPos=atk   → aP>dP: destroyed {T}, dmg T.side aP−dP | aP<dP: destroyed {A}, dmg A.side dP−aP | tie: {A,T}, 0
      defPos=guard → aP>dG: destroyed {T}, dmg T.side = pierce ? aP−dG : 0 | aP<dG: dmg A.side dG−aP | tie: nothing
@@ -365,8 +423,9 @@ destroyBatch(list, cause, destroyerOf?):
   for each m: dispatch beforeDestroy (Ward)      → 'prevent' ⇒ wardUsed = true; emit WardBroken; drop from list
   snapshot last-known info (LKI) for each remaining m (stats, keywords, controller, slot, destroyer)
   remove all remaining from boards simultaneously → owner's discard (D-047); emit Destroyed{iid, cause, by}
-  track: player-controlled → round |= LOST
+  track: player-controlled → round[round−1] |= RoundFlag.LostMonster
   for each m in order: dispatch onDestroyed: m's own hooks with LKI (Haunt, Echo), then other subscribers (traps: Last Rites, Insurance Claim)
+                       // LKI = DestroyedEvt (§8.1); m's own hooks are selected by LKI.kw, not by its (gone) board record (D-122)
 ```
 
 Leaving the board resets all board state (D-043) because the `Monster` record is simply dropped.
@@ -385,7 +444,7 @@ graftPosition pos          → COMMIT:
      sacrifice board materials and hand materials → owner's discard (emit Sacrificed; no hooks)
      inst.push({ def: family, owner, chimera: { element, kw, ascended: mats.length === 3, materials } })
      place in leftmost free slot: { pos, entered: turn, unstableUntil: unstable ? turn + 2 : -1, … }
-     played = true; step = 'attack'; track.grafts++, round |= GRAFTED, families ∪= family
+     played = true; step = 'attack'; track.grafts++, round[round−1] |= RoundFlag.Grafted, families ∪= family
      emit Grafted{…}; dispatch onGraft (Counterfeit; D-065). A Graft does not dispatch onSummon.
 graftCancel (any stage)    → pending = null (nothing was applied)
 ```
@@ -402,7 +461,7 @@ pick highest power, tie leftmost
 remove from player board; m' = { ...m, entered: turn, appraised: true }
 slot = leftmost free on Collector board → place m', emit Appraised{to:'board'}
 else vault.push(iid), emit Appraised{to:'vault'}
-appraisal.successes++, taken.push(iid); track.round |= APPRAISED; track.appraisedLost++
+appraisal.successes++, taken.push(iid); track.round[round−1] |= RoundFlag.Appraised; track.appraisedLost++
 ```
 
 ### 5.8 Win check (`reducer.ts › checkWin`) — D-018
@@ -550,11 +609,13 @@ Seven **event hooks** from DESIGN.md plus pure **query hooks** for legality/stat
 
 ```ts
 // packages/engine/src/types/hooks.ts
-export type HookName =
-  | 'onSummon' | 'onAttackDeclared' | 'beforeCombat' | 'onDestroyed'
-  | 'onTurnStart' | 'onTurnEnd' | 'onGraft'
-  | 'attackPermission' | 'restrictTargets' | 'mustAttack'
-  | 'summonRequirement' | 'staticPower' | 'staticGuard' | 'beforeDestroy';
+export const HOOK_NAMES = [                          // fixed order: code iterates this, never object keys (D-127)
+  'onSummon', 'onAttackDeclared', 'beforeCombat', 'onDestroyed',
+  'onTurnStart', 'onTurnEnd', 'onGraft',
+  'attackPermission', 'restrictTargets', 'mustAttack',
+  'summonRequirement', 'staticPower', 'staticGuard', 'beforeDestroy',
+] as const;
+export type HookName = (typeof HOOK_NAMES)[number];  // derived, so the two cannot drift
 
 export type AttackPerm = 'none' | 'monstersOnly' | 'any';
 export type SummonReq = { readonly kind: 'normal' } | { readonly kind: 'sacrifice'; readonly appraised: true; readonly zones: readonly ('board' | 'vault')[] };
@@ -578,13 +639,29 @@ export interface Hooks {
   // replacement hook
   beforeDestroy?(ctx: HookCtx<DestroyEvt>): 'prevent' | 'allow';
 }
+
+// Event payloads (ctx.evt) — D-122
+export interface SummonEvt { readonly iid: Iid; readonly side: Side; readonly slot: number; readonly covetous: boolean } // summon + Covetous only
+export interface AttackEvt { readonly attacker: Iid; readonly target: Iid | -1 }          // -1 = direct (never in beforeCombat)
+export interface DestroyedEvt {                       // last-known information (§5.5), after Ward, before removal
+  readonly iid: Iid;
+  readonly side: Side;                                // controller at destruction (D-048); owner = inst[iid].owner
+  readonly slot: number;
+  readonly cause: 'combat' | 'effect' | 'unstable';
+  readonly by: Iid | -1;                              // destroyer (D-045), the `destroyer` ref
+  readonly power: number; readonly guard: number;     // effective (D-031), no element bonus
+  readonly kw: KwMask;                                // active keywords at removal (0 if face-down); selects self hooks
+}
+export interface DestroyEvt { readonly iid: Iid; readonly cause: 'combat' | 'effect' | 'unstable'; readonly by: Iid | -1 } // beforeDestroy
+export interface TurnEvt { readonly turn: number; readonly round: number; readonly side: Side }
+export interface GraftEvt { readonly iid: Iid; readonly side: Side; readonly family: DefIdx; readonly materials: readonly Iid[] } // final Chimera (D-065)
 ```
 
 ### 8.2 Hook context API
 
 ```ts
 export interface QueryCtx {
-  readonly s: GameState;            // read-only snapshot (current Tx view)
+  readonly s: GameState;            // live Tx view (§4.1): read it, never keep references from it
   readonly self: Iid;               // the monster/trap whose keyword is asking
   readonly side: Side;              // its controller
   readonly g: Globals;
@@ -605,11 +682,23 @@ export interface HookCtx<E> extends QueryCtx {
   effect(e: Effect): void;          // queue an effect primitive (§9) with refs bound to evt
   emit(ev: GameEvent): void;
 }
+export interface TargetQueryCtx extends QueryCtx { readonly attacker: Iid }   // restrictTargets; self = a face-up defender (D-122)
+
 export interface AttackCtx extends HookCtx<AttackEvt> { readonly cancelled: boolean; cancelAttack(by: Iid): void }
-export interface CombatCtx extends HookCtx<AttackEvt> { readonly combat: CombatScratch } // pierce, brittleWin, aP, dP, dG, advantage
+
+export interface CombatSnapshot {   // §5.4, taken after the reveal; read-only to hooks (D-124)
+  readonly aP: number;              // attacker Power incl. element bonus
+  readonly dP: number; readonly dG: number;
+  readonly defPos: Pos; readonly advantage: boolean;
+}
+export interface CombatCtx extends HookCtx<AttackEvt> {
+  readonly combat: CombatSnapshot;
+  setPierce(): void;                // idempotent, on-only; OR-folded after all beforeCombat subscribers ran
+  setBrittleWin(): void;            // idempotent, on-only; hooks cannot read either flag
+}
 ```
 
-Hooks never touch the `Tx` directly: they read through `QueryCtx` and act through `effect()`, so every state change goes through the effect interpreter (one place for events, Ward, zone rules).
+Hooks never touch the `Tx` directly: they read through `QueryCtx` and act through `effect()`, so every state change goes through the effect interpreter (one place for events, Ward, zone rules). There are two exceptions, and neither writes `GameState`. First, the `cancelAttack` op runs immediately: `traps.ts` calls `ctx.cancelAttack(trapIid)` when the trap's subscriber runs, so later subscribers see `cancelled` (§8.3 rule 4, D-071). The card's other effects are queued in order (D-122). Second, `beforeCombat` hooks set combat flags through `CombatCtx` (D-124).
 
 ### 8.3 Ordering rules
 
@@ -618,14 +707,14 @@ Hooks never touch the `Tx` directly: they read through `QueryCtx` and act throug
 3. **Traps fire once**: a trap is moved to its owner's discard *before* its effects run (emit `TrapTriggered`), so it cannot re-trigger; identical traps → only the leftmost fires (D-071).
 4. **Cancellation is visible**: after `cancelAttack`, later `onAttackDeclared` subscribers see `ctx.cancelled === true`; trap conditions on an attacking monster fail, so later traps stay set.
 5. **Game over stops everything**: once `result` is set, the queue is dropped.
-6. **Query hooks are order-independent**: permission is a lattice (§6.2), `restrictTargets` is an intersection, `mustAttack` is OR, `staticPower` is a sum, `summonRequirement` takes the most restrictive, `beforeDestroy` stops at the first `'prevent'`.
+6. **Query hooks are order-independent**: permission is a lattice (§6.2), `restrictTargets` is an intersection, `mustAttack` is OR, `staticPower` is a sum, `summonRequirement` takes the most restrictive, `beforeDestroy` stops at the first `'prevent'`. The same holds for `beforeCombat` flags: hooks read only the pre-hook `CombatSnapshot`, and `setPierce`/`setBrittleWin` are OR-folded after the list (D-124).
 7. **Safety**: a chain longer than `MAX_TRIGGER_CHAIN` (64) throws `EngineError` in dev/test (unreachable with launch content).
 8. **Fast skip**: dispatch iterates ≤ 6 monsters and ≤ 4 traps, testing `activeKw(m) & hookMask[hook]` before calling anything.
 
 ### 8.4 `defineKeyword` and auto-registration
 
 ```ts
-// packages/engine/src/hooks/define.ts
+// packages/engine/src/types/hooks.ts — declared here because CompiledContent (§3) needs it (D-123)
 export interface KeywordDef {
   readonly id: string;                 // must equal file name
   readonly name: string;
@@ -636,6 +725,9 @@ export interface KeywordDef {
   readonly hooks: Hooks;
   readonly examples?: readonly string[]; // board-DSL scenarios (§17); each becomes a generated test
 }
+
+// packages/engine/src/hooks/define.ts — re-exports the type; the package root exports defineKeyword by name
+export type { KeywordDef } from '../types/hooks';
 export const defineKeyword = (k: KeywordDef): KeywordDef => k;
 ```
 
@@ -685,13 +777,13 @@ export default defineKeyword({
 | --- | --- | --- |
 | Swift | `attackPermission` | `grant: 'monstersOnly'` when `enteredThisTurn(self)`; direct attacks need `'any'` (D-041, D-042) |
 | Sentinel | `restrictTargets` | face-up Sentinels on the defending board become the only legal targets (D-037, D-038) |
-| Pierce | `beforeCombat` | if self is attacker and defender in guard: `combat.pierce = true` → damage `aP − dG` (D-039, D-040) |
+| Pierce | `beforeCombat` | if self is attacker and `combat.defPos` is guard: `ctx.setPierce()` → damage `aP − dG` (D-039, D-040, D-124) |
 | Ward | `beforeDestroy` | `'prevent'` once; engine sets `wardUsed` and emits `WardBroken` (D-034, D-035, D-044) |
 | Haunt | `onDestroyed` | destroyer gets `modifyStats −HAUNT_PENALTY permanent` if still on board (D-045) |
 | Echo | `onDestroyed` | `returnToHand self` (from discard to owner's hand) (D-046) |
 | Slow | `attackPermission` | `restrict: 'none'` when `enteredThisTurn(self)` (D-053, PROPOSAL) |
 | Vain | `mustAttack` | `true`; engine blocks `endTurn` while a legal attack remains; AI picks best target (D-052, D-091) |
-| Brittle | `beforeCombat` | if self is defender and `combat.advantage`: `combat.brittleWin = true` (D-049, D-050) |
+| Brittle | `beforeCombat` | if self is defender and `combat.advantage`: `ctx.setBrittleWin()` (D-049, D-050, D-124) |
 | Tethered | `staticPower` | `−TETHERED_PENALTY` when `monsters(side).length === 1` (D-051) |
 | Covetous | `summonRequirement` | `{ kind:'sacrifice', appraised:true, zones:['board','vault'] }` → only `summonCovetous` is legal (D-054, D-055) |
 
@@ -1024,7 +1116,7 @@ export function withOverrides(base: Globals, sets: readonly string[]): Globals; 
 // before compile.
 ```
 
-`Globals` is an engine-side interface (widened types of the object above), so the engine is typed against it without importing content. Globals and content are bound into the engine by `createEngine(compiled, globals, policies, options)`; a hash of both is stored in `state.cfg` and checked on replay.
+`Globals` is an engine-side interface (`packages/engine/src/types/globals.ts`, widened types of the object above), so the engine is typed against it without importing content. The widening (D-126) is: numbers → `number` and strings → `string`. Min/max pairs (`TARGET_*`) → `Range = readonly [number, number]`, with the sanity check `min ≤ max`. `DIFFICULTY_STAR_CUTS` → `StarCuts = readonly [number, number]` (descending cuts, not a range). `APPRAISAL_ROUNDS` → `readonly number[]`. `UNSTABLE_EXPIRY` → `'endOfNextOwnTurn' | 'startOfOwnTurnAfterNext'`. `FLAGS` → `Flags`: 13 booleans, DESIGN's 10 plus the 3 proposal levers. `NumericGlobal` (the keys whose type is `number`) is the set of names an effect `Num` ref (`"$NAME"`) may use (D-120). Globals and content are bound into the engine by `createEngine(compiled, globals, policies, options)`; a hash of both is stored in `state.cfg` and checked on replay.
 
 DESIGN numbers that are content rather than globals (with reason, D-074): monster/Relic Power/Guard (card JSON), Chimera family stats (recipes.json), weekly-twist values (twists.json). All are overridable from the sim.
 
@@ -1053,12 +1145,20 @@ export function cyrb128(str: string): [number, number, number, number] {
   return [h1 >>> 0, h2 >>> 0, h3 >>> 0, h4 >>> 0];
 }
 
-/** Mutable generator used inside setup and Tx; state is read back into GameState.rng. */
+/** Mutable generator used inside setup and engine code; state is read back into GameState.rng.
+ *  Two entry points only (D-125): from(key) starts a stream, restore(rng) resumes one. */
 export class Sfc32 {
-  constructor(private a: number, private b: number, private c: number, private d: number) {
-    for (let i = 0; i < 15; i++) this.next();                 // warm-up
+  private a: number; private b: number; private c: number; private d: number;
+  private constructor(a: number, b: number, c: number, d: number) {   // raw state, never warms up
+    this.a = a | 0; this.b = b | 0; this.c = c | 0; this.d = d | 0;
   }
-  static from(key: string): Sfc32 { const [a, b, c, d] = cyrb128(key); return new Sfc32(a, b, c, d); }
+  static from(key: string): Sfc32 {                           // cyrb128 + 15 warm-up rounds
+    const [a, b, c, d] = cyrb128(key);
+    const r = new Sfc32(a, b, c, d);
+    for (let i = 0; i < 15; i++) r.next();
+    return r;
+  }
+  static restore(s: Rng): Sfc32 { return new Sfc32(s[0], s[1], s[2], s[3]); }   // exact resume from state()
   next(): number {                                            // uint32
     const t = (((this.a + this.b) | 0) + this.d) | 0;
     this.d = (this.d + 1) | 0;
@@ -1288,7 +1388,7 @@ Monster token: `[<card-id> <A|G|D> flags…]` where `D` = face-down guard. Flags
 Budget: a duel ≈ 24 turns × ~6–8 actions ≈ 150–200 actions incl. AI decisions ⇒ ≤ 1 ms/duel ⇒ ~5 µs per action including legality and AI.
 
 1. **Dense compiled content**: typed arrays for stats/elements/kinds/keyword masks; advantage and recipe lookups are single array reads; keywords are bit masks.
-2. **Copy-on-write `Tx`**: `applyAction` opens a transaction over the frozen-by-convention state; the first write to a path copies only that path (root → `sides` tuple → one `SideState` → one array of ≤ 24 items → one `Monster` of 14 fields). Untouched branches are shared by reference. No `structuredClone`, JSON round-trips, or immer.
+2. **Copy-on-write `Tx`**: `applyAction` opens a transaction over the frozen-by-convention state; the first write to a path copies only that path (root → `sides` tuple → one `SideState` → one array of ≤ 24 items → one `Monster` of 14 fields). Untouched branches are shared by reference. No `structuredClone`, JSON round-trips, or immer. API and caller contract: §4.1 (D-128).
 3. **Turn indices instead of flags**: no per-turn reset loops; timed modifiers expire lazily.
 4. **No per-action allocation for options**: events off (`{ events: false }` returns a shared empty array and `emit` is a no-op), log off, `{ trusted: true }` skips `isLegal`.
 5. **Legal action buffer**: `forEachLegal(state, visit)` lets bots count/choose without materializing arrays; `getLegalActions` (UI) materializes.
@@ -1307,7 +1407,9 @@ Budget: a duel ≈ 24 turns × ~6–8 actions ≈ 150–200 actions incl. AI dec
 - [ ] No `for…in`, `Object.keys/values/entries` or `Map`/`Set` iteration whose order affects outcomes (arrays and slot order only).
 - [ ] Only integer arithmetic in rules; `Sfc32.int` is the only float operation and is exact.
 - [ ] Every rule number comes from `globals`; every mechanic checks its flag.
-- [ ] All state changes go through `Tx` and the effect interpreter; hooks only `effect()`.
+- [ ] All state changes go through `Tx` and the effect interpreter; hooks only `effect()` (plus `cancelAttack` and the `beforeCombat` flag setters, §8.2).
+- [ ] No array or record read from `tx.state` is held across a later write; targets are collected first (§4.1, D-128).
+- [ ] Hook-visible combat data is read-only; `beforeCombat` only raises on-only flags (D-124).
 - [ ] Legality changes only in `legal.ts`/query hooks; UI/AI/bots never re-implement legality.
 - [ ] New keyword = one file + icon + examples; new card = JSON only.
 - [ ] Property tests and the bench pass.
@@ -1391,7 +1493,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | KW-4 | Keyword shown as visual frame/effect | `KeywordDef.visual`, web `KeywordFrame.tsx` | — |
 | KW-5 | Swift | `keywords/swift.ts` (`attackPermission`) | D-041, D-042 |
 | KW-6 | Sentinel | `keywords/sentinel.ts` (`restrictTargets`) | D-037, D-038 |
-| KW-7 | Pierce | `keywords/pierce.ts` (`beforeCombat`), `combat.ts` | D-039, D-040 |
+| KW-7 | Pierce | `keywords/pierce.ts` (`beforeCombat`), `combat.ts` | D-039, D-040, D-124 |
 | KW-8 | Ward | `keywords/ward.ts` (`beforeDestroy`), `destroy.ts` | D-034, D-035, D-043, D-044 |
 | KW-9 | Haunt | `keywords/haunt.ts` (`onDestroyed`) | D-045 |
 | KW-10 | Echo | `keywords/echo.ts` (`onDestroyed`) | D-046 |
@@ -1433,7 +1535,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | PP-5 | Stat budget P+G 8–10, keyword ≈ 1 | validator | D-109 |
 | PP-6 | Spells cast as the one play, resolve immediately | `legal.ts`, `effects/run.ts` | D-067 |
 | PP-7 | Unmake, Bloodlust, Grave Recall, Scrying Bones, Shroud, Siphon | `cards/player-spells.json` (§9.2) | D-067…D-070 |
-| PP-8 | Traps set face-down as the play; trigger automatically, then discard | `summon.ts › setTrap`, `traps.ts`, `hooks/dispatch.ts` | D-071, D-072 |
+| PP-8 | Traps set face-down as the play; trigger automatically, then discard | `summon.ts › setTrap`, `traps.ts`, `hooks/dispatch.ts` | D-071, D-072, D-122 |
 | PP-9 | Snare, Mirror Sigil, Last Rites, Thornwall | `cards/player-traps.json` (§9.2) | D-036, D-073 |
 | PP-10 | One-line art brief per card | `art-briefs.json`, validator | D-110 |
 
@@ -1467,7 +1569,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | AI-A3 | Face-down only with 7+ Power unless Desperate | `rules/faceDownIfStrong.ts` | D-093 |
 | AI-A4 | Direct attack if your board is empty | `rules/directIfEmpty.ts` | — |
 | AI-A5 | Otherwise hold; Vain still attacks best target | `rules/holdExceptVain.ts`, `best-target.ts` | D-052, D-091 |
-| TW-1 | Weekly twist as data | `twists.json`, `stats.ts`, `FLAGS.WEEKLY_TWIST` (off) | D-103 |
+| TW-1 | Weekly twist as data | `twists.json`, `stats.ts`, `FLAGS.WEEKLY_TWIST` (off) | D-103, D-121, D-129 |
 
 ### Daily loop
 
@@ -1503,7 +1605,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | BT-6 | 30–60% Appraisals succeed | `state.appraisal`, `sim/report.ts` | D-079 |
 | BT-7 | Unpriced appears in 20–40% | `track.unpriced`, `sim/report.ts` | — |
 | BT-8 | < 15% seeds rejected | `sim/difficulty-batch.ts` | — |
-| GL-1 | Every number is a global in one file | `content/src/globals.ts` | D-074 |
+| GL-1 | Every number is a global in one file | `content/src/globals.ts`, `engine/src/types/globals.ts` | D-074, D-126 |
 | GL-2 | Feature flags (10) | `globals.FLAGS` | — |
 
 ### Technical architecture and content pipeline
@@ -1514,14 +1616,14 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | TA-2 | Stack: pnpm, TS strict, Vite+React, Zustand, CSS tokens + Framer Motion, Vitest + fast-check, Capacitor later, PWA | root config, `apps/web` | — |
 | TA-3 | Package layout | §2 | — |
 | TA-4 | One plain serializable state; `applyAction` → state + events | `types/state.ts`, `reducer.ts`, `types/events.ts` | — |
-| TA-5 | Seeded sfc32 by string hash; no Math.random/dates in engine | `rng.ts`, ESLint | D-002 |
+| TA-5 | Seeded sfc32 by string hash; no Math.random/dates in engine | `rng.ts`, ESLint | D-002, D-125 |
 | TA-6 | `getLegalActions` single source of truth | `legal.ts` | D-064 |
-| TA-7 | Hook registry (7 hooks) for keywords, Flaws, spells/traps | `hooks/*`, `traps.ts` | D-112 |
-| TA-8 | No deep cloning; structural sharing; small integer ids | `tx.ts`, §18 | D-006 |
+| TA-7 | Hook registry (7 hooks) for keywords, Flaws, spells/traps | `types/hooks.ts`, `hooks/*`, `traps.ts` | D-112, D-122, D-124, D-127 |
+| TA-8 | No deep cloning; structural sharing; small integer ids | `tx.ts` (§4.1), §18 | D-006, D-128 |
 | TA-9 | Reproducible from seed + action log (leaderboards later) | `replay.ts`, `state.log` | D-108 |
 | CP-1 | JSON validated by zod at build and in `content:check` | `content/src/schemas/*`, `scripts/content-check.ts`, `build` script | — |
-| CP-2 | Effect primitives with targets, conditions, durations | `types/effects.ts`, `effects/*` | D-074 |
-| CP-3 | New keyword/Flaw = one `defineKeyword` file, auto-registered | `hooks/define.ts`, `scripts/gen-keyword-index.ts` | D-111 |
+| CP-2 | Effect primitives with targets, conditions, durations | `types/effects.ts`, `effects/*` | D-074, D-120, D-129 |
+| CP-3 | New keyword/Flaw = one `defineKeyword` file, auto-registered | `hooks/define.ts` (type in `types/hooks.ts`), `scripts/gen-keyword-index.ts` | D-111, D-123 |
 | CP-4 | Validator fails on unknown refs, missing recipes, budget, duplicate ids, Collector deck ≠ 20 | `content/src/validate.ts` (§10.3) | D-109 |
 | CP-5 | Placeholder art from data until a painting with the card id exists | web `art/placeholder.ts` | — |
 | CG-1 | Add/change/delete card → JSON → `content:check` → `sim:quick` | scripts, validator reverse refs | — |
