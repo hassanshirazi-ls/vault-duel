@@ -1,7 +1,7 @@
 # Vault Duel — Architecture v0.1 (Phase 0)
 
 Status: plan, before any code. Owner: game-architect. Date: 2026-10-14.
-Source of truth for rules: `docs/DESIGN.md`. Interpretations of ambiguous rules: `docs/DECISIONS.md` (referenced as `D-NNN`).
+Source of truth for rules: `docs/DESIGN.md`. Interpretations of ambiguous rules: `docs/DECISIONS.md` (referenced as `D-NNN`). Source of truth for content values (stats, keywords on cards, card list, effects, text, recipes, globals) is `packages/content` from the D-166 switch onward (the content M3 commit). From then on DESIGN.md's value tables, and the value examples in this document (§9.2, §11), are launch values.
 
 ---
 
@@ -9,7 +9,7 @@ Source of truth for rules: `docs/DESIGN.md`. Interpretations of ambiguous rules:
 
 1. **One pure engine.** `applyAction(state, action) → { state, events }` and `getLegalActions(state)` are the only ways to advance or query a duel. The web UI, Collector AI, player bots, simulator and (later) server all call them.
 2. **Determinism.** All randomness comes from sfc32 seeded by cyrb128 of a string. No `Math.random`, `Date`, timers, DOM, `for…in`, or iteration over object keys in `packages/engine`, `packages/content/keywords`, or `packages/ai` (ESLint-enforced). Same seed + same action log ⇒ identical state hash.
-3. **Content is data.** Cards, elements, kinds, recipes, the Collector deck and AI priorities, objectives, twists and art briefs are JSON validated by zod. Keywords/Flaws are one TypeScript file each via `defineKeyword`. Spell/trap effects are written in the effect DSL (§9). Every DESIGN.md number lives in `globals.ts` (§11); every mechanic sits behind a flag.
+3. **Content is data.** Cards, elements, kinds, recipes, the Collector deck and AI priorities, objectives, twists and art briefs are JSON validated by zod. Keywords/Flaws are one TypeScript file each via `defineKeyword`. Spell/trap effects are written in the effect DSL (§9). Every number lives in `globals.ts` (§11) or in a content JSON file, and every mechanic sits behind a flag. A content change is one edit: tests never pin live values (D-168), card text takes numbers from placeholders (D-172), and a new card number is one line (D-171).
 4. **Fast.** ≥ 1,000 duels/sec/core: small integer instance ids, flat arrays, copy-on-write structural sharing, lazy stat computation, no deep clones in hot paths (§18).
 5. **Strict TypeScript.** `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`; no `any` in engine, content or ai.
 
@@ -25,7 +25,7 @@ project-daily/
 ├─ vitest.config.ts           # test.projects = packages/* (D-119)
 ├─ eslint.config.js             # determinism bans for engine/content/ai
 ├─ docs/
-│  ├─ DESIGN.md  ARCHITECTURE.md  DECISIONS.md  CONTENT_GUIDE.md (Phase 1)
+│  ├─ DESIGN.md  ARCHITECTURE.md  DECISIONS.md  CONTENT_GUIDE.md (Phase 1, plan §10.5)  BALANCE_LOG.md
 │  └─ reports/                  # sim output (phase0-paper-sim.md is owned by design-simulator)
 ├─ packages/
 │  ├─ engine/                   # rules only; zero runtime deps; no DOM, no Node APIs
@@ -61,12 +61,17 @@ project-daily/
 │  │  └─ test-utils/{board-dsl,globals,…}.ts  # scenario DSL parser (§17), TEST_GLOBALS; package subpath
 │  │                                         # "@vault-duel/engine/test-utils/*" for content tests (D-143)
 │  ├─ content/                  # data + schemas + validator; depends on engine (types, defineKeyword)
-│  │  ├─ src/
-│  │  │  ├─ globals.ts          # every number + feature flags (§11)
+│  │  ├─ src/                   # browser-safe except load.ts and keyword-files.ts (D-176)
+│  │  │  ├─ globals.ts          # every number + feature flags + CONTENT_NUMBERS (§11, D-171)
 │  │  │  ├─ schemas/{element,kind,card,effect,recipe,collector,objective,twist,art-brief,globals}.ts
-│  │  │  ├─ load.ts             # reads JSON, parses with zod
+│  │  │  ├─ files.ts            # CONTENT_FILES, parseFile, parseContent(raw), formatError (pure, D-176)
+│  │  │  ├─ data.ts             # RAW_CONTENT: static JSON imports (Vite HMR, Node import attributes)
+│  │  │  ├─ load.ts             # Node only ("./node" export): reads JSON from a root, then parseContent
+│  │  │  ├─ keyword-files.ts    # Node only ("./node" export): keyword file and barrel checks
+│  │  │  ├─ text.ts             # parseTemplate, renderText: {NAME} placeholders (D-172)
 │  │  │  ├─ compile.ts          # → CompiledContent (dense typed arrays)
 │  │  │  └─ validate.ts         # cross-file rules (§10.3)
+│  │  ├─ test-utils/scenario-content.ts  # live elements/kinds/recipes/KEYWORDS + declared cards (D-169)
 │  │  ├─ cards/
 │  │  │  ├─ player-monsters.json  player-spells.json  player-traps.json
 │  │  │  └─ relics.json  collector-spells.json  collector-traps.json
@@ -175,6 +180,8 @@ export interface CompiledContent {
   readonly twists: readonly CompiledTwist[];
 }
 ```
+
+**Display text is not compiled (D-172).** `CompiledContent` holds no rendered strings and stays independent of globals (D-120). Two strings do pass through it, `KeywordDef.text` (in `keywords`) and `CompiledTwist.text`, and both are **templates** that may contain `{NAME}` placeholders. Card names and card text are read from the parsed content data. The UI, and any report that prints text, calls `renderText(template, g)` from `content/src/text.ts` with the same `Globals` object the engine was created with, so `--set` and `?set=` overrides show up in the text. `hash` covers the templates, so a text edit changes `state.cfg` like any other content edit.
 
 ---
 
@@ -694,6 +701,7 @@ export interface QueryCtx {
   readonly side: Side;              // its controller
   readonly g: Globals;
   readonly c: CompiledContent;
+  num(name: string): number;        // a $NAME value: CONTENT_NUMBERS, then core globals; EngineError if unknown (D-171)
   power(i: Iid): number;            // effective (D-031); guard(i) likewise
   guard(i: Iid): number;
   controller(i: Iid): Side | -1;    // -1 = not on a board
@@ -749,9 +757,9 @@ export interface KeywordDef {
   readonly kind: 'keyword' | 'flaw';
   readonly icon: string;               // icon asset id
   readonly visual: string;             // frame/effect id ("motion-streaks", "iron-shield-border", …)
-  readonly text: string;               // one sentence (validator)
+  readonly text: string;               // one sentence (validator); a template: numbers only as {NAME} placeholders (D-172)
   readonly hooks: Hooks;
-  readonly examples?: readonly string[]; // board-DSL scenarios (§17); each becomes a generated test
+  readonly examples?: readonly string[]; // board-DSL scenarios (§17) with declared cards only (D-169); each becomes a generated test
 }
 
 // packages/engine/src/hooks/define.ts — re-exports the type; the package root exports defineKeyword by name
@@ -773,11 +781,14 @@ export default defineKeyword({
   hooks: { restrictTargets: () => true },   // "I am a mandatory target"; engine: if any face-up defender
                                            // monster returns true, targets ∩= those monsters
   examples: [`
+    card raider P gale beast 5/3
+    card stag   C lumen beast 5/4
+    card wall   C ember construct 3/6 sentinel
     turn 2
-    P board [stormcrow A] [-] [-]
-    C board [halo-stag A] [brazier-golem A] [-]
+    P board [raider A] [-] [-]
+    C board [stag A] [wall A] [-]
     expect illegal attack P0 > C0
-    expect legal attack P0 > C1`],
+    expect legal attack P0 > C1`],   // declared cards only, run under TEST_GLOBALS (D-169)
 });
 
 // packages/content/keywords/ward.ts
@@ -790,7 +801,7 @@ export default defineKeyword({
 // packages/content/keywords/haunt.ts
 export default defineKeyword({
   id: 'haunt', name: 'Haunt', kind: 'keyword', icon: 'wisp', visual: 'ghost-wisps',
-  text: 'When destroyed, the monster that destroyed it loses 2 Power permanently.',
+  text: 'When destroyed, the monster that destroyed it loses {HAUNT_PENALTY} Power permanently.',  // D-172
   hooks: {
     onDestroyed: (ctx) => {
       if (ctx.evt.iid !== ctx.self || ctx.evt.by < 0) return;   // only its own destruction, only with a destroyer
@@ -842,7 +853,8 @@ The five legality-constraining keywords (Sentinel, Swift, Vain, Slow, Covetous) 
 
 ```ts
 // packages/engine/src/types/effects.ts
-export type Num = number | `$${string}` | `-$${string}`;   // literal or (negated) global ref (D-074)
+export type Num = number | `$${string}` | `-$${string}`;   // literal or (negated) global ref (D-074); resolved by
+                                                             // resolveNum: CONTENT_NUMBERS first, then core globals (D-171)
 export type Who = 'self' | 'opponent';                       // relative to the card's controller
 export type Duration =
   | 'permanent'                 // while on the board (D-043)
@@ -914,6 +926,8 @@ Semantics:
 - Engine-internal mechanics reuse the same primitives (Haunt → `modifyStats`, Echo → `returnToHand`, Unstable expiry → `destroy`).
 
 ### 9.2 Coverage: every launch spell and trap in the DSL
+
+These listings are a launch snapshot (D-166), and the JSON files are canonical. After the D-172 migration, each `text` holds placeholders instead of digits (e.g. Unmake: `"Destroy an enemy monster with Power {UNMAKE_MAX_POWER} or less."`) and renders to the strings shown here.
 
 `cards/player-spells.json`
 ```json
@@ -999,14 +1013,16 @@ All 17 launch spells/traps need zero code. Keyword-driven mechanics use the same
 | `elements.json` | `{ id, name, color, icon, beats: string[], identity }` ×5 — `beats` rows form the advantage matrix (Lumen and Umbra list each other) |
 | `kinds.json` | `{ id, name, profile, graftRole, silhouette }` ×5 |
 | `recipes.json` | `{ id, name, kinds: [k1, k2], power, guard }` ×15 (order-independent pair) |
-| `cards/player-monsters.json` | `{ id, type:"monster", name, element, kind, power, guard, keywords: string[] (≤1), text? }` ×25 |
+| `cards/player-monsters.json` | `{ id, type:"monster", name, element, kind, power, guard, keywords: string[] (≤ MAX_BASE_KEYWORDS, validator, D-173), text? }` ×25 at launch |
 | `cards/player-spells.json`, `player-traps.json` | §9.2 |
-| `cards/relics.json` | `{ id, type:"monster", name, element, kind, power, guard, keywords: string[] (≤1), flaw: string }` ×13 |
+| `cards/relics.json` | `{ id, type:"monster", name, element, kind, power, guard, keywords: string[] (≤ MAX_BASE_KEYWORDS), flaw: string }` ×13 at launch |
 | `cards/collector-spells.json`, `collector-traps.json` | §9.2 |
 | `collector.json` | `{ deck: string[20], ace, canGraft:false, ai: {…} (§13), dialogue: { composed[], agitated[], desperate[] } }` |
 | `objectives.json` | `{ id, text, requiresWin: true, metric, lte?|gte? (Num) }` |
 | `twists.json` | `{ id, text, isoWeek?: "YYYY-Www", modifiers: [{ where: Cond, power?, guard? }] }` |
-| `art-briefs.json` | `{ [cardOrFamilyId]: "mood · pose · palette" }` (D-110) |
+| `art-briefs.json` | `{ [cardOrFamilyId]: "mood · pose · palette" }` (D-110; missing/orphan = warning, D-174) |
+
+Counts (×25, ×13, …) are launch values, not constraints (D-166). Ids are permanent: a rename changes `name` only (D-175). Card, objective, twist and keyword `text` may use `{NAME}` / `{NAME|word|words}` placeholders (D-172).
 
 ### 10.2 zod schemas (excerpt)
 
@@ -1025,8 +1041,8 @@ export const Stat = z.int().min(0).max(20);
 export const PlayerMonster = z.object({
   id: Id, type: z.literal('monster'), name: z.string().min(1),
   element: Id, kind: Id, power: Stat, guard: Stat,
-  keywords: z.array(Id).max(1).default([]),
-  text: z.exactOptional(z.string()),
+  keywords: z.array(Id).default([]),          // count ≤ MAX_BASE_KEYWORDS is a validator rule (D-173)
+  text: z.exactOptional(z.string()),          // placeholders checked by the validator (D-172)
 }).strict();
 
 export const Relic = PlayerMonster.extend({ flaw: Id }).strict();
@@ -1072,7 +1088,8 @@ export const AI_REPOSITION = z.enum(['toAttackIfUsable', 'allAttack']);
 // tieBreak[] ∈ {leftmostSlot, cardId, instanceId}
 
 // globals.ts — GlobalsSchema: a strict object for every Globals key, proof `z.ZodType<Globals>`, plus the
-// "globals sanity" refinements of §10.3 (D-147)
+// "globals sanity" refinements of §10.3 (D-147). CONTENT_NUMBERS: z.record(/^[A-Z][A-Z0-9_]*$/, z.int()), no name
+// shared with a core key (D-171). Inert globals are pinned to their only supported value (D-170).
 
 // element.ts
 export const Element = z.object({
@@ -1104,28 +1121,79 @@ Parse errors come from zod 4 issues rendered by `load.ts › describeIssue` (D-1
 | unregistered keyword/Flaw | `cards/relics.json › reliquary-hound › keyword "hant" is not registered › use one of: echo, haunt, pierce, sentinel, swift, ward, or add packages/content/keywords/hant.ts` |
 | Flaw on a player card / keyword used as Flaw | `cards/player-monsters.json › halo-stag › Flaws appear only on Relics › remove "flaw"` |
 | Relic without exactly one Flaw | `cards/relics.json › stormglass-hydra › needs exactly 1 flaw, has 0 › add "flaw": "<id>"` |
-| base card with > 1 keyword | `cards/player-monsters.json › x › 2 keywords, max MAX_BASE_KEYWORDS=1 › remove one` |
-| stat budget (D-109) | `cards/player-monsters.json › kiln-whelp › budget 11 (P7+G3+1×kw) outside 8–10 › lower Power or Guard by 1` |
+| base card or Relic with > `MAX_BASE_KEYWORDS` keywords (validator, not zod; D-173) | `cards/player-monsters.json › x › 2 keywords, max MAX_BASE_KEYWORDS=1 › remove one` |
+| stat budget (D-109) — **warning** (D-167) | `warning: cards/player-monsters.json › kiln-whelp › budget 11 (P7+G3+1kw) outside 8–10 › lower Power or Guard by 1 if this is not intended` |
 | missing kind-pair recipe | `recipes.json › (construct, wisp) › no Chimera recipe for this kind pair › add {"kinds":["construct","wisp"], …}` |
 | duplicate kind-pair recipe | `recipes.json › packmaw-2 › pair (beast, beast) already defined by packmaw › delete one` |
 | element `beats` unknown / missing color or icon | `elements.json › umbra › beats unknown element "lumin" › use an id from elements.json` |
 | Collector deck ≠ 20 | `collector.json › deck › has 19 cards, needs COLLECTOR_DECK_SIZE=20 › add 1 card id` |
 | unknown deck reference / wrong pool | `collector.json › deck[4] › "halo-stag" is a player card › use a card from relics.json or collector-*.json` |
 | Covetous off the ace | `cards/relics.json › ashen-duchess › Covetous is ace-only › change flaw or set collector.json ace` |
-| unknown global ref in effect | `cards/player-spells.json › unmake › "$UNMAKE_MAX_POWR" not in globals.ts › did you mean $UNMAKE_MAX_POWER?` |
+| unknown global ref in effect (core globals and `CONTENT_NUMBERS`, D-171) | `cards/player-spells.json › unmake › "$UNMAKE_MAX_POWR" not in globals.ts › did you mean $UNMAKE_MAX_POWER?` |
+| unknown global ref in a keyword source (`'$NAME'`, `num('NAME')` literals, D-171) | `keywords/x.ts › x › "$FOO" not in globals.ts › did you mean $FOOD?` |
 | effect/target mismatch | `cards/player-spells.json › bloodlust › effect uses target "chosen" but card has no "target" › add a target spec`; the reverse: `… › has a "target" but no effect uses "chosen" › remove "target" or use "chosen" in an effect` (D-164) |
 | spell ref other than `chosen` (D-163) | `cards/player-spells.json › x › ref "attacker" is not available for spells › use "chosen" with a target spec` |
 | trap ref not available for trigger (§9.1 table, D-163) | `cards/player-traps.json › x › ref "grafted" is not available for trigger "enemyAttack" › use attacker or defender` |
 | `cancelAttack` outside an attack-trigger trap (D-163) | `cards/player-spells.json › x › "cancelAttack" only works in a trap with trigger enemyAttack or enemyDirectAttack › remove it or change the trigger` |
-| card text > one sentence | `cards/... › id › text has 2 sentences › shorten to one sentence` |
-| art brief missing / orphan | `art-briefs.json › gale-serpent › missing art brief › add a one-line "mood · pose · palette"` / `art-briefs.json › x › orphan brief, no card or Chimera family has this id › delete the entry` (D-164) |
+| card text > one sentence (checked on the rendered text) | `cards/... › id › text has 2 sentences › shorten to one sentence` |
+| malformed placeholder (cards, objectives, twists, keywords; D-172) | `cards/player-spells.json › unmake › text: malformed placeholder "{Unmake}" › write {NAME} or {NAME\|word\|words} with a global name in capitals` |
+| unknown placeholder | `cards/player-spells.json › unmake › text: unknown placeholder {UNMAKE_MAX_POWR} › did you mean {UNMAKE_MAX_POWER}?` (no close match: `› use a numeric name from globals.ts`) |
+| non-numeric placeholder | `cards/player-spells.json › x › text: {CONTENT_VERSION} is not a number in globals.ts › use a numeric global` |
+| bare number in text of a card/objective that references a global | `cards/player-spells.json › unmake › text: bare number "5" while the card uses $UNMAKE_MAX_POWER › write {UNMAKE_MAX_POWER} instead of 5` (several refs: `› write one of {GILT_POWER}, {GILT_GUARD} instead of 2`) |
+| bare number in keyword/Flaw text (any digit) | `keywords/haunt.ts › haunt › text: bare number "2" › write a {NAME} placeholder for the global the keyword uses` |
+| placeholder unused by the card — **warning** | `warning: cards/player-spells.json › siphon › text: {SIPHON_GAIN} is not used by this card's effects or conditions › check the name` |
+| art brief missing / orphan — **warnings** (D-174) | `warning: art-briefs.json › gale-serpent › missing art brief › add a one-line "mood · pose · palette"` / `warning: art-briefs.json › x › orphan brief, no card or Chimera family has this id › delete the entry` (D-164) |
+| pool can't fill the deck (D-170) | `cards/player-spells.json › pool › 2 spells × MAX_COPIES=2 can't fill DECK_SPELLS=5 › add 1 spell, or lower DECK_SPELLS or raise MAX_COPIES in globals.ts` |
+| Collector card the AI never plays — **warnings** (D-177) | `warning: collector.json › deck[n] › Collector spell "x" has no AI rule that casts it › add "x" to ai.params.castHighValueSpell with a pick, or make it draw-only` / `warning: collector.json › deck[n] › Collector trap "x" is not in ai.trapPreference › add it, or AI rule 4 never sets it` |
 | objective metric unknown | `objectives.json › win-fast › unknown metric "rounds" › use one of: grafts, playerLife, round, appraisedLost` |
 | keyword file problems | `keywords/haunt.ts › id "haunted" ≠ file name › rename the file or the id` / `keywords/index.gen.ts › stale › run pnpm content:gen` |
 | deckgen feasibility | `cards/player-monsters.json › pool › deck constraints unsatisfiable on 3 of 1000 test dates › relax DECK_MIN_KINDS or add monsters` |
 | globals sanity (`GlobalsSchema`, D-147) | `globals.ts › APPRAISAL_ROUNDS › round 13 > MAX_ROUNDS=12 › remove it`; also every `Range` has min ≤ max, and `WARD_CHARGES` must be 1 until the engine has a charge counter (D-133) |
+| inert global set to an unsupported value (D-170) | `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1` |
+| `CONTENT_NUMBERS` name clash (D-171) | `globals.ts › CONTENT_NUMBERS › UNMAKE_MAX_POWER is also a core global › keep one of them` |
 | delete-a-card reverse refs | `collector.json › deck[7] › "kiln-born-leviathan" no longer exists › remove the reference` |
 
-Pool-size expectations (25/6/4) are warnings, not errors, so content can grow: `cards/player-monsters.json › pool › has 24 monsters, expects POOL_MONSTERS=25 › add or remove monsters, or change POOL_MONSTERS in globals.ts` (D-164).
+**Warnings** never fail `content:check` or the build. They are printed first, prefixed `warning:`. The full list: stat budget (D-167), unused placeholder (D-172), art brief missing/orphan (D-174), and Collector card unplayable by the AI (D-177). The pool-size warning and the `POOL_*` globals are gone (D-170); the pool-capacity error replaces them.
+
+### 10.4 One change, one edit (D-166…D-177)
+
+After the D-166 switch, the content JSON and `globals.ts` are canonical for every value. DESIGN.md keeps the rules. `TARGET_*`, the proposal levers and the `collector.json › ai` rule lists are owner-only (D-166). The edits for common changes:
+
+| Change | Edit | What reacts |
+| --- | --- | --- |
+| Tune a number | its value in `globals.ts` (core or `CONTENT_NUMBERS`) | `content:check` (sanity), sim; card text re-renders |
+| Try a number without editing | `--set NAME=V` (sim), `?set=NAME=V` (web dev, D-176) | — |
+| New number for a new card | one line in `globals.ts › CONTENT_NUMBERS` (D-171) | `content:check` (refs, placeholders) |
+| Change a card's stats, keywords, effects, text | its JSON entry | `content:check` (budget is only a warning) |
+| Add or remove a card | its JSON entry (+ Collector deck entry for his cards) | `content:check` (refs, pool capacity, deckgen, art-brief warning) |
+| Rename a card | `name` only; the id is permanent (D-175) | — |
+| Change a Chimera family | its `recipes.json` entry | `content:check` |
+| Add a kind | `kinds.json` + one recipe per new pair | `content:check` lists each missing pair |
+| Add an element | `elements.json` (+ `beats` in others) | `content:check` |
+| Add a keyword | one `keywords/<id>.ts` + `pnpm content:gen` | `content:check`, its generated examples |
+
+Tests never pin live values or counts (D-168). Engine tests use fixture content and `TEST_GLOBALS`. Keyword examples declare their own cards (D-169). The only live-content test is "loads, validates, compiles and plays".
+
+### 10.5 CONTENT_GUIDE.md plan (D-178; docs-keeper)
+
+`docs/CONTENT_GUIDE.md` is written for a non-engineer. Each section gives the exact file, a copy-paste template, one worked example, the commands to run, and the `content:check` messages it can trigger, with fixes. Every worked example is backed by `packages/content/test/guide.test.ts`, which applies it to a temp copy (`loadContent(tmpRoot)`) and asserts the stated result. Examples set up what they need on the copy and never assume live values. Sections, in order (**P** = must exist before v0.1 playtesting):
+
+1. **P** Where things live: values in JSON/`globals.ts` vs rules in DESIGN.md (D-166), and which settings are owner-only.
+2. **P** The edit loop: edit → `pnpm content:check` → `pnpm sim:quick` → play it in `pnpm dev` (hot reload, D-176) → commit. Bump `CONTENT_VERSION` only for a new playtest build (D-179).
+3. **P** Reading `content:check` output: the line format `<file> › <entry> › [field:] problem › fix`, errors vs warnings vs "not yet checked", and a table of the most common messages (§10.3).
+4. **P** Change a monster or Relic: stats, keywords, Flaw, element, kind. Covers the budget warning, `MAX_BASE_KEYWORDS`, and the keyword and Flaw ids.
+5. **P** Add or remove a card: monster, spell, trap or Relic; for the Collector, his deck list, `COLLECTOR_DECK_SIZE` and the AI params (D-177); art briefs; what the validator lists after a delete; ids are permanent and a rename changes `name` (D-175).
+6. **P** Write card text: one sentence, `{NAME}` and `{NAME|card|cards}`, the bare-number rule, and how the text renders with overrides (D-172).
+7. **P** Tune a global: permanently (edit `globals.ts`) and temporarily (`--set` in the sim, `?set=` in the web dev build); add a card number to `CONTENT_NUMBERS` (D-171); flags; owner-only settings.
+8. Spells and traps in the DSL: ops, triggers, refs per trigger (§9.1), conditions and durations, with a template for each launch pattern.
+9. Chimera recipes: change a family's name or stats.
+10. Add a kind or an element, and the recipes and briefs that follow (the validator lists every missing kind pair; `beats` for advantage; color + icon).
+11. Add a keyword or Flaw: the `keywords/<id>.ts` template, `pnpm content:gen`, examples with `card` declarations (D-169), text placeholders, the one-shot replacement rule (D-133), the 32-keyword limit, and "justify it against the six" (KW-12).
+12. When a new effect needs engine work: how to tell (no op, trigger, ref, condition or duration fits), and the request template (card text, desired behaviour, the missing piece, an example board) sent to game-architect, who logs a D-entry and routes it to engine-dev.
+13. The Collector: deck, ace, dialogue, and why AI rule lists and moods are owner-only.
+14. Objectives and weekly twists.
+15. Art: briefs and dropping in paintings (`public/art/<id>.webp`).
+16. Checking balance: `sim:quick` / `sim:full`, reading the report against `TARGET_*`, and `--ab`.
 
 ---
 
@@ -1142,11 +1210,10 @@ export const DEFAULT_GLOBALS = deepFreeze({
   CONTENT_VERSION: '0.1.0', SEED_PREFIX: 'vault-duel',
   // Life & length
   PLAYER_LIFE: 20, COLLECTOR_LIFE: 25, MAX_ROUNDS: 12,
-  // Decks
-  PLAYER_DECK_SIZE: 24, COLLECTOR_DECK_SIZE: 20,
-  COLLECTOR_DECK_MONSTERS: 13, COLLECTOR_DECK_SPELLS: 4, COLLECTOR_DECK_TRAPS: 3,
+  // Decks (player deck size = DECK_MONSTERS + DECK_SPELLS + DECK_TRAPS, engine playerDeckSize(g); the pool is
+  // whatever the JSON holds — PLAYER_DECK_SIZE, COLLECTOR_DECK_MONSTERS/SPELLS/TRAPS and POOL_* removed, D-170)
+  COLLECTOR_DECK_SIZE: 20,
   DECK_MONSTERS: 15, DECK_SPELLS: 5, DECK_TRAPS: 4, MAX_COPIES: 2,
-  POOL_MONSTERS: 25, POOL_SPELLS: 6, POOL_TRAPS: 4,              // validator warnings only
   // Hand, draw, turn
   OPENING_HAND: 5, HAND_SIZE: 5, MAX_DRAW_PER_TURN: 2, REDRAWS: 1, OPENING_MIN_MONSTERS: 2,
   FIRST_ATTACK_ROUND_PLAYER: 2, PLAYS_PER_TURN: 1, REPOSITIONS_PER_TURN: 1, ATTACKS_PER_TURN: 1,
@@ -1162,21 +1229,13 @@ export const DEFAULT_GLOBALS = deepFreeze({
   UNSTABLE_BONUS: 3, UNSTABLE_EXPIRY_TURNS: 2,            // destroyed at end of turn + 2 ("your next turn")
   UNSTABLE_EXPIRY: 'endOfNextOwnTurn',                    // DESIGN; 'startOfOwnTurnAfterNext' = proposal M-02
   // Stat budget & text
-  STAT_BUDGET_MIN: 8, STAT_BUDGET_MAX: 10, KEYWORD_COST: 1, MAX_TEXT_SENTENCES: 1,
-  // Player spells & traps
-  UNMAKE_MAX_POWER: 5, BLOODLUST_POWER: 3, SCRYING_DRAW: 2, SIPHON_DRAIN: 3, SIPHON_GAIN: 3,
-  MIRROR_SIGIL_PENALTY: 3, LAST_RITES_DRAW: 1,
-  // Collector spells & traps
-  PROVENANCE_DRAW: 2, GILT_POWER: 2, GILT_GUARD: 2, FORFEIT_MAX_POWER: 4,
-  COUNTERFEIT_PENALTY: 3, INSURANCE_HEAL: 3,
+  STAT_BUDGET_MIN: 8, STAT_BUDGET_MAX: 10, KEYWORD_COST: 1, MAX_TEXT_SENTENCES: 1,   // budget miss = warning (D-167)
   // Durations (turn-index offsets)
   DURATION_NEXT_OWN_TURN: 2,
   // Appraisal
   APPRAISAL_ROUNDS: [3, 6, 9], APPRAISAL_MIN_POWER: 7,
   // Moods (Composed = above AGITATED_AT)
   MOOD_AGITATED_AT: 15, MOOD_DESPERATE_AT: 7,
-  // Collector AI numbers from DESIGN
-  AI_FACEDOWN_ATTACK_MIN_POWER: 7,
   // Deck generation
   DECK_MIN_ELEMENTS: 3, DECK_MIN_KINDS: 4,
   CURVE_LOW_MAX_POWER: 5, CURVE_LOW_MIN_COUNT: 4, CURVE_HIGH_MIN_POWER: 6, CURVE_HIGH_MIN_COUNT: 3,
@@ -1186,8 +1245,7 @@ export const DEFAULT_GLOBALS = deepFreeze({
   SEED_MAX_REROLLS: 20, BOT_NOISE_EPSILON: 0.10, DIFFICULTY_STAR_CUTS: [0.5667, 0.4333],
   // Daily loop
   RESET_HOUR_LOCAL: 0, OBJECTIVES_PER_DAY: 3, OBJECTIVE_STARS_MAX: 3,
-  OBJ_HIGH_LIFE: 15, OBJ_WIN_BY_ROUND: 8,
-  // Balance targets (sim report pass/fail)
+  // Balance targets (sim report pass/fail) — owner-only (D-166)
   TARGET_EXPERT_WINRATE: [0.45, 0.55], TARGET_NOVICE_WINRATE: [0.20, 0.30], TARGET_NOVICE_POINT: 0.25,
   TARGET_MEDIAN_ROUNDS: [9, 11], TARGET_TYPICAL_END_ROUNDS: [8, 12],
   TARGET_FULL_LENGTH_SHARE: [0.15, 0.30], TARGET_GRAFTS_PER_WIN: [1.5, 3],
@@ -1206,19 +1264,37 @@ export const DEFAULT_GLOBALS = deepFreeze({
     // Recall of Chimeras per D-046/D-068; false = M-12). Changed only for sim A/B until the owner adopts one.
     APPRAISED_ENTERS_GUARD: false, ACE_SET_ASIDE: false, CHIMERA_TO_HAND: true,
   },
+  // Content numbers (D-171): referenced only as "$NAME" from data or keyword effects, and as {NAME} in text.
+  // Open record: add a line here for a new card number. Names must not repeat a core key.
+  CONTENT_NUMBERS: {
+    // Player spells & traps
+    UNMAKE_MAX_POWER: 5, BLOODLUST_POWER: 3, SCRYING_DRAW: 2, SIPHON_DRAIN: 3, SIPHON_GAIN: 3,
+    MIRROR_SIGIL_PENALTY: 3, LAST_RITES_DRAW: 1,
+    // Collector spells & traps
+    PROVENANCE_DRAW: 2, GILT_POWER: 2, GILT_GUARD: 2, FORFEIT_MAX_POWER: 4,
+    COUNTERFEIT_PENALTY: 3, INSURANCE_HEAL: 3,
+    // Objectives
+    OBJ_HIGH_LIFE: 15, OBJ_WIN_BY_ROUND: 8,
+    // Collector AI params
+    AI_FACEDOWN_ATTACK_MIN_POWER: 7,
+  },
 } as const satisfies Globals);
 
 export function withOverrides(base: Globals, sets: readonly string[]): Globals; // "KEY=VALUE", "FLAGS.ASCEND=false",
-// "APPRAISAL_ROUNDS=[3,6]"; each VALUE is JSON-parsed (a bare word is a string); unknown keys are rejected; the merged
-// object is validated with GlobalsSchema (schemas/globals.ts, incl. sanity checks) and returned deep-frozen (D-147).
+// "APPRAISAL_ROUNDS=[3,6]", "UNMAKE_MAX_POWER=6" (routed to CONTENT_NUMBERS; "CONTENT_NUMBERS.UNMAKE_MAX_POWER=6" also
+// works, D-171); each VALUE is JSON-parsed (a bare word is a string); unknown keys are rejected (a --set never adds a
+// number); the merged object is validated with GlobalsSchema (schemas/globals.ts, incl. sanity checks) and returned
+// deep-frozen (D-147).
 // Card stat overrides ("card.kiln-whelp.power=6") live in sim/overrides.ts and are applied to raw content before compile.
 ```
 
-Where things live (D-147): `deepFreeze` is in `packages/engine/src/freeze.ts` and exported from the engine root. It is the engine's one order-insensitive key iteration, with a documented lint exception. `GlobalsSchema` is in `packages/content/src/schemas/globals.ts`. `DEFAULT_GLOBALS` and `withOverrides` are in `packages/content/src/globals.ts`, exported from the content root. The engine's test copy `packages/engine/test-utils/globals.ts › TEST_GLOBALS` must equal `DEFAULT_GLOBALS` except for its `CONTENT_VERSION` suffix `-fixture`, which a content test enforces (D-143).
+This listing is the launch snapshot. From the D-166 switch, `globals.ts` itself is canonical. Owner-only (a change needs an owner-approved D-entry): `TARGET_*`, the proposal levers (`FLAGS.APPRAISED_ENTERS_GUARD`, `FLAGS.ACE_SET_ASIDE`, `FLAGS.CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`, `SLOW_TURNS`) and `WARD_CHARGES`. Everything else is tuning (owner, or balance-analyst with a `BALANCE_LOG.md` entry).
 
-`Globals` is an engine-side interface (`packages/engine/src/types/globals.ts`, widened types of the object above), so the engine is typed against it without importing content. The widening (D-126) is: numbers → `number` and strings → `string`. Min/max pairs (`TARGET_*`) → `Range = readonly [number, number]`, with the sanity check `min ≤ max`. `DIFFICULTY_STAR_CUTS` → `StarCuts = readonly [number, number]` (descending cuts, not a range). `APPRAISAL_ROUNDS` → `readonly number[]`. `UNSTABLE_EXPIRY` → `'endOfNextOwnTurn' | 'startOfOwnTurnAfterNext'`. `FLAGS` → `Flags`: 13 booleans, DESIGN's 10 plus the 3 proposal levers. `NumericGlobal` (the keys whose type is `number`) is the set of names an effect `Num` ref (`"$NAME"`) may use (D-120). Globals and content are bound into the engine by `createEngine(compiled, globals, policies, options)`; a hash of both is stored in `state.cfg` and checked on replay.
+Where things live (D-147): `deepFreeze` is in `packages/engine/src/freeze.ts` and exported from the engine root. It is the engine's one order-insensitive key iteration, with a documented lint exception. `GlobalsSchema` is in `packages/content/src/schemas/globals.ts`. `DEFAULT_GLOBALS` and `withOverrides` are in `packages/content/src/globals.ts`, exported from the content root. The engine's `packages/engine/test-utils/globals.ts › TEST_GLOBALS` is an engine-owned **fixture**, deliberately independent of `DEFAULT_GLOBALS` (`CONTENT_VERSION: '0.0.0-fixture'`, its own `CONTENT_NUMBERS`). TypeScript checks its shape, and a content test checks that it passes `GlobalsSchema`. Nothing compares its values with the real globals (D-168, superseding D-143).
 
-DESIGN numbers that are content rather than globals (with reason, D-074): monster/Relic Power/Guard (card JSON), Chimera family stats (recipes.json), weekly-twist values (twists.json). All are overridable from the sim.
+`Globals` is an engine-side interface (`packages/engine/src/types/globals.ts`, widened types of the object above), so the engine is typed against it without importing content. The widening (D-126) is: numbers → `number` and strings → `string`. Min/max pairs (`TARGET_*`) → `Range = readonly [number, number]`, with the sanity check `min ≤ max`. `DIFFICULTY_STAR_CUTS` → `StarCuts = readonly [number, number]` (descending cuts, not a range). `APPRAISAL_ROUNDS` → `readonly number[]`. `UNSTABLE_EXPIRY` → `'endOfNextOwnTurn' | 'startOfOwnTurnAfterNext'`. `FLAGS` → `Flags`: 13 booleans, DESIGN's 10 plus the 3 proposal levers. `NumericGlobal` (the keys whose type is `number`) plus the keys of `CONTENT_NUMBERS` (`Readonly<Record<string, number>>`) are the names an effect `Num` ref (`"$NAME"`) or a text placeholder (`{NAME}`) may use (D-120, D-171, D-172). A number that TypeScript reads as a property is a core global, and adding one is an engine change. A number referenced only by name is a content number, and adding one is one line. Globals and content are bound into the engine by `createEngine(compiled, globals, policies, options)`; a hash of both is stored in `state.cfg` and checked on replay.
+
+DESIGN numbers that are content rather than globals (with reason, D-074): monster/Relic Power/Guard (card JSON), Chimera family stats (recipes.json), weekly-twist values (twists.json). All are overridable from the sim. After the D-166 switch, these files are canonical too.
 
 ---
 
@@ -1436,6 +1512,7 @@ sim seed   <YYYY-MM-DD>  [--set K=V]…        # prints the difficulty check, re
 - **Daily**: `daily/date.ts` (local date, `?date=` override), `difficulty.worker.ts` runs `prepareDay` (D-099), `session.ts` persists `{seedString, k, contentVersion, actions}` after every action and resumes by replay (D-108).
 - **Persistence**: localStorage wrapped in try/catch; Binder (signature cards + families), stats, streaks (D-106).
 - **Share**: `meta/share.ts` builds one emoji per round from `state.track.round` (priority D-101) plus rounds used vs par.
+- **Content in the browser** (D-176): the app imports `RAW_CONTENT` from the browser-safe content root (never the `./node` export), runs `parseContent` → `validateContent` → `compileContent` at startup, and renders card and keyword text with `renderText(template, g)` (D-172). In the dev build, a content error replaces the app with the §10.3 lines. Saving a JSON, `globals.ts` or keyword file hot-reloads content and restarts the duel ("content changed, duel restarted"; the replay fails `state.cfg`, no loss, D-108). Can wait: `?set=KEY=VALUE` (repeatable) in dev builds applies `withOverrides`, and the overrides are shown in the debug overlay.
 - **PWA**: `vite-plugin-pwa`, offline cache, portrait manifest. `FLAGS.DEBUG_OVERLAY` shows state, legal actions, the Collector's chosen rule, and the seed.
 
 ---
@@ -1444,11 +1521,27 @@ sim seed   <YYYY-MM-DD>  [--set K=V]…        # prints the difficulty check, re
 
 **Layers**: unit tests per engine module; scenario tests written in the board DSL; auto-generated keyword tests from each `KeywordDef.examples`; fast-check properties; golden replays; content validator tests; `bench`.
 
+**What each layer may depend on (D-168, D-169).** No test pins a live content value or count.
+
+| Layer | Content | Globals | Lives in |
+| --- | --- | --- | --- |
+| Engine unit, scenario, property tests, golden replays | fixture `fx-` content (`test-utils/fixture.ts`) + DSL `card` declarations | `TEST_GLOBALS` (engine-owned fixture); properties also under `ALT_GLOBALS` | `packages/engine` |
+| Keyword examples; scenarios that need the real keyword files | `scenarioContent(declared)`: live elements, kinds, recipes and `KEYWORDS` + **only** the declared cards | `TEST_GLOBALS` | `packages/content/src/keyword-examples.test.ts`, `packages/content/test/scenarios/` |
+| Validator tests | synthetic inputs | as needed | `packages/content` |
+| Live-content test (the only one) | live JSON | `DEFAULT_GLOBALS` with `FLAGS.INTENTS=false` | `packages/content`: loads, validates with 0 errors, compiles, and 20 fixed-seed random legal walks end without `EngineError` |
+| Balance | live JSON | `DEFAULT_GLOBALS` + `--set` | `packages/sim` reports vs `TARGET_*` |
+
+`ALT_GLOBALS = withGlobals({ … })` changes board, hand, draw, round, Appraisal-round, life and bonus values (engine-dev picks values that keep the fixture setup feasible), so a hard-coded constant fails the property suite. Engine tests derive incidental numbers from `g`. Golden replays with stored hashes use fixture content only. A live-content replay asserts only that it reproduces its own run's hash. Still pinned: the RNG known-answer vectors, the rule levers (`globals.test.ts`, D-168), and the `GlobalsSchema` refinements.
+
 **Properties (fast-check)**: random seeds × random legal-action walks: (1) every action from `getLegalActions` applies without throwing; (2) card conservation (§4); (3) board ≤ BOARD_SLOTS, traps ≤ TRAP_SLOTS, hand/deck/discard sizes consistent with conservation; (4) `replay(seed, toActions(s))` hashes equal to `s`; (5) the game ends within 2×MAX_ROUNDS turns; (6) Collector view invariance under hidden-info changes; (7) `isLegal` agrees with `getLegalActions` membership.
 
-**Board-state DSL** (`packages/engine/test-utils/board-dsl.ts`): a line-based text format parsed into a valid `GameState` (unspecified zones get filler cards so conservation holds).
+**Board-state DSL** (`packages/engine/test-utils/board-dsl.ts`): a line-based text format parsed into a valid `GameState` (unspecified zones get filler cards so conservation holds). `parseScenario(text)` is pure and returns the declared cards separately from setup, actions and expectations, so each package builds the content itself: engine tests use `buildContent(FX_SPEC + declared)`, and content tests use `scenarioContent(declared)` (D-169). The card ids in the example below only illustrate the syntax: real scenarios use `fx-` or declared cards, never live card ids.
 
 ```
+# cards (D-169): declared for this scenario only; a collision with a content id is a parse error
+card raider P gale beast 5/3          # card <id> <P|C> <element> <kind> <power>/<guard> [kw,kw…]
+card hound  C umbra beast 6/4 haunt,vain   # C = Collector pool (Relic); Flaws go in the keyword list
+
 # setup
 turn 6                       # turn index (round 4, player). Or: round 4 collector
 step main                    # main | attack (default main)
@@ -1512,7 +1605,11 @@ Budget: a duel ≈ 24 turns × ~6–8 actions ≈ 150–200 actions incl. AI dec
 - [ ] No array or record read from `tx.state` is held across a later write; targets are collected first (§4.1, D-128).
 - [ ] Hook-visible combat data is read-only; `beforeCombat` only raises on-only flags (D-124).
 - [ ] Legality changes only in `legal.ts`/query hooks; UI/AI/bots never re-implement legality.
-- [ ] New keyword = one file + icon + examples; new card = JSON only.
+- [ ] New keyword = one file + icon + examples; new card = JSON only; new card number = one `CONTENT_NUMBERS` line (D-171).
+- [ ] Engine logic never assumes a specific global value; tests derive incidental numbers from `g` and pass under `ALT_GLOBALS` (D-168).
+- [ ] No test asserts a live content value, a live count or a `DEFAULT_GLOBALS` value (except the rule levers); scenarios and keyword examples use fixture or declared cards under `TEST_GLOBALS` (D-168, D-169).
+- [ ] Numbers in card, objective and keyword text are `{NAME}` placeholders (D-172); a global that the code doesn't read is pinned in `GlobalsSchema` (D-170).
+- [ ] `packages/content/src` stays browser-safe outside `load.ts`/`keyword-files.ts` (D-176).
 - [ ] No card, keyword or Flaw id literals in `packages/engine/src`: find mechanics by hook (Ward → `beforeDestroy`) or by compiled content (`c.collector.ace`) (D-162).
 - [ ] Property tests and the bench pass.
 
@@ -1520,7 +1617,7 @@ Budget: a duel ≈ 24 turns × ~6–8 actions ≈ 150–200 actions incl. AI dec
 
 ## 20. Traceability: DESIGN.md → implementation
 
-Engine paths are under `packages/engine/src/`, content under `packages/content/`, AI under `packages/ai/src/`, sim under `packages/sim/src/`, web under `apps/web/src/`.
+Engine paths are under `packages/engine/src/`, content under `packages/content/`, AI under `packages/ai/src/`, sim under `packages/sim/src/`, web under `apps/web/src/`. Rows that cite a DESIGN value table (PP-3, CO-2, GR-11, …) map the rule to the file that now **owns** the value. After the D-166 switch the file is canonical, and the DESIGN table is the launch baseline.
 
 ### Overview and pillars
 
@@ -1546,7 +1643,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 
 | # | Rule | Implemented in | Decisions |
 | --- | --- | --- | --- |
-| CR-1 | Player 20 life / 24 cards; Collector 25 life / 20 cards | `globals`, `setup/initial-state.ts`, validator | — |
+| CR-1 | Player 20 life / 24 cards; Collector 25 life / 20 cards | `globals` (deck size = `playerDeckSize(g)`, sum of `DECK_*`), `setup/initial-state.ts`, validator (`COLLECTOR_DECK_SIZE`) | D-170 |
 | CR-2 | Win by reducing him to 0 before round 12 ends | `pipeline.ts › checkWin`, `turn.ts › endTurn` | D-017, D-018, D-151 |
 | SU-1 | Both decks shuffled from daily seed | `setup/shuffle.ts` | D-002 |
 | SU-2 | Player sees full 24-card list and difficulty | web `screens/Home.tsx`, `components/DeckList.tsx`, `ai/difficulty.ts` | D-006, D-098 |
@@ -1590,7 +1687,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | # | Rule | Implemented in | Decisions |
 | --- | --- | --- | --- |
 | KW-1 | 6 keywords, 5 Flaws at launch | `keywords/*.ts` | D-111 |
-| KW-2 | Base cards ≤ 1 keyword | validator, `schemas/card.ts` | — |
+| KW-2 | Base cards ≤ 1 keyword | validator (`MAX_BASE_KEYWORDS`) | D-173 |
 | KW-3 | Chimeras inherit up to 2 | `graft.ts`, `globals.MAX_INHERITED_KEYWORDS` | D-059 |
 | KW-4 | Keyword shown as visual frame/effect | `KeywordDef.visual`, web `KeywordFrame.tsx` | — |
 | KW-5 | Swift | `keywords/swift.ts` (`attackPermission`) | D-041, D-042 |
@@ -1605,7 +1702,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | FL-4 | Brittle | `keywords/brittle.ts` (`beforeCombat`), `combat.ts` | D-049, D-050 |
 | FL-5 | Tethered | `keywords/tethered.ts` (`staticPower`) | D-051 |
 | FL-6 | Covetous (ace only) | `keywords/covetous.ts` (`summonRequirement`), `summon.ts`, validator | D-054, D-055, D-114 |
-| KW-11 | Card text ≤ one sentence | validator | D-113 |
+| KW-11 | Card text ≤ one sentence | validator (on rendered text); numbers via `{NAME}` placeholders, `content/src/text.ts` | D-113, D-172 |
 | KW-12 | New keyword must justify itself vs the six | process: `docs/CONTENT_GUIDE.md` checklist | — |
 
 ### Graft system
@@ -1622,7 +1719,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | GR-8 | Preview before confirming | `graft.ts › previewGraft`, web `GraftPreview.tsx` | D-064 |
 | GR-9 | First-time result added to the Binder | `track.families`, web `persistence/binder.ts` | D-066 |
 | GR-10 | 15 families, order-independent; one painting per family, element changes frame/glow | `recipes.json`, validator, web `art/placeholder.ts` | — |
-| GR-11 | Family stat table | `recipes.json` | — |
+| GR-11 | Family stat table | `recipes.json` (canonical after the switch) | D-166 |
 | GR-12 | Every pair can graft | validator (missing kind-pair recipe) | — |
 | GR-13 | Most Chimeras 7+ → Appraisal targets | emergent; sim report (Appraisal targets by source) | D-076 |
 
@@ -1630,23 +1727,23 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 
 | # | Rule | Implemented in | Decisions |
 | --- | --- | --- | --- |
-| PP-1 | Pool: 25 monsters, 6 spells, 4 traps | `cards/player-*.json`, validator warnings | — |
+| PP-1 | Pool: 25 monsters, 6 spells, 4 traps | `cards/player-*.json` (the pool is whatever they hold), validator pool-capacity error | D-166, D-170 |
 | PP-2 | Daily deck 15/5/4, duplicates ≤ 2 | `setup/deckgen.ts` | D-005 |
-| PP-3 | Monster table (25 entries) | `cards/player-monsters.json` | — |
-| PP-4 | Stats are placeholders for the sim to tune | `--set card.<id>.power` in `sim/overrides.ts` | D-074 |
-| PP-5 | Stat budget P+G 8–10, keyword ≈ 1 | validator | D-109 |
+| PP-3 | Monster table (25 entries) | `cards/player-monsters.json` (canonical after the switch) | D-166 |
+| PP-4 | Stats are placeholders for the sim to tune | `--set card.<id>.power` in `sim/overrides.ts`; edits in JSON are canonical | D-074, D-166 |
+| PP-5 | Stat budget P+G 8–10, keyword ≈ 1 | validator **warning** | D-109, D-167 |
 | PP-6 | Spells cast as the one play, resolve immediately | `legal.ts`, `effects/run.ts` | D-067 |
 | PP-7 | Unmake, Bloodlust, Grave Recall, Scrying Bones, Shroud, Siphon | `cards/player-spells.json` (§9.2), `effects/run.ts`, `effects/targets.ts` | D-067…D-070, D-136, D-140 |
 | PP-8 | Traps set face-down as the play; trigger automatically, then discard | `summon.ts › setTrap`, `traps.ts`, `hooks/dispatch.ts` | D-071, D-072, D-122 |
 | PP-9 | Snare, Mirror Sigil, Last Rites, Thornwall | `cards/player-traps.json` (§9.2) | D-036, D-073 |
-| PP-10 | One-line art brief per card | `art-briefs.json`, validator | D-110 |
+| PP-10 | One-line art brief per card | `art-briefs.json`, validator warnings | D-110, D-174 |
 
 ### The Collector
 
 | # | Rule | Implemented in | Decisions |
 | --- | --- | --- | --- |
 | CO-1 | Fixed 20-card Relic deck; never grafts; each Relic has one Flaw | `collector.json`, `legal.ts` (`canGraft`), validator | D-026, D-114 |
-| CO-2 | 13 Relic monsters table | `cards/relics.json` | — |
+| CO-2 | 13 Relic monsters table | `cards/relics.json` (canonical after the switch); AI coverage warnings for deck cards | D-166, D-177 |
 | CO-3 | Spells: Provenance Ledger, Restoration, Gilt Frame, Forfeit | `cards/collector-spells.json` (§9.2) | D-067…D-069, D-136, D-144 |
 | CO-4 | Traps: Display Case, Counterfeit, Insurance Claim | `cards/collector-traps.json` (§9.2) | D-065, D-073, D-139 |
 | AP-1 | Appraisal at start of his turns in rounds 3, 6, 9 | `turn.ts › startTurn`, `appraisal.ts`, `FLAGS.APPRAISAL` | D-016, D-075 |
@@ -1707,7 +1804,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | BT-6 | 30–60% Appraisals succeed | `state.appraisal`, `sim/report.ts` | D-079 |
 | BT-7 | Unpriced appears in 20–40% | `track.unpriced`, `sim/report.ts` | — |
 | BT-8 | < 15% seeds rejected | `sim/difficulty-batch.ts` | — |
-| GL-1 | Every number is a global in one file | `content/src/globals.ts`, `content/src/schemas/globals.ts`, `engine/src/types/globals.ts` | D-074, D-126, D-143, D-147 |
+| GL-1 | Every number is a global in one file | `content/src/globals.ts` (core globals + `CONTENT_NUMBERS`), `content/src/schemas/globals.ts`, `engine/src/types/globals.ts`; canonical after the switch; no derived or inert globals | D-074, D-126, D-147, D-166, D-168, D-170, D-171 |
 | GL-2 | Feature flags (10) | `globals.FLAGS` | — |
 
 ### Technical architecture and content pipeline
@@ -1726,13 +1823,14 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | CP-1 | JSON validated by zod at build and in `content:check` | `content/src/schemas/*`, `content/src/load.ts`, `scripts/content-check.ts`, `build` script | D-145, D-146 |
 | CP-2 | Effect primitives with targets, conditions, durations | `types/effects.ts`, `effects/*` | D-074, D-120, D-129 |
 | CP-3 | New keyword/Flaw = one `defineKeyword` file, auto-registered | `hooks/define.ts` (type in `types/hooks.ts`), `scripts/gen-keyword-index.ts` | D-111, D-123 |
-| CP-4 | Validator fails on unknown refs, missing recipes, budget, duplicate ids, Collector deck ≠ 20 | `content/src/validate.ts` (§10.3) | D-109 |
-| CP-5 | Placeholder art from data until a painting with the card id exists | web `art/placeholder.ts` | — |
-| CG-1 | Add/change/delete card → JSON → `content:check` → `sim:quick` | scripts, validator reverse refs | — |
-| CG-2 | Add keyword → one file + icon → tests auto-generated from examples | `KeywordDef.examples`, `engine/test/keyword-examples.test.ts` | — |
+| CP-4 | Validator fails on unknown refs, missing recipes, budget, duplicate ids, Collector deck ≠ 20 | `content/src/validate.ts` (§10.3); budget is a warning by owner ruling | D-109, D-167 |
+| CP-5 | Placeholder art from data until a painting with the card id exists | web `art/placeholder.ts` | D-175 (ids permanent) |
+| CG-1 | Add/change/delete card → JSON → `content:check` → `sim:quick` | scripts, validator reverse refs; one edit per change (§10.4); web hot reload | D-168, D-174, D-175, D-176 |
+| CG-2 | Add keyword → one file + icon → tests auto-generated from examples | `KeywordDef.examples` (declared cards), `content/src/keyword-examples.test.ts` | D-169 |
 | CG-3 | Add element → elements.json + matrix row/column | `elements.json`, validator | — |
 | CG-4 | Add kind → validator lists every new pair needing a recipe | validator | — |
-| CG-5 | Tune a number → globals; toggle mechanic → flag | `globals.ts` | — |
+| CG-5 | Tune a number → globals; toggle mechanic → flag | `globals.ts` (core or `CONTENT_NUMBERS`); text re-renders via placeholders | D-171, D-172 |
+| CG-6 | DESIGN.md › "How to change content" summary of CONTENT_GUIDE.md | `docs/CONTENT_GUIDE.md` (plan §10.5), `content/test/guide.test.ts` | D-178 |
 
 ### v0.1 scope, roadmap and open questions
 
@@ -1746,7 +1844,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | SC-6 | Practice mode | web | D-105 |
 | SC-7 | Placeholder art from data | web `art/placeholder.ts` | — |
 | SC-8 | Simulator CLI + balance report meeting targets | `packages/sim` (incl. `--ab` for DECISIONS §M proposals) | D-115, M-01…M-16 |
-| SC-9 | CONTENT_GUIDE.md + validator | `docs/CONTENT_GUIDE.md` (Phase 1), `validate.ts` | — |
+| SC-9 | CONTENT_GUIDE.md + validator | `docs/CONTENT_GUIDE.md` (Phase 1, plan §10.5), `validate.ts` | D-178 |
 | NS-1 | Not in v0.1: accounts, leaderboards, server verification, sound, painted art, native builds, monetization, weekly twists | not implemented; seams: `replay.ts` hash (server verification), `FLAGS.WEEKLY_TWIST` off, art lookup by id | — |
 | RM-1 | Roadmap v0.2–v1.0 | not in scope; engine stays server-ready (pure, replayable) | — |
 | OQ-1 | Final name / trademark | not code | — |

@@ -1,6 +1,6 @@
 # Vault Duel — Decisions Log
 
-Owner: game-architect. Source of truth for rules is `docs/DESIGN.md` (v0.1, Oct 13 2026). This file records every place where DESIGN.md is ambiguous, silent, or internally inconsistent, and the interpretation the engine implements. Rule of thumb: **pick the simplest interpretation that keeps the written rule true**. Nothing here changes a DESIGN.md rule; where a rule looks wrong, the entry is marked **PROPOSAL — needs owner review** and the design rule is still implemented as written.
+Owner: game-architect. Source of truth for rules is `docs/DESIGN.md` (v0.1, Oct 13 2026). Source of truth for content values (stats, keywords on cards, card list, effects, text, recipes, globals) is the content JSON and `globals.ts` from the D-166 switch onward; DESIGN.md's value tables are then launch values. This file records every place where DESIGN.md is ambiguous, silent, or internally inconsistent, and the interpretation the engine implements. Rule of thumb: **pick the simplest interpretation that keeps the written rule true**. Nothing here changes a DESIGN.md rule; where a rule looks wrong, the entry is marked **PROPOSAL — needs owner review** and the design rule is still implemented as written.
 
 Entry format: `D-NNN · title` — Date · Question · Decision · Reason. Entries that extend DESIGN.md beyond pure interpretation are tagged **[EXTENDS]**; entries the owner should look at are tagged **[REVIEW]**.
 
@@ -736,12 +736,14 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Question: "Power + Guard = 8–10; a keyword costs about 1 point". Four launch cards have Power + Guard = 7 (Pyre Wisp, Whispering Draft, Votive Spirit, Veil Shade), all with a keyword.
 - Decision: Validator rule: `Power + Guard + KEYWORD_COST × keywordCount ∈ [STAT_BUDGET_MIN, STAT_BUDGET_MAX]` for player base monsters (`KEYWORD_COST = 1`). All 25 launch monsters pass (range 8–10). Relics and Chimeras are exempt (Relics are "stronger than your base cards").
 - Reason: literal P+G would fail four designed cards; including the keyword cost is the doc's own qualifier.
+- Amended by D-167 (owner, 2026-10-14): a miss is a warning, not an error.
 
 **D-110 · Art briefs location**
 - Date: 2026-10-14
 - Question: DESIGN says each card's art brief is "in its data file"; the Phase-0 brief lists `art-briefs.json`.
 - Decision: `packages/content/art-briefs.json` maps every card id and Chimera family id to a one-line brief; the validator requires an entry for each and rejects orphans.
 - Reason: lets the artist work from one file; the validator keeps it in sync with cards. (Minor deviation from DESIGN wording — owner may prefer inline.)
+- Amended by D-174: a missing or orphan brief is a warning, not an error.
 
 **D-111 · Keyword auto-registration**
 - Date: 2026-10-14
@@ -978,6 +980,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Question: `packages/engine/test-utils/globals.ts` copies the §11 values so engine tests needn't import content (which would break the dependency direction). The copy can drift.
 - Decision: Keep the copy and guard it from the content side, which may import engine. The engine package exports its test utilities as a subpath (`"./test-utils/*": "./test-utils/*.ts"`), which §2 already intends for the board DSL. `packages/content/src/test-globals.test.ts` asserts that `{ ...TEST_GLOBALS, CONTENT_VERSION: DEFAULT_GLOBALS.CONTENT_VERSION }` deep-equals `DEFAULT_GLOBALS`, FLAGS included, and that `TEST_GLOBALS.CONTENT_VERSION === DEFAULT_GLOBALS.CONTENT_VERSION + '-fixture'`. `pnpm test` runs both packages, so any drift fails CI.
 - Reason: this is the smallest guard that keeps `engine ← content`. The deliberate `-fixture` suffix stays visible, so fixture state hashes can never be mistaken for real ones.
+- Superseded by D-168: `TEST_GLOBALS` is an engine-owned fixture, independent of `DEFAULT_GLOBALS`; the content side checks only that it passes `GlobalsSchema`.
 
 **D-144 · Forfeit's "your monsters" are the player's**
 - Date: 2026-10-14
@@ -1160,12 +1163,180 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   
   The deck-entry "no longer exists" message already matches §10.3's delete-a-card example.
 - Reason: the messages follow the `<problem> › <how to fix>` pattern, and each says what to do.
+- Amended by D-170: the pool-size warning and the `POOL_*` globals are removed and replaced by the pool-capacity error.
 
 **D-165 · `formatError` omits an empty field**
 - Date: 2026-10-14
 - Question: content-author changed `load.ts › formatError` to drop the `field:` part when a problem concerns the whole entry (`field === ''`), to match the §10.3 examples. `load.ts` was outside the files the task allowed.
 - Decision: Confirmed, and the change stays. The line format is `<file> › <entry> › [<field>: ]<problem> › <how to fix>`; the field is omitted for whole-entry problems. §10.3 and D-146's format line are read this way. Edits outside the assigned files must be listed in the hand-off, which this one was.
 - Reason: without the change, every cross-file message would carry a stray `: `. The change is one line, and it makes the code match the documented examples.
+
+**D-166 · After v0.1 the content JSON and globals are the source of truth for every value (owner ruling, 2026-10-14)**
+- Date: 2026-10-14
+- Question: v0.1 exists for playtesting, and many card, effect and tuning changes will follow. Until now every value was checked against DESIGN.md: content-author transcribes it, tests pin it, and the main session compares 172 fields. Which document is authoritative for values after v0.1, and when does that switch?
+- Decision (owner ruling):
+  - **Switch point.** The switch happens at the commit that lands content M3, once the main session's verification passes: `tsc -b`, `eslint`, `content:check`, `vitest run` from the root, and one final DESIGN-vs-JSON comparison (172 fields, 0 mismatches). The launch transcription has then been verified field by field, so the JSON starts out equal to DESIGN.md. The commit message says "D-166 switch". After it, nobody runs the DESIGN-vs-JSON comparison again.
+  - **Canonical in data from then on:** every value in `packages/content/src/globals.ts` (numbers, ranges, flag defaults); the card list; every card field (name, element, kind, Power/Guard, keywords, Flaw, text, effects, targets, conditions); recipes (family names and stats); elements (list, `beats`, colors, icons); kinds; the Collector deck list and ace; objectives; twists; dialogue; art briefs.
+  - **DESIGN.md keeps the rules and mechanics:** turn structure, the combat table, what each keyword and Flaw does, Graft/Ascend/Unstable, Appraisal, the AI priority lists and mood behaviours, the daily loop, which deck-generation constraints exist, and the balance targets as goals.
+  - **DESIGN.md's value tables become "launch values".** They are kept, not deleted, because they are the baseline that the paper-sim, the M-proposals and every later sim A/B compare against. The owner (agents never edit DESIGN.md) adds one line above each value block: *"Launch values (v0.1). The live values are in packages/content (see CONTENT_GUIDE.md); this table is not updated."* The blocks are: the pool sizes (L147), the monster table (L151–157), the stat budget (L159), the spell and trap tables (L163–179), the Chimera family table (L125–141), the Relic table and the Collector spells/traps (L189–207), and the globals block (L285–298).
+  - **Owner-only settings.** These live in data, but changing one is a rule or goal change, so it needs an owner-approved D-entry: the `TARGET_*` balance targets; the proposal levers (`FLAGS.APPRAISED_ENTERS_GUARD`, `FLAGS.ACE_SET_ASIDE`, `FLAGS.CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`, `SLOW_TURNS`), which stay at DESIGN-as-written until an M-proposal is adopted; the rule lists, mood overrides and string params in `collector.json › ai` (they encode D-081…D-093); and `WARD_CHARGES` (an engine limit, D-133). The owner may change anything else directly, and balance-analyst may change it with an entry in `docs/BALANCE_LOG.md`.
+  - **Review.** Agents and reviewers stop checking content values against DESIGN.md. A value change is reviewed for a clean `content:check`, green tests, and a `sim:quick` run when it affects balance. Rule fidelity is still checked against DESIGN.md and this log.
+  - Values quoted in older entries (D-109's "all 25 pass", D-152's example cards) and in ARCHITECTURE examples (§9.2, §11) describe launch content. The files win.
+- Reason: the owner expects many changes and doesn't want to lose track of them. One authoritative place per value, which the tooling already validates, is simpler than keeping a prose copy in sync. Keeping the launch tables as a frozen baseline costs nothing and preserves the history.
+
+**D-167 · A monster outside the stat budget is a warning (owner ruling, 2026-10-14)** (amends D-109)
+- Date: 2026-10-14
+- Question: D-109 makes the stat budget a `content:check` error. During playtesting the owner will deliberately try off-budget cards.
+- Decision (owner ruling): the D-109 formula is unchanged (`Power + Guard + KEYWORD_COST × keywords ∈ [STAT_BUDGET_MIN, STAT_BUDGET_MAX]`, player base monsters only), but a miss is a **warning** and never fails `content:check` or the build: `warning: cards/player-monsters.json › kiln-whelp › budget 11 (P7+G3+1kw) outside 8–10 › lower Power or Guard by 1 if this is not intended`. This supersedes DESIGN.md's "the validator fails the build on … stats outside the budget" (Technical architecture › Content pipeline, L335). The owner updates that line; agents don't.
+- Reason: the budget is a design guide, not a rule of play, so it should flag outliers rather than block experiments.
+
+**D-168 · Tests check rules on fixtures; `content:check` checks live content; no test pins a live value** (changed; revises D-143)
+- Date: 2026-10-14
+- Question: Changing one balance number takes three edits. `content/src/globals.test.ts` pins `DEFAULT_GLOBALS` to the DESIGN numbers, `test-globals.test.ts` (D-143) forces `TEST_GLOBALS` to deep-equal `DEFAULT_GLOBALS`, and `content.test.ts` pins the entity counts (25/6/4/13/4/3/20/4/0). Adding or removing a card also breaks tests.
+- Decision: three layers, and each owns one kind of truth:
+  1. **Engine tests check rules on fixtures.** They use `test-utils/fixture.ts` (`fx-` content) and `TEST_GLOBALS`, which the engine now owns and which is deliberately independent of `DEFAULT_GLOBALS`. Its `CONTENT_VERSION` is the constant `'0.0.0-fixture'`. Engine logic must not depend on particular values. Where a number is incidental, a test derives its expectation from `g` (for example `life - g.HAUNT_PENALTY`). The fast-check walk (§17 properties 1–5) also runs under a second fixture set, `ALT_GLOBALS = withGlobals({ … })`, with different board, hand, draw, round, Appraisal-round, life and bonus values chosen by engine-dev to keep the fixture setup feasible. That catches hard-coded constants.
+  2. **Content tests check validator behaviour on synthetic inputs** (as `validate.test.ts` already does), plus exactly **one live-content test**: the live content loads, validates with zero errors, compiles, and a smoke run finishes. The smoke run is 20 fixed seeds, each a uniformly random legal-action walk for both sides under `withOverrides(DEFAULT_GLOBALS, ['FLAGS.INTENTS=false'])`, and it must end with no `EngineError`. It asserts nothing about counts or values.
+  3. **The sim checks live balance** against `TARGET_*`.
+
+  Concrete changes:
+  - `globals.test.ts`: delete the value pins. Keep two tests. (a) `GlobalsSchema.safeParse(DEFAULT_GLOBALS).success`. (b) The **rule-lever pin**: `FLAGS.APPRAISED_ENTERS_GUARD === false`, `FLAGS.ACE_SET_ASIDE === false`, `FLAGS.CHIMERA_TO_HAND === true`, `UNSTABLE_EXPIRY === 'endOfNextOwnTurn'`, `SLOW_TURNS === 1`, with a comment saying these are owner-only rule levers (D-166) and change together with the D-entry that adopts an M-proposal.
+  - `test-globals.test.ts`: replace the deep-equal and the version-suffix check with `GlobalsSchema.safeParse(TEST_GLOBALS).success`. TypeScript (`TEST_GLOBALS: Globals`) already enforces the shape, and the schema adds the sanity rules.
+  - `content.test.ts`: delete the "entity counts" block, and delete the id, art-brief and Collector-deck checks that duplicate validator rules. Keep "parses and validates with zero errors". Add the compile + smoke test once engine M4's `newGame`/`applyAction`/`getLegalActions` exist.
+  - **Structural invariants live in `content:check`, not in tests:** one recipe per unordered kind pair; a Collector deck of `COLLECTOR_DECK_SIZE` that contains the ace; pools big enough for the deck (D-170); deckgen feasibility on 1,000 dates; unique ids; resolving refs.
+  - **Still pinned, and why:** the cyrb128/sfc32 known-answer vectors (the determinism contract: changing them changes every seed); the rule levers above (they encode DESIGN rules, not tuning); `WARD_CHARGES = 1` and the other inert-global refinements (D-170), which are engine limits; fixture expectations in engine tests (independent of live values by construction); golden replays, which run **only** on fixture content plus `TEST_GLOBALS` (a live-content replay asserts only that a replay reproduces its own run's hash, never a stored hash); and `COLLECTOR_DECK_SIZE` (DESIGN's validator rule; resizing the Collector deck is deliberately two edits, with a clear error).
+- Reason: tuning a value or adding a card should be one edit, with only `content:check` and the structural tests reacting. A test that compares a value with a copy of itself verifies nothing, and every copy is one more edit. Varying the fixture globals shows that the engine reads its globals, which is what D-074 actually requires.
+
+**D-169 · Scenarios and keyword examples declare their own cards and run under `TEST_GLOBALS`**
+- Date: 2026-10-14
+- Question: §8.4's example keyword tests use live cards (`stormcrow`, `halo-stag`, `brazier-golem`) and, implicitly, live values. Moving Sentinel to another card or retuning a stat would break the Sentinel example, so value pins come back through the tests.
+- Decision:
+  - The board DSL (§17) gets a declaration line: `card <id> <P|C> <element> <kind> <power>/<guard> [<kw>[,<kw>…]]`. It declares a monster for that scenario only. `P` is the player pool. `C` is the Collector pool (a Relic; its Flaw goes in the keyword list). A declared id that collides with a content id is a parse error.
+  - The parser returns the declared cards separately, so each package builds the content in its own way:
+    - Engine tests: `buildContent` over `FX_SPEC` plus the declared cards.
+    - Content tests (keyword examples, and test-writer scenarios that need the real keyword files): a helper `scenarioContent(declared)` in `packages/content/test-utils/` compiles the live elements, kinds, recipes and `KEYWORDS` with **only** the declared cards. It may stub the Collector deck and ace.
+  - Every scenario and example runs under `TEST_GLOBALS`.
+  - Keyword examples use declared cards only and never live card ids. They don't assert Chimera family stats, which come from live `recipes.json`.
+  - The generated example tests live in `packages/content/src/keyword-examples.test.ts`, because the engine can't import content (this corrects §20 CG-2). Examples written in content M3 against live ids are converted.
+- Reason: an example tests a keyword's logic, so it should depend only on that keyword file and the DSL. Live elements and kinds rarely change, and when they do the failure message says exactly what broke.
+
+**D-170 · Globals: one value in one place, and no silent no-ops**
+- Date: 2026-10-14
+- Question: Some globals are derived from others or duplicate the data: `PLAYER_DECK_SIZE` (= DECK_MONSTERS + DECK_SPELLS + DECK_TRAPS), `COLLECTOR_DECK_MONSTERS/SPELLS/TRAPS` (a breakdown of the deck list) and `POOL_MONSTERS/SPELLS/TRAPS` (D-164 pool-size warning). Changing `DECK_SPELLS` or adding a card therefore takes a second edit or produces a warning. Other globals exist that no code reads yet, so a `--set` on one silently does nothing.
+- Decision:
+  - Remove `PLAYER_DECK_SIZE`, `COLLECTOR_DECK_MONSTERS`, `COLLECTOR_DECK_SPELLS`, `COLLECTOR_DECK_TRAPS`, `POOL_MONSTERS`, `POOL_SPELLS` and `POOL_TRAPS` from `Globals`, `DEFAULT_GLOBALS`, `GlobalsSchema` and `TEST_GLOBALS`. Code that needs the player deck size computes the sum, via the engine helper `playerDeckSize(g)`. `COLLECTOR_DECK_SIZE` stays (DESIGN's validator rule, D-168).
+  - The D-164 pool-size warning is replaced by an error for a pool that can't fill the deck:
+    `cards/player-spells.json › pool › 2 spells × MAX_COPIES=2 can't fill DECK_SPELLS=5 › add 1 spell, or lower DECK_SPELLS or raise MAX_COPIES in globals.ts`
+    The number to add is `ceil(DECK_X / MAX_COPIES) − count`. Monsters, spells and traps are each checked this way.
+  - **Inert globals.** After engine M4, engine-dev lists every `Globals` key that no code in engine or content reads. Keys reserved for ai and sim (`AI_*`, `BOT_*`, `SIM_*`, `SEED_*`, `TARGET_*`, `DIFFICULTY_*`, `PERF_*`) are exempt until those packages land. Content-author adds a `GlobalsSchema` refinement for each listed key, pinning it to its only supported value, like `WARD_CHARGES` (D-133): `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1`. A refinement is removed in the same change that teaches the code the key.
+- Reason: a derived value stored twice means two edits. A warning that every new card trips is noise. A global that is accepted but ignored misleads the person tuning it.
+
+**D-171 · Content numbers: a new card number is one line in `globals.ts`**
+- Date: 2026-10-14
+- Question: A new spell with a new number, say "drain 4", needs a new global. Today that takes four edits in two packages: the engine's `Globals` interface, `TEST_GLOBALS`, `GlobalsSchema` and `DEFAULT_GLOBALS`. Two of those belong to engine-dev. Content changes are meant to be data-only (§1.3).
+- Decision:
+  - `Globals` gets `readonly CONTENT_NUMBERS: Readonly<Record<string, number>>`, an open section at the end of `DEFAULT_GLOBALS`, commented "add a line here for a new card number".
+  - Names that move into it (unchanged, so every `$NAME` ref in JSON, every `--set NAME=V` and the M-levers keep working): `UNMAKE_MAX_POWER`, `BLOODLUST_POWER`, `SCRYING_DRAW`, `SIPHON_DRAIN`, `SIPHON_GAIN`, `MIRROR_SIGIL_PENALTY`, `LAST_RITES_DRAW`, `PROVENANCE_DRAW`, `GILT_POWER`, `GILT_GUARD`, `FORFEIT_MAX_POWER`, `COUNTERFEIT_PENALTY`, `INSURANCE_HEAL`, `OBJ_HIGH_LIFE`, `OBJ_WIN_BY_ROUND`, `AI_FACEDOWN_ATTACK_MIN_POWER`.
+  - **Rule:** a number that TypeScript reads as a property (engine, ai, sim, or `q.g.X` in a keyword's query hook) is a core global, and adding one is an engine change. A number referenced only as `$NAME` is a content number.
+  - **Resolution.** `effects/num.ts` resolves `$NAME` as follows: an own property of `CONTENT_NUMBERS` first, then a core `NumericGlobal`, otherwise `EngineError` (unreachable after validation). The engine root exports `resolveNum(g, num)`, so ai, objectives and text rendering all use one resolver. `QueryCtx` gets `num(name: string): number` with the same lookup, so a new keyword's query hook can use a content number without an engine type edit.
+  - **Schema.** `GlobalsSchema` validates `CONTENT_NUMBERS` as a record of `/^[A-Z][A-Z0-9_]*$/` → `z.int()`, and rejects any name that is also a core key.
+  - **Overrides.** `withOverrides` routes `NAME=V` to `CONTENT_NUMBERS` when `NAME` is defined there, and also accepts `CONTENT_NUMBERS.NAME=V`. An unknown name is still rejected (`--set` never adds a number).
+  - **Validator.** The `$NAME` check (§10.3) and the placeholders (D-172) accept both namespaces, and "did you mean" searches both. `keyword-files.ts` scans each keyword source for `'$NAME'` / `'-$NAME'` and `num('NAME')` literals and reports unknown names in the §10.3 format (`keywords/x.ts › x › "$FOO" not in globals.ts › did you mean $FOOD?`).
+  - `TEST_GLOBALS.CONTENT_NUMBERS` holds whatever the fixtures use (`UNMAKE_MAX_POWER` for `fx-spell-bolt`, …).
+- Reason: card numbers are content. They belong in the content-owned file, so adding one is one line and stays out of the engine's type surface. Flattened names mean none of the existing data, docs or proposal levers change.
+
+**D-172 · `{NAME}` placeholders in text** [EXTENDS]
+- Date: 2026-10-14
+- Question: Card and keyword `text` is written by hand, so it goes stale. Unmake says "Power 5 or less" while its effect reads `$UNMAKE_MAX_POWER`. Haunt says "loses 2 Power" (HAUNT_PENALTY), and Tethered says "−2 Power" (TETHERED_PENALTY). A `--set` or a tuning edit leaves the text wrong.
+- Decision:
+  - **Syntax.**
+    - `{NAME}` renders the value as a decimal integer.
+    - `{NAME|singular|plural}` renders the value, a space, then the singular word if the value is 1, otherwise the plural.
+    - `NAME` matches `[A-Z][A-Z0-9_]*` and must be a numeric core global or a `CONTENT_NUMBERS` entry (the same set `$NAME` may use).
+    - Words match `[^{}|]+`. There is no nesting, and `{` and `}` may not appear in text otherwise.
+    - Signs are written outside the placeholder (`−{TETHERED_PENALTY} Power`), so globals stay positive.
+  - **Where placeholders are allowed:** card `text` in all six card files (including the optional monster and Relic text), `objectives.json › text`, `twists.json › text`, and `KeywordDef.text` in `keywords/*.ts`. Not names, dialogue or art briefs.
+  - **Where substitution happens.** `packages/content/src/text.ts` (browser-safe, pure) exports `parseTemplate(text)` (pieces, placeholder names, malformed spans; used by the validator) and `renderText(text, g): string`. Substitution is **not** done in `compile.ts`, because compiled content holds no rendered strings and stays independent of globals (D-120). Text is rendered at the display edge with the same `Globals` object the engine was created with, so `--set` and the web's `?set=` (D-176) show up in the text. `KeywordDef.text` (in `CompiledContent.keywords`) and `CompiledTwist.text` stay as templates, and the UI renders them like card text. The sim renders text with the run's globals wherever a report prints card text.
+  - **Validator rules.** The field is `text` in every case.
+    1. Malformed placeholder, error: `cards/player-spells.json › unmake › text: malformed placeholder "{Unmake}" › write {NAME} or {NAME|word|words} with a global name in capitals`
+    2. Unknown name, error: `cards/player-spells.json › unmake › text: unknown placeholder {UNMAKE_MAX_POWR} › did you mean {UNMAKE_MAX_POWER}?` (with no close match: `› use a numeric name from globals.ts`)
+    3. Non-numeric global, error: `cards/player-spells.json › x › text: {CONTENT_VERSION} is not a number in globals.ts › use a numeric global`
+    4. Bare number on an entry that references a global, error. If a card or objective has any `$NAME` in its effects, target, `when` or thresholds, and its text still contains a digit once placeholders are removed: `cards/player-spells.json › unmake › text: bare number "5" while the card uses $UNMAKE_MAX_POWER › write {UNMAKE_MAX_POWER} instead of 5`. With several refs the fix reads `write one of {GILT_POWER}, {GILT_GUARD} instead of 2`.
+    5. Bare number in keyword or Flaw text, error. Any digit counts, because keyword numbers always come from globals (§1.3): `keywords/haunt.ts › haunt › text: bare number "2" › write a {NAME} placeholder for the global the keyword uses`. Rules 1–3 apply to keyword text too. `content:check` runs these on the `KEYWORDS` registry next to the keyword-file checks.
+    6. Placeholder the card doesn't use, warning (cards and objectives only): `warning: cards/player-spells.json › siphon › text: {SIPHON_GAIN} is not used by this card's effects or conditions › check the name`
+    7. The one-sentence check (D-113) runs on the rendered text.
+  - **Migration.** Content-author does it, in the same change as the rules. The rendered text must stay identical:
+    - unmake "Destroy an enemy monster with Power {UNMAKE_MAX_POWER} or less."
+    - bloodlust "One of your monsters gets +{BLOODLUST_POWER} Power this turn."
+    - scrying-bones "Draw {SCRYING_DRAW|card|cards} (ignores the draw cap)."
+    - siphon "The Collector loses {SIPHON_DRAIN} life; you gain {SIPHON_GAIN}."
+    - mirror-sigil "When an enemy monster attacks, it loses {MIRROR_SIGIL_PENALTY} Power permanently before combat."
+    - last-rites "When your monster is destroyed, draw {LAST_RITES_DRAW|card|cards}."
+    - provenance-ledger "Draw {PROVENANCE_DRAW|card|cards}."
+    - gilt-frame "+{GILT_POWER} Power and +{GILT_GUARD} Guard until the end of his next turn."
+    - forfeit "Destroy one of your monsters with Power {FORFEIT_MAX_POWER} or less."
+    - counterfeit "A Chimera grafted this turn loses {COUNTERFEIT_PENALTY} Power."
+    - insurance-claim "When his monster is destroyed, he gains {INSURANCE_HEAL} life."
+    - objectives: "Win with {OBJ_HIGH_LIFE}+ life", "Win by round {OBJ_WIN_BY_ROUND}"
+    - haunt.ts "When destroyed, the monster that destroyed it loses {HAUNT_PENALTY} Power permanently."
+    - tethered.ts "−{TETHERED_PENALTY} Power while it is his only monster."
+
+    Any other digit that rule 4 or 5 finds is migrated the same way. The main session checks the result by rendering every text with `DEFAULT_GLOBALS` before and after (a scratchpad script against `git show HEAD:`). No committed test pins the strings (D-168).
+- Reason: the number is written once, so the text can't drift from the value. Rendering at the edge keeps compiled content globals-free and makes overrides visible. Rule 4 targets exactly the stale-text failure without banning numbers that no global backs.
+
+**D-173 · `MAX_BASE_KEYWORDS` is enforced by the validator, not hard-coded in zod**
+- Date: 2026-10-14
+- Question: `PlayerMonster.keywords` is `z.array(Id).max(1)`, so changing `MAX_BASE_KEYWORDS` does nothing, and the §10.3 message names a global that the check never reads.
+- Decision: drop `.max(1)` from the schema. `validate.ts` checks that base monsters and Relics (D-114) have at most `MAX_BASE_KEYWORDS` keywords, using the existing §10.3 message `cards/player-monsters.json › x › 2 keywords, max MAX_BASE_KEYWORDS=1 › remove one`.
+- Reason: one number, read in one place.
+
+**D-174 · A missing or orphan art brief is a warning** (amends D-110)
+- Date: 2026-10-14
+- Question: Every new card needs an `art-briefs.json` entry or `content:check` fails, and deleting a card leaves an orphan error. Adding or removing a card therefore takes two files.
+- Decision: both rules become warnings, with unchanged messages (§10.3, D-164) prefixed `warning:`. `art-briefs.json` stays a separate file for the artist (D-110).
+- Reason: art briefs don't affect play. A warning keeps the artist's list visible without blocking a playtest change.
+
+**D-175 · Card ids are permanent; renaming a card changes its `name`**
+- Date: 2026-10-14
+- Question: Ids are the kebab-case of the name. Renaming a card would mean renaming its id, which breaks references: the Collector deck, `ai` params, art briefs, saved Binder entries, sim reports, painted art `public/art/<id>.webp`, and formerly keyword examples.
+- Decision: an id is created from the name once and never changes. A rename edits `name` (and `text`) only, and an id that no longer matches its name is fine. If an id truly must change, edit it and fix every line `content:check` then reports (`"x" no longer exists › remove the reference`, orphan-brief warnings). Keyword examples no longer use card ids (D-169). Binder entries for the old id are lost; that is acceptable for v0.1 local storage. No alias mechanism.
+- Reason: a rename is then a one-field edit. The validator already lists the references for the rare real id change.
+
+**D-176 · Browser-safe content entry; JSON edits hot-reload in the web dev build**
+- Date: 2026-10-14
+- Question: The content root exports `load.ts` and `keyword-files.ts`, which import `node:fs`, so the web app can't import it. Nothing defines how an edit to JSON or `globals.ts` reaches a running playtest.
+- Decision:
+  - **Package split (content-author):**
+    - `src/files.ts`, pure: `CONTENT_FILES`, `ContentKey`, `ContentData`, `ContentError`, `formatError`, `parseFile`, and a new `parseContent(raw: Readonly<Record<ContentKey, unknown>>)` (the loop now in `loadContent`).
+    - `src/data.ts`: statically imports every JSON file (`with { type: 'json' }`) and exports `RAW_CONTENT`.
+    - `src/load.ts`: keeps `loadContent(root)` (fs read, then `parseContent`), which tests and the CONTENT_GUIDE example tests use on temp copies.
+    - Exports: the package's `"."` export is browser-safe (globals, text, files, data, validate, compile, KEYWORDS, schemas). `"./node"` exports `load.ts` and `keyword-files.ts`. `scripts/content-check.ts` imports from `./node`, and `validate.ts` imports from `files.ts`.
+    - An ESLint `no-restricted-imports` rule bans `node:*` in `packages/content/src`, except `load.ts` and `keyword-files.ts` (and scripts).
+  - **Web (ui-dev):** at startup the dev build runs `parseContent(RAW_CONTENT)`, `validateContent`, then `compileContent`. Errors replace the app with a full-screen list of §10.3 lines; warnings go to the console and the debug overlay. Vite HMR reloads content when a JSON, `globals.ts` or keyword file is saved. The duel in progress restarts, because `state.cfg` changed: the session replay throws `EngineError`, the duel is voided without a loss (D-108), and a "content changed, duel restarted" notice is shown. Hosted playtest builds pick up edits on redeploy (`build` runs `content:check`).
+  - **Can wait:** in dev builds, `?set=KEY=VALUE` (repeatable) applies `withOverrides(DEFAULT_GLOBALS, sets)`. The overrides are shown in the debug overlay and in rendered card text (D-172).
+- Reason: during playtesting the loop from editing a file to seeing it in the game should take seconds. Splitting the Node-only parts out is the minimum needed for that.
+
+**D-177 · `content:check` warns when the Collector AI can never play a deck card** [EXTENDS]
+- Date: 2026-10-14
+- Question: The AI casts Collector spells through `ai.params.castHighValueSpell` keys (D-087) or the draw-spell utility step (D-085), and sets traps from `ai.trapPreference` (D-088). A newly added Collector spell or trap would be silently dead, which skews the sim.
+- Decision: two warnings.
+  - `warning: collector.json › deck[n] › Collector spell "x" has no AI rule that casts it › add "x" to ai.params.castHighValueSpell with a pick, or make it draw-only`. Raised for a deck spell that isn't a key of `castHighValueSpell` (base or any mood) and isn't draw-only (every effect `{ op: 'draw', who: 'self' }`).
+  - `warning: collector.json › deck[n] › Collector trap "x" is not in ai.trapPreference › add it, or AI rule 4 never sets it`.
+- Reason: cheap, and it catches the one way a valid content change silently has no effect.
+
+**D-178 · CONTENT_GUIDE.md plan**
+- Date: 2026-10-14
+- Question: docs-keeper writes `docs/CONTENT_GUIDE.md` in Phase 1 for a non-engineer owner. Which sections must it have now that D-166…D-177 exist?
+- Decision: the required sections and their order are in ARCHITECTURE §10.5. Each section gives the exact file, a copy-paste template, one worked example, the commands to run, and the common `content:check` messages with fixes. Every worked example is backed by a test in `packages/content/test/guide.test.ts` that applies it to a temp copy of the content (`loadContent(tmpRoot)`) and expects the stated `content:check` result. Examples must not depend on live values: each sets up whatever it needs on the temp copy. The sections marked "before playtesting" in §10.5 ship before v0.1 playtesting; the rest follow in Phase 1.
+- Reason: the guide is how the owner makes changes without an engineer, so it has to match the tooling, and the tests keep it matching.
+
+**D-179 · Reviewed for post-v0.1 friction, no change now**
+- Date: 2026-10-14
+- Question: Do the 32-bit keyword mask, `CONTENT_VERSION` in the seed, or literal twist values need work before playtesting?
+- Decision: no change.
+  - **Keyword mask:** launch uses 11 of 32 bits, and `content:check` already errors past 32. Widening it (two words, or a `BigInt` mask) is a contained engine change if the pool ever gets near 32.
+  - **`CONTENT_VERSION`:** it isn't bumped per edit (that would be a second edit). Saves are protected automatically by `state.cfg`, the content hash plus the globals hash (D-108). Bump it only when publishing a new playtest build, so results and seeds from different builds stay separable. The guide says so.
+  - **Twists:** `twists.json` modifier values stay literal content (D-121). Twists are off in v0.1, and their text may use placeholders (D-172).
+- Reason: none of these will hurt during playtesting, and each has a clear upgrade path.
 
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
