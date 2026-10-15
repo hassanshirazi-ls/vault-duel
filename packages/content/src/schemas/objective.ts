@@ -16,4 +16,5 @@ export const Objective = z
   .strict()
   .refine((objective) => (objective.lte === undefined) !== (objective.gte === undefined), {
     message: 'needs exactly one of "lte" or "gte"',
+    params: { fix: 'keep exactly one of "lte" or "gte"' },
   });

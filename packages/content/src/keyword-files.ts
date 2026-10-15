@@ -158,6 +158,21 @@ export function checkKeywordGlobalRefs(
   return errors;
 }
 
+/**
+ * The global names the keyword sources name, by '$NAME' / '-$NAME' literal or num('NAME') (D-171). content:check passes
+ * them to validateContent, so a CONTENT_NUMBERS entry that only a keyword uses is not reported as unused (D-205).
+ */
+export function keywordGlobalRefNames(sources: readonly KeywordSource[], root: string = CONTENT_ROOT): string[] {
+  const names = new Set<string>();
+  for (const { file } of sources) {
+    const text = readFileSync(join(root, file), 'utf8');
+    for (const match of text.matchAll(REF_LITERAL)) names.add(match[2] ?? '');
+    for (const match of text.matchAll(NUM_LITERAL)) names.add(match[1] ?? '');
+  }
+  names.delete('');
+  return [...names];
+}
+
 /** Bit order (§8.4): keywords sorted by id, then Flaws sorted by id. */
 export function sortKeywords(sources: readonly KeywordSource[]): KeywordSource[] {
   return [...sources].sort((a, b) => {

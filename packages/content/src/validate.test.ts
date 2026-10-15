@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_GLOBALS, fixtureData } from '../test-utils/fixture';
 import { formatError, type ContentData } from './files';
+import { KEYWORDS } from '../keywords/index.gen';
 import { DEFERRED_RULES, validateContent } from './validate';
 
 const G = FIXTURE_GLOBALS;
@@ -136,7 +137,7 @@ describe('Collector deck and AI references', () => {
   it('rejects a Collector deck that is not COLLECTOR_DECK_SIZE', () => {
     const data = fixtureData();
     const collector = need(data.collector, 'collector');
-    collector.deck = collector.deck.slice(1);
+    collector.deck = collector.deck.filter((id) => id !== 'fixture-rite'); // keeps the ace and the trap in the deck
     const size = G.COLLECTOR_DECK_SIZE;
     expect(errorLines(data)).toEqual([
       `collector.json › deck › has ${size - 1} cards, needs COLLECTOR_DECK_SIZE=${size} › add 1 card id`,
@@ -167,8 +168,8 @@ describe('Collector deck and AI references', () => {
     ]);
   });
 
-  it('rejects a castHighValueSpell key that is not a Collector spell in the deck (D-145)', () => {
-    // The AI schema names the three castable spells; none of them is in this fixture's deck.
+  it('rejects a castHighValueSpell key that is not a Collector spell in the deck (D-145, D-204)', () => {
+    // None of these ids is a spell in this fixture's deck, so each key is reported at its real JSON path.
     const data = fixtureData();
     need(data.collector, 'collector').ai.params.castHighValueSpell = {
       forfeit: { pick: 'highestPower' },
@@ -176,10 +177,33 @@ describe('Collector deck and AI references', () => {
       'gilt-frame': { when: 'contestedAttack' },
     };
     expect(errorLines(data)).toEqual([
-      'collector.json › ai › castHighValueSpell.forfeit: "forfeit" is not a Collector spell in the deck › use a spell id from collector.json › deck',
-      'collector.json › ai › castHighValueSpell.restoration: "restoration" is not a Collector spell in the deck › use a spell id from collector.json › deck',
-      'collector.json › ai › castHighValueSpell.gilt-frame: "gilt-frame" is not a Collector spell in the deck › use a spell id from collector.json › deck',
+      'collector.json › ai › params.castHighValueSpell.forfeit: "forfeit" is not a Collector spell in the deck › use a spell id from collector.json › deck',
+      'collector.json › ai › params.castHighValueSpell.restoration: "restoration" is not a Collector spell in the deck › use a spell id from collector.json › deck',
+      'collector.json › ai › params.castHighValueSpell.gilt-frame: "gilt-frame" is not a Collector spell in the deck › use a spell id from collector.json › deck',
     ]);
+  });
+
+  it('names the mood path for a mood castHighValueSpell key (D-145, D-204)', () => {
+    const data = fixtureData();
+    need(data.collector, 'collector').ai.moods.agitated.params = { castHighValueSpell: { forfeit: { pick: 'highestPower' } } };
+    expect(errorLines(data)).toEqual([
+      'collector.json › ai › moods.agitated.params.castHighValueSpell.forfeit: "forfeit" is not a Collector spell in the deck › use a spell id from collector.json › deck',
+    ]);
+  });
+
+  it('rejects "contestedAttack" on a spell that gives no Power to "chosen" (D-204)', () => {
+    // fixture-rite is in the deck and only draws, so Gilt Frame's test has no Power to read.
+    const data = fixtureData();
+    need(data.collector, 'collector').ai.params.castHighValueSpell = { 'fixture-rite': { when: 'contestedAttack' } };
+    expect(errorLines(data)).toEqual([
+      'collector.json › ai › params.castHighValueSpell.fixture-rite: "contestedAttack" needs a spell that gives Power to "chosen" › use "pick": "highestPower" instead',
+    ]);
+  });
+
+  it('accepts "contestedAttack" on a spell that gives Power to "chosen" (D-204)', () => {
+    const data = withGiltSpell();
+    need(data.collector, 'collector').ai.params.castHighValueSpell = { 'fixture-gilt': { when: 'contestedAttack' } };
+    expect(run(data)).toEqual({ errors: [], warnings: [] });
   });
 
   it('rejects Covetous on a Relic that is not the ace', () => {
@@ -190,6 +214,135 @@ describe('Collector deck and AI references', () => {
     ]);
   });
 });
+
+describe('Collector ace (D-203)', () => {
+  it('rejects an ace id that is not in relics.json', () => {
+    const data = fixtureData();
+    need(data.collector, 'collector').ace = 'no-such-relic';
+    expect(errorLines(data)).toEqual([
+      'collector.json › ace › "no-such-relic" is not a Relic › use a Relic id from cards/relics.json',
+    ]);
+  });
+
+  it('rejects an ace that is a Collector spell, not a Relic', () => {
+    const data = fixtureData();
+    need(data.collector, 'collector').ace = 'fixture-rite';
+    expect(errorLines(data)).toEqual([
+      'collector.json › ace › "fixture-rite" is not a Relic › use a Relic id from cards/relics.json',
+    ]);
+  });
+
+  it('rejects a Relic ace that is not in the deck', () => {
+    const data = fixtureData();
+    need(data.collector, 'collector').ace = 'fixture-mantle';
+    expect(errorLines(data)).toEqual([
+      'collector.json › ace › "fixture-mantle" is not in the deck › add it to the deck list in collector.json',
+    ]);
+  });
+});
+
+describe('Collector AI warnings (D-177)', () => {
+  it('warns when a deck spell has no AI entry and is not draw-only', () => {
+    const data = withGiltSpell();
+    expect(run(data)).toEqual({
+      errors: [],
+      warnings: [
+        'collector.json › deck[1] › Collector spell "fixture-gilt" has no AI rule that casts it › add "fixture-gilt" to ai.params.castHighValueSpell with a pick, or make it draw-only',
+      ],
+    });
+  });
+
+  it('clears the warning when a base entry casts the spell', () => {
+    const data = withGiltSpell();
+    need(data.collector, 'collector').ai.params.castHighValueSpell = { 'fixture-gilt': { pick: 'highestPower' } };
+    expect(run(data)).toEqual({ errors: [], warnings: [] });
+  });
+
+  it('counts a mood entry as an AI entry too', () => {
+    const data = withGiltSpell();
+    need(data.collector, 'collector').ai.moods.desperate.params = { castHighValueSpell: { 'fixture-gilt': { pick: 'highestPower' } } };
+    expect(run(data).warnings).toEqual([]);
+  });
+
+  it('does not warn for a draw-only spell in the deck', () => {
+    expect(run(fixtureData()).warnings).toEqual([]);
+  });
+
+  it('warns when a deck trap is not in trapPreference', () => {
+    const data = fixtureData();
+    need(data.collector, 'collector').ai.trapPreference = [];
+    expect(run(data)).toEqual({
+      errors: [],
+      warnings: ['collector.json › deck[2] › Collector trap "fixture-ward-trap" is not in ai.trapPreference › add it, or AI rule 4 never sets it'],
+    });
+  });
+});
+
+describe('keyword count (D-201)', () => {
+  it('rejects a base monster with more keywords than MAX_BASE_KEYWORDS', () => {
+    const data = fixtureData();
+    entry(data.playerMonsters, 'fixture-stag').keywords = ['swift', 'ward'];
+    expect(errorLines(data)).toEqual([
+      'cards/player-monsters.json › fixture-stag › keywords: has 2 keywords, max MAX_BASE_KEYWORDS=1 › remove 1 keyword',
+    ]);
+  });
+
+  it('rejects a Relic with more keywords than MAX_BASE_KEYWORDS', () => {
+    const data = fixtureData();
+    entry(data.relics, 'fixture-hydra').keywords = ['swift', 'ward'];
+    expect(errorLines(data)).toEqual([
+      'cards/relics.json › fixture-hydra › keywords: has 2 keywords, max MAX_BASE_KEYWORDS=1 › remove 1 keyword',
+    ]);
+  });
+
+  it('uses the singular for a limit of zero', () => {
+    expect(errorLines(fixtureData(), { ...G, MAX_BASE_KEYWORDS: 0 })).toEqual([
+      'cards/player-monsters.json › fixture-stag › keywords: has 1 keyword, max MAX_BASE_KEYWORDS=0 › remove 1 keyword',
+    ]);
+  });
+
+  it('accepts two keywords when MAX_BASE_KEYWORDS is 2', () => {
+    const data = fixtureData();
+    entry(data.playerMonsters, 'fixture-stag').keywords = ['swift', 'ward'];
+    expect(errorLines(data, { ...G, MAX_BASE_KEYWORDS: 2 })).toEqual([]);
+  });
+});
+
+describe('unused content numbers (D-205: a warning, run when the keyword refs are given)', () => {
+  const unmake = need(G.CONTENT_NUMBERS.UNMAKE_MAX_POWER, 'UNMAKE_MAX_POWER');
+  const globals = { ...G, CONTENT_NUMBERS: { UNMAKE_MAX_POWER: unmake, QUILL_TOLL: 2 } };
+  const unused = 'globals.ts › CONTENT_NUMBERS › QUILL_TOLL: not used by any card, objective, AI param or keyword › delete the line, or use $QUILL_TOLL in an effect';
+
+  it('warns on a CONTENT_NUMBERS name that nothing uses', () => {
+    const result = validateContent(fixtureData(), globals, KEYWORDS, []);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings.map(formatError)).toEqual([unused]);
+  });
+
+  it('counts a keyword-source ref as a use', () => {
+    const result = validateContent(fixtureData(), globals, KEYWORDS, ['QUILL_TOLL']);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('is not run when no keyword refs are given', () => {
+    const result = validateContent(fixtureData(), globals);
+    expect(result.warnings.filter((warning) => warning.file === 'globals.ts')).toEqual([]);
+  });
+});
+
+/** The fixture with a Collector spell that gives Power to "chosen" in the deck, in place of fixture-rite (D-204). */
+function withGiltSpell(): ContentData {
+  const data = fixtureData();
+  const collector = need(data.collector, 'collector');
+  collector.deck = ['fixture-hydra', 'fixture-gilt', 'fixture-ward-trap'];
+  need(data.collectorSpells, 'collectorSpells').push({
+    id: 'fixture-gilt', type: 'spell', name: 'Fixture Gilt', text: 'Gain Power.',
+    target: { side: 'ally', zone: 'board', where: { faceUp: true } },
+    effects: [{ op: 'modifyStats', target: 'chosen', power: 2, duration: 'untilEndOfYourNextTurn' }],
+  });
+  need(data.artBriefs, 'artBriefs')['fixture-gilt'] = 'bright and heavy · a gilt frame · gold, umber';
+  return data;
+}
 
 describe('effects, traps and globals', () => {
   it('rejects a $NAME that is not in globals.ts and suggests the closest name', () => {

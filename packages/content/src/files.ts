@@ -94,14 +94,51 @@ function locate(raw: unknown, path: readonly PropertyKey[]): { id: string; rest:
   return { id: '(file)', rest: path };
 }
 
+/** The field part of a record. '' when the whole entry is the problem, so formatError omits it (D-165, D-206). */
 function fieldName(rest: readonly PropertyKey[]): string {
-  if (rest.length === 0) return '(entry)';
+  if (rest.length === 0) return '';
   return rest.map((key) => (typeof key === 'number' ? `[${key}]` : String(key))).join('.');
 }
 
-function describeIssue(issue: z.core.$ZodIssue, raw: unknown): { problem: string; fix: string } {
+/** True when the issue's path ends at a key that the object holding it does not have (D-207). */
+function isAbsentKey(raw: unknown, path: readonly PropertyKey[]): boolean {
+  const key = path[path.length - 1];
+  if (key === undefined) return false;
+  const parent = valueAt(raw, path.slice(0, -1));
+  return isRecord(parent) && !Object.hasOwn(parent, String(key));
+}
+
+/** The `params.fix` a refinement sets (D-207), or undefined. */
+function paramFix(issue: z.core.$ZodIssue): string | undefined {
+  const params: unknown = 'params' in issue ? issue.params : undefined;
+  return isRecord(params) && typeof params['fix'] === 'string' ? params['fix'] : undefined;
+}
+
+/**
+ * Renders one zod issue as a §10.3 problem and fix (D-146, D-207). `file` is the content file path, so the few
+ * mistakes a non-engineer makes most get plain wording. Every other problem keeps zod's wording with a fix that
+ * names what to write.
+ */
+function describeIssue(issue: z.core.$ZodIssue, raw: unknown, file: string): { problem: string; fix: string } {
   const received = JSON.stringify(valueAt(raw, issue.path)) ?? 'undefined';
   const generic = 'fix the value so it matches packages/content/src/schemas';
+  const key = issue.path[issue.path.length - 1];
+  if (key !== undefined && isAbsentKey(raw, issue.path)) {
+    // D-207: a missing field. A Relic's missing Flaw says why (D-202: exactly one Flaw).
+    if (file === CONTENT_FILES.relics.path && key === 'flaw') {
+      return { problem: 'missing, a Relic needs exactly 1 Flaw', fix: 'add "flaw": "<flaw id>"' };
+    }
+    return { problem: 'missing', fix: `add "${String(key)}"` };
+  }
+  if (
+    issue.code === 'unrecognized_keys' &&
+    file === CONTENT_FILES.playerMonsters.path &&
+    issue.keys.length === 1 &&
+    issue.keys[0] === 'flaw'
+  ) {
+    // D-207: a Flaw on a base monster. Flaws belong only on Relics.
+    return { problem: 'Flaws appear only on Relics', fix: 'remove "flaw"' };
+  }
   switch (issue.code) {
     case 'invalid_type': {
       const expected = String(issue.expected);
@@ -121,7 +158,8 @@ function describeIssue(issue: z.core.$ZodIssue, raw: unknown): { problem: string
     case 'invalid_union':
       return { problem: `${received} matches none of the allowed forms`, fix: generic };
     default:
-      return { problem: issue.message, fix: generic };
+      // D-207: a refinement with params.fix (custom issues) says what to write; anything else keeps the generic fix.
+      return { problem: issue.message, fix: paramFix(issue) ?? generic };
   }
 }
 
@@ -135,7 +173,7 @@ export function parseFile<S extends z.ZodType>(
   if (result.success) return { data: result.data };
   const errors = result.error.issues.map((issue): ContentError => {
     const { id, rest } = locate(raw, issue.path);
-    const { problem, fix } = describeIssue(issue, raw);
+    const { problem, fix } = describeIssue(issue, raw, path);
     return { file: path, id, field: fieldName(rest), problem, fix };
   });
   return { errors };

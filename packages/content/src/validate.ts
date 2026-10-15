@@ -23,10 +23,9 @@ export interface ValidationResult {
  */
 export const DEFERRED_RULES: readonly string[] = [];
 
-// Covered by the zod pass in src/schemas, so not repeated here: a base card with more than one keyword
-// (keywords .max(1)), a Relic without exactly one Flaw (flaw is a required string), a Flaw on a player card
-// (strict object rejects "flaw"), an unknown objective metric (enum), a missing or malformed element color or
-// icon, and quoted numbers.
+// Covered by the zod pass in src/schemas, so not repeated here: a Relic without exactly one Flaw (flaw is a required
+// string), a Flaw on a player card (strict object rejects "flaw"), an unknown objective metric (enum), a missing or
+// malformed element color or icon, and quoted numbers.
 
 const COVETOUS = 'covetous'; // the Flaw that is ace-only (§8.5, D-054)
 const GLOBAL_REF = /^-?\$[A-Z0-9_]+$/; // same shape as GlobalRef in schemas/common.ts
@@ -96,11 +95,14 @@ function refOf(effect: Effect): string | undefined {
 /**
  * Runs every implemented §10.3 rule. Never throws: problems come back as records.
  * `keywords` is the registry the keyword rules check against (the generated barrel by default, D-111).
+ * `keywordRefs` are the global names the keyword sources name ('$NAME' and num('NAME'), D-171). The unused
+ * CONTENT_NUMBERS warning (D-205) runs only when they are given: content:check gives them, the browser build does not.
  */
 export function validateContent(
   data: ContentData,
   globals: Globals = DEFAULT_GLOBALS,
   keywords: readonly KeywordDef[] = KEYWORDS,
+  keywordRefs?: readonly string[],
 ): ValidationResult {
   const sink: Sink = { errors: [], warnings: [] };
   const ctx: Ctx = {
@@ -117,6 +119,7 @@ export function validateContent(
   checkElementBeats(ctx);
   checkMonsterVocabulary(ctx);
   checkKeywordFields(ctx);
+  checkKeywordCount(ctx);
   checkStatBudget(ctx);
   checkRecipes(ctx);
   checkCollector(ctx);
@@ -129,6 +132,7 @@ export function validateContent(
   checkGlobalRefs(ctx);
   checkArtBriefs(ctx);
   checkPoolCapacity(ctx);
+  if (keywordRefs !== undefined) checkUnusedContentNumbers(ctx, keywordRefs);
   return { errors: sink.errors, warnings: sink.warnings };
 }
 
@@ -261,7 +265,25 @@ function checkRecipes(ctx: Ctx): void {
   });
 }
 
-// Everything the Collector block refers to: deck size and pools, the Covetous ace rule, and the AI card refs (D-145).
+const MOODS = ['composed', 'agitated', 'desperate'] as const;
+
+/** The castHighValueSpell map of one params block (base or mood), keyed by Collector spell id (D-204). */
+type CastMap = Readonly<Record<string, { readonly pick?: string | undefined; readonly when?: string | undefined }>>;
+
+/** D-204: "contestedAttack" reads the Power the spell gives "chosen", so the spell must give some (a literal 0 gives none). */
+function givesPowerToChosen(spell: Spells[number]): boolean {
+  return spell.effects.some(
+    (effect) => effect.op === 'modifyStats' && effect.target === 'chosen' && effect.power !== undefined && effect.power !== 0,
+  );
+}
+
+/** D-177: a spell whose every effect is "draw self" needs no castHighValueSpell entry (D-085). */
+function drawOnly(spell: Spells[number]): boolean {
+  return spell.effects.every((effect) => effect.op === 'draw' && effect.who === 'self');
+}
+
+// Everything the Collector block refers to: deck size and pools, the ace (D-203), the Covetous ace rule, the AI card
+// refs (D-145, D-204) and the Collector AI warnings (D-177).
 function checkCollector(ctx: Ctx): void {
   const { data, globals, sink } = ctx;
   const collector = data.collector;
@@ -288,6 +310,18 @@ function checkCollector(ctx: Ctx): void {
     });
   }
 
+  // D-203: the ace is a Relic, and it is in his deck. Run only when relics.json and every pool file parsed; the deck
+  // rule runs only after the Relic rule passes.
+  if (pools && data.relics) {
+    const ace = collector.ace;
+    const aceWhere: Where = { file: collectorFile, id: 'ace' };
+    if (!data.relics.some((relic) => relic.id === ace)) {
+      fail(sink, aceWhere, `"${ace}" is not a Relic`, 'use a Relic id from cards/relics.json');
+    } else if (!deck.includes(ace)) {
+      fail(sink, aceWhere, `"${ace}" is not in the deck`, 'add it to the deck list in collector.json');
+    }
+  }
+
   if (data.relics) {
     for (const relic of data.relics) {
       if (relic.flaw === COVETOUS && relic.id !== collector.ace) {
@@ -307,18 +341,40 @@ function checkCollector(ctx: Ctx): void {
     });
   }
   const collectorSpells = data.collectorSpells;
-  const checkCast = (path: string, cast: Readonly<Record<string, unknown>> | undefined): void => {
+  const checkCast = (path: string, cast: CastMap | undefined): void => {
     if (!cast || !collectorSpells) return;
-    for (const key of Object.keys(cast)) {
-      if (!deckSet.has(key) || !collectorSpells.some((spell) => spell.id === key)) {
-        fail(sink, { file: collectorFile, id: 'ai' }, `"${key}" is not a Collector spell in the deck`, 'use a spell id from collector.json › deck', `${path}.${key}`);
+    for (const [id, entry] of Object.entries(cast)) {
+      const spell = collectorSpells.find((candidate) => candidate.id === id);
+      const field = `${path}.${id}`;
+      if (!deckSet.has(id) || spell === undefined) {
+        fail(sink, { file: collectorFile, id: 'ai' }, `"${id}" is not a Collector spell in the deck`, 'use a spell id from collector.json › deck', field);
+      } else if (entry.when === 'contestedAttack' && !givesPowerToChosen(spell)) {
+        fail(sink, { file: collectorFile, id: 'ai' }, '"contestedAttack" needs a spell that gives Power to "chosen"', 'use "pick": "highestPower" instead', field);
       }
     }
   };
-  checkCast('castHighValueSpell', collector.ai.params.castHighValueSpell);
-  for (const mood of ['composed', 'agitated', 'desperate'] as const) {
+  checkCast('params.castHighValueSpell', collector.ai.params.castHighValueSpell);
+  for (const mood of MOODS) {
     checkCast(`moods.${mood}.params.castHighValueSpell`, collector.ai.moods[mood].params?.castHighValueSpell);
   }
+
+  // D-177 (warnings): a deck spell that no AI rule casts, and a deck trap that is not in trapPreference. The AI entries
+  // are checked against the base and every mood, since a mood may name a spell.
+  const castIds = new Set<string>([
+    ...Object.keys(collector.ai.params.castHighValueSpell ?? {}),
+    ...MOODS.flatMap((mood) => Object.keys(collector.ai.moods[mood].params?.castHighValueSpell ?? {})),
+  ]);
+  deck.forEach((id, index) => {
+    const where: Where = { file: collectorFile, id: `deck[${index}]` };
+    const spell = collectorSpells?.find((candidate) => candidate.id === id);
+    if (spell !== undefined && !castIds.has(id) && !drawOnly(spell)) {
+      warn(sink, where, `Collector spell "${id}" has no AI rule that casts it`, `add "${id}" to ai.params.castHighValueSpell with a pick, or make it draw-only`);
+    }
+    const trap = collectorTraps?.find((candidate) => candidate.id === id);
+    if (trap !== undefined && !collector.ai.trapPreference.includes(id)) {
+      warn(sink, where, `Collector trap "${id}" is not in ai.trapPreference`, 'add it, or AI rule 4 never sets it');
+    }
+  });
 }
 
 /** Pool of every card id, or undefined when a pool file failed to parse. */
@@ -635,6 +691,73 @@ function checkKeywordFields(ctx: Ctx): void {
     const where: Where = { file: fileOf('relics'), id: relic.id };
     for (const id of relic.keywords) checkKeywordRef(ctx, where, id, 'keyword');
     checkKeywordRef(ctx, where, relic.flaw, 'flaw');
+  }
+}
+
+// D-201: a base monster and a Relic take at most MAX_BASE_KEYWORDS keywords. The limit is read here, not in zod, so the
+// global is the one place to change it. Chimeras are limited by MAX_INHERITED_KEYWORDS in graft.ts, not here.
+function checkKeywordCount(ctx: Ctx): void {
+  const { data, globals, sink } = ctx;
+  const max = globals.MAX_BASE_KEYWORDS;
+  const lists: readonly (readonly [ContentKey, readonly { readonly id: string; readonly keywords: readonly string[] }[] | undefined])[] = [
+    ['playerMonsters', data.playerMonsters],
+    ['relics', data.relics],
+  ];
+  for (const [key, entries] of lists) {
+    for (const entry of entries ?? []) {
+      const count = entry.keywords.length;
+      if (count <= max) continue;
+      fail(
+        sink,
+        { file: fileOf(key), id: entry.id },
+        `has ${plural(count, 'keyword')}, max MAX_BASE_KEYWORDS=${max}`,
+        `remove ${plural(count - max, 'keyword')}`,
+        'keywords',
+      );
+    }
+  }
+}
+
+// D-205: a CONTENT_NUMBERS entry that nothing names is a silent no-op, usually left behind by a deleted card. A name is
+// used by a "$NAME" anywhere in the data, a {NAME} in card, objective, twist or keyword text, or a keyword-source ref.
+// Runs only when every data file parsed, so a missing file can't produce false warnings.
+function checkUnusedContentNumbers(ctx: Ctx, keywordRefs: readonly string[]): void {
+  const { data, globals, sink } = ctx;
+  const values = Object.values(data);
+  if (values.some((value) => value === undefined)) return;
+  const used = new Set<string>(keywordRefs);
+  for (const value of values) collectRefNames(value, used);
+  const texts: (string | undefined)[] = [
+    ...[data.playerMonsters, data.relics, data.playerSpells, data.playerTraps, data.collectorSpells, data.collectorTraps]
+      .flatMap((list) => (list ?? []).map((entry) => entry.text)),
+    ...(data.objectives ?? []).map((objective) => objective.text),
+    ...(data.twists ?? []).map((twist) => twist.text),
+    ...ctx.keywordList.map((keyword) => keyword.text),
+  ];
+  for (const text of texts) {
+    if (text === undefined) continue;
+    for (const name of parseTemplate(text).names) used.add(name);
+  }
+  for (const name of Object.keys(globals.CONTENT_NUMBERS)) {
+    if (used.has(name)) continue;
+    warn(
+      sink,
+      { file: 'globals.ts', id: 'CONTENT_NUMBERS' },
+      'not used by any card, objective, AI param or keyword',
+      `delete the line, or use $${name} in an effect`,
+      name,
+    );
+  }
+}
+
+/** Adds the name of every "$NAME" / "-$NAME" string inside a value, at any depth. */
+function collectRefNames(value: unknown, into: Set<string>): void {
+  if (typeof value === 'string') {
+    if (GLOBAL_REF.test(value)) into.add(value.replace(/^-?\$/, ''));
+  } else if (Array.isArray(value)) {
+    for (const item of value) collectRefNames(item, into);
+  } else if (isRecord(value)) {
+    for (const item of Object.values(value)) collectRefNames(item, into);
   }
 }
 

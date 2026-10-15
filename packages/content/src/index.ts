@@ -8,6 +8,8 @@ export type { ValidationResult } from './validate';
 export { CONTENT_FILES, formatError, parseContent, parseFile } from './files';
 export type { ContentData, ContentError, ContentKey, ContentLoad } from './files';
 export { RAW_CONTENT } from './data';
+export { PLANNED_GLOBALS } from './planned-globals';
+export type { PlannedGlobal } from './planned-globals';
 export { parseTemplate, renderText } from './text';
 export { GlobalsSchema, globalsProblems } from './schemas/globals';
 export * from './schemas/common';

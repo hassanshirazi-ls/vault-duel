@@ -28,7 +28,7 @@ describe('inert pins and ranges (D-170, D-199)', () => {
   const accepts = (over: Record<string, unknown>): boolean => GlobalsSchema.safeParse({ ...G, ...over }).success;
 
   it('accepts only the value the engine reads for each inert count', () => {
-    for (const key of ['PLAYS_PER_TURN', 'REPOSITIONS_PER_TURN', 'ATTACKS_PER_TURN', 'MIN_GRAFT_MATERIALS']) {
+    for (const key of ['PLAYS_PER_TURN', 'REPOSITIONS_PER_TURN', 'ATTACKS_PER_TURN', 'MIN_GRAFT_MATERIALS', 'RELIC_FLAWS']) {
       expect(accepts({ [key]: G[key as keyof typeof G] }), key).toBe(true);
       expect(accepts({ [key]: (G[key as keyof typeof G] as number) + 1 }), key).toBe(false);
     }

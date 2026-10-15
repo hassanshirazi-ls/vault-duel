@@ -133,7 +133,7 @@ const GlobalsShape = z
     WARD_CHARGES: pinned(1), // D-133: one charge until the engine has a charge counter
     HAUNT_PENALTY: Int,
     TETHERED_PENALTY: Int,
-    RELIC_FLAWS: Int,
+    RELIC_FLAWS: pinned(1), // D-202: a Relic has exactly one Flaw (flaw is one id); keep 1
     SLOW_TURNS: Int,
     // Graft
     MIN_GRAFT_MATERIALS: pinned(2), // D-170, D-199: a graft takes exactly two materials; keep 2

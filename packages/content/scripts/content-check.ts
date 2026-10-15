@@ -5,11 +5,13 @@ import { compileContent } from '../src/compile';
 import { DEFAULT_GLOBALS } from '../src/globals';
 import { CONTENT_FILES, formatError } from '../src/files';
 import { checkDeckgen } from '../src/feasibility';
+import { PLANNED_GLOBALS } from '../src/planned-globals';
 import {
   checkKeywordBarrel,
   checkKeywordExamples,
   checkKeywordGlobalRefs,
   checkKeywordSources,
+  keywordGlobalRefNames,
   loadContent,
   loadKeywordFiles,
   sortKeywords,
@@ -25,7 +27,8 @@ const keywordErrors = [
   ...checkKeywordBarrel(keywordLoad.sources),
 ];
 const keywordDefs = sortKeywords(keywordLoad.sources).map((source) => source.def);
-const validation = validateContent(result.data, DEFAULT_GLOBALS, keywordDefs);
+// D-205: keyword-source refs let the unused CONTENT_NUMBERS warning count a keyword's use.
+const validation = validateContent(result.data, DEFAULT_GLOBALS, keywordDefs, keywordGlobalRefNames(keywordLoad.sources));
 const errors = [...result.errors, ...keywordErrors, ...validation.errors];
 const warnings = [...validation.warnings, ...checkKeywordExamples(keywordLoad.sources)];
 
@@ -55,4 +58,10 @@ console.log(lines.join('\n'));
 console.log(`  keywords/                        ${keywordDefs.length - flaws} keywords, ${flaws} Flaws`);
 console.log(`  compiled: ${compiled.ids.length} definitions, hash ${compiled.hash}`);
 console.log(`  deckgen: feasible on every test date`);
+// D-205: planned globals are listed, not pinned. The count and the readers are computed from the list.
+const planned = Object.values(PLANNED_GLOBALS);
+if (planned.length > 0) {
+  const readers = [...new Set(planned.map((entry) => entry.reader))].sort().join(', ');
+  console.log(`not yet read: ${planned.length} globals wait for ${readers} › see packages/content/src/planned-globals.ts`);
+}
 for (const rule of DEFERRED_RULES) console.log(`not yet checked (TODO, §10.3): ${rule}`);

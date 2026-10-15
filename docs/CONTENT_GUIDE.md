@@ -10,12 +10,13 @@ the game, and the examples never depend on the live values.
 
 ## Words used here
 
-- **Monster**: a card you summon from your hand. It has Power, Guard, an element, a kind and up to one keyword.
+- **Monster**: a card you summon from your hand. It has Power, Guard, an element, a kind and keywords. At launch a
+  base monster has at most one keyword (section 4).
 - **Relic**: a Collector monster. Every Relic has exactly one Flaw.
 - **Spell** and **trap**: cards with effects. A trap waits face down until its trigger happens.
 - **Element**: one of the colors of the game. An element can beat other elements. The `beats` field in `elements.json` says which.
 - **Kind**: the family of a monster, such as beast or knight.
-- **Keyword**: an ability printed on a card. A base monster has at most one.
+- **Keyword**: an ability printed on a card. A base monster has at most one (`MAX_BASE_KEYWORDS`, section 4).
 - **Flaw**: a drawback printed on a Relic. Flaws are not keywords.
 - **Global**: a number or switch in `packages/content/src/globals.ts`.
 - **Placeholder**: a `{NAME}` in card text. It shows the current value of a global.
@@ -51,7 +52,8 @@ Values live in data. Rules live in the design document.
 | Player spells and traps | `packages/content/cards/player-spells.json`, `packages/content/cards/player-traps.json` | Owner |
 | Collector spells and traps | `packages/content/cards/collector-spells.json`, `packages/content/cards/collector-traps.json` | Owner |
 | The Collector's deck list, his ace, his dialogue | `packages/content/collector.json` (`deck`, `ace`, `dialogue`) | Owner |
-| The Collector's AI rule lists, mood overrides and string parameters | `packages/content/collector.json` (`ai`) | Owner only, with a decision entry first (D-166) |
+| The Collector's AI card lists: the entries in `ai › params › castHighValueSpell` and the ids in `ai › trapPreference` | `packages/content/collector.json` (`ai`) | Owner, edited with the card, like `deck` (D-204) |
+| The Collector's other AI settings: rule lists, mood overrides, `reposition`, string parameters | `packages/content/collector.json` (`ai`) | Owner only, with a decision entry first (D-166) |
 | Numbers and switches | `packages/content/src/globals.ts` | Owner |
 | Balance targets (`TARGET_*`) | `packages/content/src/globals.ts` | Owner only, with a decision entry first (D-166) |
 | Proposal switches (`FLAGS.APPRAISED_ENTERS_GUARD`, `FLAGS.ACE_SET_ASIDE`, `FLAGS.CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`, `SLOW_TURNS`) | `packages/content/src/globals.ts` | Owner only, with a decision entry first (D-166) |
@@ -149,8 +151,9 @@ Add this line to `art-briefs.json`, inside the object:
 "example-beast": "feral · lunging · ember red",
 ```
 
-The check prints one warning and exits with code 0. The last line, the success line, shows the number of files, which
-is written as `<N>` here:
+The check prints one warning to the error stream, then the success line `content:check OK: <N> files parsed`, and
+exits with code 0. The block shows those two lines. `<N>` is the number of files. The counts and the `not yet read`
+line (section 3) follow them:
 
 ```text
 warning: cards/player-monsters.json › example-beast › budget 11 (P7+G3+1kw) outside 8–10 › lower Power or Guard by 1 if this is not intended
@@ -172,9 +175,10 @@ Every problem is one line:
 ```
 
 - `<file>` is the file that holds the problem, for example `cards/player-monsters.json`.
-- `<entry>` is the id of the card, collector entry, or global that has the problem.
-- `field:` is the path inside the entry, for example `power:`. It is missing when the whole entry is the problem.
-  Some whole-entry problems print `(entry):` before the text.
+- `<entry>` is the id of the card, collector entry, or global that has the problem. A problem that belongs to a whole
+  file uses `(file)` here, as in `keywords/index.gen.ts › (file) › stale, does not match keywords/*.ts`.
+- `field:` is the path inside the entry, for example `power:`. It is missing when the whole entry is the problem,
+  as in the Flaw line in the table below.
 - `problem` says what is wrong. `fix` says what to do.
 
 Here is a real line for a number written in quotes:
@@ -187,18 +191,30 @@ cards/player-monsters.json › example-beast › power: expected number, got "7"
 
 - **Error**: no prefix. The check fails. The last line says how many errors there were, and the exit code is 1.
 - **Warning**: starts with `warning:`. The check still passes. A warning tells you about a card that may be wrong
-  but is allowed. Stat budget, missing art briefs and unused placeholders are warnings.
+  but is allowed. Stat budget, missing art briefs, unused placeholders, card numbers that nothing uses any more, and
+  Collector cards that the AI never plays are warnings.
 - **Success**: `content:check OK: N files parsed`, a list of counts, and `deckgen: feasible on every test date`.
+
+Warnings print first. Errors follow. Errors stop the run before the deck-generation test.
 
 A line that starts with `not yet checked` means a rule is listed but not implemented. There are none today.
 
-Warnings print first. Errors follow. Errors stop the run before the deck-generation test.
+**"not yet read" lines:** a clean run also prints one information line, after the counts and the deck-generation line:
+
+```text
+not yet read: 28 globals wait for ai, engine, sim, web › see packages/content/src/planned-globals.ts
+```
+
+It says that 28 globals are listed in `planned-globals.ts` because the code that reads them is not built yet. The
+count and the readers come from that file. It is not a problem, it never fails the run, and section 7 explains it.
+If a rule is still listed as not yet checked, that line prints after the `not yet read` line.
 
 ### Worked example: a warning and an error in one run
 
 Here the budget is 11 (a warning) and the spell list is too short for its deck (an error). The test sets the budget
-and the deck rules explicitly. It also removes the briefs of the spells it deletes, so the output is exactly these
-lines, and the exit code is 1:
+and the deck rules explicitly. It also removes the briefs of the spells it deletes, and the card numbers that only
+those spells used (section 5 shows what a number left behind looks like). So the output is exactly these lines, and
+the exit code is 1:
 
 ```text
 warning: cards/player-monsters.json › example-beast › budget 11 (P7+G3+1kw) outside 8–10 › lower Power or Guard by 1 if this is not intended
@@ -213,10 +229,11 @@ list of valid ids, the list is shown as `…`, because the ids can change. The c
 
 | Message, as printed | What it means and what to do |
 | --- | --- |
+| `cards/player-monsters.json › example-beast › power: missing › add "power"` | A field is missing. The fix names the field to add. |
 | `cards/player-monsters.json › example-beast › power: expected number, got "7" › write numbers without quotes` | A number is written in quotes. Remove the quotes. |
-| `cards/player-monsters.json › example-beast › keywords: ["swift","sentinel"] is above the maximum 1 › use 1 or less` | A base monster has two keywords. Keep one (section 4). |
-| `cards/relics.json › example-relic › flaw: expected string, got undefined › write a string value` | A Relic has no Flaw. Add `"flaw": "<flaw id>"` (section 4). |
-| `cards/player-monsters.json › example-beast › (entry): unknown key(s) flaw › remove flaw` | A Flaw is on a base monster. Flaws belong only on Relics. Remove `flaw`. |
+| `cards/player-monsters.json › example-beast › keywords: has 2 keywords, max MAX_BASE_KEYWORDS=1 › remove 1 keyword` | A base monster has more keywords than the limit. Keep one (section 4). |
+| `cards/relics.json › example-relic › flaw: missing, a Relic needs exactly 1 Flaw › add "flaw": "<flaw id>"` | A Relic has no Flaw. Add `"flaw": "<flaw id>"` (section 4). |
+| `cards/player-monsters.json › example-beast › Flaws appear only on Relics › remove "flaw"` | A Flaw is on a base monster. Flaws belong only on Relics. Remove `flaw`. |
 | `objectives.json › win-without-grafting › metric: got "rounds" › use one of: …` | An objective uses a metric that does not exist. Use one of the listed metrics. |
 | `cards/player-monsters.json › example-beast › unknown element "wind" › use one of: …, or add it to elements.json` | The element is not in `elements.json`. Use a listed id (section 4). |
 | `cards/player-monsters.json › example-beast › unknown kind "dragon" › use one of: …, or add it to kinds.json` | The kind is not in `kinds.json`. Use a listed id (section 4). |
@@ -237,24 +254,33 @@ list of valid ids, the list is shown as `…`, because the ids can change. The c
 | `cards/player-spells.json › example-purge › "cancelAttack" only works in a trap with trigger enemyAttack or enemyDirectAttack › remove it or change the trigger` | Cancel is used outside an attack trap. Move it to an attack trap, or remove it. |
 | `cards/player-traps.json › example-last › condition "powerGte" can't be checked on a destroyed monster › use type, relic, chimera, element, kind or graftedThisTurn` | A trap checks a monster that has already left the board. Use one of the listed conditions. |
 | `cards/relics.json › example-relic › Covetous is ace-only › change flaw or set collector.json ace` | The Covetous Flaw is on a Relic that is not the Collector's ace. Change the Flaw, or change the ace. |
+| `collector.json › ace › "no-such-relic" is not a Relic › use a Relic id from cards/relics.json` | The ace is not a Relic: the id is unknown, or it is a player card, a Collector spell or a trap. Use a Relic id (section 5). |
+| `collector.json › ace › "the-unpriced" is not in the deck › add it to the deck list in collector.json` | The ace is a Relic but not in his deck list. Add it (section 5). |
 | `recipes.json › (beast, beast) › no Chimera recipe for this kind pair › add {"kinds":["beast","beast"], …}` | A kind pair has no Chimera recipe. Add the recipe (section 9, later). |
 | `recipes.json › example-chimera › pair (beast, beast) already defined by packmaw › delete one` | Two recipes cover the same kind pair. Delete one. |
 | `collector.json › deck › has 19 cards, needs COLLECTOR_DECK_SIZE=20 › add 1 card id` | The Collector's deck size differs from the global. Make the list and the global agree (section 5). |
 | `collector.json › deck[n] › "<id>" is a player card › use a card from relics.json or collector-*.json` | A player card is in the Collector's deck. Use a Collector card. |
 | `collector.json › deck[n] › "<id>" no longer exists › remove the reference` | The deck names a card that was deleted. Remove the id from the deck list. |
-| `collector.json › ai › castHighValueSpell.forfeit: "forfeit" is not a Collector spell in the deck › use a spell id from collector.json › deck` | The AI names a spell that is not in his deck. Put it back, or change the AI rule (owner only). |
+| `collector.json › ai › params.castHighValueSpell.forfeit: "forfeit" is not a Collector spell in the deck › use a spell id from collector.json › deck` | The AI names a spell that is not in his deck. Put it back, or remove its AI entry (section 5). |
+| `collector.json › ai › params.castHighValueSpell.forfeit: needs exactly one of "pick" or "when" › keep exactly one of "pick" or "when"` | An AI entry has both keys or neither. Keep exactly one (section 5). |
+| `collector.json › ai › params.castHighValueSpell.example-collector-purge: "contestedAttack" needs a spell that gives Power to "chosen" › use "pick": "highestPower" instead` | A `contestedAttack` entry is on a spell that gives no Power to `chosen`. Use `"pick"` (section 5). |
+| `warning: collector.json › deck[0] › Collector spell "example-collector-purge" has no AI rule that casts it › add "example-collector-purge" to ai.params.castHighValueSpell with a pick, or make it draw-only` | A Collector spell is in his deck and no AI entry casts it. Add the entry, or make the spell draw-only (section 5). The index is the card's place in the deck. |
+| `warning: collector.json › deck[17] › Collector trap "display-case" is not in ai.trapPreference › add it, or AI rule 4 never sets it` | A Collector trap is in his deck and his trap list does not name it. Add its id to `trapPreference` (section 5). |
 | `cards/player-spells.json › pool › 2 spells × MAX_COPIES=2 can't fill DECK_SPELLS=5 › add 1 spell, or lower DECK_SPELLS or raise MAX_COPIES in globals.ts` | There are too few spells for the deck. Add the listed number, or change the globals (section 5). |
 | `cards/player-monsters.json › pool › deck constraints unsatisfiable on 1000 of 1000 test dates › relax DECK_MIN_ELEMENTS, DECK_MIN_KINDS or the CURVE_* globals, or add monsters` | The deck generator cannot build a deck on the test dates. Relax the deck rules in `globals.ts`, or add monsters. |
 | `globals.ts › PLAYER_LIFE › must be 0 or more › use 0 or more` | A global is negative. Use 0 or more. |
 | `globals.ts › APPRAISAL_ROUNDS › round 13 > MAX_ROUNDS=12 › remove it` | An Appraisal round is after the last round. Remove the round, or raise `MAX_ROUNDS`. |
 | `globals.ts › WARD_CHARGES › must be 1 until the engine supports other values › keep 1` | A pinned global is set to another value. Keep the one value (section 7). |
+| `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1` | `RELIC_FLAWS` is pinned to 1, because a Relic has exactly one Flaw. Keep 1 (section 7). |
+| `warning: globals.ts › CONTENT_NUMBERS › SIPHON_DRAIN: not used by any card, objective, AI param or keyword › delete the line, or use $SIPHON_DRAIN in an effect` | A card number is left behind after the card that used it was deleted. Delete the line, or use the name in a card (section 5). |
 | `keywords/index.gen.ts › (file) › stale, does not match keywords/*.ts › run pnpm content:gen` | A keyword file changed, and the generated list was not rebuilt. Run `pnpm content:gen`. |
 | `keywords/example-ward.ts › example-ward › id "example-other" ≠ file name › rename the file or the id` | A keyword file's id does not match its file name. Make them match. |
 | `warning: keywords/example-ward.ts › example-ward › no examples › add one board-DSL example with declared cards (D-169)` | A keyword has no example test. A warning only. Add one (section 11, later). |
 | `globals.ts › CONTENT_NUMBERS › PLAYER_LIFE: PLAYER_LIFE is already a core key of Globals › rename it, or change the core PLAYER_LIFE instead` | A card number has the same name as a core global. Rename the card number. |
 
 **"not yet checked" lines:** none today. If one appears, that rule is listed but not checked, so a clean run does not
-cover it.
+cover it. The `not yet read` line in the success part of a run is a different thing: it counts the globals that are
+waiting for a reader. Section 3 above shows it, and section 7 explains it.
 
 ---
 
@@ -283,7 +309,8 @@ Field rules:
 - `name` is the name players see. You can change it at any time.
 - `element` and `kind` must be ids from `elements.json` and `kinds.json`.
 - `power` and `guard` are whole numbers from 0 to 20. Write them without quotes.
-- `keywords` is a list with at most one keyword id, such as `["swift"]`. For no keyword, use `[]`.
+- `keywords` is a list of keyword ids, such as `["swift"]`. For no keyword, use `[]`. A base monster may have at most
+  `MAX_BASE_KEYWORDS` of them, which is 1 at launch (see below).
 - `text` is optional. If you write it, follow section 6.
 
 ### Template: a Relic
@@ -325,22 +352,39 @@ warning: cards/player-monsters.json › example-beast › budget 11 (P7+G3+1kw) 
 
 ### Worked example: a second keyword is refused
 
-A base monster may carry at most one keyword. Put two keywords on one card and the card format refuses it:
+A base monster may carry at most `MAX_BASE_KEYWORDS` keywords, which is 1 at launch. Put two keywords on one card and
+the check refuses it:
 
 ```text
-cards/player-monsters.json › example-beast › keywords: ["swift","sentinel"] is above the maximum 1 › use 1 or less
+cards/player-monsters.json › example-beast › keywords: has 2 keywords, max MAX_BASE_KEYWORDS=1 › remove 1 keyword
 ```
 
-`MAX_BASE_KEYWORDS` in `globals.ts` is meant to set this limit. Today the limit is written into the card format, and
-the validator does not read `MAX_BASE_KEYWORDS`. So changing that number does nothing yet. The test raises it to 2 and
-still gets the same refusal.
+Remove one. A Relic's `keywords` list follows the same limit, and the check refuses a Relic with two keywords in the
+same way:
+
+```text
+cards/relics.json › example-relic › keywords: has 2 keywords, max MAX_BASE_KEYWORDS=1 › remove 1 keyword
+```
+
+### Worked example: raising the keyword limit
+
+`MAX_BASE_KEYWORDS` in `globals.ts` sets the limit for every base monster and every Relic. It is read by the check, so
+raising it changes what is accepted. The test sets it to 2 on its copy, and the card with two keywords (swift and
+sentinel) passes. The test also widens the stat budget to 11, so the card's budget is in range and only the keyword
+limit is in view:
+
+```text
+  MAX_BASE_KEYWORDS: 2,
+```
+
+Chimeras have their own limit, `MAX_INHERITED_KEYWORDS`, which this check does not read.
 
 ### Worked example: a Relic needs its Flaw
 
-Remove the `flaw` field from a Relic and the check says so:
+Remove the `flaw` field from a Relic and the check says what to add:
 
 ```text
-cards/relics.json › example-relic › flaw: expected string, got undefined › write a string value
+cards/relics.json › example-relic › flaw: missing, a Relic needs exactly 1 Flaw › add "flaw": "<flaw id>"
 ```
 
 A Flaw id that is not known gets the message from section 3. The test checks both sides: a Relic with `"flaw": "slow"`
@@ -367,7 +411,7 @@ pnpm content:check
 ## 5. Add or remove a card
 
 Adding a card takes two or three edits. Put the card in its file. Add one line to `art-briefs.json`. For a Collector
-card, also put its id in his deck list.
+card, also put its id in his deck list. For a Collector spell that the AI casts, add one entry to his AI (below).
 
 ### Template: an art brief
 
@@ -436,18 +480,41 @@ spells or Collector traps). A player card is refused. Put an id in the list like
 
 ### The Collector's AI
 
-`collector.json` also holds his AI: the order of his plays and attacks, the mood overrides, and the parameters. The
-rule lists, the mood overrides and the string parameters are owner-only (D-166). The AI names the cards it plays. A
-spell is named under `ai › params › castHighValueSpell`, unless it only draws cards. A trap is named under
-`ai › trapPreference`. A card that nothing names is never played. The check does not warn about this yet (D-177 is
-not built).
+`collector.json` also holds his AI: the order of his plays and attacks, the mood overrides and the parameters. Section 1
+says who may edit what. In short:
 
-The spell list in `castHighValueSpell` is closed. It accepts only the spell ids that the AI rules already name. A new
-spell that the AI should cast needs a change to the card format, so it is an engineering task (section 12, later).
-A new trap needs no code change, because `trapPreference` takes any Collector trap id.
+- The **card lists** are yours to edit with the card: the entries under `ai › params › castHighValueSpell`, and the ids
+  under `ai › trapPreference`. Adding or removing a Collector card that the AI plays is a data edit (D-204).
+- Everything else in the AI is owner-only, with a decision entry first (D-166).
 
-The check also does not confirm that the `ace` id is a Relic. An unknown `ace` passes silently today. Keep the ace id
-correct by hand.
+#### castHighValueSpell
+
+This block has one entry for each Collector spell the AI casts. The key is the spell's id. Each entry has exactly one
+of two forms:
+
+```text
+"forfeit": { "pick": "highestPower" },
+"gilt-frame": { "when": "contestedAttack" },
+```
+
+- `{ "pick": "highestPower" }` casts the spell on the target with the highest Power the AI can see. Forfeit is one.
+- `{ "when": "contestedAttack" }` casts the spell when the Power it gives its target would win a contested attack.
+  Gilt Frame is one. The check refuses it on a spell with no Power effect on `chosen`.
+
+The entries can be added and removed freely. A new Collector spell that the AI casts takes three edits: the card in
+its file, its line in the deck list, and its entry here. A draw-only spell (every effect draws a card for its caster)
+needs no entry. Without an entry, the check warns (see the example below). There is no code change.
+
+#### trapPreference
+
+A Collector trap in his deck is set only when its id is in `ai › trapPreference`. A deck trap that is missing from
+that list gets a warning, and the example below shows it.
+
+### The Collector's ace
+
+`collector.json › ace` is the id of his ace Relic. The ace must be a Relic in `cards/relics.json`, and it must be in his
+deck list. Covetous is the ace's Flaw: only the ace may carry it, and the check says so when a Covetous Relic is not
+the ace.
 
 ### Worked example: add a monster with its brief
 
@@ -461,15 +528,68 @@ warning: art-briefs.json › example-beast › missing art brief › add a one-l
 ### Worked example: add a spell, a trap and a Relic
 
 Add the spell, trap and Relic templates above, each with its brief. The check is clean. A Relic that is not in the
-Collector's deck list is still valid. The Collector only plays a card that his deck lists.
+Collector's deck list is still valid. Only the ace must be in his deck.
 
 ### Worked example: a Collector spell swapped into his deck
 
 Add the Collector spell template to `cards/collector-spells.json`, with its brief. Then put its id into the deck list
-in place of one card that the AI does not name. The deck size stays the same, so the check is clean.
+in place of `gilded-penitent`, a Relic the AI never names. Give the spell one entry in `castHighValueSpell`:
 
 ```text
-"example-collector-purge",
+"example-collector-purge": { "pick": "highestPower" },
+```
+
+The deck size stays the same, and the check is clean.
+
+Without that entry line, the check warns. The spell is in his deck, but no AI entry casts it. The index is the card's
+place in his deck list:
+
+```text
+warning: collector.json › deck[0] › Collector spell "example-collector-purge" has no AI rule that casts it › add "example-collector-purge" to ai.params.castHighValueSpell with a pick, or make it draw-only
+```
+
+### Worked example: a bad entry in castHighValueSpell
+
+An entry has exactly one of `"pick"` or `"when"`. With neither, or with both, the check refuses it. The first line
+below is for the example spell, which has both keys. The second is for Forfeit's entry, and it has neither:
+
+```text
+collector.json › ai › params.castHighValueSpell.example-collector-purge: needs exactly one of "pick" or "when" › keep exactly one of "pick" or "when"
+collector.json › ai › params.castHighValueSpell.forfeit: needs exactly one of "pick" or "when" › keep exactly one of "pick" or "when"
+```
+
+`"contestedAttack"` needs a spell that gives Power to `chosen`. The example spell gives none, so this entry is refused:
+
+```text
+collector.json › ai › params.castHighValueSpell.example-collector-purge: "contestedAttack" needs a spell that gives Power to "chosen" › use "pick": "highestPower" instead
+```
+
+### Worked example: a trap missing from his trap list
+
+Take `display-case` out of `ai › trapPreference` and it is still in his deck. The check warns:
+
+```text
+warning: collector.json › deck[17] › Collector trap "display-case" is not in ai.trapPreference › add it, or AI rule 4 never sets it
+```
+
+### Worked example: the ace must be in the deck list
+
+The ace is `the-unpriced`. Take it out of his deck list, and put another Relic in its place so the deck size stays the
+same. The test adds a copy of the example Relic to `relics.json` for this. The check says the ace is not in the deck:
+
+```text
+collector.json › ace › "the-unpriced" is not in the deck › add it to the deck list in collector.json
+```
+
+### Worked example: the ace must be a Relic
+
+Set the ace to an id that is not a Relic, and the check refuses it. The message is the same for an unknown id, a
+player card, a Collector spell or a trap. Changing the ace also moves Covetous, so the Relic that carried it is named
+too:
+
+```text
+collector.json › ace › "no-such-relic" is not a Relic › use a Relic id from cards/relics.json
+cards/relics.json › the-unpriced › Covetous is ace-only › change flaw or set collector.json ace
 ```
 
 ### Worked example: one card too many in the deck
@@ -493,13 +613,28 @@ collector.json › deck[0] › "example-collector-purge" no longer exists › re
 warning: art-briefs.json › example-collector-purge › orphan brief, no card or Chimera family has this id › delete the entry
 ```
 
-To delete a card cleanly, remove it from its file, from the deck list, and from `art-briefs.json`.
+To delete a card cleanly, remove it from its file, from the deck list, from `art-briefs.json`, and from any AI entry or
+trap list that names it. Then remove any card number only that card used (next example).
+
+### Worked example: delete a card and leave its number behind
+
+A card number is a line in the `CONTENT_NUMBERS` block of `globals.ts`. When the card that used it is deleted, the line
+stays, and nothing uses it. The check warns about each one. The test deletes the `siphon` spell and its brief, and
+leaves its two numbers:
+
+```text
+warning: globals.ts › CONTENT_NUMBERS › SIPHON_DRAIN: not used by any card, objective, AI param or keyword › delete the line, or use $SIPHON_DRAIN in an effect
+warning: globals.ts › CONTENT_NUMBERS › SIPHON_GAIN: not used by any card, objective, AI param or keyword › delete the line, or use $SIPHON_GAIN in an effect
+```
+
+Delete the two lines in `globals.ts`, and the warnings go away. A number that a keyword source uses also counts as used.
 
 ### Worked example: too few spells for the deck
 
 The player's deck needs a number of distinct spells, given by `DECK_SPELLS` and `MAX_COPIES`. If you delete spells
 until there are fewer than that, the check says how many to add. The test sets `DECK_SPELLS` to 5 and `MAX_COPIES`
-to 2 on its copy, and keeps two spells:
+to 2 on its copy, and keeps two spells. It also removes the card numbers that only the deleted spells used, so only
+the pool line shows:
 
 ```text
 cards/player-spells.json › pool › 2 spells × MAX_COPIES=2 can't fill DECK_SPELLS=5 › add 1 spell, or lower DECK_SPELLS or raise MAX_COPIES in globals.ts
@@ -524,7 +659,7 @@ names it. Two warnings follow, because the new id has no brief yet and the old b
 
 ```text
 collector.json › deck[16] › "forfeit" no longer exists › remove the reference
-collector.json › ai › castHighValueSpell.forfeit: "forfeit" is not a Collector spell in the deck › use a spell id from collector.json › deck
+collector.json › ai › params.castHighValueSpell.forfeit: "forfeit" is not a Collector spell in the deck › use a spell id from collector.json › deck
 warning: art-briefs.json › forfeit-2 › missing art brief › add a one-line "mood · pose · palette"
 warning: art-briefs.json › forfeit › orphan brief, no card or Chimera family has this id › delete the entry
 ```
@@ -749,7 +884,11 @@ only the value shown.
 | `ATTACKS_PER_TURN` | 1 | `globals.ts › ATTACKS_PER_TURN › must be 1 until the engine supports other values › keep 1` |
 | `MIN_GRAFT_MATERIALS` | 2 | `globals.ts › MIN_GRAFT_MATERIALS › must be 2 until the engine supports other values › keep 2` |
 | `WARD_CHARGES` | 1 | `globals.ts › WARD_CHARGES › must be 1 until the engine supports other values › keep 1` |
+| `RELIC_FLAWS` | 1 | `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1` |
 | `FLAGS.ACE_SET_ASIDE` | false | `globals.ts › FLAGS › ACE_SET_ASIDE: must be false until the engine supports other values › keep false` |
+
+`RELIC_FLAWS` stays a global so the number is written down, but a Relic has exactly one Flaw because its `flaw` field
+is a single id. Changing it to 2 is refused, and only a decision entry can lift the pin (D-202).
 
 Two more limits apply:
 
@@ -757,11 +896,31 @@ Two more limits apply:
   `globals.ts › BOARD_SLOTS › must be 16 or less, the engine's LOC_STRIDE › use 16 or less`
 - `MAX_GRAFT_MATERIALS` is 2 or 3. `globals.ts › MAX_GRAFT_MATERIALS › must be from 2 to 3 › use 2 or 3`
 
-### Settings that nothing reads yet
+### Settings in three states
 
-Some settings are accepted but no code reads them yet. Setting one does nothing, and the check does not say so.
-`RELIC_FLAWS` is one: every Relic has exactly one Flaw because the card format says so. `MAX_BASE_KEYWORDS` is
-another: section 4 explains why. Do not expect a change to these to show up in play.
+Every core setting and every flag is in one of three states:
+
+- **Read.** The game or the check reads it, so a change shows up in play or in the checks. Most settings are here.
+- **Pinned.** The engine supports one value. The table above lists that value, and the check refuses any other.
+- **Planned.** The code that reads it is not built yet. A planned setting is accepted, and it takes effect when its
+  reader lands. Setting one today changes nothing in play. Nothing needs to be unpinned later, because a planned
+  setting is never pinned.
+
+The planned settings are listed in `packages/content/src/planned-globals.ts`, with the code that will read each one.
+Do not copy the list from there into this guide. The check prints the count and the readers after a clean run (the
+`not yet read` line in section 3).
+
+### Worked example: a planned setting is accepted
+
+`OBJECTIVES_PER_DAY` is planned. Its reader is the daily objective code, which is not built yet. Set it to 5 and the
+check accepts it and stays clean:
+
+```text
+  OBJECTIVES_PER_DAY: 5,
+```
+
+When the reader lands, the change that wires it also deletes its line from `planned-globals.ts`, and a test enforces
+that. You do not need to do anything. A planned setting you set today keeps its value.
 
 ### Sanity rules
 

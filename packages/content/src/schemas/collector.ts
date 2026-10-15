@@ -35,6 +35,15 @@ const AI_WHEN = z.enum(['contestedAttack']);
 const AI_UTILITY_STEP = z.enum(['castDrawSpell', 'setTrap', 'pass']);
 export const AI_TIE_BREAK = z.enum(['leftmostSlot', 'cardId', 'instanceId']);
 
+/** One castHighValueSpell entry (D-204): exactly one mode, so a new Collector spell needs data only. */
+const CastWhen = z
+  .object({ pick: z.exactOptional(AI_PICK), when: z.exactOptional(AI_WHEN) })
+  .strict()
+  .refine((cast) => (cast.pick === undefined) !== (cast.when === undefined), {
+    message: 'needs exactly one of "pick" or "when"',
+    params: { fix: 'keep exactly one of "pick" or "when"' },
+  });
+
 /** Per-rule parameters (§13.2). Base params are complete; mood overrides may set any subset. */
 const AiParams = z
   .object({
@@ -45,13 +54,7 @@ const AiParams = z
       .partial(),
     faceDownIfStrong: z.object({ minPower: Num }).strict(),
     killWithoutLoss: z.object({ allowTrades: z.boolean() }).strict(),
-    castHighValueSpell: z
-      .object({
-        forfeit: z.object({ pick: AI_PICK }).strict(),
-        restoration: z.object({ pick: AI_PICK }).strict(),
-        'gilt-frame': z.object({ when: AI_WHEN }).strict(),
-      })
-      .strict(),
+    castHighValueSpell: z.record(Id, CastWhen),
     summonBeater: z.object({ compare: AI_COMPARE_BEATER, skipBrittleCountered: z.boolean() }).strict(),
     utility: z.object({ order: z.array(AI_UTILITY_STEP) }).strict(),
   })

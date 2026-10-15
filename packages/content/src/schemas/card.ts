@@ -14,7 +14,8 @@ export const PlayerMonster = z
     kind: Id,
     power: Stat,
     guard: Stat,
-    keywords: z.array(Id).max(1).default([]),
+    // The count is checked by validate.ts against MAX_BASE_KEYWORDS (D-201), not here.
+    keywords: z.array(Id).default([]),
     text: z.exactOptional(z.string()),
   })
   .strict();

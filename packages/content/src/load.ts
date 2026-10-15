@@ -18,7 +18,7 @@ function readJson(root: string, path: string): { raw: unknown } | { error: Conte
       error: {
         file: path,
         id: '(file)',
-        field: '(file)',
+        field: '', // D-206: a whole-file problem has no field part; the (file) stand-in is the entry
         problem: missing ? 'file is missing' : `invalid JSON (${detail})`,
         fix: missing ? `create ${path}` : 'fix the JSON syntax',
       },
