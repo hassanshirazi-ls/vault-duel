@@ -1,3 +1,10 @@
+import '@fontsource/cormorant/latin-600.css';
+import '@fontsource/cormorant/latin-700.css';
+import '@fontsource-variable/inter/wght.css';
+import './style/tokens.css';
+import './style/base.css';
+import './style/card.css';
+import './style/screens.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initialContentApi, onContentReload } from './content/hot';

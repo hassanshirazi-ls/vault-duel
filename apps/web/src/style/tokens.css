@@ -1,0 +1,57 @@
+/* Design tokens (D-237, D-238). Palette first, then one token pair per element id: --el-<id> is the gem color and
+   --el-on-<id> the ink drawn on it. A new element is one entry here; an id without an entry uses --el-neutral. */
+:root {
+  /* velvet, gold leaf, ivory, brass */
+  --velvet: #120d12;
+  --velvet-2: #1b141b;
+  --velvet-3: #271c27;
+  --gold: #c9a24a;
+  --gold-hi: #e8cc7e;
+  --gold-lo: #7a6029;
+  --ivory: #f2ead3;
+  --ivory-dim: #bdb49a;
+  --paper: #efe6cc;
+  --paper-ink: #2a2014;
+  --brass: #a0803c;
+  --brass-dark: #3a2d14;
+  --flaw: #ff5a52;
+  --good: #8fd09a;
+  --bad: #ff7a70;
+
+  /* element gems (D-238 jewel tones), keyed by element id */
+  --el-ember: #c8323a;
+  --el-on-ember: #fff3ee;
+  --el-gale: #8fd3a8;
+  --el-on-gale: #0f2a1a;
+  --el-tide: #2456a6;
+  --el-on-tide: #eef4ff;
+  --el-lumen: #f3e6b3;
+  --el-on-lumen: #3a2c08;
+  --el-umbra: #7a4fb8;
+  --el-on-umbra: #f6efff;
+  --el-neutral: #8a8478;
+  --el-on-neutral: #15110d;
+
+  /* type */
+  --font-display: 'Cormorant', 'Cinzel', Georgia, 'Times New Roman', serif;
+  --font-body: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* motion: one beat is about 200 ms (D-237); zero turns every animation off */
+  --beat: 190ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* sizes */
+  --tap: 44px;
+  --radius: 10px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* the animations flag (FLAGS.ANIMATIONS) and the OS reduced-motion setting both end motion */
+[data-anim='off'] {
+  --beat: 0ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --beat: 0ms;
+  }
+}

@@ -14,6 +14,23 @@ export interface ElementInfo {
   readonly name: string;
   readonly color: string;
   readonly icon: string;
+  /** ids of the elements this one beats (elements.json); the reverse gives "weak to" */
+  readonly beats: readonly string[];
+}
+
+export interface KindInfo {
+  readonly id: string;
+  readonly name: string;
+  /** silhouette id from kinds.json; the placeholder art draws it (D-195), unknown ids get a generic one */
+  readonly silhouette: string;
+}
+
+export interface ObjectiveInfo {
+  readonly id: string;
+  readonly text: string;
+  readonly metric: 'grafts' | 'playerLife' | 'round' | 'appraisedLost';
+  readonly lte: number | string | undefined;
+  readonly gte: number | string | undefined;
 }
 
 export type CardKind = 'monster' | 'spell' | 'trap' | 'family';
@@ -37,6 +54,10 @@ export interface GameCtx {
   readonly cards: ReadonlyMap<string, CardInfo>;
   readonly elements: ReadonlyMap<string, ElementInfo>;
   readonly kindNames: ReadonlyMap<string, string>;
+  readonly kinds: ReadonlyMap<string, KindInfo>;
+  readonly objectives: ReadonlyMap<string, ObjectiveInfo>;
+  /** the Collector's lines per mood name (collector.json › dialogue); templates, render them */
+  readonly dialogue: Readonly<Record<string, readonly string[]>>;
   readonly objectiveText: ReadonlyMap<string, string>;
   readonly twistText: readonly string[];
   readonly warnings: readonly string[];
@@ -81,8 +102,13 @@ export function loadGameContent(api: ContentApi): LoadResult {
       globals,
       objectiveIds: (data.objectives ?? []).map((o) => o.id),
       cards,
-      elements: new Map((data.elements ?? []).map((e) => [e.id, { id: e.id, name: e.name, color: e.color, icon: e.icon }])),
+      elements: new Map((data.elements ?? []).map((e) => [e.id, { id: e.id, name: e.name, color: e.color, icon: e.icon, beats: e.beats }])),
       kindNames: new Map((data.kinds ?? []).map((k) => [k.id, k.name])),
+      kinds: new Map((data.kinds ?? []).map((k) => [k.id, { id: k.id, name: k.name, silhouette: k.silhouette }])),
+      objectives: new Map(
+        (data.objectives ?? []).map((o) => [o.id, { id: o.id, text: o.text, metric: o.metric, lte: o.lte, gte: o.gte }]),
+      ),
+      dialogue: data.collector?.dialogue ?? {},
       objectiveText: new Map((data.objectives ?? []).map((o) => [o.id, o.text])),
       twistText: content.twists.map((t) => t.text),
       warnings: validation.warnings.map(api.formatError),

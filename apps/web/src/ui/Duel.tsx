@@ -1,187 +1,365 @@
-import { useState } from 'react';
-import type { Action, GameState, Iid, Monster } from '@vault-duel/engine';
+// The duel screen (D-237 mirrored layout): the Collector's header, traps and monsters on top, the round track across
+// the middle, your monsters, traps, fanned hand and End turn at the bottom. Interaction is "tap card, tap target":
+// everything offered comes from `getLegalActions` through view/legal.ts and view/selection.ts, and every change goes
+// through the store's `act`. Animations are cues from engine events (visual/cues.ts), dropped by any tap.
+import { useEffect, useState } from 'react';
+import type { CSSProperties } from 'react';
+import type { Action, Iid, Monster, Side } from '@vault-duel/engine';
+import { MOOD_NAMES } from '@vault-duel/ai';
 import { roundOfState } from '../duel/turn';
 import { cardView } from '../view/cards';
-import type { CardView } from '../view/cards';
-import { MODE_LABEL, POSITION_LABEL } from '../view/legal';
-import { appraisalCountdown, graftPreviewView, INTENT_LABEL, moodName } from '../view/status';
+import { INTENT_LABEL } from '../view/status';
+import { appraisalCountdown, moodName } from '../view/status';
+import { boardActionable, planFor, summonMode } from '../view/selection';
+import type { Plan, Selection } from '../view/selection';
+import { cueDurationMs, cuesFromEvents, quipMood } from '../visual/cues';
+import type { Cue } from '../visual/cues';
+import { Glyph } from '../visual/glyphs';
+import { CollectorHeader } from './Collector';
 import { useGame } from './context';
+import { GraftSheet } from './GraftSheet';
+import { prefersReducedMotion } from './hooks';
+import { Inspect } from './Inspect';
+import { CardBack, MiniCard } from './MiniCard';
+import { RoundTrack } from './RoundTrack';
 
-function CardText({ c }: { c: CardView }) {
-  return (
-    <>
-      {c.element !== null && `[${c.element.icon}] ${c.element.name} `}
-      {c.name}
-      {c.power !== null && ` P${c.power}/G${c.guard}`}
-      {c.kind !== null && ` ${c.kind}`}
-      {c.isChimera && ' (Chimera)'}
-      {c.keywords.map((k) => ` {${k.icon}:${k.name}}`).join('')}
-    </>
-  );
-}
-
-function Inspect({ iid, onClose }: { iid: Iid; onClose: () => void }) {
-  const ctx = useGame((s) => s.ctx);
-  const rt = useGame((s) => s.rt);
-  const state = useGame((s) => s.state);
-  if (ctx === null || rt === null || state === null) return null;
-  const c = cardView(ctx, rt.engine, state, iid);
-  return (
-    <section aria-label="Card inspect">
-      <h3><CardText c={c} /></h3>
-      {c.text !== null && <p>{c.text}</p>}
-      <ul>{c.keywords.map((k) => <li key={k.id}>[{k.icon}] {k.name}{k.flaw ? ' (Flaw)' : ''}: {k.text}</li>)}</ul>
-      <button onClick={onClose}>Close</button>
-    </section>
-  );
-}
-
-function Slot({ m, mine, inspect }: { m: Monster | null; mine: boolean; inspect: (iid: Iid) => void }) {
-  const ctx = useGame((s) => s.ctx);
-  const rt = useGame((s) => s.rt);
-  const state = useGame((s) => s.state);
-  const groups = useGame((s) => s.groups);
-  const act = useGame((s) => s.act);
-  if (ctx === null || rt === null || state === null || groups === null) return null;
-  if (m === null) return <li>(empty monster slot)</li>;
-  if (m.faceDown && !mine) return <li>(face-down monster)</li>;
-  const c = cardView(ctx, rt.engine, state, m.iid);
-  const reposition = groups.repositions.get(m.iid);
-  const attacks = groups.attacks.get(m.iid) ?? [];
-  return (
-    <li>
-      <CardText c={c} /> - {m.faceDown ? 'face-down ' : ''}{POSITION_LABEL[m.pos]}
-      <button onClick={() => inspect(m.iid)}>Inspect</button>
-      {mine && reposition !== undefined && <button onClick={() => act(reposition)}>Reposition</button>}
-      {mine && attacks.map((a, i) => {
-        const label = a.target < 0 ? 'direct' : cardView(ctx, rt.engine, state, a.target).name;
-        const p = rt.engine.previewCombat(state, a.a, a.target);
-        const hint = p.known
-          ? ` (${p.outcome.destroyDefender ? 'destroys it' : 'does not destroy it'}${p.outcome.destroyAttacker ? ', lost' : ''}, deals ${p.outcome.dmgToDefender}, takes ${p.outcome.dmgToAttacker})`
-          : ' (unknown)';
-        return <button key={i} onClick={() => act(a)}>Attack {label}{hint}</button>;
-      })}
-    </li>
-  );
-}
-
-function Board({ state, side, inspect }: { state: GameState; side: 0 | 1; inspect: (iid: Iid) => void }) {
-  const ctx = useGame((s) => s.ctx);
-  const rt = useGame((s) => s.rt);
-  if (ctx === null || rt === null) return null;
-  const s = state.sides[side];
-  return (
-    <section aria-label={side === 0 ? 'Your board' : "Collector's board"}>
-      <h3>{side === 0 ? 'Your board' : 'The Collector'} - life {s.life}</h3>
-      <ul>{s.board.map((m, i) => <Slot key={i} m={m} mine={side === 0} inspect={inspect} />)}</ul>
-      <ul>
-        {s.traps.map((t, i) => (
-          <li key={i}>
-            {t === null ? '(empty trap slot)' : side === 0 ? `Trap: ${cardView(ctx, rt.engine, state, t.iid).name}` : '(set trap)'}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function GraftPanel({ state }: { state: GameState }) {
-  const ctx = useGame((s) => s.ctx);
-  const rt = useGame((s) => s.rt);
-  const groups = useGame((s) => s.groups);
-  const act = useGame((s) => s.act);
-  if (ctx === null || rt === null || groups === null || state.pending === null) return null;
-  const preview = graftPreviewView(ctx, rt.engine, state);
-  const name = (iid: Iid): string => cardView(ctx, rt.engine, state, iid).name;
-  return (
-    <section aria-label="Graft">
-      <h3>Graft - step: {state.pending.stage}</h3>
-      <p>Chosen: {state.pending.mats.map(name).join(' + ') || 'nothing yet'}</p>
-      {preview !== null && (
-        <p>
-          Result: {preview.name} {preview.element !== null && `[${preview.element.icon}] ${preview.element.name} `}
-          P{preview.power}/G{preview.guard}
-          {preview.ascended && ' - Ascended'}
-          {preview.unstable && ' - Unstable'}
-          {preview.keywords.map((k) => ` {${k.icon}:${k.name}}`).join('')}
-        </p>
-      )}
-      <ul>
-        {[...groups.graftPicks].map(([iid, a]) => <li key={iid}><button onClick={() => act(a)}>Use {name(iid)}</button></li>)}
-      </ul>
-      {groups.graftSkipAscend !== null && <button onClick={() => act(groups.graftSkipAscend as Action)}>Skip Ascend</button>}
-      {groups.graftKeywords.map((a, i) => (
-        <button key={i} onClick={() => act(a)}>
-          Inherit {preview?.available.filter((k) => { const bit = ctx.content.kwBit[k.id]; return bit !== undefined && (a.kw >>> bit) & 1; }).map((k) => `[${k.icon}] ${k.name}`).join(' + ')}
-        </button>
-      ))}
-      {groups.graftPositions.map((a) => <button key={a.pos} onClick={() => act(a)}>Enter in {POSITION_LABEL[a.pos]}</button>)}
-      {groups.graftCancel !== null && <button onClick={() => act(groups.graftCancel as Action)}>Cancel Graft</button>}
-    </section>
-  );
-}
+const CARD_CUES = new Set(['enter', 'graft', 'lunge', 'hit', 'ward', 'flash']);
 
 export function Duel() {
   const ctx = useGame((s) => s.ctx);
   const rt = useGame((s) => s.rt);
   const state = useGame((s) => s.state);
   const groups = useGame((s) => s.groups);
+  const events = useGame((s) => s.events);
   const error = useGame((s) => s.error);
   const act = useGame((s) => s.act);
+  const [sel, setSel] = useState<Selection | null>(null);
   const [inspected, setInspected] = useState<Iid | null>(null);
+  const [seen, setSeen] = useState(events);
+  const [cues, setCues] = useState<readonly Cue[]>([]);
+  const [quip, setQuip] = useState<{ key: number; text: string } | null>(null);
+
+  // New engine events: build this step's cues and, on a mood shift or an Appraisal, the Collector's quip.
+  // (Derived in render, the React pattern for state that follows other state.)
+  if (seen !== events) {
+    setSeen(events);
+    if (ctx !== null && state !== null) {
+      const animate = ctx.globals.FLAGS.ANIMATIONS && !prefersReducedMotion();
+      setCues(animate ? cuesFromEvents(events) : []);
+      const mood = quipMood(events, state.collector.mood);
+      const lines = mood === null ? undefined : ctx.dialogue[MOOD_NAMES[mood] ?? 'composed'];
+      if (lines !== undefined && lines.length > 0) setQuip({ key: state.nActions, text: ctx.render(lines[state.nActions % lines.length] as string) });
+    }
+  }
+
+  // Cues end by themselves, or at the next tap anywhere (skippable, and the tap still does its normal job).
+  useEffect(() => {
+    if (cues.length === 0) return;
+    const clear = (): void => setCues([]);
+    const timer = window.setTimeout(clear, cueDurationMs(cues));
+    document.addEventListener('pointerdown', clear, { capture: true, once: true });
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('pointerdown', clear, { capture: true });
+    };
+  }, [cues]);
+
   if (ctx === null || rt === null || state === null || groups === null) return null;
   const g = ctx.globals;
   const me = state.sides[0];
+  const them = state.sides[1];
+  const pending = state.pending;
+  const mulligan = state.step === 'mulligan';
+  const plan: Plan = planFor(groups, pending === null ? sel : null);
+  const targets: ReadonlyMap<Iid, Action> = pending !== null ? groups.graftPicks : plan.targets;
+  const view = (iid: Iid) => cardView(ctx, rt.engine, state, iid);
+  const doAct = (a: Action): void => {
+    setSel(null);
+    act(a);
+  };
+  const cueFor = (iid: Iid): { kind: string; beat: number } | undefined => cues.find((c) => c.iid === iid && CARD_CUES.has(c.kind));
   const intent = state.collector.intent;
   const appraisal = appraisalCountdown(g, state);
-  const mood = moodName(g, state);
-  const pending = state.pending !== null;
-  const nameOf = (iid: Iid): string => cardView(ctx, rt.engine, state, iid).name;
-  return (
-    <main>
-      <h1>Round {roundOfState(state)} of {g.MAX_ROUNDS}</h1>
-      <p>
-        Your life {me.life} - Collector life {state.sides[1].life}
-        {intent !== null && ` - [${INTENT_LABEL[intent].icon}] ${INTENT_LABEL[intent].label}`}
-        {mood !== null && ` - mood: ${mood}`}
-        {appraisal !== null && ` - Appraisal in round ${appraisal.round} (${appraisal.roundsAway === 0 ? 'after your turn' : `${appraisal.roundsAway} rounds away`})`}
-      </p>
-      {error !== null && <p role="alert">{error}</p>}
-      <Board state={state} side={1} inspect={setInspected} />
-      <Board state={state} side={0} inspect={setInspected} />
-      {inspected !== null && <Inspect iid={inspected} onClose={() => setInspected(null)} />}
-      {state.step === 'mulligan' && (
-        <section aria-label="Opening hand">
-          <p>Keep this hand?</p>
-          {groups.keep !== null && <button onClick={() => act(groups.keep as Action)}>Keep</button>}
-          {groups.redraw !== null && <button onClick={() => act(groups.redraw as Action)}>Redraw</button>}
-        </section>
-      )}
-      {pending && <GraftPanel state={state} />}
-      <section aria-label="Hand">
-        <h3>Hand</h3>
-        <ul>
-          {me.hand.map((iid) => {
-            const c = cardView(ctx, rt.engine, state, iid);
-            const summons = groups.summons.get(iid) ?? [];
-            const covetous = groups.summonCovetous.get(iid) ?? [];
-            const casts = groups.casts.get(iid) ?? [];
-            const setTrap = groups.setTraps.get(iid);
-            return (
-              <li key={iid}>
-                <CardText c={c} />
-                <button onClick={() => setInspected(iid)}>Inspect</button>
-                {summons.map((a) => <button key={a.mode} onClick={() => act(a)}>Summon: {MODE_LABEL[a.mode]}</button>)}
-                {covetous.map((a, i) => <button key={i} onClick={() => act(a)}>Covetous summon, sacrificing {nameOf(a.sac)} ({a.mode === 'atk' ? 'attack' : 'guard'})</button>)}
-                {casts.map((a, i) => <button key={i} onClick={() => act(a)}>Cast{a.target >= 0 ? ` on ${nameOf(a.target)}` : ''}</button>)}
-                {setTrap !== undefined && <button onClick={() => act(setTrap)}>Set trap</button>}
-              </li>
+  const mood = state.collector.mood;
+  const combatHint = (attacker: Iid, target: Iid | -1): string | undefined => {
+    const p = rt.engine.previewCombat(state, attacker, target);
+    if (!p.known) return undefined;
+    return p.outcome.destroyDefender ? (p.outcome.destroyAttacker ? 'Trade' : 'Destroys') : p.outcome.destroyAttacker ? 'Lost' : 'Holds';
+  };
+  const hintFor = (iid: Iid): string | undefined => (sel?.t === 'board' && pending === null ? combatHint(sel.iid, iid) : undefined);
+
+  const tapBoard = (m: Monster, mine: boolean): void => {
+    const hit = targets.get(m.iid);
+    if (hit !== undefined) return doAct(hit);
+    if (pending !== null) return setInspected(m.iid);
+    if (mine && boardActionable(groups, m.iid)) return setSel(sel?.t === 'board' && sel.iid === m.iid ? null : { t: 'board', iid: m.iid });
+    setSel(null);
+    setInspected(m.iid);
+  };
+
+  const monsterRow = (side: Side) => {
+    const s = state.sides[side];
+    const mine = side === 0;
+    return (
+      <div className="row monsters" data-side={mine ? 'me' : 'them'}>
+        {s.board.map((m, i) => {
+          if (m === null) {
+            const open = mine && plan.summon !== null;
+            return open ? (
+              <button key={i} type="button" className="empty-slot" data-glow="slot" aria-label="Empty monster slot, summon here" onClick={() => doAct(plan.summon as Action)}>
+                <Glyph id="pos" size={22} />
+              </button>
+            ) : (
+              <div key={i} className="empty-slot" aria-label="Empty monster slot" />
             );
-          })}
-        </ul>
-        {groups.graftBegin !== null && <button onClick={() => act(groups.graftBegin as Action)}>Graft</button>}
-      </section>
-      {groups.endTurn !== null && <button onClick={() => act(groups.endTurn as Action)}>End turn</button>}
+          }
+          const glow = targets.has(m.iid) ? 'target' : null;
+          if (m.faceDown && !mine) {
+            return <CardBack key={m.iid} icon="facedown" label="Face-down monster" glow={glow} onTap={glow === null ? undefined : () => tapBoard(m, false)} />;
+          }
+          const c = view(m.iid);
+          const dim = (sel !== null || pending !== null) && glow === null && !(sel?.t === 'board' && sel.iid === m.iid);
+          return (
+            <MiniCard
+              key={m.iid}
+              view={c}
+              monster={m}
+              side={mine ? 'me' : 'them'}
+              glow={glow}
+              selected={sel?.t === 'board' && sel.iid === m.iid}
+              dim={dim}
+              cue={cueFor(m.iid)}
+              preview={glow === null ? undefined : hintFor(m.iid)}
+              onTap={() => tapBoard(m, mine)}
+              onLong={() => setInspected(m.iid)}
+            />
+          );
+        })}
+      </div>
+    );
+  };
+
+  const trapRow = (side: Side) => {
+    const s = state.sides[side];
+    const mine = side === 0;
+    return (
+      <div className="row traps" data-side={mine ? 'me' : 'them'}>
+        {s.traps.map((t, i) => {
+          if (t === null) {
+            const open = mine && plan.setTrap !== null;
+            return open ? (
+              <button key={i} type="button" className="trap-slot open" data-glow="slot" aria-label="Empty trap slot, set trap here" onClick={() => doAct(plan.setTrap as Action)}>
+                <Glyph id="trap" size={18} /> Set here
+              </button>
+            ) : (
+              <div key={i} className="trap-slot empty" aria-label="Empty trap slot">
+                <Glyph id="trap" size={18} />
+              </div>
+            );
+          }
+          if (!mine) {
+            return (
+              <div key={i} className="trap-slot set" aria-label="Set trap">
+                <Glyph id="trap" size={18} /> Set trap
+              </div>
+            );
+          }
+          const c = view(t.iid);
+          return (
+            <button key={i} type="button" className="trap-slot set" onClick={() => setInspected(t.iid)}>
+              <Glyph id="trap" size={18} /> {c.name}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // hand
+  const hand = me.hand;
+  const n = hand.length;
+  const playable = (iid: Iid): boolean =>
+    groups.summons.has(iid) || groups.summonCovetous.has(iid) || groups.casts.has(iid) || groups.setTraps.has(iid);
+  const handCard = (iid: Iid, i: number) => {
+    const selected = sel?.t === 'hand' && sel.iid === iid;
+    const mid = (n - 1) / 2;
+    const style = { '--rot': `${(i - mid) * 4}deg`, '--drop': `${Math.abs(i - mid) ** 2 * 3}px`, zIndex: selected ? 20 : i } as CSSProperties;
+    return (
+      <div key={iid} className="hand-slot" data-selected={selected ? '' : undefined} style={style}>
+        <MiniCard
+          view={view(iid)}
+          side="me"
+          selected={selected}
+          dim={!mulligan && !playable(iid) && sel === null}
+          cue={cueFor(iid)}
+          onTap={() => (mulligan ? setInspected(iid) : setSel(selected ? null : { t: 'hand', iid, faceDown: false, guard: false }))}
+          onLong={() => setInspected(iid)}
+        />
+      </div>
+    );
+  };
+
+  const selView = sel === null ? null : view(sel.iid);
+  const hint = (() => {
+    if (selView === null) return null;
+    if (sel?.t === 'hand') {
+      if (!plan.anything) return 'This cannot be played right now.';
+      const bits: string[] = [];
+      if (plan.summon !== null) bits.push(`Tap an empty slot to summon it ${summonMode(sel) === 'down' ? 'face-down' : summonMode(sel) === 'grd' ? 'in Guard' : 'in Attack'}.`);
+      if (plan.targets.size > 0) bits.push('Tap a glowing target.');
+      if (plan.setTrap !== null) bits.push('Tap an empty trap slot.');
+      return bits.join(' ');
+    }
+    return plan.direct !== null || plan.targets.size > 0 ? 'Tap a glowing target to attack.' : 'No attack available.';
+  })();
+
+  const maxLife = g.PLAYER_LIFE;
+  const myDamage = cues.find((c) => c.kind === 'damage' && c.side === 0);
+  const moodLabel = moodName(g, state);
+
+  return (
+    <main className="duel" data-graft={pending !== null ? '' : undefined} onClick={() => setSel(null)}>
+      <CollectorHeader
+        life={them.life}
+        maxLife={g.COLLECTOR_LIFE}
+        mood={mood}
+        moodName={moodLabel}
+        moodCount={MOOD_NAMES.length}
+        intent={intent === null ? null : INTENT_LABEL[intent]}
+        appraisal={
+          appraisal === null
+            ? null
+            : appraisal.roundsAway === 0
+              ? 'Appraisal after your turn'
+              : `Appraisal in round ${appraisal.round} · ${appraisal.roundsAway} away`
+        }
+        quip={quip}
+        cues={cues}
+        directGlow={plan.direct !== null}
+        onDirect={() => doAct(plan.direct as Action)}
+        previewDirect={sel?.t === 'board' && plan.direct !== null ? combatHint(sel.iid, -1) : undefined}
+      />
+
+      <div className="board-area">
+        {trapRow(1)}
+        {monsterRow(1)}
+        <RoundTrack globals={g} round={roundOfState(state)} />
+        {monsterRow(0)}
+        {trapRow(0)}
+      </div>
+
+      {error !== null && (
+        <p className="error-bar" role="alert">
+          {error}
+        </p>
+      )}
+
+      {pending !== null ? (
+        <GraftSheet onInspect={setInspected} />
+      ) : (
+        <footer className="bottom" onClick={(e) => e.stopPropagation()}>
+          {mulligan ? (
+            <div className="hintbar mulligan">
+              <p>Keep this hand?</p>
+              <div className="hint-buttons">
+                {groups.keep !== null && (
+                  <button type="button" className="btn primary" onClick={() => doAct(groups.keep as Action)}>
+                    <Glyph id="check" size={18} /> Keep
+                  </button>
+                )}
+                {groups.redraw !== null && (
+                  <button type="button" className="btn" onClick={() => doAct(groups.redraw as Action)}>
+                    <Glyph id="swap" size={18} /> Redraw
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="hintbar" aria-live="polite">
+              {selView === null ? (
+                <p className="muted">Tap a card, then tap where to play it. Hold a card to inspect.</p>
+              ) : (
+                <>
+                  <p>
+                    <b>{selView.name}</b> {hint}
+                  </p>
+                  <div className="hint-buttons">
+                    {plan.cast !== null && (
+                      <button type="button" className="btn primary" onClick={() => doAct(plan.cast as Action)}>
+                        <Glyph id="spell" size={18} /> Cast
+                      </button>
+                    )}
+                    {plan.reposition !== null && (
+                      <button type="button" className="btn" onClick={() => doAct(plan.reposition as Action)}>
+                        <Glyph id="swap" size={18} /> Reposition
+                      </button>
+                    )}
+                    <button type="button" className="btn ghost icon" aria-label="Inspect" onClick={() => setInspected(sel?.iid ?? null)}>
+                      <Glyph id="info" size={20} />
+                    </button>
+                    <button type="button" className="btn ghost icon" aria-label="Cancel" onClick={() => setSel(null)}>
+                      <Glyph id="cross" size={20} />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {sel?.t === 'hand' && plan.modes.size > 0 && (
+            <div className="mode-toggles">
+              <button
+                type="button"
+                className="toggle"
+                aria-pressed={sel.guard}
+                disabled={!plan.modes.has('grd') && !sel.guard}
+                onClick={() => setSel({ ...sel, guard: !sel.guard, faceDown: false })}
+              >
+                <Glyph id={sel.guard ? 'shield' : 'sword'} size={18} />
+                <span>{sel.guard ? 'Guard' : 'Attack'}</span>
+              </button>
+              <button
+                type="button"
+                className="toggle"
+                aria-pressed={sel.faceDown}
+                disabled={!plan.modes.has('down') && !sel.faceDown}
+                onClick={() => setSel({ ...sel, faceDown: !sel.faceDown })}
+              >
+                <Glyph id={sel.faceDown ? 'facedown' : 'eye'} size={18} />
+                <span>{sel.faceDown ? 'Face-down' : 'Face-up'}</span>
+              </button>
+            </div>
+          )}
+          <div className="hand" aria-label="Your hand" style={{ '--n': n, '--k': n > 1 ? 1 / (n - 1) : 0 } as CSSProperties}>
+            {hand.map(handCard)}
+          </div>
+
+          <div className="playerbar">
+            <span className="life me" aria-label={`Your life ${me.life}`}>
+              <Glyph id="heart" size={20} filled />
+              <b>{Math.max(0, me.life)}</b>
+              <span className="life-max">/{maxLife}</span>
+              {myDamage !== undefined && (
+                <span className="float cue cue-float" style={{ '--b': myDamage.beat } as CSSProperties}>
+                  -{myDamage.amount}
+                </span>
+              )}
+            </span>
+            {!mulligan && groups.graftBegin !== null && (
+              <button type="button" className="btn" onClick={() => doAct(groups.graftBegin as Action)}>
+                <Glyph id="swap" size={18} /> Graft
+              </button>
+            )}
+            {!mulligan && (
+              <button type="button" className="btn primary end-turn" disabled={groups.endTurn === null} onClick={() => doAct(groups.endTurn as Action)}>
+                End turn <Glyph id="check" size={20} />
+              </button>
+            )}
+          </div>
+        </footer>
+      )}
+
+      {inspected !== null && <Inspect iid={inspected} onClose={() => setInspected(null)} />}
     </main>
   );
 }

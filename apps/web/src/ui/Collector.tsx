@@ -1,0 +1,144 @@
+// Collector header (D-237, D-238): portrait that changes with mood, life, the intent plaque, the Appraisal countdown,
+// the mood indicator and a one-line quip that fades by itself. The 1-12 round track lives in RoundTrack.
+import type { CSSProperties } from 'react';
+import type { Cue } from '../visual/cues';
+import { Glyph } from '../visual/glyphs';
+
+const MOOD_LABEL: Readonly<Record<string, string>> = { composed: 'Composed', agitated: 'Agitated', desperate: 'Desperate' };
+
+/** One expression per mood index; an index with no entry shows the composed face. */
+function Face({ mood }: { readonly mood: number }) {
+  const m = mood === 1 || mood === 2 ? mood : 0;
+  return (
+    <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
+      <defs>
+        <radialGradient id="face-glow" cx="50%" cy="40%" r="70%">
+          <stop offset="0" stopColor={['#3a2d3f', '#4a2a2f', '#4b1f26'][m]} />
+          <stop offset="1" stopColor="#120d12" />
+        </radialGradient>
+      </defs>
+      <rect width="64" height="64" fill="url(#face-glow)" />
+      <path d="M8 64c2-12 12-16 24-16s22 4 24 16z" fill="#0b070c" />
+      <path d="M26 48l6 8 6-8" fill="none" stroke="#c9a24a" strokeWidth="1.5" />
+      <ellipse cx="32" cy="30" rx="12" ry="15" fill="#d8c9a8" />
+      <path d="M17 22h30l-3-14H20z" fill="#0b070c" />
+      <rect x="14" y="21" width="36" height="4" rx="2" fill="#c9a24a" />
+      {/* eyes and brows: calm, narrowed, wide */}
+      {m === 0 && (
+        <g fill="#1a1210">
+          <ellipse cx="27" cy="30" rx="1.8" ry="1.4" />
+          <ellipse cx="37" cy="30" rx="1.8" ry="1.4" />
+          <path d="M24 27q3-2 6 0M34 27q3-2 6 0" fill="none" stroke="#1a1210" strokeWidth="1" />
+        </g>
+      )}
+      {m === 1 && (
+        <g fill="#1a1210">
+          <ellipse cx="27" cy="31" rx="1.8" ry="1.2" />
+          <ellipse cx="37" cy="31" rx="1.8" ry="1.2" />
+          <path d="M23 27l7 2.5M41 27l-7 2.5" fill="none" stroke="#1a1210" strokeWidth="1.4" />
+        </g>
+      )}
+      {m === 2 && (
+        <g fill="#1a1210">
+          <circle cx="27" cy="31" r="2.6" fill="#fff" stroke="#1a1210" />
+          <circle cx="37" cy="31" r="2.6" fill="#fff" stroke="#1a1210" />
+          <circle cx="27" cy="31" r="1" />
+          <circle cx="37" cy="31" r="1" />
+          <path d="M23 25l7 1.5M41 25l-7 1.5" fill="none" stroke="#1a1210" strokeWidth="1.4" />
+          <path d="M46 24q2 4 0 6-2-2 0-6z" fill="#7ab8ff" />
+        </g>
+      )}
+      {/* monocle */}
+      <circle cx="37" cy="30" r="5" fill="none" stroke="#c9a24a" strokeWidth="1.4" />
+      <path d="M41 34q4 8 2 14" fill="none" stroke="#c9a24a" strokeWidth="0.9" />
+      {m === 2 && <path d="M34 26l3 4-2 3 3 4" fill="none" stroke="#ff5a52" strokeWidth="0.9" />}
+      {/* mouth */}
+      {m === 0 && <path d="M28 40q4 3 8 0" fill="none" stroke="#6a3b2b" strokeWidth="1.3" strokeLinecap="round" />}
+      {m === 1 && <path d="M28 41h8" fill="none" stroke="#6a3b2b" strokeWidth="1.5" strokeLinecap="round" />}
+      {m === 2 && <path d="M28 43q4-5 8 0" fill="none" stroke="#6a3b2b" strokeWidth="1.5" strokeLinecap="round" />}
+    </svg>
+  );
+}
+
+export interface CollectorHeaderProps {
+  readonly life: number;
+  readonly maxLife: number;
+  readonly mood: number;
+  readonly moodName: string | null;
+  readonly moodCount: number;
+  readonly intent: { readonly icon: string; readonly label: string } | null;
+  readonly appraisal: string | null;
+  readonly quip: { readonly key: number; readonly text: string } | null;
+  readonly cues: readonly Cue[];
+  readonly directGlow: boolean;
+  readonly onDirect: () => void;
+  readonly previewDirect: string | undefined;
+}
+
+export function CollectorHeader(p: CollectorHeaderProps) {
+  const damage = p.cues.find((c) => c.kind === 'damage' && c.side === 1);
+  const gavel = p.cues.some((c) => c.kind === 'gavel');
+  const intentCue = p.cues.find((c) => c.kind === 'intent');
+  return (
+    <header className="collector">
+      <div className="portrait" data-mood={p.mood}>
+        <Face mood={p.mood} />
+      </div>
+      <div className="collector-main">
+        <div className="collector-row">
+          <h2 className="collector-name">The Collector</h2>
+          {p.moodName !== null && (
+            <span className="mood" data-mood={p.mood} title="Mood">
+              <span className="pips" aria-hidden="true">
+                {Array.from({ length: p.moodCount }, (_, i) => (
+                  <i key={i} data-on={i <= p.mood ? '' : undefined} />
+                ))}
+              </span>
+              {MOOD_LABEL[p.moodName] ?? p.moodName}
+            </span>
+          )}
+        </div>
+        <div className="collector-row">
+          <button
+            type="button"
+            className="life"
+            data-glow={p.directGlow ? 'target' : undefined}
+            onClick={p.directGlow ? p.onDirect : undefined}
+            disabled={!p.directGlow}
+            aria-label={`Collector life ${p.life}${p.directGlow ? ', attack directly' : ''}`}
+          >
+            <Glyph id="heart" size={18} filled />
+            <b>{Math.max(0, p.life)}</b>
+            <span className="life-max">/{p.maxLife}</span>
+            {p.directGlow && (
+              <span className="life-hit">
+                <Glyph id="sword" size={14} /> {p.previewDirect ?? 'Attack'}
+              </span>
+            )}
+            {damage !== undefined && (
+              <span className="float cue cue-float" style={{ '--b': damage.beat } as CSSProperties}>
+                -{damage.amount}
+              </span>
+            )}
+          </button>
+          {p.intent !== null && (
+            <span className={`plaque ${intentCue !== undefined ? 'cue cue-flash' : ''}`} style={{ '--b': intentCue?.beat ?? 0 } as CSSProperties}>
+              <Glyph id={p.intent.icon} size={18} />
+              {p.intent.label}
+            </span>
+          )}
+        </div>
+        {p.appraisal !== null && (
+          <p className={`appraisal ${gavel ? 'cue cue-flash' : ''}`}>
+            <Glyph id="gavel" size={16} /> {p.appraisal}
+          </p>
+        )}
+        {p.quip !== null && (
+          <p key={p.quip.key} className="quip" role="status">
+            “{p.quip.text}”
+          </p>
+        )}
+      </div>
+    </header>
+  );
+}

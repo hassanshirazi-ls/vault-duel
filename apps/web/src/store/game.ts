@@ -61,6 +61,8 @@ export interface GameActions {
   /** begin the day's duel from a clean state */
   start(): void;
   act(action: Action): void;
+  /** Graft ⇄: the same two materials in the other order, as legal actions (cancel, begin, pick, pick) */
+  graftSwap(): void;
   dismissNotice(): void;
 }
 
@@ -149,6 +151,29 @@ export function createGameStore(deps: GameDeps) {
           set(show(step.state, next, step.events));
         } catch (e) {
           set({ error: e instanceof Error ? e.message : String(e) });
+        }
+      },
+
+      graftSwap() {
+        const { state } = get();
+        const mats = state?.pending?.mats;
+        if (mats === undefined || mats.length !== 2) return;
+        const [first, second] = mats as readonly [number, number];
+        const steps: ((g: LegalGroups) => Action | null | undefined)[] = [
+          (g) => g.graftCancel,
+          (g) => g.graftBegin,
+          (g) => g.graftPicks.get(second),
+          (g) => g.graftPicks.get(first),
+        ];
+        for (const pick of steps) {
+          const groups = get().groups;
+          const action = groups === null ? null : pick(groups);
+          if (action === null || action === undefined) {
+            set({ error: 'Those materials cannot be swapped.' });
+            return;
+          }
+          get().act(action);
+          if (get().error !== null) return;
         }
       },
 
