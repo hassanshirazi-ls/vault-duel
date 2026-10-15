@@ -934,7 +934,8 @@ describe('guide §3 · reading content:check output', () => {
     const line = `not yet read: ${planned.length} globals wait for ${readers} › see packages/content/src/planned-globals.ts`;
     const printed = lines(result.stdout);
     expect(printed[printed.length - 1]).toBe(line);
-    quoted(line);
+    // The guide shows the line with <N> and <readers>, so adding or wiring a planned global needs no guide edit.
+    quoted('not yet read: <N> globals wait for <readers> › see packages/content/src/planned-globals.ts');
   }, SPAWN_TIMEOUT);
 });
 

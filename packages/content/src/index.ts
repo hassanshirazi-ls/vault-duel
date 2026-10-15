@@ -2,6 +2,7 @@
 // from here. The Node-only parts (reading files, keyword-file checks) are on the "./node" entry.
 export { DEFAULT_GLOBALS, OverridesError, withOverrides } from './globals';
 export { compileContent } from './compile';
+export type { GameContent } from './compile';
 export { KEYWORDS } from '../keywords/index.gen';
 export { validateContent } from './validate';
 export type { ValidationResult } from './validate';
@@ -19,6 +20,7 @@ export * from './schemas/element';
 export * from './schemas/kind';
 export * from './schemas/recipe';
 export * from './schemas/collector';
+export type { CollectorAiConfig } from './schemas/collector';
 export * from './schemas/objective';
 export * from './schemas/twist';
 export * from './schemas/art-brief';

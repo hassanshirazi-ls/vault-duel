@@ -32,6 +32,7 @@ export const TEST_GLOBALS: Globals = {
   SIM_QUICK_GAMES: 2000, SIM_FULL_GAMES: 50000, SIM_SEED_CHECK_DATES: 60,
   PERF_DUELS_PER_SEC_PER_CORE: 1000,
   MAX_TRIGGER_CHAIN: 64,
+  AI_SEARCH_NODE_BUDGET: 600,
   // Numbers the fixtures reference by name (D-171). Engine-owned; independent of the live values.
   CONTENT_NUMBERS: {
     UNMAKE_MAX_POWER: 5, BLOODLUST_POWER: 3, SCRYING_DRAW: 2, SIPHON_DRAIN: 3, SIPHON_GAIN: 3,

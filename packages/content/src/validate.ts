@@ -3,6 +3,7 @@
 // every problem is reported in one run. Messages follow the §10.3 examples. Stat-budget, art-brief and placeholder
 // problems that don't break play are warnings (D-167, D-172, D-174); the pool capacity is an error (D-170).
 // Browser-safe: it imports nothing from node:*.
+import { resolveNum } from '@vault-duel/engine';
 import type { Cond, Effect, Globals, KeywordDef, TrapTrigger } from '@vault-duel/engine';
 import { KEYWORDS } from '../keywords/index.gen';
 import { DEFAULT_GLOBALS } from './globals';
@@ -270,11 +271,20 @@ const MOODS = ['composed', 'agitated', 'desperate'] as const;
 /** The castHighValueSpell map of one params block (base or mood), keyed by Collector spell id (D-204). */
 type CastMap = Readonly<Record<string, { readonly pick?: string | undefined; readonly when?: string | undefined }>>;
 
-/** D-204: "contestedAttack" reads the Power the spell gives "chosen", so the spell must give some (a literal 0 gives none). */
-function givesPowerToChosen(spell: Spells[number]): boolean {
-  return spell.effects.some(
-    (effect) => effect.op === 'modifyStats' && effect.target === 'chosen' && effect.power !== undefined && effect.power !== 0,
-  );
+/**
+ * D-204, D-219: "contestedAttack" reads the Power the spell gives "chosen", so the spell must give some: a resolved
+ * Power above 0. A "$NAME" resolves with the validated globals. An unknown name is skipped here, because the
+ * unknown-reference rule reports it. An effect with an "if" counts, because it can apply.
+ */
+function givesPowerToChosen(spell: Spells[number], globals: Globals): boolean {
+  return spell.effects.some((effect) => {
+    if (effect.op !== 'modifyStats' || effect.target !== 'chosen' || effect.power === undefined) return false;
+    const power = effect.power;
+    if (typeof power === 'number') return power > 0;
+    const name = power.slice(power.startsWith('-') ? 2 : 1);
+    if (globalNameProblem(name, globals, `"${power}"`) !== undefined) return true;
+    return resolveNum(globals, power) > 0;
+  });
 }
 
 /** D-177: a spell whose every effect is "draw self" needs no castHighValueSpell entry (D-085). */
@@ -348,7 +358,7 @@ function checkCollector(ctx: Ctx): void {
       const field = `${path}.${id}`;
       if (!deckSet.has(id) || spell === undefined) {
         fail(sink, { file: collectorFile, id: 'ai' }, `"${id}" is not a Collector spell in the deck`, 'use a spell id from collector.json › deck', field);
-      } else if (entry.when === 'contestedAttack' && !givesPowerToChosen(spell)) {
+      } else if (entry.when === 'contestedAttack' && !givesPowerToChosen(spell, globals)) {
         fail(sink, { file: collectorFile, id: 'ai' }, '"contestedAttack" needs a spell that gives Power to "chosen"', 'use "pick": "highestPower" instead', field);
       }
     }

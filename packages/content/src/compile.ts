@@ -16,6 +16,15 @@ import type {
 import { KEYWORDS } from '../keywords/index.gen';
 import { DEFAULT_GLOBALS } from './globals';
 import type { ContentData } from './files';
+import type { CollectorAiConfig } from './schemas/collector';
+
+/**
+ * The compiled content the game runs on (D-210). It is a valid CompiledContent for createEngine, plus the parsed
+ * collector.json › ai block, so the Collector AI reads the same content hash as the engine (D-197).
+ */
+export interface GameContent extends CompiledContent {
+  readonly collector: CompiledContent['collector'] & { readonly ai: CollectorAiConfig };
+}
 
 /** One definition row before the typed arrays are built. Index in the row list = DefIdx. */
 interface Row {
@@ -65,7 +74,7 @@ export function compileContent(
   data: ContentData,
   keywords: readonly KeywordDef[] = KEYWORDS,
   globals: Globals = DEFAULT_GLOBALS,
-): CompiledContent {
+): GameContent {
   if (keywords.length > 32) throw new Error(`compile: ${keywords.length} keywords, the mask holds 32`);
   const elements = need(data.elements, 'elements');
   const kinds = need(data.kinds, 'kinds');
@@ -257,6 +266,7 @@ export function compileContent(
       deck: Object.freeze(collector.deck.map((id) => lookupDef(id))),
       ace: lookupDef(collector.ace),
       canGraft: collector.canGraft,
+      ai: deepFreeze(collector.ai),
     }),
     twists: deepFreeze(twists),
   });

@@ -215,6 +215,48 @@ describe('Collector deck and AI references', () => {
   });
 });
 
+/** Test-only globals with extra CONTENT_NUMBERS names, so a test picks the value a "$NAME" resolves to (D-168). */
+function withNumbers(numbers: Record<string, number>): typeof G {
+  return { ...G, CONTENT_NUMBERS: { ...G.CONTENT_NUMBERS, ...numbers } };
+}
+
+describe('contestedAttack and the Power it reads (D-219)', () => {
+  const GILT_LINE =
+    'collector.json › ai › params.castHighValueSpell.fixture-gilt: "contestedAttack" needs a spell that gives Power to "chosen" › use "pick": "highestPower" instead';
+
+  /** The withGiltSpell fixture with its one effect replaced, and "contestedAttack" set on it. */
+  function giltWith(effects: NonNullable<ContentData['collectorSpells']>[number]['effects']): ContentData {
+    const data = withGiltSpell();
+    const gilt = need(need(data.collectorSpells, 'collectorSpells').find((spell) => spell.id === 'fixture-gilt'), 'fixture-gilt');
+    gilt.effects = effects;
+    need(data.collector, 'collector').ai.params.castHighValueSpell = { 'fixture-gilt': { when: 'contestedAttack' } };
+    return data;
+  }
+
+  it('rejects "contestedAttack" when a Power reference resolves to 0', () => {
+    const data = giltWith([{ op: 'modifyStats', target: 'chosen', power: '$FIX_ZERO', duration: 'untilEndOfYourNextTurn' }]);
+    expect(errorLines(data, withNumbers({ FIX_ZERO: 0 }))).toEqual([GILT_LINE]);
+  });
+
+  it('rejects "contestedAttack" when a negated Power reference resolves to a negative value', () => {
+    const data = giltWith([{ op: 'modifyStats', target: 'chosen', power: '-$FIX_TWO', duration: 'untilEndOfYourNextTurn' }]);
+    expect(errorLines(data, withNumbers({ FIX_TWO: 2 }))).toEqual([GILT_LINE]);
+  });
+
+  it('accepts "contestedAttack" when the Power is on an effect with an "if" condition', () => {
+    const data = giltWith([
+      {
+        op: 'modifyStats',
+        target: 'chosen',
+        power: 2,
+        duration: 'untilEndOfYourNextTurn',
+        if: { powerLte: 3 },
+      },
+    ]);
+    expect(run(data)).toEqual({ errors: [], warnings: [] });
+  });
+});
+
 describe('Collector ace (D-203)', () => {
   it('rejects an ace id that is not in relics.json', () => {
     const data = fixtureData();

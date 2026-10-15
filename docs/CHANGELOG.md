@@ -19,6 +19,7 @@ Each item names the decision (D-number) that made the change, and a line that ch
 - A card number that nothing uses gets a warning: `warning: globals.ts › CONTENT_NUMBERS › <NAME>: not used by any card, objective, AI param or keyword › delete the line, or use $<NAME> in an effect`. It is left behind when the card that used it is deleted (D-205).
 - A missing field now says what to add, for every field: `cards/player-monsters.json › <id> › power: missing › add "power"` (D-207).
 - A Relic without its Flaw: `cards/relics.json › <id> › flaw: missing, a Relic needs exactly 1 Flaw › add "flaw": "<flaw id>"` (D-202, D-207).
+- The global `AI_SEARCH_NODE_BUDGET` is a safety cap on the Collector's win search. The `not yet read` count rises by 1, because the global is listed in `planned-globals.ts` until `ai` reads it (D-211).
 
 ### Changed
 
@@ -30,3 +31,4 @@ Each item names the decision (D-number) that made the change, and a line that ch
 - The unused card-number warning runs only in `pnpm content:check`, because it reads the keyword sources. The browser build does not run it (D-205).
 - Owner ruling: the `castHighValueSpell` entries and the `trapPreference` ids are card lists. You edit them with the card, the way you edit `deck`. The rule lists, mood lists, `reposition` and the other AI settings stay owner-only (D-204).
 - A global whose reader is not built yet is listed in `packages/content/src/planned-globals.ts`. A planned global accepts any sane value and is not pinned, so there is nothing to unpin later. The list replaces the old exemption for whole groups of names (D-205).
+- The `contestedAttack` line (`collector.json › ai › params.castHighValueSpell.<id>`) now also appears when the spell's Power resolves to 0 or less. The text is unchanged (D-219).

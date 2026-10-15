@@ -66,17 +66,18 @@ export function startTurn(run: Run): void {
   // (3) Draw step.
   drawStep(run, evt.side);
 
-  // (4) Player turn only: compute and freeze the Collector's intent (D-095, D-096).
+  // (4) The Reposition step begins.
+  tx.set('step', 'main');
+  tx.set('played', false);
+
+  // (5) Player turn only: compute and freeze the Collector's intent (D-095, D-096). Last, so the policy sees a
+  // well-formed decision state (D-221).
   const policy = run.services.intent;
   if (evt.side === 0 && g.FLAGS.INTENTS && policy !== undefined) {
     const intent = policy(tx.state);
     tx.set('collector', { ...tx.state.collector, intent });
     run.emit({ e: 'IntentSet', intent });
   }
-
-  // (5) The Reposition step begins.
-  tx.set('step', 'main');
-  tx.set('played', false);
 }
 
 /** §5.3 / D-017. Ends the active side's turn and starts the next one (or seals the vault). */

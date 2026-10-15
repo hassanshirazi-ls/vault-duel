@@ -1,8 +1,13 @@
 // createEngine (ARCHITECTURE.md §1, §6.2, §11, §18.9; D-096, D-150). Binds compiled content, globals and
 // injected policies into a facade over the pure functions. Content is passed in compiled form; the engine
 // never imports content data or `ai`.
+import { previewCombat } from './combat';
+import type { CombatPreview } from './combat';
 import { EngineError } from './errors';
 import { deepFreeze } from './freeze';
+import { mustAttack } from './hooks/dispatch';
+import { previewGraft } from './graft';
+import type { GraftPreview } from './graft';
 import { createEnv } from './hooks/registry';
 import type { Env } from './hooks/registry';
 import { countLegal, forEachLegal, getLegalActions, isLegal } from './legal';
@@ -14,13 +19,15 @@ import { replay } from './replay';
 import type { ReplayOptions } from './replay';
 import { buildInitialState } from './setup/initial-state';
 import type { NewGameOptions } from './setup/initial-state';
+import * as stats from './stats';
 import { Tx } from './tx';
 import { compileTraps } from './traps';
 import type { Action, ActionVisitor } from './types/actions';
-import type { CompiledContent } from './types/content';
+import type { CompiledContent, ElemIdx, KindIdx, KwMask } from './types/content';
 import type { GameEvent } from './types/events';
 import type { Globals } from './types/globals';
-import type { GameState } from './types/state';
+import type { AttackPerm } from './types/hooks';
+import type { GameState, Iid } from './types/state';
 
 export interface EnginePolicies {
   /** Required when FLAGS.INTENTS is on (D-150). Pure, read-only, keeps no references into the state. */
@@ -50,6 +57,30 @@ export interface Engine {
   isLegal(state: GameState, action: Action): boolean;
   /** `opts.cfg` is the `state.cfg` the actions were recorded under; a mismatch throws EngineError (D-191). */
   replay(seed: string, actions: readonly Action[], opts?: NewGameOptions & Pick<ReplayOptions, 'cfg'>): GameState;
+
+  // Read-only queries (D-209, §8.7). Pure functions of the bound content, globals and arguments: they never
+  // write `s`, keep no reference into it and cache nothing. `iid` is any instance id.
+  /** D-031: no element bonus, floored at STAT_FLOOR. Off the board: printed (+ Ascend). */
+  effectivePower(s: GameState, iid: Iid): number;
+  effectiveGuard(s: GameState, iid: Iid): number;
+  /** Definition bits | Chimera-inherited bits. */
+  printedKeywords(s: GameState, iid: Iid): KwMask;
+  /** 0 off the board or face-down; a used Ward's beforeDestroy bits removed (D-037, D-133). */
+  activeKeywords(s: GameState, iid: Iid): KwMask;
+  /** A Chimera's is its first material's; -1 for spells and traps. */
+  elementOf(s: GameState, iid: Iid): ElemIdx;
+  /** -1 for Chimeras, spells and traps (D-129). */
+  kindOf(s: GameState, iid: Iid): KindIdx;
+  /** The §6.2 lattice; 'none' off the board. */
+  attackPermission(s: GameState, iid: Iid): AttackPerm;
+  /** The restriction fold alone: 'any' when no hook restricts (D-212). */
+  attackRestriction(s: GameState, iid: Iid): AttackPerm;
+  /** OR of the active mustAttack hooks (Vain). */
+  mustAttack(s: GameState, iid: Iid): boolean;
+  /** §5.4 without side effects. Throws EngineError if the attacker or target is not on a board. Allocates. */
+  previewCombat(s: GameState, attacker: Iid, target: Iid | -1): CombatPreview;
+  /** §5.6. Allocates. */
+  previewGraft(s: GameState): GraftPreview | null;
 }
 
 /** Internal view for modules and test helpers that need the Env (not part of the public surface). */
@@ -103,6 +134,17 @@ export function createEngineInternals(
     countLegal: (state) => countLegal(env, state),
     isLegal: (state, action) => isLegal(env, state, action),
     replay: (seed, actions, opts = {}) => replay(self, seed, actions, opts),
+    effectivePower: (s, iid) => stats.effectivePower(s, env, iid),
+    effectiveGuard: (s, iid) => stats.effectiveGuard(s, env, iid),
+    printedKeywords: (s, iid) => stats.printedKw(s, env, iid),
+    activeKeywords: (s, iid) => stats.activeKw(s, env, iid),
+    elementOf: (s, iid) => stats.elementOf(s, env, iid),
+    kindOf: (s, iid) => stats.kindOf(s, env, iid),
+    attackPermission: (s, iid) => stats.attackPermission(s, env, iid),
+    attackRestriction: (s, iid) => stats.attackRestriction(s, env, iid),
+    mustAttack: (s, iid) => mustAttack(env, s, iid),
+    previewCombat: (s, attacker, target) => previewCombat(s, env, attacker, target),
+    previewGraft: (s) => previewGraft(s, env),
   };
   return self;
 }

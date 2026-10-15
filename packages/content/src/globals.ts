@@ -122,6 +122,8 @@ const GLOBAL_VALUES = {
   PERF_DUELS_PER_SEC_PER_CORE: 1000,
   // Engine safety
   MAX_TRIGGER_CHAIN: 64,
+  // Collector AI (D-211): the win search's node cap, a safety cap read by `ai`
+  AI_SEARCH_NODE_BUDGET: 600,
   // Feature flags
   FLAGS,
   // Content numbers (D-171): referenced only as "$NAME" from data or keyword effects, and as {NAME} in text.

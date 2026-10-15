@@ -85,6 +85,9 @@ export const CollectorAi = z
   })
   .strict();
 
+/** The parsed collector.json › ai block (D-210). The compiled content carries it, deep-frozen. */
+export type CollectorAiConfig = z.output<typeof CollectorAi>;
+
 export const Collector = z
   .object({
     deck: z.array(Id),

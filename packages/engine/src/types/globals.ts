@@ -117,6 +117,8 @@ export interface Globals {
   readonly PERF_DUELS_PER_SEC_PER_CORE: number;
   // Engine safety
   readonly MAX_TRIGGER_CHAIN: number;
+  // Collector AI (D-211): the win search's node cap, a safety cap read by `ai`
+  readonly AI_SEARCH_NODE_BUDGET: number;
   // Content numbers (D-171): referenced only by name (`$NAME`, `{NAME}`, `q.num('NAME')`); never read as a property
   readonly CONTENT_NUMBERS: Readonly<Record<string, number>>;
   // Feature flags

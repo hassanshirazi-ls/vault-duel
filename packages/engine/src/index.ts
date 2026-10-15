@@ -24,3 +24,6 @@ export type { ReplayOptions } from './replay';
 export { rerollSeed, seedString } from './setup/seed';
 export { canonicalJson } from './canonical';
 export { deckForSeed } from './setup/deckgen';
+export type { CombatOutcome, CombatPreview } from './combat';
+export type { GraftPreview } from './graft';
+export { redactState } from './view/redact';

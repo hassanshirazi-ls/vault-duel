@@ -7,10 +7,13 @@ import type { Globals } from '@vault-duel/engine';
 
 /** Problem and fix of every sanity refinement, in the §10.3 shape (D-199). */
 const NON_NEGATIVE = { message: 'must be 0 or more', params: { fix: 'use 0 or more' } } as const;
+const AT_LEAST_ONE = { message: 'must be 1 or more', params: { fix: 'use 1 or more' } } as const;
 const RATE = { message: 'must be between 0 and 1', params: { fix: 'use a rate from 0 to 1' } } as const;
 
 /** A whole number, 0 or more. */
 const Int = z.int().refine((value) => value >= 0, NON_NEGATIVE);
+/** A whole number, 1 or more (D-211: a search budget of 0 would never search). */
+const PositiveInt = z.int().refine((value) => value >= 1, AT_LEAST_ONE);
 /** A decimal, 0 or more; used only for the listed rates and ranges (D-199). */
 const Decimal = z.number().refine((value) => value >= 0, NON_NEGATIVE);
 /** A rate: a decimal from 0 to 1. */
@@ -199,6 +202,8 @@ const GlobalsShape = z
     PERF_DUELS_PER_SEC_PER_CORE: Int,
     // Engine safety
     MAX_TRIGGER_CHAIN: Int,
+    // Collector AI (D-211)
+    AI_SEARCH_NODE_BUDGET: PositiveInt,
     // Feature flags
     FLAGS: Flags,
     // Content numbers (D-171): an open record; names must not repeat a core key (checked below).

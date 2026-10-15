@@ -46,6 +46,21 @@ export const DC: CompiledContent = {
   collector: { deck: COLLECTOR_DECK, ace: idx('fx-ace'), canGraft: false },
 };
 
+/** `DC` plus one fixture weekly twist (index 0): Umbra +1 Power, Power <= 3 monsters +2 Guard. Use with FLAGS.WEEKLY_TWIST and `newGame(seed, { twist: 0 })`. */
+export const DC_TWIST: CompiledContent = {
+  ...DC,
+  twists: buildContent({
+    ...SPEC,
+    twists: [
+      {
+        id: 'fx-twist',
+        text: 'Umbra +1 Power, low-Power monsters +2 Guard',
+        modifiers: [{ where: { element: 'fx-umbra' }, power: 1 }, { where: { powerLte: 3 }, guard: 2 }],
+      },
+    ],
+  }).twists,
+};
+
 /** Globals for whole-duel tests: the fixture has two kinds, so the deck needs only two. */
 export const DUEL_GLOBALS: Globals = withGlobals({ DECK_MIN_KINDS: 2, APPRAISAL_MIN_POWER: 5 });
 

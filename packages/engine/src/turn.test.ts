@@ -172,6 +172,22 @@ describe('startTurn (§5.2, D-016)', () => {
       expect(h.done().collector.intent).toBe('guard');
       expect(ev(h.events, 'IntentSet')).toEqual([{ e: 'IntentSet', intent: 'guard' }]);
     });
+    it('is computed after step = main and played = false, as the last thing of the turn start (D-221, §5.2)', () => {
+      const seen: { step: string; played: boolean; turn: number; hand: number }[] = [];
+      const { s } = drawing(0, 3, 5, 2);
+      const h = harness({ ...s, step: 'attack', played: true }, PENV, {
+        intent: (st) => {
+          seen.push({ step: st.step, played: st.played, turn: st.turn, hand: st.sides[0].hand.length });
+          return 'guard';
+        },
+      });
+      startTurn(h.run);
+      expect(seen).toEqual([{ step: 'main', played: false, turn: 2, hand: 5 }]);
+      expect(h.events[h.events.length - 1]).toEqual({ e: 'IntentSet', intent: 'guard' });
+      const n = h.done();
+      expect(n.step).toBe('main');
+      expect(n.played).toBe(false);
+    });
     it('is not recomputed on Collector turns, and respects FLAGS.INTENTS', () => {
       const policy = (): 'attack' => 'attack';
       const col = drawing(1, 2, 5, 3);

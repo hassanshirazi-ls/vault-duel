@@ -202,11 +202,12 @@ A line that starts with `not yet checked` means a rule is listed but not impleme
 **"not yet read" lines:** a clean run also prints one information line, after the counts and the deck-generation line:
 
 ```text
-not yet read: 28 globals wait for ai, engine, sim, web › see packages/content/src/planned-globals.ts
+not yet read: <N> globals wait for <readers> › see packages/content/src/planned-globals.ts
 ```
 
-It says that 28 globals are listed in `planned-globals.ts` because the code that reads them is not built yet. The
-count and the readers come from that file. It is not a problem, it never fails the run, and section 7 explains it.
+It says that `<N>` globals are listed in `planned-globals.ts` because the code that reads them is not built yet.
+`<readers>` names the parts of the game that will read them, such as `ai, engine, sim, web`. The count and the
+readers come from that file, so they change as the game is built. It is not a problem, it never fails the run, and section 7 explains it.
 If a rule is still listed as not yet checked, that line prints after the `not yet read` line.
 
 ### Worked example: a warning and an error in one run

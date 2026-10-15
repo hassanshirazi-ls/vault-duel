@@ -157,6 +157,23 @@ export function hasAdvantage(s: GameState, env: Env, attacker: Iid, defender: Ii
 const PERM_RANK = { none: 0, monstersOnly: 1, any: 2 } as const satisfies Record<AttackPerm, number>;
 const PERM_BY_RANK = ['none', 'monstersOnly', 'any'] as const satisfies readonly AttackPerm[];
 
+/** Folds the active attackPermission hooks of a board monster into `grant * 4 + restrict` (ranks; no allocation). */
+function foldPerm(s: GameState, env: Env, m: Monster, side: Side, grant0: number): number {
+  let grant = grant0;
+  let restrict: number = PERM_RANK.any;
+  const mask = activeKwOf(s, env, m) & env.reg.masks.attackPermission;
+  if (mask !== 0) {
+    const q = new QueryContext(env, s, m.iid, side);
+    for (let b = mask | 0; b !== 0; b &= b - 1) {
+      const r = env.reg.kw[lowBit(b)]?.attackPermission?.(q);
+      if (r === undefined) continue;
+      if (r.grant !== undefined) grant = Math.max(grant, PERM_RANK[r.grant]);
+      if (r.restrict !== undefined) restrict = Math.min(restrict, PERM_RANK[r.restrict]);
+    }
+  }
+  return grant * 4 + restrict;
+}
+
 /**
  * perm = min(max(base, grants), restrictions). Order-independent by construction.
  * The player's round-1 ban is absolute (D-015, D-042).
@@ -167,17 +184,16 @@ export function attackPermission(s: GameState, env: Env, iid: Iid): AttackPerm {
   const side = locSide(loc);
   const m = s.sides[side].board[locSlot(loc)] as Monster;
   if (side === 0 && roundOf(s) < env.g.FIRST_ATTACK_ROUND_PLAYER) return 'none';
-  let grant: number = m.entered === s.turn ? PERM_RANK.none : PERM_RANK.any; // universal summoning sickness (D-022)
-  let restrict: number = PERM_RANK.any;
-  const mask = activeKwOf(s, env, m) & env.reg.masks.attackPermission;
-  if (mask !== 0) {
-    const q = new QueryContext(env, s, iid, side);
-    for (let b = mask | 0; b !== 0; b &= b - 1) {
-      const r = env.reg.kw[lowBit(b)]?.attackPermission?.(q);
-      if (r === undefined) continue;
-      if (r.grant !== undefined) grant = Math.max(grant, PERM_RANK[r.grant]);
-      if (r.restrict !== undefined) restrict = Math.min(restrict, PERM_RANK[r.restrict]);
-    }
-  }
-  return PERM_BY_RANK[Math.min(grant, restrict)] as AttackPerm;
+  // universal summoning sickness (D-022)
+  const f = foldPerm(s, env, m, side, m.entered === s.turn ? PERM_RANK.none : PERM_RANK.any);
+  return PERM_BY_RANK[Math.min(f >> 2, f & 3)] as AttackPerm;
+}
+
+/** The restriction fold alone (D-212): 'any' when no active hook restricts, and for a card off the board. */
+export function attackRestriction(s: GameState, env: Env, iid: Iid): AttackPerm {
+  const loc = locate(s, iid);
+  if (loc < 0) return 'any';
+  const side = locSide(loc);
+  const m = s.sides[side].board[locSlot(loc)] as Monster;
+  return PERM_BY_RANK[foldPerm(s, env, m, side, PERM_RANK.none) & 3] as AttackPerm;
 }
