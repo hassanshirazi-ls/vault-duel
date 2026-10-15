@@ -2237,6 +2237,23 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: On phones the hand fan keeps a 44 px side gutter (`--fan-gutter`), a shallow dip (drop × 0.25) and an 8 px lift. The hint bar has a 16 px side gutter. Below 400 px the player bar has tighter button padding, so Graft and End turn fit at 360 px. Below 420 px the Binder's kind headers drop to normal case and Chimera names to 9 px, so "Construct" and "Clockwork" fit their 50 px columns. Wide layouts keep their D-244 values.
 - Reason: ui-dev's draft plus the main session's Binder fix; checked in Chromium at 360 to 1440 px.
 
+**D-254 · `sim seeds` generator and the seeds:check build step** (implements D-236)
+- Date: 2026-10-15
+- Question: How is the D-236 manifest produced and kept honest?
+- Decision:
+  - `pnpm seeds --from DATE --days N [--workers W] [--out FILE]` (default out `apps/web/public/seeds.json`) rates each date with the sim's `checkDates` on the worker pool. It writes `{ contentHash, globalsHash, expertHash, days }` keyed by `checkKey(ctx)`, with dates ascending, fields in the order k, winRate, stars, par, check, and a trailing newline. The bytes don't depend on the worker count.
+  - `pnpm seeds:check` (`sim seeds --check`) reads the manifest and prints a WARNING when the file is missing or unreadable, when any of the three hashes differs from the current build (including `--set` overrides), or when days in the next 30 are missing. It always exits 0, because a stale manifest is never an error. The root `build` runs it after `content:check`.
+  - `packages/sim/src/seeds.ts › parseManifestText` copies the web reader's rules (`apps/web/src/daily/manifest.ts › parseManifest`), since sim must not import apps/web. A change to one must be made to the other. A shared export from packages/ai would remove the copy (later item).
+  - A test checks that a manifest rating equals the on-device `prepareDay` rating for the same date on every field, and that `daySetupFor` with that rating gives the device's `DailySetup`.
+- Reason: playtest-runner's draft, reviewed by the main session. The main session checked 1 vs 9 workers byte-for-byte and the web app using the manifest without starting the worker.
+
+**D-255 · Seeds manifest for 2026-10-15 to 2027-01-12** (applies D-254)
+- Date: 2026-10-15
+- Question: Which manifest ships, and when must it be regenerated?
+- Decision: The shipped `apps/web/public/seeds.json` covers 90 days, 2026-10-15 to 2027-01-12. 84 dates were accepted and 6 fell back (2026-10-18, 2026-11-24, 2026-11-26, 2026-11-27, 2027-01-04, 2027-01-10). It took 333,000 duels in 277 s on 9 workers. Regenerate it with `pnpm seeds --from <date> --days 90` after any change to content, globals or the expert weights, and before the window runs out. Until then, the app falls back to the on-device check (about 7 s on a desktop) and `pnpm build` warns.
+- Observed, not tuned (for Phase 3 with the D-229/D-230 items): par ranges from 3 to 12 (10 days at par 3, against BT-3's 9–11), and 57 of the 90 days rate 1 star.
+- Reason: D-236 measured cost; the window gives about two months of headroom before the next regeneration is needed.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
