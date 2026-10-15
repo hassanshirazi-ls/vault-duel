@@ -1643,7 +1643,7 @@ sim seed   <YYYY-MM-DD>  [--set K=V]…        # prints the difficulty check, re
 - **Persistence**: localStorage wrapped in try/catch; Binder (signature cards + families), stats, streaks (D-106).
 - **Share**: `meta/share.ts` builds one emoji per round from `state.track.round` (priority D-101) plus rounds used vs par.
 - **Content in the browser** (D-176): the app imports `RAW_CONTENT` from the browser-safe content root (never the `./node` export), runs `parseContent` → `validateContent` → `compileContent` at startup, and renders card and keyword text with `renderText(template, g)` (D-172). In the dev build, a content error replaces the app with the §10.3 lines. Saving a JSON, `globals.ts` or keyword file hot-reloads content and restarts the duel ("content changed, duel restarted"; the replay fails `state.cfg`, no loss, D-108). Can wait: `?set=KEY=VALUE` (repeatable) in dev builds applies `withOverrides`, and the overrides are shown in the debug overlay.
-- **PWA**: `vite-plugin-pwa`, offline cache, portrait manifest. `FLAGS.DEBUG_OVERLAY` shows state, legal actions, the Collector's chosen rule, and the seed.
+- **PWA**: a hand-rolled service worker emitted at build (D-250, not vite-plugin-pwa), offline cache, portrait manifest. `FLAGS.DEBUG_OVERLAY` shows state, legal actions and the seed; the Collector's chosen rule waits for packages/ai to expose it (D-252).
 
 ---
 
@@ -1770,7 +1770,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | LD-3 | Placeholder art until artist delivers | web `art/placeholder.ts`, `art-briefs.json` | D-110 |
 | LD-4 | Graft creates Chimeras | `graft.ts`, `recipes.json` | D-056…D-066 |
 | LD-5 | The Binder (cosmetic, signature cards + Chimeras) | web `persistence/binder.ts`, `track.families` | D-010, D-066 |
-| LD-6 | Web-first PWA, portrait, one-handed, tap-only | `apps/web` (vite-plugin-pwa) | — |
+| LD-6 | Web-first PWA, portrait, one-handed, tap-only | `apps/web` (service worker per D-250) | — |
 | LD-7 | Working title (trademark check) | not code — open question tracked in DESIGN | — |
 
 ### Core rules

@@ -2196,6 +2196,47 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - **App icon and splash: wax-seal gavel.** An oxblood wax seal with a stamped gavel and a tarnished-gold rim on soot (D-240 palette), used for the PWA icons and splash.
 - Reason: owner's choice.
 
+**D-248 · Streak, stats and share-line definitions** (W2, applies D-247)
+- Date: 2026-10-15
+- Question: DESIGN and D-247 name the streak, the stats and the share line but don't define them. How are they counted?
+- Decision:
+  - **Streak:** the current streak counts consecutive calendar days with a win. It ends today, or yesterday while today is still unplayed. A loss or a missed day ends it, as in Wordle. Best streak is the longest such run.
+  - **Stats:** derived from one record per date (the first counted result), so reloads never double-count. A day's stars are the number of objectives met, 0 on a loss. "Rounds vs par" is the mean of (rounds − par) over wins only. The rounds chart has one row per round count from 1 to MAX_ROUNDS plus a Lost row, and today's row is marked.
+  - **Binder:** a win adds the day's signature card. A Chimera family counts on its first graft in any counted (daily) duel, win or loss.
+  - **Storage:** records are versioned (`vd:stats`, `vd:binder`). Unreadable entries are dropped, and a record from a newer version is read as empty and never overwritten.
+  - **Share line:** it reads "<n> rounds (par <p>) · Life <l> · <stars>" ("1 round" when singular), as in the D-247 preview. The objective-star maximum is the day's objective count, not the planned OBJECTIVE_STARS_MAX global.
+- Reason: ui-dev's draft, reviewed by the main session. The main session changed the share line from "Round 3/7", which read as "round 3 of 7".
+
+**D-249 · Practice rules** (W2, applies D-247)
+- Date: 2026-10-15
+- Question: When does Practice unlock, and what does it keep?
+- Decision: Practice unlocks when the daily duel has ended, win or loss, and replays today's seed. It keeps its own resumable record, `vd:practice:<date>`, and never touches the stats, Binder or daily session records. Leaving Practice ("Today's lot") restores the daily Result and deletes the practice record, and "Practice again" starts a fresh duel. Its receipt is headed "Practice receipt · Unrecorded" and has no stamp or Share button.
+- Reason: ui-dev's draft, reviewed by the main session.
+
+**D-250 · Offline shell without vite-plugin-pwa** (W2; amends ARCHITECTURE §16)
+- Date: 2026-10-15
+- Question: ARCHITECTURE named vite-plugin-pwa for the offline cache. Is it worth its dependency tree (workbox)?
+- Decision: No. A small Vite `closeBundle` step writes `dist/sw.js` from `apps/web/src/sw/sw.template.js`. It precaches every emitted file except card art, `seeds.json`, the worker script itself and the `.woff` fallbacks, and the cache name hashes the contents. There is no skipWaiting, so an open tab keeps the chunks it loaded. `seeds.json` is network-first with the last good copy as fallback, and `art/*.webp` is cache-first. Content is bundled in the JS, so it works offline too.
+- Reason: ui-dev's draft, reviewed by the main session; offline reload and the Binder offline were checked in Chromium.
+
+**D-251 · App icon and manifest** (W2, applies D-247)
+- Date: 2026-10-15
+- Question: How are the icon sizes produced?
+- Decision: `apps/web/public/icon.svg` is the single source. `apps/web/scripts/make-icons.mjs` renders the PNGs with Playwright (192, 512, maskable 512 with the seal at 80%, apple-touch 180, favicon 32); run it as `node scripts/make-icons.mjs <path to playwright/index.mjs>`. The loading screen and the in-page splash reuse the SVG. Per-device iOS startup images are not made yet.
+- Reason: ui-dev's draft, reviewed by the main session.
+
+**D-252 · Dev-only overrides and debug overlay** (W2)
+- Date: 2026-10-15
+- Question: How do `?set=` and the debug overlay behave, given that FLAGS.DEBUG_OVERLAY is not yet read by content?
+- Decision: `?set=NAME=VALUE` (repeatable) and `?debug` work in dev builds only. `?debug` equals `?set=FLAGS.DEBUG_OVERLAY=true`, overrides also go to the difficulty worker, and a bad override shows the D-176 error screen. In production the overlay needs the content flag. The overlay is a collapsed "dbg" tab opening a read-only panel with the seed, setup source, step, mood, intent, overrides, warnings, the Collector's recent actions and the legal actions (first 40). It can't show the Collector's chosen rule yet, because `createCollector.act` returns only the action; exposing it is a later packages/ai item.
+- Reason: ui-dev's draft, reviewed by the main session.
+
+**D-253 · Phone hand fan and action row fit** (W2; amends D-245)
+- Date: 2026-10-15
+- Question: How are the W1.6 360x640 leftovers fixed (hint text at the screen edge, leftmost card clipped, fan dipping into the action row)?
+- Decision: On phones the hand fan keeps a 44 px side gutter (`--fan-gutter`), a shallow dip (drop × 0.25) and an 8 px lift. The hint bar has a 16 px side gutter. Below 400 px the player bar has tighter button padding, so Graft and End turn fit at 360 px. Below 420 px the Binder's kind headers drop to normal case and Chimera names to 9 px, so "Construct" and "Clockwork" fit their 50 px columns. Wide layouts keep their D-244 values.
+- Reason: ui-dev's draft plus the main session's Binder fix; checked in Chromium at 360 to 1440 px.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
