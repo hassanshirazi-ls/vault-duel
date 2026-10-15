@@ -17,11 +17,12 @@ export type {
   ViewChoice,
 } from './collector/view';
 export type { CombatEstimate } from './collector/combat-estimate';
-export { liveCollectorAi } from './collector/config';
 export type { AiConfig } from './collector/config';
 export { MOOD_NAMES } from './collector/moods';
 export { ATTACK_RULES, PLAY_RULES } from './collector/rules';
 export { createBrain } from './shared/brain';
+export { lookAhead } from './shared/look-ahead';
+export type { LookAhead, SummonLook } from './shared/look-ahead';
 export type { Brain } from './shared/brain';
 export { botAction, botContext, playerView } from './bots/player-view';
 export type { Bot, BotContext, PlayerView } from './bots/player-view';

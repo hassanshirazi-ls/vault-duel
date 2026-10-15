@@ -1,0 +1,10 @@
+{
+  "myLife": 1,
+  "damage": 1.5,
+  "power": 1,
+  "guard": 0.5,
+  "attackPos": 0.5,
+  "handCard": 0.7,
+  "trap": 1,
+  "win": 1000000
+}

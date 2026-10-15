@@ -28,6 +28,7 @@ const world = createWorld([
   mon('p-air', 'P', 4, 3, 'air'),
   mon('p-stolen', 'P', 6, 3, 'void'),
   mon('p-stolen2', 'P', 3, 3, 'void'),
+  mon('c-swift', 'C', 7, 3, 'void', ['swift']),
 ]);
 const scene = (): SceneT => new Scene(world);
 
@@ -57,6 +58,16 @@ describe('winThisTurn (rule 1, D-082)', () => {
     expect(playRule(sc, 'winThisTurn')).toBeNull();
   });
 
+  it('tries a summon as the enabling play: a Swift monster adds a second attacker (D-220)', () => {
+    // brute alone takes 5 off the 10 life (7 over the 2-Power blocker); the Swift 7 first clears it, brute then goes direct.
+    const sc = scene().board(1, 0, 'c-brute').hand(1, 'c-swift').board(0, 0, 'p-blocker').life(0, 10);
+    expect(playRule(sc, 'winThisTurn')).toBe('summon c-swift atk');
+  });
+
+  it('does not summon when the Swift attacker does not make the win', () => {
+    expect(playRule(scene().board(1, 0, 'c-brute').hand(1, 'c-swift').board(0, 0, 'p-blocker').life(0, 20), 'winThisTurn')).toBeNull();
+  });
+
   it('breaks a tie between equal winning casts by leftmost target slot, not by card id', () => {
     // Two 7-Power attackers, two 2/2 blockers, 12 life: removing either blocker lets the second attacker go direct.
     const mk = (first: string, second: string): SceneT =>
@@ -77,10 +88,16 @@ describe('summonAce (rule 2)', () => {
     expect(playRule(sc, 'summonAce')).toBe('covetous c-ace sac p-stolen2 atk');
   });
 
-  it('prefers a board sacrifice over a vault one of equal Power, then leftmost slot', () => {
-    const sc = scene().hand(1, 'c-ace').vault(1, 'p-stolen').board(1, 1, 'p-stolen2', { appraised: true }).board(1, 2, 'p-small', { appraised: true });
-    // p-stolen2 and p-small both have Power 3; the board slot 1 comes first.
-    expect(playRule(sc, 'summonAce')).toBe('covetous c-ace sac p-stolen2 atk');
+  it('sacrifices a vault monster before a board one, even a stronger one (D-213)', () => {
+    const sc = scene().hand(1, 'c-ace').vault(1, 'p-stolen').board(1, 1, 'p-stolen2', { appraised: true });
+    // the vault card has Power 6, the board monster 3: the vault card still goes first
+    expect(playRule(sc, 'summonAce')).toBe('covetous c-ace sac p-stolen atk');
+  });
+
+  it('within the board zone the weakest goes first, then the leftmost slot (D-213)', () => {
+    const w = scene().hand(1, 'c-ace').board(1, 0, 'p-six', { appraised: true }).board(1, 1, 'p-stolen2', { appraised: true }).board(1, 2, 'p-small', { appraised: true });
+    // slots 1 and 2 both have Power 3: the leftmost
+    expect(playRule(w, 'summonAce')).toBe('covetous c-ace sac p-stolen2 atk');
   });
 
   it('does nothing without a sacrifice, or without the ace in hand', () => {
@@ -234,6 +251,20 @@ describe('castHighValueSpell (rule 5, D-087, D-204)', () => {
   it('a tie of Power on both sides of a trade is not a contested kill: it is destroyed already', () => {
     const sc = scene().hand(1, 'c-gilt').board(1, 0, 'c-mid-void').board(0, 0, 'p-five');
     expect(playRule(sc, 'castHighValueSpell')).toBeNull();
+  });
+
+  it('contestedAttack applies the whole cast: an effect with an `if` counts only where it holds (D-219)', () => {
+    const ai = withAi((a) => {
+      const params = a.params as { castHighValueSpell: Record<string, unknown> };
+      params.castHighValueSpell['c-gilt-fire'] = { when: 'contestedAttack' };
+    });
+    const w = createWorld([mon('c-fire5', 'C', 5, 3, 'fire'), mon('c-void5', 'C', 5, 3, 'void'), mon('p-guard', 'P', 2, 6, 'void')], ai);
+    const fire = new Scene(w).hand(1, 'c-gilt-fire').board(1, 0, 'c-fire5').board(0, 0, 'p-guard', { pos: 1 });
+    // fire 5 against Guard 6 fails; the +4 reaches the fire monster (5 + 4 > 6)
+    expect(playRule(fire, 'castHighValueSpell', ai)).toBe('cast c-gilt-fire > c-fire5');
+    // the same spell on a void monster does nothing, so the rule does not cast it
+    const plain = new Scene(w).hand(1, 'c-gilt-fire').board(1, 0, 'c-void5').board(0, 0, 'p-guard', { pos: 1 });
+    expect(playRule(plain, 'castHighValueSpell', ai)).toBeNull();
   });
 
   it('casts candidates in card-id order whatever the order in JSON, taking the first that qualifies', () => {

@@ -24,6 +24,7 @@ const world = createWorld([
   mon('p-wall', 'P', 1, 9, 'void'),
   mon('p-wall7', 'P', 1, 7, 'void'),
   mon('p-warded', 'P', 5, 3, 'void', ['ward']),
+  mon('p-warded6', 'P', 6, 3, 'void', ['ward']),
   mon('p-sentinel', 'P', 2, 5, 'void', ['sentinel']),
   mon('p-hidden', 'P', 3, 3, 'void'),
   mon('p-hidden2', 'P', 9, 9, 'void'),
@@ -79,6 +80,14 @@ describe('killWithoutLoss (attack rule 2, D-092)', () => {
     const sc = scene().board(1, 0, 'c-brute').board(0, 0, 'p-small').board(0, 1, 'p-four').board(0, 2, 'p-seven');
     // against the 7-Power monster it would trade, so it is excluded; 4 then 3.
     expect(attackRule(sc, 'killWithoutLoss')).toEqual(['attack c-brute > p-four', 'attack c-brute > p-small']);
+  });
+
+  it('ranks clean kills, then trades, then Ward strips, whatever the Power (D-218)', () => {
+    // Agitated: c-brute (7) strips the 6-Power Ward and kills p-small clean; c-mid-void (5) trades with p-five.
+    const sc = scene().board(1, 0, 'c-brute').board(1, 1, 'c-mid-void').board(0, 0, 'p-warded6').board(0, 1, 'p-five').board(0, 2, 'p-small').mood(1);
+    const out = attackRule(sc, 'killWithoutLoss');
+    expect(out.indexOf('attack c-mid-void > p-five')).toBeGreaterThan(out.indexOf('attack c-brute > p-small'));
+    expect(out.indexOf('attack c-mid-void > p-five')).toBeLessThan(out.indexOf('attack c-brute > p-warded6'));
   });
 
   it('actual destructions rank before Ward strips, whatever the Power', () => {

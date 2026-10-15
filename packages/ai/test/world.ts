@@ -2,8 +2,9 @@
 // pool), the real keywords (rules, not tuning), engine fixture globals, and a test-owned copy of the AI block. Nothing
 // here depends on the live card values, so tuning collector.json or the card files cannot break a rule test.
 import { CollectorAi, KEYWORDS } from '@vault-duel/content';
+import type { GameContent } from '@vault-duel/content';
 import { createEngine } from '@vault-duel/engine';
-import type { Action, CompiledContent, GameState, Globals, Iid, Mood } from '@vault-duel/engine';
+import type { Action, GameState, Globals, Iid, Mood } from '@vault-duel/engine';
 import { buildContent } from '@vault-duel/engine/test-utils/content-builder';
 import type { DefSpec } from '@vault-duel/engine/test-utils/content-builder';
 import { withGlobals } from '@vault-duel/engine/test-utils/globals';
@@ -62,6 +63,16 @@ export const SPELLS: readonly DefSpec[] = [
     type: 'spell',
     pool: 'collector',
     spell: { target: { side: 'enemy', zone: 'board', where: { faceUp: true } }, effects: [{ op: 'destroy', target: 'chosen' }] },
+  },
+  {
+    // Power only for a fire target: the effect has an `if`, which the cast on the redacted copy honours (D-219)
+    id: 'c-gilt-fire',
+    type: 'spell',
+    pool: 'collector',
+    spell: {
+      target: { side: 'ally', zone: 'board', where: { faceUp: true } },
+      effects: [{ op: 'modifyStats', target: 'chosen', power: 4, duration: 'untilEndOfYourNextTurn', if: { element: 'fire' } }],
+    },
   },
   {
     id: 'c-blank',
@@ -128,7 +139,7 @@ export function withAi(edit: (ai: Record<string, unknown>) => void): AiConfig {
 }
 
 export interface World {
-  readonly content: CompiledContent;
+  readonly content: GameContent;
   readonly globals: Globals;
   readonly collector: Collector;
 }
@@ -141,8 +152,8 @@ export function createWorld(cards: readonly DefSpec[], ai: AiConfig = BASE_AI, g
     keywords: KEYWORDS,
     defs,
   });
-  const content: CompiledContent = { ...built, collector: { deck: [], ace: built.index.get('c-ace') as number, canGraft: false } };
-  return { content, globals, collector: createCollector({ content, globals, ai }) };
+  const content: GameContent = { ...built, collector: { deck: [], ace: built.index.get('c-ace') as number, canGraft: false, ai } };
+  return { content, globals, collector: createCollector({ content, globals }) };
 }
 
 export interface MonsterOver {
@@ -153,6 +164,7 @@ export interface MonsterOver {
   readonly wardUsed?: boolean;
   readonly permP?: number;
   readonly shroudUntil?: number;
+  readonly unstableUntil?: number;
   readonly appraised?: boolean;
 }
 
@@ -269,9 +281,9 @@ export class Scene {
   }
 }
 
-/** Collector for this world with edited AI data. */
+/** Collector for this world with edited AI data (D-210: the block travels in the content; the spread leaves the hash stale, so tests only). */
 export function collectorWith(world: World, ai: AiConfig): Collector {
-  return createCollector({ content: world.content, globals: world.globals, ai });
+  return createCollector({ content: { ...world.content, collector: { ...world.content.collector, ai } }, globals: world.globals });
 }
 
 // ---- rule runners: one rule in isolation -------------------------------------------------------------------------

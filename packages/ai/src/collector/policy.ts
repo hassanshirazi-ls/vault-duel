@@ -3,12 +3,12 @@
 //   1. reposition (D-089)  2. the mood's play list, first non-null  3. the mood's attack list, first non-empty
 //   4. endTurn, or a forced Vain attack (D-091).
 // Ties: leftmost slot, then card id (D-090). Nothing here chooses at random.
-import type { Action, CompiledContent, GameState, Globals, IntentPolicy } from '@vault-duel/engine';
+import type { Action, GameState, Globals, IntentPolicy } from '@vault-duel/engine';
+import type { GameContent } from '@vault-duel/content';
 import { createBrain } from '../shared/brain';
 import type { Brain } from '../shared/brain';
 import { attackersInOrder } from './attacks';
 import { bestTarget } from './best-target';
-import { liveCollectorAi } from './config';
 import type { AiConfig, AttackRuleId, PlayRuleId } from './config';
 import { makeIntentPolicy } from './intent';
 import { effectiveByMood } from './moods';
@@ -20,10 +20,9 @@ import { buildView, collectorView } from './view';
 import type { CollectorView, ViewChoice } from './view';
 
 export interface CollectorOptions {
-  readonly content: CompiledContent;
+  /** The compiled content; its `collector.ai` block is the Collector's data (D-210). */
+  readonly content: GameContent;
   readonly globals: Globals;
-  /** `collector.json › ai`; the live file when omitted */
-  readonly ai?: AiConfig;
 }
 
 export interface Collector {
@@ -85,9 +84,9 @@ export function decideWith(eff: EffectiveAi, globals: Globals, aceId: string, vi
 }
 
 export function createCollector(options: CollectorOptions): Collector {
-  const ai = options.ai ?? liveCollectorAi();
-  checkLists(ai);
   const { content, globals } = options;
+  const ai = content.collector.ai;
+  checkLists(ai);
   const brain = createBrain(content, globals);
   const moods = effectiveByMood(ai);
   const aceId = content.ids[content.collector.ace] as string;

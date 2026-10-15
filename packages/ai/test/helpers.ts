@@ -1,12 +1,13 @@
 // Shared test setup: the live content compiled once, a duel runner, and scenario builders over the real cards.
 import { DEFAULT_GLOBALS, compileContent, parseContent, RAW_CONTENT } from '@vault-duel/content';
+import type { GameContent } from '@vault-duel/content';
 import { createEngine, hashState } from '@vault-duel/engine';
-import type { Action, CompiledContent, Engine, GameEvent, GameState, Globals } from '@vault-duel/engine';
+import type { Action, Engine, GameEvent, GameState, Globals } from '@vault-duel/engine';
 import { createBrain, createCollector, botAction } from '../src';
 import type { Bot, Collector } from '../src';
 
 export const LOAD = parseContent(RAW_CONTENT);
-export const CONTENT: CompiledContent = compileContent(LOAD.data);
+export const CONTENT: GameContent = compileContent(LOAD.data);
 export const GLOBALS: Globals = DEFAULT_GLOBALS;
 
 export const SEED = (n: number): string => `vault-duel:2026-01-${String((n % 28) + 1).padStart(2, '0')}:0.1.0#${Math.floor(n / 28)}`;

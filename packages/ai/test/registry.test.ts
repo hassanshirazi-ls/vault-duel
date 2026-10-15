@@ -11,7 +11,7 @@ import { POSITIONS, SLOW_PICKS, SLOW_POSITIONS } from '../src/collector/rules/su
 import { BEATER_COMPARE } from '../src/collector/rules/summonBeater';
 import { TRAP_COMPARE } from '../src/collector/rules/setTrapWhenBehind';
 import { UTILITY_STEPS } from '../src/collector/rules/utility';
-import { createCollector, liveCollectorAi } from '../src';
+import { createCollector } from '../src';
 import type { AiConfig } from '../src';
 import { CONTENT, GLOBALS } from './helpers';
 
@@ -88,7 +88,7 @@ describe('the live collector.json', () => {
   });
 
   it('refuses a rule list that names a rule with no handler', () => {
-    const bad = { ...liveCollectorAi(), play: ['nope'] } as unknown as AiConfig;
-    expect(() => createCollector({ content: CONTENT, globals: GLOBALS, ai: bad })).toThrow(/no rule "nope"/);
+    const bad = { ...CONTENT.collector.ai, play: ['nope'] } as unknown as AiConfig;
+    expect(() => createCollector({ content: { ...CONTENT, collector: { ...CONTENT.collector, ai: bad } }, globals: GLOBALS })).toThrow(/no rule "nope"/);
   });
 });

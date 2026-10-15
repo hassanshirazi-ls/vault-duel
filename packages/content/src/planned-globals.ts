@@ -16,8 +16,6 @@ export const PLANNED_GLOBALS: Readonly<Record<string, PlannedGlobal>> = {
   'FLAGS.ANIMATIONS': { reader: 'web', where: 'web duel store (§16)' },
   'FLAGS.DEBUG_OVERLAY': { reader: 'web', where: 'web debug overlay (§16)' },
   // ai: the difficulty check (§15, DC-1 to DC-3). SIM_RUNS_PER_SEED is the duels per seed in rateSeed.
-  // ai: the Collector's win search stops at this many nodes (D-082, D-211). It is a safety cap; the cap never binds at launch.
-  AI_SEARCH_NODE_BUDGET: { reader: 'ai', where: 'ai/collector/win-search.ts › node budget (D-082, D-211)' },
   SIM_RUNS_PER_SEED: { reader: 'ai', where: 'ai/difficulty.ts › rateSeed (DC-1)' },
   SEED_WINRATE_MIN: { reader: 'ai', where: 'ai/difficulty.ts › rateSeed (DC-2)' },
   SEED_WINRATE_MAX: { reader: 'ai', where: 'ai/difficulty.ts › rateSeed (DC-2)' },

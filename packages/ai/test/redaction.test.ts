@@ -78,6 +78,7 @@ interface Counts {
  * own deck order. Player: the Collector's hand, deck order and set-trap identities, and the player's own deck order.
  */
 function perturb(s: GameState, rng: Sfc32, counts: Counts, viewer: 'collector' | 'player'): GameState {
+  const spellsAndMonsters = [...CONTENT.playerPool.monsters, ...CONTENT.playerPool.spells, ...PLAYER_TRAPS];
   const swapSome = (a: readonly Iid[], b: readonly Iid[]): [Iid[], Iid[]] => {
     const x = [...a];
     const y = [...b];
@@ -104,6 +105,11 @@ function perturb(s: GameState, rng: Sfc32, counts: Counts, viewer: 'collector' |
   if (viewer === 'collector') {
     const [hand, deck] = swapSome(player.hand, p.deck);
     p = { ...p, hand, deck };
+    // Different identities for hidden hand and deck cards, not only a different order.
+    for (const iid of [...hand.slice(0, 2), ...deck.slice(0, 2)]) {
+      const cur = inst[iid] as GameState['inst'][number];
+      inst[iid] = { ...cur, def: other(spellsAndMonsters, cur.def, 7) };
+    }
     for (const m of player.board) {
       if (m !== null && m.faceDown) {
         const cur = inst[m.iid] as GameState['inst'][number];
@@ -137,8 +143,8 @@ function snapshot(v: CollectorView): string {
   const out: unknown[] = [JSON.stringify(v)];
   for (let slot = 0; slot < v.board.length; slot++) {
     if (v.board[slot] === null) continue;
-    out.push(v.previewAttack(slot, 'direct'), v.previewAttack(slot, 'direct', 2));
-    for (let f = 0; f < v.foeBoard.length; f++) out.push(v.previewAttack(slot, f), v.previewAttack(slot, f, 3));
+    out.push(v.previewAttack(slot, 'direct'));
+    for (let f = 0; f < v.foeBoard.length; f++) out.push(v.previewAttack(slot, f));
   }
   for (const c of v.hand) {
     const pv = v.previewSummon(c);
@@ -147,9 +153,11 @@ function snapshot(v: CollectorView): string {
     for (let f = 0; f < v.foeBoard.length; f++) out.push(pv.asAttacker(f), pv.asDefender(f));
   }
   out.push(v.winningAttacks().map((c) => c.index), v.attackPotential());
+  // Look-ahead (D-209): every play's winsAfter, and the view after every choice (null when refused).
   for (const c of v.choices) {
-    if (c.t === 'cast' || c.t === 'summon') out.push(v.winsAfter(c));
-    if (c.t === 'reposition') out.push(v.after(c) === null ? null : JSON.stringify(v.after(c)));
+    if (c.t === 'cast' || c.t === 'summon' || c.t === 'summonCovetous' || c.t === 'setTrap') out.push(v.winsAfter(c));
+    const next = v.after(c);
+    out.push(next === null ? null : JSON.stringify(next), next === null ? null : next.winningAttacks().map((w) => w.index));
   }
   return JSON.stringify(out);
 }
@@ -180,6 +188,47 @@ describe('equal views from states that differ only in hidden information', () =>
     expect(counts.states).toBeGreaterThan(100);
     expect(counts.faceDown).toBeGreaterThan(0);
     expect(counts.playerTraps).toBeGreaterThan(0);
+  });
+
+  it('Collector: look-aheads (previewSummon, winningAttacks, winsAfter, after, intent) agree under the perturbation', () => {
+    // Same walk as above, restricted to the look-ahead answers, with the perturbation applied to every Collector turn state
+    // twice (two independent perturbations), so a leak through any hidden zone would show.
+    const collector = createCollector({ content: CONTENT, globals: GLOBALS });
+    const engine = createEngine(CONTENT, GLOBALS, { intent: collector.intentPolicy });
+    const counts: Counts = { faceDown: 0, playerTraps: 0, collectorTraps: 0, states: 0 };
+    let summons = 0;
+    for (let i = 0; i < 24; i++) {
+      const bot = createGreedy();
+      const rng = Sfc32.from(`perturb-la/${i}`);
+      let s = engine.newGame(SEED(i + 100)).state;
+      let n = 0;
+      while (s.result === null && n++ < 400) {
+        if ((s.turn & 1) === 1 && s.step !== 'mulligan') {
+          const base = collector.view(s);
+          for (let k = 0; k < 2; k++) {
+            const v = collector.view(perturb(s, rng, counts, 'collector'));
+            for (const c of base.hand) {
+              const a = base.previewSummon(c);
+              const b = v.previewSummon(c);
+              expect(b === null ? null : [b.power, b.guard, b.slow]).toEqual(a === null ? null : [a.power, a.guard, a.slow]);
+              if (a !== null) summons++;
+            }
+            expect(v.winningAttacks().map((c) => c.index)).toEqual(base.winningAttacks().map((c) => c.index));
+            expect(v.choices.map((c) => v.winsAfter(c))).toEqual(base.choices.map((c) => base.winsAfter(c)));
+            expect(v.attackPotential()).toBe(base.attackPotential());
+          }
+          counts.states++;
+        }
+        if (s.step !== 'mulligan') {
+          const intent = collector.intentPolicy(s);
+          expect(collector.intentPolicy(perturb(s, rng, counts, 'collector'))).toBe(intent);
+        }
+        const a = (s.turn & 1) === 0 || s.step === 'mulligan' ? botAction(bot, collector.brain, s) : collector.act(s);
+        s = engine.applyAction(s, a).state;
+      }
+    }
+    expect(counts.states).toBeGreaterThan(50);
+    expect(summons).toBeGreaterThan(20);
   });
 
   it('player bots: the view and every look-ahead agree when only the Collector hidden information changes', () => {

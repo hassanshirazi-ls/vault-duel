@@ -5,7 +5,7 @@ import { createEngine } from '@vault-duel/engine';
 import type { Intent } from '@vault-duel/engine';
 import { createNovice } from '../src';
 import { CONTENT, playDuel, SEED } from './helpers';
-import { createWorld, mon, Scene } from './world';
+import { collectorWith, createWorld, mon, Scene, withAi } from './world';
 import type { Scene as SceneT } from './world';
 
 const world = createWorld([
@@ -31,6 +31,12 @@ describe('categories and priority (D-095)', () => {
     expect(intent(scene().board(0, 0, 'p-seven').board(1, 0, 'c-brute'))).toBe('appraise');
   });
 
+  it('the forecast is honest about the end of his turn: a monster that expires first is not taken (D-221)', () => {
+    // Unstable until turn 4 ends with this turn, before his Appraisal at the start of turn 5; until turn 6 it survives.
+    expect(intent(scene().board(0, 0, 'p-seven', { unstableUntil: 4 }))).not.toBe('appraise');
+    expect(intent(scene().board(0, 0, 'p-seven', { unstableUntil: 6 }))).toBe('appraise');
+  });
+
   it('no appraise outside an Appraisal round', () => {
     expect(intent(scene(2).board(0, 0, 'p-seven'))).not.toBe('appraise');
   });
@@ -54,6 +60,16 @@ describe('categories and priority (D-095)', () => {
 
   it('attack counts a forced Vain attack', () => {
     expect(intent(scene(2).board(1, 0, 'c-vain').board(0, 0, 'p-six'))).toBe('attack');
+  });
+
+  it('a forced Vain attack counts even when the mood\'s attack list omits holdExceptVain (D-221)', () => {
+    const ai = withAi((a) => {
+      a.attack = ['lethal'];
+      ((a.moods as Record<string, Record<string, unknown>>).composed as Record<string, unknown>).attack = ['lethal'];
+    });
+    const sc = scene(2).board(1, 0, 'c-vain').board(0, 0, 'p-six');
+    expect(collectorWith(world, ai).intentPolicy(sc.state())).toBe('attack');
+    expect(collectorWith(world, ai).intentPolicy(scene(2).board(1, 0, 'c-brute').board(0, 0, 'p-small').state())).toBe('guard');
   });
 
   it('scheme: his play rules would set a trap', () => {

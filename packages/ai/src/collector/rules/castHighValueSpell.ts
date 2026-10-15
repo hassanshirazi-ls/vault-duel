@@ -3,9 +3,10 @@
 // card-id order; the first that qualifies is cast, so JSON key order never matters.
 //   { pick: "highestPower" }      qualifies with at least one legal cast; cast on the target with the highest Power the
 //                                 view shows (face-down skipped); an untargeted spell has its one choice.
-//   { when: "contestedAttack" }   one of his attack-position monsters that can attack has a best attack that does not
-//                                 destroy a target without the Power the spell gives, but does with it (pick the one
-//                                 enabling the highest-Power kill).
+//   { when: "contestedAttack" }   a cast on one of his attack-position monsters after which it destroys a face-up target
+//                                 that it does not destroy now. The cast is applied to the redacted copy and the
+//                                 engine's previewCombat is compared before and after (D-219); pick the cast enabling
+//                                 the highest-Power kill.
 import { attackInfos } from '../attacks';
 import { tieCompare } from './context';
 import type { PlayRule, RuleCtx } from './context';
@@ -47,11 +48,18 @@ function pickContested(ctx: RuleCtx, casts: readonly ChoiceOf<'cast'>[]): Choice
   for (const choice of casts) {
     if (choice.target.kind !== 'ownMonster') continue;
     const slot = choice.target.slot;
+    const mine = view.board[slot];
+    if (mine === null || mine === undefined || mine.pos !== 'atk') continue;
+    // The cast applied to the redacted copy (D-219): its whole effect list counts, `if` conditions included.
+    const next = view.after(choice);
+    if (next === null || next.board[slot]?.card.iid !== mine.card.iid) continue;
     let best = -1;
     for (const info of attackInfos(view)) {
       if (info.attacker.slot !== slot || info.foe === null || info.foe.faceDown || !info.est.known) continue;
       if (info.est.destroysDefender) continue; // would be destroyed anyway: the spell is not what enables it
-      const boosted = view.previewAttack(slot, info.foe.slot, choice.card.grantsPower);
+      const foeNow = next.foeBoard[info.foe.slot];
+      if (foeNow === null || foeNow === undefined || foeNow.faceDown || foeNow.id !== info.foe.id) continue;
+      const boosted = next.previewAttack(slot, info.foe.slot);
       if (boosted.known && boosted.destroysDefender && info.foe.power > best) best = info.foe.power;
     }
     if (best >= 0) options.push({ choice, kill: best });

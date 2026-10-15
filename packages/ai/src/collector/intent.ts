@@ -1,9 +1,13 @@
-// Intent (D-095, D-096, D-150): a forecast of his next turn, computed once at the start of the player's turn.
-// Priority: appraise (his next turn is an Appraisal round and the opponent has an eligible target) > attack (his attack
-// rules would make at least one attack on the board as it is, after the repositions he would make) > scheme (his play
-// rules would cast a spell or set a trap) > guard.
-// It builds `collectorView` itself from the state it is given (D-150), so it sees what the Collector sees: his turn is
-// modelled as the next turn index of the same state, with no draw (unknown to him) and no change of life or mood.
+// Intent (D-095, D-096, D-150, D-221): a forecast of his next turn, computed once at the start of the player's turn.
+// The forecast state is `endTurn` applied to `redactState(s, 1)` with the Brain's engine: the end of the player's turn
+// and the start of his own (turn hooks, Unstable expiry, Appraisal) run in the engine, with no draw (his deck is
+// redacted). There is no hand-built state. This cannot recurse: the Brain's engine has a stub intent policy, and the
+// start of his turn never calls the policy. `s` is only read.
+// Priority: appraise (the Appraisal at the start of his turn took a monster) > attack (after the repositions he would make,
+// a rule of the mood's attack list returns an attack, or a monster with an active mustAttack keyword has a legal attack)
+// > scheme (the first play rule that returns something returns a cast or a trap set) > guard.
+// It builds `collectorView` itself from the state it is given (D-150), so it sees what the Collector sees.
+import { redactState } from '@vault-duel/engine';
 import type { GameState, Intent, IntentPolicy } from '@vault-duel/engine';
 import type { Brain } from '../shared/brain';
 import { ATTACK_RULES, PLAY_RULES } from './rules';
@@ -13,32 +17,27 @@ import type { EffectiveAi } from './moods';
 import { collectorView } from './view';
 import type { CollectorView } from './view';
 
+const COLLECTOR = 1;
+
 export interface IntentDeps {
   readonly brain: Brain;
   readonly moods: readonly [EffectiveAi, EffectiveAi, EffectiveAi];
   readonly aceId: string;
 }
 
-/** Does his next turn start with an Appraisal that finds a target? */
-function appraises(brain: Brain, hyp: GameState): boolean {
-  const g = brain.globals;
-  const round = (hyp.turn >> 1) + 1;
-  if (!g.FLAGS.APPRAISAL || !g.APPRAISAL_ROUNDS.includes(round)) return false;
-  for (const m of hyp.sides[0].board) {
-    if (m === null || m.faceDown || hyp.turn < m.shroudUntil) continue;
-    if (brain.mirror.power(hyp, m.iid) >= g.APPRAISAL_MIN_POWER) return true;
-  }
-  return false;
+/** A monster with an active mustAttack keyword has a legal attack (a forced attack, D-052). */
+function forcedAttack(view: CollectorView): boolean {
+  return view.choices.some((c) => c.t === 'attack' && view.board[c.slot]?.forced === true);
 }
 
 export function makeIntentPolicy(deps: IntentDeps): IntentPolicy {
   const { brain, moods, aceId } = deps;
   return (s: GameState): Intent => {
-    // His next turn: the next odd turn index (the engine calls this on an even one, at the start of a player turn).
-    const hyp: GameState = { ...s, turn: s.turn + 1 + (s.turn & 1), step: 'main', played: false, pending: null };
-    if (appraises(brain, hyp)) return 'appraise';
+    const next = brain.engine.applyAction(redactState(s, COLLECTOR), { t: 'endTurn' }).state;
+    if (next.result !== null || (next.turn & 1) !== COLLECTOR) return 'guard';
+    if (next.appraisal.successes > s.appraisal.successes) return 'appraise';
 
-    let view: CollectorView = collectorView(brain, hyp);
+    let view: CollectorView = collectorView(brain, next);
     const eff = moods[view.mood];
     const ctx = (v: CollectorView): RuleCtx => ({ view: v, ai: eff, globals: brain.globals, aceId });
 
@@ -46,13 +45,14 @@ export function makeIntentPolicy(deps: IntentDeps): IntentPolicy {
     for (let i = 0; i < brain.globals.BOARD_SLOTS; i++) {
       const rep = repositionChoice(ctx(view));
       if (rep === null) break;
-      const next = view.after(rep);
-      if (next === null) break;
-      view = next;
+      const after = view.after(rep);
+      if (after === null) break;
+      view = after;
     }
 
     const c = ctx(view);
     for (const id of eff.attack) if (ATTACK_RULES[id](c).length > 0) return 'attack';
+    if (forcedAttack(view)) return 'attack';
     for (const id of eff.play) {
       const p = PLAY_RULES[id](c);
       if (p === null) continue;

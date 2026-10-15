@@ -1,8 +1,9 @@
-// Greedy bot (D-116): one ply. Apply each legal action on a determinized copy (the Collector's hand, deck and traps
+// Greedy bot (D-116, D-222): one ply. Apply each legal action on a redacted copy (the Collector's hand, deck and traps
 // removed; see PlayerView.after), score the resulting position with evaluate(), take the best. Damage dealt and board
 // value are what evaluate() measures. Ties go to the earliest legal action, and endTurn is last, so a tie never
-// ends the turn early. Judgment calls: it keeps its opening hand; a Graft is valued by the position after its
-// first-choice completion (a Graft has no value until it commits, so one ply cannot see it otherwise).
+// ends the turn early. It keeps its opening hand; a Graft is valued by the position after its first-choice completion
+// (a Graft has no value until it commits, so one ply cannot see it otherwise); a look-ahead that the helper refuses (an
+// action on a face-down Collector monster) scores as the current position.
 import { evaluate, GREEDY_WEIGHTS } from './evaluate';
 import type { EvalWeights } from './evaluate';
 import type { Bot, PlayerView } from './player-view';
@@ -12,7 +13,7 @@ const MAX_GRAFT_STEPS = 12;
 
 function scoreAfter(v: PlayerView, index: number, w: EvalWeights): number {
   const next = v.after(index);
-  return next === null ? Number.NEGATIVE_INFINITY : evaluate(next, w);
+  return evaluate(next ?? v, w);
 }
 
 /** Index of the best action in `v`, the first of equals; `graftCancel` only when nothing else is legal. */

@@ -1,6 +1,7 @@
 // Position evaluation from the player's point of view, over a `PlayerView`. Greedy uses it directly; the expert bot
-// (milestone 2) extends it. The weights are heuristic tuning, not game rules, so they live here rather than in globals;
-// milestone 2 moves them into bots/expert.weights.json.
+// (milestone 2) extends it. The weights are settings of a measuring instrument, not game rules: they live in
+// bots/greedy.weights.json (the expert's will be bots/expert.weights.json), not in globals, and no test pins them (D-222).
+import weights from './greedy.weights.json';
 import type { PlayerView } from './player-view';
 
 export interface EvalWeights {
@@ -17,16 +18,7 @@ export interface EvalWeights {
   readonly win: number;
 }
 
-export const GREEDY_WEIGHTS: EvalWeights = {
-  myLife: 1,
-  damage: 1.5,
-  power: 1,
-  guard: 0.5,
-  attackPos: 0.5,
-  handCard: 0.7,
-  trap: 1,
-  win: 1e6,
-};
+export const GREEDY_WEIGHTS: EvalWeights = weights;
 
 /** Board value of one monster record (own or the Collector's public one). */
 function monsterValue(w: EvalWeights, power: number, guard: number, atk: boolean, faceDown: boolean): number {

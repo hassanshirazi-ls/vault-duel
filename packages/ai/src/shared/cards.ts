@@ -19,7 +19,10 @@ export interface OwnCard {
   readonly flaw: string | null;
   /** a spell whose every effect draws for him */
   readonly drawOnly: boolean;
-  /** Power the spell gives its chosen target (0 if none); resolved from its `modifyStats` effects */
+  /**
+   * An upper bound on the Power the spell gives its chosen target: the sum of its `modifyStats` Power on `chosen`, effects with
+   * an `if` included, because a bound must not undercount (D-219). 0 if none. Rules decide by applying the cast (look-ahead), not by this.
+   */
   readonly grantsPower: number;
 }
 
@@ -82,18 +85,16 @@ export function ownCard(b: Brain, s: GameState, iid: Iid): OwnCard {
   const inst = s.inst[iid] as GameState['inst'][number];
   const c = b.content;
   const type = typeOf(b, inst.def);
-  const { keywords, flaw } = keywordIds(b, b.mirror.printedKw(s, iid));
-  const el = b.mirror.element(s, iid);
-  const kd = b.mirror.kind(s, iid);
+  const { keywords, flaw } = keywordIds(b, b.engine.printedKeywords(s, iid));
+  const el = b.engine.elementOf(s, iid);
+  const kd = b.engine.kindOf(s, iid);
   const spell = c.spell[inst.def] ?? null;
   let drawOnly = false;
   let grantsPower = 0;
   if (spell !== null) {
     drawOnly = spell.effects.length > 0 && spell.effects.every((e) => e.op === 'draw' && e.who === 'self');
     for (const e of spell.effects) {
-      if (e.op === 'modifyStats' && e.target === 'chosen' && e.power !== undefined && e.if === undefined) {
-        grantsPower += resolveNum(b.globals, e.power);
-      }
+      if (e.op === 'modifyStats' && e.target === 'chosen' && e.power !== undefined) grantsPower += Math.max(0, resolveNum(b.globals, e.power));
     }
   }
   return {
@@ -112,18 +113,18 @@ export function ownCard(b: Brain, s: GameState, iid: Iid): OwnCard {
 }
 
 export function ownMonster(b: Brain, s: GameState, m: Monster, slot: number): OwnMonster {
-  const mask = b.mirror.activeKwOf(s, m);
+  const mask = b.engine.activeKeywords(s, m.iid);
   return {
     slot,
     card: ownCard(b, s, m.iid),
-    power: b.mirror.power(s, m.iid),
-    guard: b.mirror.guard(s, m.iid),
+    power: b.engine.effectivePower(s, m.iid),
+    guard: b.engine.effectiveGuard(s, m.iid),
     pos: m.pos === 0 ? 'atk' : 'grd',
     faceDown: m.faceDown,
     enteredThisTurn: m.entered === s.turn,
     attacked: m.attacked === s.turn,
     wardActive: (mask & b.content.hookMask.beforeDestroy) !== 0,
-    forced: b.mirror.mustAttack(s, m.iid),
+    forced: b.engine.mustAttack(s, m.iid),
     appraised: m.appraised,
   };
 }
@@ -131,9 +132,9 @@ export function ownMonster(b: Brain, s: GameState, m: Monster, slot: number): Ow
 export function foeMonster(b: Brain, s: GameState, m: Monster, slot: number): FoeMonster {
   if (m.faceDown) return { faceDown: true, slot };
   const inst = s.inst[m.iid] as GameState['inst'][number];
-  const mask = b.mirror.activeKwOf(s, m);
-  const el = b.mirror.element(s, m.iid);
-  const kd = b.mirror.kind(s, m.iid);
+  const mask = b.engine.activeKeywords(s, m.iid);
+  const el = b.engine.elementOf(s, m.iid);
+  const kd = b.engine.kindOf(s, m.iid);
   return {
     faceDown: false,
     slot,
@@ -141,8 +142,8 @@ export function foeMonster(b: Brain, s: GameState, m: Monster, slot: number): Fo
     element: el >= 0 ? (b.content.elementIds[el] ?? null) : null,
     kind: kd >= 0 ? (b.content.kindIds[kd] ?? null) : null,
     keywords: keywordIds(b, mask).keywords,
-    power: b.mirror.power(s, m.iid),
-    guard: b.mirror.guard(s, m.iid),
+    power: b.engine.effectivePower(s, m.iid),
+    guard: b.engine.effectiveGuard(s, m.iid),
     pos: m.pos === 0 ? 'atk' : 'grd',
     wardActive: (mask & b.content.hookMask.beforeDestroy) !== 0,
   };

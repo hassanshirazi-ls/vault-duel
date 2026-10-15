@@ -4,15 +4,15 @@
 // deck order: those values are never read into it. Enemy cards are named by board slot, a face-down enemy monster
 // is `{ faceDown: true, slot }`, and decisions are the engine's legal actions translated one to one (`choices`).
 // The few methods (previewAttack, previewSummon, after, winning...) compute answers from public information and his
-// own cards on the AI side; they hand out numbers and views, never a state.
-import type { Action, GameState, Iid, Monster, Mood, Side } from '@vault-duel/engine';
-import { scrub } from '../shared/brain';
+// own cards: engine queries on the state, or look-ahead on a redacted copy (D-209). They hand out numbers and views,
+// never a state.
+import type { Action, GameState, Iid, Mood, Side } from '@vault-duel/engine';
 import type { Brain } from '../shared/brain';
 import { foeMonster, ownCard, ownMonster, typeOf } from '../shared/cards';
 import type { CardType, FoeMonster, OwnCard, OwnMonster, PublicCard, PublicMonster } from '../shared/cards';
 import { estimateOf, UNKNOWN_ESTIMATE } from './combat-estimate';
 import type { CombatEstimate } from './combat-estimate';
-import { attackPotential, winningAttacks, winsAfter } from './win-search';
+import { lookAhead } from '../shared/look-ahead';
 
 const PLAYER: Side = 0;
 const ME: Side = 1;
@@ -87,11 +87,11 @@ export interface CollectorView {
   readonly foeTrapSlots: readonly boolean[];
   /** the engine's legal actions, one to one */
   readonly choices: readonly ViewChoice[];
-  /** What attacking would do, from public information. `powerDelta` adds Power to the attacker (a buff spell). */
-  previewAttack(attackerSlot: number, foe: number | 'direct', powerDelta?: number): CombatEstimate;
-  /** A hand monster as it would be right after a summon into a free slot (Tethered, twist counted). */
+  /** What attacking would do, from public information (the engine's `previewCombat`). */
+  previewAttack(attackerSlot: number, foe: number | 'direct'): CombatEstimate;
+  /** A hand monster as it would be right after a summon into a free slot, in attack position (D-209). */
   previewSummon(card: OwnCard): SummonPreview | null;
-  /** The view after taking `choice` (on a copy without hidden information). Null if it cannot be applied. */
+  /** The view after taking `choice` (on a copy without hidden information). Null if it targets a face-down foe monster. */
   after(choice: ViewChoice): CollectorView | null;
   /** His attacks that start a sequence he can finish with the opponent's life at 0, strongest attacker first. */
   winningAttacks(): readonly ChoiceOf<'attack'>[];
@@ -177,6 +177,7 @@ export function buildView(b: Brain, s: GameState): { readonly view: CollectorVie
   });
 
   const actionOf = (c: ViewChoice): Action => actions[c.index] as Action;
+  const ahead = lookAhead(b, s, ME); // one redacted copy for this decision's look-aheads (D-209)
 
   const view: CollectorView = {
     turn: s.turn,
@@ -198,52 +199,34 @@ export function buildView(b: Brain, s: GameState): { readonly view: CollectorVie
     foeTrapSlots: foe.traps.map((t) => t !== null),
     choices,
 
-    previewAttack(attackerSlot, foeRef, powerDelta = 0) {
+    previewAttack(attackerSlot, foeRef) {
       const a = mine.board[attackerSlot];
       if (a === null || a === undefined) return UNKNOWN_ESTIMATE;
-      if (foeRef === 'direct') return estimateOf(b.mirror.preview(s, a.iid, -1, powerDelta));
+      if (foeRef === 'direct') return estimateOf(b.engine.previewCombat(s, a.iid, -1));
       const t = foe.board[foeRef];
       if (t === null || t === undefined || t.faceDown) return UNKNOWN_ESTIMATE;
-      return estimateOf(b.mirror.preview(s, a.iid, t.iid, powerDelta));
+      return estimateOf(b.engine.previewCombat(s, a.iid, t.iid));
     },
 
     previewSummon(card) {
-      const free = mine.board.findIndex((m) => m === null);
-      if (free < 0) return null;
-      const placed: Monster = {
-        iid: card.iid, pos: 0, faceDown: false, entered: s.turn, repositioned: -1, attacked: -1, wardUsed: false,
-        permP: 0, permG: 0, timed: [], unstableUntil: -1, shroudUntil: -1, appraised: false,
-      };
-      const board = mine.board.slice();
-      board[free] = placed;
-      const hyp: GameState = {
-        ...s,
-        sides: [foe, { ...mine, board, hand: mine.hand.filter((i) => i !== card.iid) }],
-      };
+      const look = ahead.previewSummon(card.iid);
+      if (look === null) return null;
       return {
-        power: b.mirror.power(hyp, card.iid),
-        guard: b.mirror.guard(hyp, card.iid),
-        slow: b.mirror.restrictedOnEntry(hyp, card.iid),
-        asAttacker(foeSlot) {
-          const t = foe.board[foeSlot];
-          if (t === null || t === undefined || t.faceDown) return UNKNOWN_ESTIMATE;
-          return estimateOf(b.mirror.preview(hyp, card.iid, t.iid));
-        },
-        asDefender(foeSlot) {
-          const t = foe.board[foeSlot];
-          if (t === null || t === undefined || t.faceDown) return UNKNOWN_ESTIMATE;
-          return estimateOf(b.mirror.preview(hyp, t.iid, card.iid));
-        },
+        power: look.power,
+        guard: look.guard,
+        slow: look.slow,
+        asAttacker: (foeSlot) => estimateOf(look.asAttacker(foeSlot)),
+        asDefender: (foeSlot) => estimateOf(look.asDefender(foeSlot)),
       };
     },
 
     after(choice) {
-      const next = b.engine.applyAction(scrub(s, ME), actionOf(choice)).state;
-      return collectorView(b, next);
+      const next = ahead.after(actionOf(choice));
+      return next === null ? null : collectorView(b, next);
     },
 
     winningAttacks() {
-      const wins = winningAttacks(b, scrub(s, ME));
+      const wins = ahead.winningAttacks();
       return choices.filter(
         (c): c is ChoiceOf<'attack'> =>
           c.t === 'attack' &&
@@ -254,13 +237,9 @@ export function buildView(b: Brain, s: GameState): { readonly view: CollectorVie
       );
     },
 
-    winsAfter(choice) {
-      return winsAfter(b, scrub(s, ME), actionOf(choice));
-    },
+    winsAfter: (choice) => ahead.winsAfter(actionOf(choice)),
 
-    attackPotential() {
-      return attackPotential(b, scrub(s, ME));
-    },
+    attackPotential: () => ahead.attackPotential(),
   };
   return { view, actions };
 }

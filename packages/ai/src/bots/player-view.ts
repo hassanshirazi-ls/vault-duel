@@ -3,8 +3,8 @@
 // Collector's hand contents, deck order, or set-trap identities. A bot receives a `BotContext`; the view is built only
 // when the bot asks, so a bot that needs no information (novice) costs nothing.
 import type { Action, GameState, Intent, Mood, Side } from '@vault-duel/engine';
-import { scrub } from '../shared/brain';
 import type { Brain } from '../shared/brain';
+import { lookAhead } from '../shared/look-ahead';
 import { foeMonster, ownCard, ownMonster, typeOf } from '../shared/cards';
 import type { FoeMonster, OwnCard, OwnMonster, PublicCard } from '../shared/cards';
 
@@ -37,9 +37,9 @@ export interface PlayerView {
   /** the engine's legal actions for the side to move, in engine order */
   readonly legal: readonly Action[];
   /**
-   * The view after taking `legal[i]`, looked ahead on a copy with the Collector's hand, deck and traps removed and the
-   * player's own deck removed too (what he does not know cannot influence the answer). Hand and deck counts in the
-   * returned view are therefore not real. Null if the action cannot be applied.
+   * The view after taking `legal[i]`, looked ahead on `redactState(s, 0)`: the Collector's hand, deck and traps removed and
+   * the player's own deck removed too (what he does not know cannot influence the answer). Hand and deck counts in the
+   * returned view are therefore not real. Null if the action is refused (it targets a face-down Collector monster, D-209).
    */
   after(index: number): PlayerView | null;
 }
@@ -62,6 +62,7 @@ export function playerView(b: Brain, s: GameState): PlayerView {
   const mine = s.sides[PLAYER];
   const foe = s.sides[COLLECTOR];
   const legal = b.engine.getLegalActions(s);
+  const ahead = lookAhead(b, s, PLAYER);
   return {
     turn: s.turn,
     round: (s.turn >> 1) + 1,
@@ -86,7 +87,8 @@ export function playerView(b: Brain, s: GameState): PlayerView {
     after(index) {
       const a = legal[index];
       if (a === undefined) return null;
-      return playerView(b, b.engine.applyAction(scrub(s, PLAYER), a).state);
+      const next = ahead.after(a);
+      return next === null ? null : playerView(b, next);
     },
   };
 }

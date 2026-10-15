@@ -1,6 +1,6 @@
 // CombatEstimate: what the Collector's view answers to "what would this attack do?" (ARCHITECTURE.md §13.1).
-// Public information only: a face-down target has an unknown outcome.
-import type { Preview } from '../shared/mirror';
+// Public information only: a face-down target has an unknown outcome. The numbers are the engine's `previewCombat`.
+import type { CombatPreview } from '@vault-duel/engine';
 
 export type CombatEstimate =
   | { readonly known: false }
@@ -27,7 +27,9 @@ export type CombatEstimate =
 
 export const UNKNOWN_ESTIMATE: CombatEstimate = { known: false };
 
-export function estimateOf(p: Preview): CombatEstimate {
+export function estimateOf(p: CombatPreview): CombatEstimate {
+  if (!p.known) return UNKNOWN_ESTIMATE;
+  const o = p.outcome;
   return {
     known: true,
     direct: p.direct,
@@ -36,10 +38,10 @@ export function estimateOf(p: Preview): CombatEstimate {
     advantage: p.advantage,
     pierce: p.pierce,
     brittle: p.brittle,
-    destroysDefender: p.destroyDefender && !p.defenderWarded,
-    stripsWard: p.destroyDefender && p.defenderWarded,
-    losesAttacker: p.destroyAttacker && !p.attackerWarded,
-    lifeLoss: p.dmgToAttacker,
-    foeLifeLoss: p.dmgToDefender,
+    destroysDefender: o.destroyDefender && !p.defenderWarded,
+    stripsWard: o.destroyDefender && p.defenderWarded,
+    losesAttacker: o.destroyAttacker && !p.attackerWarded,
+    lifeLoss: o.dmgToAttacker,
+    foeLifeLoss: o.dmgToDefender,
   };
 }
