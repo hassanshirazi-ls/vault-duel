@@ -2125,6 +2125,31 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - **Keywords: frame effect plus glyph.** Each keyword changes the frame as DESIGN's keyword table lists it (Sentinel iron shield border, Pierce spear notch, Ward pale barrier, Haunt wisps, Echo double image, Swift motion streaks), and a small engraved corner glyph names it. With two keywords, the frame shows the higher-priority one (Sentinel > Ward > the rest) and both glyphs appear. Flaws show as a cracked-red glyph on Relics. Frame treatments and glyphs are keyed by keyword id, with a plain-glyph fallback for unknown ids.
 - Reason: owner's choice.
 
+**D-239 · Web visual layer judgment calls (W1.5)**
+- Date: 2026-10-15
+- Question: Which implementation choices did ui-dev make while building D-237/D-238 that the specs leave open?
+- Decision:
+  1. **Element colors** are a CSS token pair per element id (`--el-<id>`, `--el-on-<id>`) in `apps/web/src/style/tokens.css`, with an `--el-neutral` fallback for unknown ids. The `color` field in `elements.json` is not read, so a new element's color is one token line.
+  2. **Graft ⇄ swap** is the store action `graftSwap`: `graftCancel`, `graftBegin`, then `graftPick` for both materials in reverse order, each taken from the legal actions. It logs four actions and is enabled once two materials are picked.
+  3. **Ascend comes before position.** The engine asks for Ascend before the position, so after two materials the sheet shows the preview, "Graft" (`graftSkipAscend`) and a hint to tap a glowing card to Ascend. The final confirm is "Graft · Attack" or "Graft · Guard" (`graftPosition`). This replaces D-238's "after confirming, an Ascend button". The Ascend and Unstable copy are templates rendered with `renderText` (`view/copy.ts`).
+  4. **The workbench sits in the layout flow.** While grafting, the sheet replaces the hand and bottom bar, the trap rows are hidden and the Collector header shrinks, so board cards stay visible and tappable. Hand materials appear as a strip inside the sheet.
+  5. **Taps.** Tapping a hand card lifts it, with Attack/Guard and Face-up/Face-down toggles in their own row. Tapping your board monster selects it if it can attack or reposition, otherwise it opens inspect. Tapping an opponent card opens inspect unless it is a glowing target. Holding any card for 450 ms opens inspect, and the action bar has an Inspect button.
+  6. **Collector quip** comes from `collector.json › dialogue`, picked by `nActions % length`. It appears on `GameStarted`, `MoodChanged` and `AppraisalAttempt` and fades by itself after about 6 s.
+  7. **Objective ✓/✗** on the Result screen is computed from `objectives.json` (metric, lte/gte, `$GLOBAL`). It is presentation only, until the engine's objectives module (D-102) exists.
+  8. **Flaw frames (D-195)**: the card carries `data-flaw=<visual>` and gets a generic cracked-red overlay; there is no per-Flaw frame art yet. A keyword frame takes priority over a Flaw frame.
+- Also: the fonts are self-hosted (`@fontsource`) so the offline PWA needs no third-party requests. Motion is CSS with a `--beat` of 190 ms, set to 0 by the animations flag or the OS reduced-motion setting. Framer Motion was skipped because no release was clearly outside the 14-day age window. Displayed life is clamped at 0.
+- Reason: ui-dev's drafts, reviewed by the main session; none changes a rule.
+
+**D-240 · Gothic restyle and larger screens** (owner choices, 2026-10-15; amends D-237 and D-238)
+- Date: 2026-10-15
+- Question: The first visual pass (W1.5) read as a clean tech app with a gold color scheme. How should it fit the gothic dark-fantasy card art, and how should it use screens larger than a phone?
+- Decision (owner chose each):
+  - **Direction: cursed auction house.** D-237's auction house, decayed and gothic: tarnished gold and blackened iron, moth-eaten velvet, cracked lacquer, wax, candlelight. Board slots are carved display niches, buttons are iron-and-brass plaques with rivets, and dividers are thorned filigree. No pill shapes, flat fills or dashed outlines. Base palette: soot #0D0A0B, oxblood #5A1A1F, tarnished gold #9C7C3C, bone #D9CDB4. The D-238 element jewel tones stay, as gems set in that metal.
+  - **Type: engraved serif throughout.** An ornate engraved capital face (Cinzel Decorative class) for names and headers, a readable old-book serif (EB Garamond or IM Fell class) for rules text, and bold lining serif figures for numbers. No sans anywhere. This replaces D-237's serif + sans pairing.
+  - **Motion: snappy with gothic effects.** D-237's 150–250 ms beats, always skippable and never blocking, stay. Effects change: candle flicker and drifting ash as quiet idle atmosphere, cards burn to embers when destroyed, damage is a blood-ink splash on the life seal, Appraisal is a gavel strike with a shadow hand taking the card, Graft stitches the materials together in smoke. Idle atmosphere stops, and every effect is instant, under reduced motion or when the animations flag is off.
+  - **Screens: scaled stage plus side panels.** Phones keep the portrait layout. Tablets get the same layout with larger cards. Wide landscape screens (laptop, desktop) keep the board central at a comfortable size, with a left panel for the Collector (portrait, quip, intent, mood) and a right panel for a duel log, deck and graveyard counts, and card inspect (which replaces the bottom sheet there). A mouse hover previews a card. Tap-only play still works everywhere; hover only adds information.
+- Reason: owner's choice. The UI should sit under the commissioned gothic dark-fantasy card art rather than compete with it.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
