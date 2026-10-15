@@ -2296,6 +2296,12 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: A text "?" button in the top row of the Home header. The eyebrow line gets side padding so the button never covers the title.
 - Reason: ui-dev's draft, reviewed by the main session.
 
+**D-262 · `?date=` works in dev builds only** (owner, 2026-10-15; extends D-252)
+- Date: 2026-10-15
+- Question: The `?date=YYYY-MM-DD` override worked in production too, so a playtester could play any day, including future ones, and write stats and Binder entries for them. Keep it?
+- Decision: No. Like `?set=` and `?debug` (D-252), `?date=` is read only in dev builds (`import.meta.env.DEV` in `main.tsx`). Production always uses the device's local date (`localDate`). To check another day locally, use `pnpm dev` with `?date=`.
+- Reason: the daily duel is one attempt per real day (DESIGN "Daily loop"). Found while verifying W3.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

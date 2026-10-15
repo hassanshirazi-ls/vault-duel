@@ -1634,16 +1634,16 @@ sim seed   <YYYY-MM-DD>  [--set K=V]…        # prints the difficulty check, re
 
 ## 16. Web app (`apps/web`)
 
-- **Store** (Zustand): `duel` store holds `GameState`, the `DailySetup`, and an animation queue fed by events. Input is never blocked by animations: a new action is accepted immediately and pending animations fast-forward (`FLAGS.ANIMATIONS` off ⇒ instant). The Collector's turn runs synchronously through the policy; its events are animated afterwards.
-- **Screens**: Home (deck list, difficulty stars, Appraisal reminder, start), Duel (board, hand, Graft preview, intent badge, Appraisal countdown, card inspect, mood dialogue), Result (win/loss, rounds used vs par, life left, objective stars, share), Binder. Practice reuses Duel with a `practice` flag (D-105).
+- **Store** (Zustand): the vanilla store in `store/game.ts` holds `GameState`, the `DailySetup`, the mode (`daily` or `practice`) and an animation queue fed by events; `duel/runtime.ts` runs the player's step and the Collector's turn (`playerStep`). Input is never blocked by animations: a new action is accepted immediately and pending animations fast-forward (`FLAGS.ANIMATIONS` off ⇒ instant). The Collector's turn runs synchronously through the policy; its events are animated afterwards.
+- **Screens**: Home (deck list, difficulty stars, Appraisal reminder, start, "?" for How to play, feedback link), Duel (board, hand, Graft preview, intent badge, Appraisal countdown, card inspect, mood dialogue), Result (win/loss, rounds used vs par, life left, objective stars, share, feedback link), Binder, Stats, How to play (D-257..D-261). Practice reuses Duel in `practice` mode (D-105, D-249).
 - **Graft UI** drives the pending-choice actions and renders `previewGraft()` before `graftPosition` commits; Cancel maps to `graftCancel`.
 - **Accessibility**: element badge always renders color + icon; keyword frames from `KeywordDef.visual`; portrait, one-handed, tap-only (no drag required).
 - **Placeholder art**: SVG generated from element color, kind silhouette and name; replaced automatically when `public/art/<id>.webp` exists.
-- **Daily**: `daily/date.ts` (local date, `?date=` override), `difficulty.worker.ts` runs `prepareDay` (D-099), `session.ts` persists `{seedString, k, contentVersion, actions}` after every action and resumes by replay (D-108).
+- **Daily**: `daily/date.ts` (local date; `?date=` override in dev builds only, D-262), `daily/manifest.ts` and `daily/rating.ts` read the precomputed `seeds.json` (D-236), `difficulty.worker.ts` runs `prepareDay` as the fallback (D-099), `session.ts` persists `{v, date, seedString, k, twist, contentVersion, cfg, actions}` after every action and resumes by replay (D-108).
 - **Persistence**: localStorage wrapped in try/catch; Binder (signature cards + families), stats, streaks (D-106).
-- **Share**: `meta/share.ts` builds one emoji per round from `state.track.round` (priority D-101) plus rounds used vs par.
+- **Share**: `view/share.ts` builds the text-only share line (D-247, D-248) with one emoji per round (`view/roundRow.ts`) from `state.track.round` (priority D-101) plus rounds used vs par.
 - **Content in the browser** (D-176): the app imports `RAW_CONTENT` from the browser-safe content root (never the `./node` export), runs `parseContent` → `validateContent` → `compileContent` at startup, and renders card and keyword text with `renderText(template, g)` (D-172). In the dev build, a content error replaces the app with the §10.3 lines. Saving a JSON, `globals.ts` or keyword file hot-reloads content and restarts the duel ("content changed, duel restarted"; the replay fails `state.cfg`, no loss, D-108). Can wait: `?set=KEY=VALUE` (repeatable) in dev builds applies `withOverrides`, and the overrides are shown in the debug overlay.
-- **PWA**: a hand-rolled service worker emitted at build (D-250, not vite-plugin-pwa), offline cache, portrait manifest. `FLAGS.DEBUG_OVERLAY` shows state, legal actions and the seed; the Collector's chosen rule waits for packages/ai to expose it (D-252).
+- **PWA**: a hand-rolled service worker emitted at build (D-250, not vite-plugin-pwa), offline cache, portrait manifest. `FLAGS.DEBUG_OVERLAY` (or `?debug` in dev builds, D-252) shows state, legal actions and the seed; the Collector's chosen rule waits for packages/ai to expose it (D-252).
 
 ---
 
