@@ -2053,6 +2053,38 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: nothing is changed now. Possible levers are a higher `BOT_NOISE_EPSILON`, varying the shuffle per run, or a wider `SEED_WINRATE_MIN`/`MAX` band, each a change to D-094 or a global. They are measured with `sim seed`/`sim full` in Phase 3 and go to the owner. The cost finding bears on whether web computes the day on the device or ships precomputed `seeds/<date>.json`; decide that before the web daily loop is built.
 - Reason: tuning before the sim exists would measure the wrong thing.
 
+**D-230 · BT-3b "most games end in rounds 8–12"** (clarifies §15 reports) [REVIEW]
+- Date: 2026-10-15
+- Decision: BT-3b passes when more than half of the expert's finished games end inside `TARGET_TYPICAL_END_ROUNDS`. The "more than half" threshold is written in `sim/src/report.ts`, not a global.
+- Reason: DESIGN says "most" and gives no number; a majority is the plain reading. If the owner wants a different share, it should become a `TARGET_*` global so the change is one edit.
+
+**D-231 · Seeds in sim quick and full** (amends D-115)
+- Date: 2026-10-15
+- Decision: game *i* of a bot plays date *i* mod D at reroll k = *i* div D, with runIndex 0, where D is `--seed-dates` (default `SIM_SEED_CHECK_DATES`) counted from `--from` (default today, as in D-115). Every bot gets the same seeds. The seeds are not filtered by the difficulty check.
+- Reason: D-115's "dates × runs" would replay identical games for the noise-free expert; stepping k gives distinct seeds at the same cost.
+
+**D-232 · Seed rejection rate** (defines BT-8 for §15)
+- Date: 2026-10-15
+- Decision: rejection rate = rejected candidate seeds ÷ candidate seeds played, over the dates checked. `sim full` also reports dates needing a reroll, mean rerolls per date, D-004 fallbacks and a candidate win-rate histogram in tenths.
+- Reason: BT-8 names a rate but not its denominator; per-candidate is the quantity the levers in D-229 move.
+
+**D-233 · Intent accuracy** (extends D-095 for §15 reports)
+- Date: 2026-10-15
+- Decision: the intent shown at the player's `endTurn` is compared with what the Collector did on his next turn, classified in D-095's priority order: "appraise" if an Appraisal succeeded, else "attack" if he made any attack, else "scheme" if he cast a spell or set a trap, else "guard".
+- Reason: measures the intent's honesty against observable actions, using the existing category order.
+
+**D-234 · Duels per second per core** (defines the `PERF_DUELS_PER_SEC_PER_CORE` measurement)
+- Date: 2026-10-15
+- Decision: duels ÷ summed worker busy time, with worker start-up excluded. It lives in the report's `perf` section, outside the deterministic `results`. Judge it from a `--workers 1` run: with more workers than performance cores the figure falls to about 25–30% of the 1-worker value on the dev machine (4 performance + 6 efficiency cores).
+- Reason: keeps `results` byte-identical across worker counts while still reporting speed.
+
+**D-235 · Sim job batching** (extends §15 worker pool)
+- Date: 2026-10-15
+- Decision: about 250 jobs per message (`BATCH_SIZE` in `sim/src/pool.ts`), fewer when that would leave workers idle. Balance duels return aggregates only; rated (difficulty-check) duels return their `{ won, round }` outcomes, because `rateSeed` needs per-run results. Batch size never changes a result.
+- Reason: matches §15's ~250 while keeping the long tail of the seed check spread across workers.
+
+**Sim milestone note (record, extends D-229):** the first `sim full` over 60 dates from 2026-01-01 rejected **88.1%** of candidate seeds (428 of 486; BT-8 ≤ 15%), 55 of 60 dates needed a reroll (7.1 on average), and **2 dates reached the D-004 fallback**. Candidate win rates are bimodal (172 in 0–0.1, 78 in 0.9–1.0, 6 in 0.4–0.5). `sim quick`: expert 47.4% (pass), novice 0.1%, expert median round 6 (BT-3 9–11), 2.0% reach round 12 (BT-4 15–30%), expert ~400 duels/s on one core (PERF 1000). Nothing tuned; reports in `docs/reports/*-2026-10-15.*`.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
@@ -2095,7 +2127,8 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 | D-204 | Is a `castHighValueSpell` entry (or a `trapPreference` id) for a newly added Collector card an owner-only AI param under D-166, or a card list the owner edits freely like `deck`? | Settled 2026-10-14 (owner): both are card lists, edited freely like `deck`. The rule lists, mood rule lists, `reposition` and the other params stay owner-only |
 | D-195 | Keyword and Flaw icon/visual ids; do Flaws get a frame? | Art decision; DESIGN gives no icons and no Flaw visuals. Owner ruled (A): content-author's ids as drafts, Flaws framed |
 | D-218 | Attack rule 2: which of his attackers takes a kill, the strongest that can (D-090 literal, current) or the weakest that is enough? | Ruled 2026-10-15 (owner): the strongest, for v0.1. The weakest-sufficient alternative is A/B-tested in Phase 3 as M-17 |
-| D-229 | Difficulty check rejects ~75% of seeds (BT-8 ≤ 15%); `prepareDay` costs ~6 s, against D-099's 1–2 s | Measured in AI milestone 2. Levers (ε, per-run shuffle, band) change D-094 or globals; decide with Phase 3 sims. On-device vs precomputed seeds to decide before the web daily loop |
+| D-229 | Difficulty check rejects ~75% of seeds (BT-8 ≤ 15%); `prepareDay` costs ~6 s, against D-099's 1–2 s | Measured in AI milestone 2. Levers (ε, per-run shuffle, band) change D-094 or globals; decide with Phase 3 sims. On-device vs precomputed seeds to decide before the web daily loop. Sim milestone (60 dates): 88.1% rejected and 2 D-004 fallbacks |
+| D-230 | BT-3b "most games end in rounds 8–12" read as more than half | DESIGN gives no number. Confirm, or give a share to make a `TARGET_*` global |
 | M-01…M-16 | Balance/rule proposals from the paper-sim (section M) | None applied; each needs a Phase 3 sim A/B test and an owner decision. Levers M-01 and M-02 get plumbing in D-183, and M-04 in D-184 |
 | D-152 | Ward saves an Unstable Chimera from expiry: does it keep the +3? | DESIGN is silent and it's reachable with launch cards. Owner ruled (A): Unstable ends and the +3 goes |
 | D-019 | No life cap (changed after paper-sim) | First draft capped life; DESIGN states no cap |
