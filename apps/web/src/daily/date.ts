@@ -1,4 +1,4 @@
-// The local calendar date of the daily duel (DESIGN.md "Daily loop"). `?date=YYYY-MM-DD` overrides it (dev setting).
+// The local calendar date of the daily duel (DESIGN.md "Daily loop"). `?date=YYYY-MM-DD` overrides it in dev builds only (D-262).
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 export function isValidDate(text: string): boolean {

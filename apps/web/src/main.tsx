@@ -25,14 +25,15 @@ import { App } from './ui/App';
 import { StoreContext } from './ui/context';
 
 const storage = browserStorage();
-// D-176: `?set=` and `?debug` work in dev builds only.
+// D-176, D-262: `?set=`, `?debug` and `?date=` work in dev builds only.
+const devSearch = import.meta.env.DEV ? window.location.search : '';
 const overrides = import.meta.env.DEV ? parseOverrides(window.location.search) : [];
 let api: ContentApi = initialContentApi;
 
 const store = createGameStore({
   storage,
   loadContent: () => loadGameContent(api, overrides),
-  today: () => resolveDate(window.location.search, new Date()),
+  today: () => resolveDate(devSearch, new Date()),
   resolveSetup: (ctx, date, onProgress) =>
     resolveSetup(ctx, date, {
       storage,
