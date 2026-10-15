@@ -32,3 +32,9 @@ Each item names the decision (D-number) that made the change, and a line that ch
 - Owner ruling: the `castHighValueSpell` entries and the `trapPreference` ids are card lists. You edit them with the card, the way you edit `deck`. The rule lists, mood lists, `reposition` and the other AI settings stay owner-only (D-204).
 - A global whose reader is not built yet is listed in `packages/content/src/planned-globals.ts`. A planned global accepts any sane value and is not pinned, so there is nothing to unpin later. The list replaces the old exemption for whole groups of names (D-205).
 - The `contestedAttack` line (`collector.json › ai › params.castHighValueSpell.<id>`) now also appears when the spell's Power resolves to 0 or less. The text is unchanged (D-219).
+
+## 2026-10-15
+
+### Added
+
+- The simulator runs: `pnpm sim quick`, `pnpm sim full` and `pnpm sim seed <date>`. The game and date counts come from `SIM_QUICK_GAMES`, `SIM_FULL_GAMES` and `SIM_SEED_CHECK_DATES`, and `--set NAME=value` overrides any global. Each run writes `docs/reports/<command>-<date>.md` and `.json` with every balance metric against its `TARGET_*` global. The globals `SIM_*`, `TARGET_*` and `PERF_DUELS_PER_SEC_PER_CORE` are now read, so the `not yet read` line drops from 21 globals to 5 (D-205).

@@ -14,8 +14,9 @@
     "lint": "eslint .",
     "content:gen": "tsx packages/content/scripts/gen-keyword-index.ts",
     "content:check": "tsx packages/content/scripts/content-check.ts",
-    "sim:quick": "tsx packages/sim/src/cli.ts quick --games 2000",
-    "sim:full": "tsx packages/sim/src/cli.ts full --games 50000 --seed-dates 60",
+    "sim": "tsx packages/sim/src/cli.ts",
+    "sim:quick": "tsx packages/sim/src/cli.ts quick",
+    "sim:full": "tsx packages/sim/src/cli.ts full",
     "sim:seed": "tsx packages/sim/src/cli.ts seed",
     "bench": "vitest bench packages/engine",
     "build": "pnpm content:gen && pnpm content:check && tsc -b && pnpm --filter web build"
