@@ -2186,6 +2186,16 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: The stitch and smoke play on the new Chimera only; the materials do not animate in.
 - Reason: ui-dev's judgment that material ghosts aren't worth the extra plumbing; reviewed by the main session. Can be revisited with real art.
 
+**D-247 · Stats, Practice, Share and app icon visuals** (owner choices, 2026-10-15; extends D-238 under D-240)
+- Date: 2026-10-15
+- Question: What should the W2 meta pieces that D-238 leaves open look like?
+- Decision (owner chose each):
+  - **Stats: ledger page.** An aged ledger page headed "The Collector's Ledger" with played, won, win %, current and best streak, average rounds against par, and total objective stars in engraved serif figures, with the current streak in red ink. Below that, a rounds-used chart drawn as inked tally bars, one row per round count plus a "lost" row, with today's row marked.
+  - **Practice: unrecorded ribbon.** The same duel screen with a "Practice · Unrecorded" ribbon across the header and the gold dimmed a notch. Its Result is a plain receipt with no wax stamp and no Share button. Practice never touches stats, streaks or the Binder.
+  - **Share: text only.** The emoji round row, rounds against par, life left and the objective stars, plus a link, sent through the Web Share API with a clipboard fallback. No image.
+  - **App icon and splash: wax-seal gavel.** An oxblood wax seal with a stamped gavel and a tarnished-gold rim on soot (D-240 palette), used for the PWA icons and splash.
+- Reason: owner's choice.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
