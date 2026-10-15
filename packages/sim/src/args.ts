@@ -3,7 +3,7 @@
 import { BOT_IDS, isBotId } from './jobs';
 import type { BotId } from './jobs';
 
-export type Command = 'quick' | 'full' | 'seed';
+export type Command = 'quick' | 'full' | 'seed' | 'seeds';
 
 export interface CliOptions {
   readonly command: Command;
@@ -21,6 +21,10 @@ export interface CliOptions {
   readonly date: string | undefined;
   /** `sim full --ab <id>`: not implemented (Phase 3) */
   readonly ab: string | undefined;
+  /** `sim seeds --days N` */
+  readonly days: number | undefined;
+  /** `sim seeds --check`: compare the manifest with this build instead of generating */
+  readonly check: boolean;
 }
 
 export class UsageError extends Error {
@@ -34,6 +38,8 @@ export const USAGE = `usage:
   sim quick [--games N] [--seed-dates N] [--from DATE] [--bots expert,novice] [--set K=V]... [--workers N] [--out DIR]
   sim full  [--games N] [--seed-dates N] [--from DATE] [--bots ...] [--set K=V]... [--workers N] [--out DIR]
   sim seed  <YYYY-MM-DD> [--set K=V]... [--workers N]
+  sim seeds --from DATE --days N [--set K=V]... [--workers N] [--out FILE]   (default out apps/web/public/seeds.json)
+  sim seeds --check [--set K=V]... [--out FILE]   (warns on a stale manifest, always exits 0)
 bots: ${BOT_IDS.join(', ')}`;
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -51,11 +57,11 @@ function positiveInt(flag: string, text: string): number {
   return Number(text);
 }
 
-const VALUE_FLAGS = ['--games', '--seed-dates', '--from', '--bots', '--set', '--workers', '--out', '--ab'] as const;
+const VALUE_FLAGS = ['--games', '--seed-dates', '--from', '--bots', '--set', '--workers', '--out', '--ab', '--days'] as const;
 
 export function parseArgs(argv: readonly string[]): CliOptions {
   const [command, ...rest] = argv;
-  if (command !== 'quick' && command !== 'full' && command !== 'seed') {
+  if (command !== 'quick' && command !== 'full' && command !== 'seed' && command !== 'seeds') {
     throw new UsageError(command === undefined ? 'missing command' : `unknown command "${command}"`);
   }
   let games: number | undefined;
@@ -67,12 +73,19 @@ export function parseArgs(argv: readonly string[]): CliOptions {
   let out: string | undefined;
   let date: string | undefined;
   let ab: string | undefined;
+  let days: number | undefined;
+  let check = false;
 
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i] as string;
     if (!arg.startsWith('--')) {
       if (command !== 'seed' || date !== undefined) throw new UsageError(`unexpected argument "${arg}"`);
       date = arg;
+      continue;
+    }
+    if (arg === '--check') {
+      if (command !== 'seeds') throw new UsageError('--check belongs to sim seeds');
+      check = true;
       continue;
     }
     const eq = arg.indexOf('=');
@@ -119,14 +132,19 @@ export function parseArgs(argv: readonly string[]): CliOptions {
       case '--ab':
         ab = value;
         break;
+      case '--days':
+        days = positiveInt(flag, value);
+        break;
     }
   }
   if (command === 'seed') {
     if (date === undefined) throw new UsageError('sim seed needs a date: sim seed YYYY-MM-DD');
     if (!isDate(date)) throw new UsageError(`sim seed needs a date YYYY-MM-DD, got "${date}"`);
   }
+  if (days !== undefined && command !== 'seeds') throw new UsageError('--days belongs to sim seeds');
+  if (command === 'seeds' && !check && (from === undefined || days === undefined)) throw new UsageError('sim seeds needs --from DATE and --days N (or --check)');
   if (ab !== undefined && command !== 'full') throw new UsageError('--ab belongs to sim full');
-  return { command, games, seedDates, from, bots: bots ?? ['expert', 'novice'], sets, workers, out, date, ab };
+  return { command, games, seedDates, from, bots: bots ?? ['expert', 'novice'], sets, workers, out, date, ab, days, check };
 }
 
 /** The date `n` days after `date` (UTC calendar arithmetic). */

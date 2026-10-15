@@ -1,7 +1,9 @@
 // `sim quick | full | seed` (ARCHITECTURE.md §15). Defaults for the game and date counts come from the globals
 // SIM_QUICK_GAMES, SIM_FULL_GAMES and SIM_SEED_CHECK_DATES, after the `--set` overrides have been applied.
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { expertHash } from '@vault-duel/ai';
+import { checkKey, expertHash } from '@vault-duel/ai';
 import { OverridesError } from '@vault-duel/content';
 import { addDays, dateRange, parseArgs, UsageError, USAGE } from './args';
 import type { CliOptions } from './args';
@@ -13,6 +15,7 @@ import { balanceJobs } from './plan';
 import { defaultWorkers, Pool } from './pool';
 import { buildReport, writeReport } from './report';
 import type { PerfInfo, Report, SeedRow } from './report';
+import { buildManifest, inspectManifest, serializeManifest } from './seeds';
 import { loadContext } from './world';
 import type { SimContext } from './world';
 
@@ -24,6 +27,8 @@ function today(): string {
   const p = (n: number): string => String(n).padStart(2, '0');
   return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
 }
+
+const SEEDS_FILE = fileURLToPath(new URL('../../../apps/web/public/seeds.json', import.meta.url));
 
 const log = (text: string): void => void process.stderr.write(`${text}\n`);
 
@@ -96,11 +101,39 @@ async function main(argv: readonly string[]): Promise<number> {
     throw error;
   }
   const g = ctx.globals;
+  if (opts.command === 'seeds' && opts.check) {
+    const path = opts.out ?? SEEDS_FILE;
+    const text = ((): string | null => {
+      try {
+        return readFileSync(path, 'utf8');
+      } catch {
+        return null;
+      }
+    })();
+    process.stdout.write(`${inspectManifest(text, checkKey(ctx), today(), path).lines.join('\n')}\n`);
+    return 0; // a stale manifest is a warning, never an error (D-236)
+  }
   const workers = opts.workers ?? defaultWorkers();
   const from = opts.from ?? today();
   const outDir = opts.out ?? REPORTS_DIR;
   const pool = await Pool.create(workers, opts.sets);
   try {
+    if (opts.command === 'seeds') {
+      const dates = dateRange(opts.from as string, opts.days as number);
+      const path = opts.out ?? SEEDS_FILE;
+      log(`seeds: ${dates.length} dates from ${dates[0]} to ${dates[dates.length - 1]}, ${workers} workers`);
+      const start = performance.now();
+      const check = await checkDates(pool, ctx, dates, (p) => log(`  round ${p.round}: ${p.waiting} candidates (${p.waiting * g.SIM_RUNS_PER_SEED} duels), ${dates.length - p.waiting} dates not waiting`));
+      const seconds = (performance.now() - start) / 1000;
+      const manifest = buildManifest(checkKey(ctx), check.setups);
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, serializeManifest(manifest));
+      const fallback = check.setups.filter((s) => s.difficulty.check === 'fallback');
+      process.stdout.write(
+        `dates ${dates.length}, accepted ${dates.length - fallback.length}, fallback ${fallback.length}${fallback.length > 0 ? ` (${fallback.map((s) => s.date).join(', ')})` : ''}, duels ${check.duels}, ${seconds.toFixed(1)} s on ${workers} workers\nwrote ${path}\n`,
+      );
+      return 0;
+    }
     if (opts.command === 'seed') {
       const date = opts.date as string;
       const start = performance.now();

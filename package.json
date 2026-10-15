@@ -18,8 +18,10 @@
     "sim:quick": "tsx packages/sim/src/cli.ts quick",
     "sim:full": "tsx packages/sim/src/cli.ts full",
     "sim:seed": "tsx packages/sim/src/cli.ts seed",
+    "seeds": "tsx packages/sim/src/cli.ts seeds",
+    "seeds:check": "tsx packages/sim/src/cli.ts seeds --check",
     "bench": "vitest bench packages/engine",
-    "build": "pnpm content:gen && pnpm content:check && tsc -b && pnpm --filter web build"
+    "build": "pnpm content:gen && pnpm content:check && pnpm seeds:check && tsc -b && pnpm --filter web build"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
