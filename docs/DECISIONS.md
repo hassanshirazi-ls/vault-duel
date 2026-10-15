@@ -2270,6 +2270,31 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - **Feedback link:** a Tally form. Its URL comes from the build-time variable `VITE_FEEDBACK_URL` (set in Vercel, or `.env.local` for dev); when it is unset, the link is hidden. The link appends `date`, `seed` and `build` query parameters, which the form reads as Tally hidden fields of the same names. `build` is the short commit SHA (`VERCEL_GIT_COMMIT_SHA`, else `git rev-parse --short HEAD`, else `dev`) plus `CONTENT_VERSION`.
   - **Deploy:** GitHub + Vercel. The repo carries `vercel.json` (build command `pnpm build`, output `apps/web/dist`, Node 24, pnpm via `packageManager`/corepack, no-cache header on `sw.js`, short cache on `seeds.json`, SPA fallback). The owner creates the GitHub repo and connects Vercel. `phase-1` merges into `main` only when the owner says so. The daily date stays device-local (`localDate`).
 - Reason: owner's goal of a playtest-ready build on Vercel soon. An env variable lets the owner swap the form without a code change.
+- Note (developer's guide round): the arrow list above gives the order data flows in. The package imports run the other way: content and ai build on engine, then sim and web on top of them (ARCHITECTURE §2). `docs/DEVELOPER_GUIDE.md` draws the import graph.
+
+**D-258 · How to play is shown once per browser** (W3, applies D-257)
+- Date: 2026-10-15
+- Question: When do the How to play pages open on their own?
+- Decision: On the first landing on Home. The `vd:howto` flag (version 1) is written when the player presses Skip or Done, not when the pages open, so a reload in the middle shows them again. Raising the version shows them to everyone once more. If storage throws, the pages show on every load. The "?" on Home always reopens them.
+- Reason: ui-dev's draft, reviewed by the main session.
+
+**D-259 · How to play layout** (W3, applies D-240 and D-257)
+- Date: 2026-10-15
+- Question: How do six pages and their controls fit at 360 px?
+- Decision: There are six pages: the goal, playing cards, combat and elements, Graft, Appraisal, winning. The Appraisal page, and the Ascend and Unstable lines, are left out when their feature flag is off. The pages are a native scroll-snap strip with Prev/Next, arrow keys, Escape, Skip and Done. The page dots are 44 × 44 tap targets on their own row above Prev/Next, because six dots and two buttons don't fit on one row at 360 px. A page taller than the screen scrolls inside the dialog with a fade at the bottom. Every number comes from globals or compiled content through `{NAME}` placeholders. The star count uses `OBJECTIVES_PER_DAY`, because `OBJECTIVE_STARS_MAX` is still a planned global.
+- Reason: ui-dev's draft; checked in Chromium from 360 × 640 to 1440 × 900, with and without reduced motion.
+
+**D-260 · Feedback link placement and fields** (W3, applies D-257)
+- Date: 2026-10-15
+- Question: Where does the feedback link appear, and what exactly does it send?
+- Decision: On Home and on the daily Result, not on the Practice receipt. `seed` is `setup.seedString` without the reroll index (date + build identify `k` through the manifest). `build` is `<short sha>+<CONTENT_VERSION>`. The link opens in a new tab with `rel="noopener noreferrer"`. `apps/web/.gitignore` ignores `.env.local` and `.env.*.local`, and `apps/web/.env.example` shows the variable.
+- Reason: ui-dev's draft, reviewed by the main session.
+
+**D-261 · Home "?" button** (W3)
+- Date: 2026-10-15
+- Question: Where does the How to play button go on Home?
+- Decision: A text "?" button in the top row of the Home header. The eyebrow line gets side padding so the button never covers the title.
+- Reason: ui-dev's draft, reviewed by the main session.
 
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
