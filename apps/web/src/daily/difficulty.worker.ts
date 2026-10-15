@@ -5,7 +5,7 @@ import * as content from '@vault-duel/content';
 import { loadGameContent } from '../content/load';
 import type { Rating } from './manifest';
 
-export type WorkerRequest = { readonly date: string };
+export type WorkerRequest = { readonly date: string; readonly overrides: readonly string[] };
 export type WorkerResponse =
   | { readonly type: 'progress'; readonly k: number; readonly run: number; readonly runs: number }
   | { readonly type: 'done'; readonly rating: Rating }
@@ -15,7 +15,7 @@ const post = (m: WorkerResponse): void => (self as unknown as Worker).postMessag
 
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   try {
-    const loaded = loadGameContent(content);
+    const loaded = loadGameContent(content, e.data.overrides);
     if (!loaded.ok) throw new Error(loaded.lines.join('\n'));
     const ctx = loaded.ctx;
     const base = expertRunner(ctx);

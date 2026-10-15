@@ -1,24 +1,14 @@
-// Screen switch and the shell: the animations flag becomes `data-anim` (CSS zeroes every beat when it is off), the
-// notice toast and, behind FLAGS.DEBUG_OVERLAY, a small state readout.
+// Screen switch and the shell: the animations flag becomes `data-anim` (CSS zeroes every beat when it is off), Practice
+// becomes `data-mode` (the dimmed gold of D-247), the notice toast and, behind FLAGS.DEBUG_OVERLAY, the debug overlay.
 import type { CSSProperties } from 'react';
 import { useGame } from './context';
+import { Binder } from './Binder';
+import { DebugOverlay } from './Debug';
 import { Duel } from './Duel';
 import { Home } from './Home';
 import { Result } from './Result';
-
-function DebugOverlay() {
-  const ctx = useGame((s) => s.ctx);
-  const state = useGame((s) => s.state);
-  const legal = useGame((s) => s.legal);
-  const actions = useGame((s) => s.actions);
-  const setup = useGame((s) => s.setup);
-  if (ctx === null || !ctx.globals.FLAGS.DEBUG_OVERLAY) return null;
-  return (
-    <div className="debug">
-      seed {setup?.seedString}#{setup?.k} · turn {state?.turn} · step {state?.step} · legal {legal.length} · log {actions.length}
-    </div>
-  );
-}
+import { Seal } from './Seal';
+import { Stats } from './Stats';
 
 /** Idle atmosphere (D-240): two candle glows and a few drifting ash specks. CSS hides it when motion is off. */
 const ASH = [
@@ -48,12 +38,15 @@ export function App() {
   const notice = useGame((s) => s.notice);
   const dismiss = useGame((s) => s.dismissNotice);
   const ctx = useGame((s) => s.ctx);
+  const mode = useGame((s) => s.mode);
+  const screen = useGame((s) => s.screen);
   const body = (() => {
+    if (screen !== null && (phase.name === 'home' || phase.name === 'result')) return screen === 'binder' ? <Binder /> : <Stats />;
     switch (phase.name) {
       case 'booting':
         return (
           <main className="center-screen">
-            <div className="spinner" />
+            <Seal />
             <p>Loading the catalogue...</p>
           </main>
         );
@@ -72,7 +65,7 @@ export function App() {
       case 'preparing':
         return (
           <main className="center-screen">
-            <div className="spinner" />
+            <Seal />
             <h1>Preparing today's vault</h1>
             <p className="muted">
               {phase.progress === null ? 'Starting...' : `Checking seed attempt ${phase.progress.k + 1}: duel ${phase.progress.run} of ${phase.progress.runs}`}
@@ -88,7 +81,7 @@ export function App() {
     }
   })();
   return (
-    <div className="app" data-anim={ctx !== null && !ctx.globals.FLAGS.ANIMATIONS ? 'off' : 'on'}>
+    <div className="app" data-anim={ctx !== null && !ctx.globals.FLAGS.ANIMATIONS ? 'off' : 'on'} data-mode={mode}>
       {notice !== null && (
         <p className="toast" role="status">
           {notice}

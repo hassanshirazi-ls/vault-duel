@@ -9,6 +9,9 @@ import { newDuel, playerStep } from '../duel/runtime';
 import type { Runtime } from '../duel/runtime';
 import { createRuntime } from '../duel/runtime';
 import { clearSession, loadSession, recordFor, resumeSession, saveSession } from '../daily/session';
+import { emptyBinder, emptyStats, loadBinder, loadStats, recordDaily } from '../persistence/meta';
+import type { BinderRecord, StatsRecord } from '../persistence/meta';
+import { objectivesMet } from '../view/objectives';
 import type { CheckProgress, SetupSource } from '../daily/rating';
 import type { KV } from '../persistence/storage';
 import { groupLegal } from '../view/legal';
@@ -23,6 +26,11 @@ export type Phase =
   | { readonly name: 'home' }
   | { readonly name: 'duel' }
   | { readonly name: 'result' };
+
+/** The daily duel's screen data while Practice is showing (D-249); leaving Practice puts it back. */
+export type Snapshot = Pick<GameState_, 'phase' | 'state' | 'actions' | 'events' | 'legal' | 'groups'>;
+
+export type Screen = 'binder' | 'stats';
 
 export interface GameDeps {
   readonly storage: KV;
@@ -53,6 +61,15 @@ export interface GameState_ {
   readonly notice: string | null;
   /** a message when the last action was rejected; the duel is left as it was */
   readonly error: string | null;
+  /** 'practice' replays today's seed unrecorded (D-247); it never writes stats, Binder or the daily session */
+  readonly mode: 'daily' | 'practice';
+  readonly daily: Snapshot | null;
+  /** the daily duel has ended (Practice unlocks) */
+  readonly dailyDone: boolean;
+  /** a full-page screen over Home or the Result */
+  readonly screen: Screen | null;
+  readonly stats: StatsRecord;
+  readonly binder: BinderRecord;
 }
 
 export interface GameActions {
@@ -64,13 +81,20 @@ export interface GameActions {
   /** Graft ⇄: the same two materials in the other order, as legal actions (cancel, begin, pick, pick) */
   graftSwap(): void;
   dismissNotice(): void;
+  /** Practice (D-247): today's seed again, unrecorded. Needs the daily duel to be over. */
+  startPractice(): void;
+  /** back to the daily Result from Practice; clears the practice record */
+  leavePractice(): void;
+  openScreen(screen: Screen): void;
+  closeScreen(): void;
 }
 
 export type GameStore = ReturnType<typeof createGameStore>;
 
 const IDLE: GameState_ = {
   phase: { name: 'booting' }, ctx: null, rt: null, setup: null, source: null, state: null, actions: [], events: [], legal: [],
-  groups: null, notice: null, error: null,
+  groups: null, notice: null, error: null, mode: 'daily', daily: null, dailyDone: false, screen: null,
+  stats: emptyStats(), binder: emptyBinder(),
 };
 
 export function createGameStore(deps: GameDeps) {
@@ -84,6 +108,20 @@ export function createGameStore(deps: GameDeps) {
       };
     };
 
+    /** A saved practice duel comes back after a reload, on top of the finished daily one. */
+    const resumePractice = (date: string): void => {
+      const { rt, setup } = get();
+      const rec = loadSession(deps.storage, date, 'practice');
+      if (rt === null || setup === null || rec === null || rec.actions.length === 0) return;
+      const r = resumeSession(rt, setup, rec);
+      if (!r.ok) {
+        clearSession(deps.storage, date, 'practice');
+        return;
+      }
+      const daily = snapshot();
+      set({ ...show(r.state, rec.actions, []), mode: 'practice', daily });
+    };
+
     const beginDuel = (notice: string | null): void => {
       const { rt, setup, ctx } = get();
       if (rt === null || setup === null || ctx === null) return;
@@ -92,11 +130,36 @@ export function createGameStore(deps: GameDeps) {
       set({ ...show(first.state, [], first.events), notice });
     };
 
+    /** Records the daily result in stats and the Binder (idempotent per date). Practice never gets here (D-247). */
+    const settle = (state: GameState): void => {
+      const { ctx, setup, mode } = get();
+      if (mode !== 'daily' || state.result === null || ctx === null || setup === null) return;
+      const won = state.result.winner === 0;
+      const r = recordDaily(deps.storage, {
+        date: setup.date,
+        day: {
+          won,
+          rounds: state.result.round,
+          par: setup.difficulty.par,
+          life: Math.max(0, state.sides[0].life),
+          stars: objectivesMet(ctx, setup.objectives, state),
+        },
+        signature: setup.signature,
+        families: state.track.families.map((i) => ctx.content.ids[i] as string),
+      });
+      set({ stats: r.stats, binder: r.binder, dailyDone: true });
+    };
+
+    const snapshot = (): Snapshot => {
+      const { phase, state, actions, events, legal, groups } = get();
+      return { phase, state, actions, events, legal, groups };
+    };
+
     return {
       ...IDLE,
 
       async boot(opts = {}) {
-        set({ ...IDLE, phase: { name: 'booting' } });
+        set({ ...IDLE, phase: { name: 'booting' }, stats: loadStats(deps.storage), binder: loadBinder(deps.storage) });
         const loaded = deps.loadContent();
         if (!loaded.ok) {
           set({ phase: { name: 'error', lines: loaded.lines } });
@@ -107,7 +170,10 @@ export function createGameStore(deps: GameDeps) {
         const rt = createRuntime(ctx, deps.dev === undefined ? {} : { dev: deps.dev });
         const date = deps.today();
         // D-197: any content reload restarts the duel, even one whose replay would still pass.
-        if (opts.restartNotice !== undefined) clearSession(deps.storage, date);
+        if (opts.restartNotice !== undefined) {
+          clearSession(deps.storage, date);
+          clearSession(deps.storage, date, 'practice');
+        }
         set({ ctx, rt, phase: { name: 'preparing', progress: null } });
         let resolved;
         try {
@@ -130,10 +196,13 @@ export function createGameStore(deps: GameDeps) {
         if (resumed.ok) {
           set({ ...show(resumed.state, record.actions, []), notice: opts.restartNotice ?? null });
           if (record.actions.length === 0 && opts.restartNotice === undefined) set({ phase: { name: 'home' } });
+          settle(resumed.state);
+          if (resumed.state.result !== null) resumePractice(date);
           return;
         }
         // Replay failed (cfg mismatch, illegal action, new content version): restart instead of losing it silently.
         clearSession(deps.storage, date);
+        clearSession(deps.storage, date, 'practice');
         beginDuel(opts.restartNotice ?? RESTART_NOTICE);
       },
 
@@ -142,13 +211,14 @@ export function createGameStore(deps: GameDeps) {
       },
 
       act(action) {
-        const { rt, state, setup, ctx, actions } = get();
+        const { rt, state, setup, ctx, actions, mode } = get();
         if (rt === null || state === null || setup === null || ctx === null || state.result !== null) return;
         try {
           const step = playerStep(rt, state, action);
           const next = [...actions, ...step.applied];
-          saveSession(deps.storage, recordFor(setup, ctx.globals.CONTENT_VERSION, state.cfg, next));
+          saveSession(deps.storage, recordFor(setup, ctx.globals.CONTENT_VERSION, state.cfg, next), mode);
           set(show(step.state, next, step.events));
+          settle(step.state);
         } catch (e) {
           set({ error: e instanceof Error ? e.message : String(e) });
         }
@@ -179,6 +249,30 @@ export function createGameStore(deps: GameDeps) {
 
       dismissNotice() {
         set({ notice: null });
+      },
+
+      startPractice() {
+        const { rt, setup, ctx, dailyDone, mode, daily } = get();
+        if (rt === null || setup === null || ctx === null || !dailyDone) return;
+        const first = newDuel(rt, setup);
+        saveSession(deps.storage, recordFor(setup, ctx.globals.CONTENT_VERSION, first.state.cfg, []), 'practice');
+        const snap = mode === 'daily' ? snapshot() : daily;
+        set({ ...show(first.state, [], first.events), mode: 'practice', daily: snap, screen: null, notice: null });
+      },
+
+      leavePractice() {
+        const { daily, setup } = get();
+        if (setup !== null) clearSession(deps.storage, setup.date, 'practice');
+        if (daily === null) return;
+        set({ ...daily, mode: 'daily', daily: null, error: null });
+      },
+
+      openScreen(screen) {
+        set({ screen });
+      },
+
+      closeScreen() {
+        set({ screen: null });
       },
     };
   });

@@ -20,21 +20,26 @@ export interface SessionRecord {
 }
 
 export const sessionKey = (date: string): string => `vd:session:${date}`;
+/** Practice keeps its own record (D-249), so it can resume after a reload without ever touching the daily one. */
+export const practiceKey = (date: string): string => `vd:practice:${date}`;
+
+export type SessionKind = 'daily' | 'practice';
+const keyFor = (kind: SessionKind, date: string): string => (kind === 'daily' ? sessionKey(date) : practiceKey(date));
 
 export function recordFor(setup: DailySetup, contentVersion: string, cfg: string, actions: readonly Action[]): SessionRecord {
   return { v: 1, date: setup.date, seedString: setup.seedString, k: setup.k, twist: setup.twist, contentVersion, cfg, actions };
 }
 
-export function saveSession(kv: KV, record: SessionRecord): boolean {
-  return kv.set(sessionKey(record.date), JSON.stringify(record));
+export function saveSession(kv: KV, record: SessionRecord, kind: SessionKind = 'daily'): boolean {
+  return kv.set(keyFor(kind, record.date), JSON.stringify(record));
 }
 
-export function clearSession(kv: KV, date: string): void {
-  kv.remove(sessionKey(date));
+export function clearSession(kv: KV, date: string, kind: SessionKind = 'daily'): void {
+  kv.remove(keyFor(kind, date));
 }
 
-export function loadSession(kv: KV, date: string): SessionRecord | null {
-  const v = getJson(kv, sessionKey(date));
+export function loadSession(kv: KV, date: string, kind: SessionKind = 'daily'): SessionRecord | null {
+  const v = getJson(kv, keyFor(kind, date));
   if (typeof v !== 'object' || v === null) return null;
   const r = v as Partial<SessionRecord>;
   const ok =

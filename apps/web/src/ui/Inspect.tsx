@@ -2,7 +2,9 @@
 // Content: art thumbnail, name, element and kind, Power/Guard, every keyword or Flaw with its
 // rule, and the element's beats/weak-to line. All rule text comes through renderText (the view layer's `ctx.render`).
 import type { Iid } from '@vault-duel/engine';
+import type { ReactNode } from 'react';
 import { cardView, elementMatchups } from '../view/cards';
+import type { CardView } from '../view/cards';
 import { Glyph } from '../visual/glyphs';
 import { Art } from './Art';
 import { useGame } from './context';
@@ -16,7 +18,13 @@ export function InspectCard({ iid, onClose }: { readonly iid: Iid; readonly onCl
   const rt = useGame((s) => s.rt);
   const state = useGame((s) => s.state);
   if (ctx === null || rt === null || state === null) return null;
-  const c = cardView(ctx, rt.engine, state, iid);
+  return <CardDetail c={cardView(ctx, rt.engine, state, iid)} onClose={onClose} />;
+}
+
+/** The detail layout for any card view; the Binder draws it from a definition (no duel instance). `extra` goes under the rule text. */
+export function CardDetail({ c, onClose, extra }: { readonly c: CardView; readonly onClose?: (() => void) | undefined; readonly extra?: ReactNode }) {
+  const ctx = useGame((s) => s.ctx);
+  if (ctx === null) return null;
   const matchups = c.element === null ? null : elementMatchups(ctx, c.element.id);
   return (
       <div className="inspect">
@@ -58,6 +66,7 @@ export function InspectCard({ iid, onClose }: { readonly iid: Iid; readonly onCl
           </div>
         </div>
         {c.text !== null && <p className="inspect-text">{c.text}</p>}
+        {extra}
         <ul className="inspect-kw">
           {c.keywords.map((k) => (
             <li key={k.id} data-flaw={k.flaw ? '' : undefined}>

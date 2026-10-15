@@ -6,7 +6,7 @@ import type { Globals } from '@vault-duel/engine';
 
 export type ContentApi = Pick<
   typeof ContentModule,
-  'RAW_CONTENT' | 'parseContent' | 'validateContent' | 'compileContent' | 'DEFAULT_GLOBALS' | 'KEYWORDS' | 'formatError' | 'renderText'
+  'RAW_CONTENT' | 'parseContent' | 'validateContent' | 'compileContent' | 'DEFAULT_GLOBALS' | 'KEYWORDS' | 'formatError' | 'renderText' | 'withOverrides'
 >;
 
 export interface ElementInfo {
@@ -33,6 +33,15 @@ export interface ObjectiveInfo {
   readonly gte: number | string | undefined;
 }
 
+/** One Chimera family (recipes.json): an unordered kind pair and the printed stats. */
+export interface RecipeInfo {
+  readonly id: string;
+  readonly name: string;
+  readonly kinds: readonly [string, string];
+  readonly power: number;
+  readonly guard: number;
+}
+
 export type CardKind = 'monster' | 'spell' | 'trap' | 'family';
 
 /** What the UI shows about a definition; ids index `GameContent.ids`. Text is a template: render it with `GameCtx.render`. */
@@ -55,6 +64,11 @@ export interface GameCtx {
   readonly elements: ReadonlyMap<string, ElementInfo>;
   readonly kindNames: ReadonlyMap<string, string>;
   readonly kinds: ReadonlyMap<string, KindInfo>;
+  /** content order of kinds.json, for the Binder's kind-pair triangle */
+  readonly kindOrder: readonly string[];
+  readonly recipes: readonly RecipeInfo[];
+  /** `?set=` overrides in force (dev builds, D-176); empty otherwise */
+  readonly overrides: readonly string[];
   readonly objectives: ReadonlyMap<string, ObjectiveInfo>;
   /** the Collector's lines per mood name (collector.json › dialogue); templates, render them */
   readonly dialogue: Readonly<Record<string, readonly string[]>>;
@@ -67,8 +81,15 @@ export interface GameCtx {
 
 export type LoadResult = { readonly ok: true; readonly ctx: GameCtx } | { readonly ok: false; readonly lines: readonly string[] };
 
-export function loadGameContent(api: ContentApi): LoadResult {
-  const globals = api.DEFAULT_GLOBALS;
+export function loadGameContent(api: ContentApi, overrides: readonly string[] = []): LoadResult {
+  let globals = api.DEFAULT_GLOBALS;
+  if (overrides.length > 0) {
+    try {
+      globals = api.withOverrides(api.DEFAULT_GLOBALS, overrides);
+    } catch (e) {
+      return { ok: false, lines: [`bad ?set= override: ${e instanceof Error ? e.message : String(e)}`] };
+    }
+  }
   const load = api.parseContent(api.RAW_CONTENT);
   const validation = api.validateContent(load.data, globals, api.KEYWORDS);
   const errors = [...load.errors, ...validation.errors];
@@ -105,6 +126,9 @@ export function loadGameContent(api: ContentApi): LoadResult {
       elements: new Map((data.elements ?? []).map((e) => [e.id, { id: e.id, name: e.name, color: e.color, icon: e.icon, beats: e.beats }])),
       kindNames: new Map((data.kinds ?? []).map((k) => [k.id, k.name])),
       kinds: new Map((data.kinds ?? []).map((k) => [k.id, { id: k.id, name: k.name, silhouette: k.silhouette }])),
+      kindOrder: (data.kinds ?? []).map((k) => k.id),
+      recipes: (data.recipes ?? []).map((r) => ({ id: r.id, name: r.name, kinds: r.kinds, power: r.power, guard: r.guard })),
+      overrides,
       objectives: new Map(
         (data.objectives ?? []).map((o) => [o.id, { id: o.id, text: o.text, metric: o.metric, lte: o.lte, gte: o.gte }]),
       ),

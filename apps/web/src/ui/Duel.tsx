@@ -33,6 +33,7 @@ export function Duel() {
   const groups = useGame((s) => s.groups);
   const events = useGame((s) => s.events);
   const error = useGame((s) => s.error);
+  const mode = useGame((s) => s.mode);
   const act = useGame((s) => s.act);
   const [sel, setSel] = useState<Selection | null>(null);
   const [inspected, setInspected] = useState<Iid | null>(null);
@@ -207,6 +208,11 @@ export function Duel() {
 
   return (
     <main className="duel" data-graft={pending !== null ? '' : undefined} data-lifted={sel !== null ? '' : undefined} onClick={() => setSel(null)}>
+      {mode === 'practice' && (
+        <p className="ribbon" role="status">
+          <Glyph id="scroll" size={14} /> Practice · Unrecorded
+        </p>
+      )}
       <CollectorHeader
         life={them.life}
         maxLife={g.COLLECTOR_LIFE}

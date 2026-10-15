@@ -3,7 +3,7 @@ import type { Rating } from './manifest';
 import type { WorkerRequest, WorkerResponse } from './difficulty.worker';
 
 /** Starts the difficulty worker for one date. The worker is terminated when it answers. */
-export function computeInWorker(date: string, onProgress: (p: CheckProgress) => void): Promise<Rating> {
+export function computeInWorker(date: string, overrides: readonly string[], onProgress: (p: CheckProgress) => void): Promise<Rating> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL('./difficulty.worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
@@ -19,7 +19,7 @@ export function computeInWorker(date: string, onProgress: (p: CheckProgress) => 
       worker.terminate();
       reject(new Error(e.message || 'difficulty worker failed'));
     };
-    const request: WorkerRequest = { date };
+    const request: WorkerRequest = { date, overrides };
     worker.postMessage(request);
   });
 }

@@ -114,13 +114,18 @@ export default tseslint.config(
     files: ['apps/web/src/daily/difficulty.worker.ts'],
     languageOptions: { globals: globals.worker },
   },
+  // The service worker template runs in a ServiceWorker scope; vite.config.ts replaces __PRECACHE__ with the file list at build.
+  {
+    files: ['apps/web/src/sw/sw.template.js'],
+    languageOptions: { globals: { ...globals.serviceworker, __PRECACHE__: 'readonly' } },
+  },
   // Web tests run under Node (vitest), not in a browser.
   {
     files: ['apps/web/test/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
   {
-    files: ['packages/sim/**/*.ts', 'packages/content/scripts/**/*.ts', '*.config.{js,ts}', 'apps/web/vite.config.ts'],
+    files: ['packages/sim/**/*.ts', 'packages/content/scripts/**/*.ts', '*.config.{js,ts}', 'apps/web/vite.config.ts', 'apps/web/scripts/**/*.mjs'],
     languageOptions: { globals: globals.node },
   },
 );

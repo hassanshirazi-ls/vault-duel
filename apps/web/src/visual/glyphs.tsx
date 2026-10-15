@@ -81,6 +81,9 @@ const STROKE: Readonly<Record<string, ReactNode>> = {
   star: <path d="m12 3 2.7 5.8 6.3.7-4.7 4.3 1.3 6.2L12 17l-5.6 3 1.3-6.2L3 9.5l6.3-.7z" />,
   pos: <path d="M12 3v6M12 15v6M3 12h6M15 12h6" />,
   deck: <path d="M7 8h11v12H7zM4 5h11M4 5v12" />,
+  back: <path d="m15 5-7 7 7 7" />,
+  next: <path d="m9 5 7 7-7 7" />,
+  lock: <path d="M6 11h12v9H6zM8 11V8a4 4 0 0 1 8 0v3" />,
   tomb: <path d="M7 21V10a5 5 0 0 1 10 0v11zM12 10v6M9.5 12.5h5M4 21h16" />,
 };
 

@@ -672,7 +672,7 @@ button.life[data-glow='target']::after {
   justify-content: space-between;
   gap: 8px;
   min-height: 44px;
-  padding: 2px 10px;
+  padding: 2px 16px;
   font-size: 15px;
 }
 .hintbar p {
@@ -718,11 +718,12 @@ button.life[data-glow='target']::after {
   --hw: 76px;
 }
 .hand-slot {
-  --overlap: max(0px, calc((var(--n) * var(--hw) - 100cqw + 28px) * var(--k)));
+  --overlap: max(0px, calc((var(--n) * var(--hw) - 100cqw + var(--fan-gutter, 44px)) * var(--k)));
   position: relative;
   flex: none;
   margin-left: calc(var(--overlap) * -1);
-  transform: translateY(var(--drop, 0)) rotate(var(--rot, 0deg));
+  /* phones: the fan keeps a gutter for the tilted outer cards and a shallow dip, so no card is clipped or touches the action row */
+  transform: translateY(calc(var(--drop, 0px) * 0.25 - 8px)) rotate(var(--rot, 0deg));
   transform-origin: 50% 120%;
   transition: transform var(--beat) var(--ease);
 }
@@ -777,8 +778,8 @@ button.life[data-glow='target']::after {
 .playerbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px 8px;
+  gap: 6px;
+  padding: 6px 12px 8px;
 }
 .life.me {
   margin-right: auto;
@@ -787,13 +788,26 @@ button.life[data-glow='target']::after {
   flex: none;
   white-space: nowrap;
   min-height: 52px;
-  padding: 0 18px;
-  font-size: 16px;
+  gap: 4px;
+  padding: 0 14px;
+  font-size: 15px;
 }
 .playerbar .btn {
   flex: none;
   white-space: nowrap;
-  padding: 0 14px;
+  padding: 0 10px;
+}
+@media (min-width: 400px) {
+  .playerbar {
+    gap: 8px;
+  }
+  .playerbar .btn {
+    padding: 0 14px;
+  }
+  .end-turn {
+    padding: 0 18px;
+    font-size: 16px;
+  }
 }
 .playerbar .end-turn {
   margin-left: auto;
@@ -1530,6 +1544,7 @@ button.life[data-glow='target']::after {
   }
   .hand {
     --hw: 96px;
+    --fan-gutter: 28px;
     padding: 0 28px;
     margin-bottom: 26px;
   }

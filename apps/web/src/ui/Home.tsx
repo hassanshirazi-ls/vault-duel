@@ -1,6 +1,6 @@
 // Home as an auction catalogue (D-238): "Lot of <date>", difficulty stars, the day's signature card on a velvet plinth,
 // brass lines for the weekly twist, the Appraisal rounds and the bonus objectives, a deck list that folds open, and
-// one large "Enter the vault" button. Practice, Binder and Stats are W2 and shown as coming soon.
+// one large "Enter the vault" button, with Practice (after today's duel), Binder and Stats beneath it.
 import { deckLine, definitionView } from '../view/cards';
 import { Glyph } from '../visual/glyphs';
 import { useGame } from './context';
@@ -19,6 +19,9 @@ export function Home() {
   const setup = useGame((s) => s.setup);
   const source = useGame((s) => s.source);
   const start = useGame((s) => s.start);
+  const dailyDone = useGame((s) => s.dailyDone);
+  const startPractice = useGame((s) => s.startPractice);
+  const openScreen = useGame((s) => s.openScreen);
   const [inspect, setInspect] = useState(false);
   if (ctx === null || setup === null) return null;
   const { difficulty } = setup;
@@ -104,12 +107,19 @@ export function Home() {
         <Glyph id="vault" size={24} /> Enter the vault
       </button>
       <nav className="home-links" aria-label="More">
-        {['Practice', 'Binder', 'Stats'].map((label) => (
-          <button key={label} type="button" className="btn ghost" disabled>
-            {label}
-            <span className="soon">Soon</span>
-          </button>
-        ))}
+        <button type="button" className="btn ghost" disabled={!dailyDone} onClick={startPractice}>
+          <Glyph id={dailyDone ? 'sword' : 'lock'} size={18} />
+          Practice
+          {!dailyDone && <span className="soon">After today</span>}
+        </button>
+        <button type="button" className="btn ghost" onClick={() => openScreen('binder')}>
+          <Glyph id="deck" size={18} />
+          Binder
+        </button>
+        <button type="button" className="btn ghost" onClick={() => openScreen('stats')}>
+          <Glyph id="scales" size={18} />
+          Stats
+        </button>
       </nav>
       {g.FLAGS.DEBUG_OVERLAY && source !== null && <p className="muted">Setup source: {source}</p>}
     </main>
