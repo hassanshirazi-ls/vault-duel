@@ -1987,6 +1987,72 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - The greedy bot has no target (D-116).
 - Reason: tuning before the AI and the expert bot are final would measure the wrong thing.
 
+**D-224 · Expert plan search** (extends §14, D-222)
+- Date: 2026-10-15
+- Question: How does the expert enumerate and score turn plans within the performance budget, without peeking?
+- Decision:
+  - A turn plan is a reposition subset, then one play option, then a greedy attack ordering.
+  - Play options are summons in each mode, Covetous summons, casts, trap sets, and full Graft variants.
+  - A Graft is expanded to the best `graftPairs` material pairs, ranked by `previewGraft` value minus the materials lost. Each pair then gets every Ascend, keyword and position finish, and the best `graftVariants` are kept.
+  - Plans are ranked by `evaluate()` after the play. Only the best `finalists` get an attack ordering.
+  - The attack ordering scores each attack from `previewCombat`: damage dealt, minus damage taken, plus the value of a kill, minus the value of a loss, with Ward respected.
+  - An attack on a face-down Collector monster can't be looked ahead (D-209). It is scored with a guess (`unknownAttack` × Power above `unknownStat`) and ends the plan. The bot re-plans from the real state after playing it.
+  - The plan is replayed through `getLegalActions`. The bot re-plans when its next action is not legal, and after any cast, because a draw is invisible to the redacted look-ahead.
+  - The plan count is bounded by `maxPlans`. Each reposition-subset node keeps at most `floor(maxPlans / nodes)` plays. Measured with launch content: at most 368 plans per turn, about 25 on average.
+  - A greedy fallback applies only when a Graft is pending and no plan fits it.
+- Reason: keeps plans small, honours "no peeking", and stays within the performance budget (about 380 expert duels/s/core).
+
+**D-225 · Expert weights and search bounds are tuning data, and the daily setup records their hash** (fulfils the D-222 milestone-2 note)
+- Date: 2026-10-15
+- Question: D-222 says the expert's weights must be tied to the daily setup. How?
+- Decision:
+  - `bots/expert.weights.json` holds the evaluation terms, the attack and Graft heuristics, and the search bounds (`maxPlans`, `finalists`, `graftPairs`, `graftVariants`). They are bot settings, not globals, and tests never pin them (D-168).
+  - `DailySetup.expertHash` (also exported as `expertHash()`) is a hash of that file. Changing any weight can change a date's `k`.
+  - Any cache keyed by date plus content version, and any shipped `seeds/<date>.json`, must also carry or match `expertHash`. Web and sim apply this when they are built.
+- Reason: "same game for everyone" must not depend on an untracked file.
+
+**D-226 · Noise applies at every player action decision** (clarifies D-094)
+- Date: 2026-10-15
+- Question: D-094 says "at each player decision". Is that each action or each turn, and what is "second-best" for a turn planner?
+- Decision:
+  - One RNG draw per bot call after the mulligan (`Noise.swerve()`), from the D-094 key `seedString#k/noise/runIndex`.
+  - On a swerve the bot re-plans and follows the best plan whose first action differs from the best plan's first action. If there is none, it follows the best plan.
+  - `Noise.pick(scores)` applies the same rule to a score list (used by tests).
+  - The Collector never has noise.
+- Reason: per-turn noise would leave about 35% of runs identical to the noise-free duel.
+
+**D-227 · PlayerView additions** (extends §14)
+- Date: 2026-10-15
+- Decision:
+  - New view members: `previewCombat(attackerIid, targetIid | -1)`, `previewGraft()`, `beats(attackerElement, defenderElement)` and `appraisalTarget` (the monster the Collector would take next turn, or null).
+  - `beats` reads the content element table, because the engine has no public query for it.
+  - Heavy view fields are lazy.
+  - `OwnMonster` gains `unstableUntil` and `shroudUntil`; `PublicMonster` gains `iid`.
+  - `evaluate()` takes optional `ExpertTerms` (face-down own, appraisal, appraisalFlat, unstable, matchup, sentinel, foeFaceDown). Greedy's results are unchanged.
+- Reason: the §14 expert terms need these inputs, all of them public information.
+
+**D-228 · prepareDay and DailySetup details** (extends §12.5)
+- Date: 2026-10-15
+- Decision:
+  - `prepareDay(ctx, date, run?)` takes `ctx = { content, globals, objectiveIds }`, because compiled content has no objectives.
+  - `rateSeed(ctx, seedString, twist, run?)` takes an injectable duel runner (tests, sim). A job is `{ seedString, k, runIndex, twist }`, matching the §15 run model.
+  - `DailySetup` also carries `date`, `expertHash` (D-225) and `difficulty.check` (`'accepted'` or `'fallback'`, D-004). `deckList` and `signature` are card ids; `twist` is an index or -1.
+  - The ISO week is computed with integer arithmetic, because ai may not use `Date`.
+  - The D-004 fallback's "nearest 0.50" is the midpoint of the accepted band, `(SEED_WINRATE_MIN + SEED_WINRATE_MAX) / 2`, so no literal appears in code.
+  - Star cuts are inclusive: a win rate equal to a cut gets the easier rating.
+  - ai re-implements the D-010 signature pick (same algorithm and stream key), because the engine doesn't export `pickSignature` or `stream`. Later item: export `pickSignature` from the engine and delete the ai copy.
+- Reason: keeps prepareDay pure and testable without hundreds of duels.
+
+**D-229 · Difficulty-check note from AI milestone 2 (record, not a decision)**
+- Date: 2026-10-15
+- Question: What did the first expert runs show, and where is it handled?
+- Findings (ai-dev's measurements, ≥ 1,500 duels per date):
+  - Expert vs Collector: 45.7–47.1% without noise (target 45–55%, near the low edge), about 43–44% with ε = 0.1. Novice 0%, greedy about 6% (see D-223).
+  - **Seed rejection is about 75%** over 12 dates (BT-8 target ≤ 15%), about 4 rerolls a day on average, fallback never reached. Noise only perturbs a near-deterministic duel, so per-seed win rates are bimodal (examples: 0.08, 0.90, 0.87, 0.95, 0.67).
+  - **D-099's "500 duels ≈ 1–2 s on a phone" doesn't hold:** one `rateSeed` attempt takes about 1.6 s on a desktop core, and a full `prepareDay` averages about 6 s (1.6–13.1 s).
+- Decision: nothing is changed now. Possible levers are a higher `BOT_NOISE_EPSILON`, varying the shuffle per run, or a wider `SEED_WINRATE_MIN`/`MAX` band, each a change to D-094 or a global. They are measured with `sim seed`/`sim full` in Phase 3 and go to the owner. The cost finding bears on whether web computes the day on the device or ships precomputed `seeds/<date>.json`; decide that before the web daily loop is built.
+- Reason: tuning before the sim exists would measure the wrong thing.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
@@ -2029,6 +2095,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 | D-204 | Is a `castHighValueSpell` entry (or a `trapPreference` id) for a newly added Collector card an owner-only AI param under D-166, or a card list the owner edits freely like `deck`? | Settled 2026-10-14 (owner): both are card lists, edited freely like `deck`. The rule lists, mood rule lists, `reposition` and the other params stay owner-only |
 | D-195 | Keyword and Flaw icon/visual ids; do Flaws get a frame? | Art decision; DESIGN gives no icons and no Flaw visuals. Owner ruled (A): content-author's ids as drafts, Flaws framed |
 | D-218 | Attack rule 2: which of his attackers takes a kill, the strongest that can (D-090 literal, current) or the weakest that is enough? | Ruled 2026-10-15 (owner): the strongest, for v0.1. The weakest-sufficient alternative is A/B-tested in Phase 3 as M-17 |
+| D-229 | Difficulty check rejects ~75% of seeds (BT-8 ≤ 15%); `prepareDay` costs ~6 s, against D-099's 1–2 s | Measured in AI milestone 2. Levers (ε, per-run shuffle, band) change D-094 or globals; decide with Phase 3 sims. On-device vs precomputed seeds to decide before the web daily loop |
 | M-01…M-16 | Balance/rule proposals from the paper-sim (section M) | None applied; each needs a Phase 3 sim A/B test and an owner decision. Levers M-01 and M-02 get plumbing in D-183, and M-04 in D-184 |
 | D-152 | Ward saves an Unstable Chimera from expiry: does it keep the +3? | DESIGN is silent and it's reachable with launch cards. Owner ruled (A): Unstable ends and the +3 goes |
 | D-019 | No life cap (changed after paper-sim) | First draft capped life; DESIGN states no cap |
