@@ -43,7 +43,7 @@ describe('collectorView fields', () => {
   it('shows his own side in full, with effective stats', () => {
     expect(v.hand.map((c) => c.id)).toEqual(['c-brute', 'c-gilt', 'c-case']);
     expect(v.hand[0]).toMatchObject({ type: 'monster', power: 7, guard: 3, element: 'fire', keywords: ['pierce'], flaw: null });
-    expect(v.hand[1]).toMatchObject({ type: 'spell', drawOnly: false, grantsPower: 2 });
+    expect(v.hand[1]).toMatchObject({ type: 'spell', drawOnly: false });
     expect(v.hand[2]).toMatchObject({ type: 'trap' });
     // c-tether: 8 Power + 1 permanent, and Tethered is off with two monsters on his board.
     expect(v.board[0]).toMatchObject({ slot: 0, power: 9, guard: 4, pos: 'atk', forced: false });

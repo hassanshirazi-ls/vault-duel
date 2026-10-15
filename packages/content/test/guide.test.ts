@@ -1395,14 +1395,14 @@ describe('guide §7 · tune a global', () => {
 
   it('§7 planned settings are accepted today, and the check stays clean', async () => {
     const root = makeCopy();
-    expect(PLANNED_GLOBALS['OBJECTIVES_PER_DAY'], 'the example key is listed as planned').toBeDefined();
+    expect(PLANNED_GLOBALS['OBJECTIVE_STARS_MAX'], 'the example key is listed as planned').toBeDefined();
     expect(PLANNED_GLOBALS['FLAGS.ANIMATIONS'], 'the example flag is listed as planned').toBeDefined();
-    setGlobal(root, 'OBJECTIVES_PER_DAY', '5');
+    setGlobal(root, 'OBJECTIVE_STARS_MAX', '5');
     const g = await globalsOf(root);
-    expect(withOverrides(g, ['OBJECTIVES_PER_DAY=5']).OBJECTIVES_PER_DAY).toBe(5);
+    expect(withOverrides(g, ['OBJECTIVE_STARS_MAX=5']).OBJECTIVE_STARS_MAX).toBe(5);
     expect(() => withOverrides(g, ['FLAGS.ANIMATIONS=false'])).not.toThrow();
     expect((await check(root)).errors).toEqual([]);
-    quoted('OBJECTIVES_PER_DAY: 5,');
+    quoted('OBJECTIVE_STARS_MAX: 5,');
     quoted('planned-globals.ts');
   });
 });

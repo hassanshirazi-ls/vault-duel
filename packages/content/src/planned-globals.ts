@@ -9,19 +9,11 @@ export interface PlannedGlobal {
 }
 
 export const PLANNED_GLOBALS: Readonly<Record<string, PlannedGlobal>> = {
-  OBJECTIVES_PER_DAY: { reader: 'ai', where: 'ai/difficulty.ts › prepareDay (D-102)' },
   OBJECTIVE_STARS_MAX: { reader: 'engine', where: 'engine meta/objectives.ts (D-102)' },
   RESET_HOUR_LOCAL: { reader: 'web', where: 'web daily/date.ts (D-104)' },
   'FLAGS.BONUS_OBJECTIVES': { reader: 'engine', where: 'engine meta/objectives.ts (BO-1)' },
   'FLAGS.ANIMATIONS': { reader: 'web', where: 'web duel store (§16)' },
   'FLAGS.DEBUG_OVERLAY': { reader: 'web', where: 'web debug overlay (§16)' },
-  // ai: the difficulty check (§15, DC-1 to DC-3). SIM_RUNS_PER_SEED is the duels per seed in rateSeed.
-  SIM_RUNS_PER_SEED: { reader: 'ai', where: 'ai/difficulty.ts › rateSeed (DC-1)' },
-  SEED_WINRATE_MIN: { reader: 'ai', where: 'ai/difficulty.ts › rateSeed (DC-2)' },
-  SEED_WINRATE_MAX: { reader: 'ai', where: 'ai/difficulty.ts › rateSeed (DC-2)' },
-  SEED_MAX_REROLLS: { reader: 'ai', where: 'ai/difficulty.ts › rateSeed (DC-2)' },
-  BOT_NOISE_EPSILON: { reader: 'ai', where: 'ai/bots/noise.ts (DC-1)' },
-  DIFFICULTY_STAR_CUTS: { reader: 'ai', where: 'ai/difficulty.ts › rateSeed (DC-3)' },
   // sim: the quick, full and seed runs, and the balance report (§15).
   SIM_QUICK_GAMES: { reader: 'sim', where: 'sim/src/cli.ts › quick (§15)' },
   SIM_FULL_GAMES: { reader: 'sim', where: 'sim/src/cli.ts › full (§15)' },

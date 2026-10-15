@@ -19,20 +19,20 @@ const COLLECTOR_VIEW_FIELDS: Record<keyof CollectorView, true> = {
   turn: true, round: true, mood: true, myLife: true, foeLife: true, appraisalRoundsLeft: true,
   hand: true, board: true, traps: true, vault: true, discard: true, deckCount: true,
   foeHandCount: true, foeDeckCount: true, foeDiscard: true, foeBoard: true, foeTrapSlots: true,
-  choices: true, previewAttack: true, previewSummon: true, after: true, winningAttacks: true, winsAfter: true, attackPotential: true,
+  choices: true, previewAttack: true, previewSummon: true, after: true, winningAttacks: true, winsAfter: true,
 };
 
 const PLAYER_VIEW_FIELDS: Record<keyof PlayerView, true> = {
   turn: true, round: true, mood: true, intent: true, myLife: true, foeLife: true,
   hand: true, board: true, traps: true, discard: true, deckCount: true,
   foeHandCount: true, foeDeckCount: true, foeBoard: true, foeTrapCount: true, foeDiscard: true, foeVault: true,
-  pendingGraft: true, winner: true, legal: true, after: true,
+  pendingGraft: true, winner: true, appraisalTarget: true, legal: true, after: true, previewCombat: true, previewGraft: true, beats: true,
 };
 
 describe('the view types', () => {
   it('list their fields explicitly', () => {
-    expect(Object.keys(COLLECTOR_VIEW_FIELDS).length).toBe(24);
-    expect(Object.keys(PLAYER_VIEW_FIELDS).length).toBe(21);
+    expect(Object.keys(COLLECTOR_VIEW_FIELDS).length).toBe(23);
+    expect(Object.keys(PLAYER_VIEW_FIELDS).length).toBe(25);
   });
 
   it('have no field for hidden information', () => {
@@ -152,7 +152,7 @@ function snapshot(v: CollectorView): string {
     out.push(pv.power, pv.guard, pv.slow);
     for (let f = 0; f < v.foeBoard.length; f++) out.push(pv.asAttacker(f), pv.asDefender(f));
   }
-  out.push(v.winningAttacks().map((c) => c.index), v.attackPotential());
+  out.push(v.winningAttacks().map((c) => c.index));
   // Look-ahead (D-209): every play's winsAfter, and the view after every choice (null when refused).
   for (const c of v.choices) {
     if (c.t === 'cast' || c.t === 'summon' || c.t === 'summonCovetous' || c.t === 'setTrap') out.push(v.winsAfter(c));
@@ -215,7 +215,6 @@ describe('equal views from states that differ only in hidden information', () =>
             }
             expect(v.winningAttacks().map((c) => c.index)).toEqual(base.winningAttacks().map((c) => c.index));
             expect(v.choices.map((c) => v.winsAfter(c))).toEqual(base.choices.map((c) => base.winsAfter(c)));
-            expect(v.attackPotential()).toBe(base.attackPotential());
           }
           counts.states++;
         }

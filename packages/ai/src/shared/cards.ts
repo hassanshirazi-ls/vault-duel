@@ -1,6 +1,6 @@
 // Card and monster records shared by the Collector view and the player view. Each is built from a full state but
 // carries only what the viewing side may know: a face-down monster is never described by identity.
-import { DefType, resolveNum } from '@vault-duel/engine';
+import { DefType } from '@vault-duel/engine';
 import type { GameState, Iid, Monster } from '@vault-duel/engine';
 import type { Brain } from './brain';
 
@@ -19,11 +19,6 @@ export interface OwnCard {
   readonly flaw: string | null;
   /** a spell whose every effect draws for him */
   readonly drawOnly: boolean;
-  /**
-   * An upper bound on the Power the spell gives its chosen target: the sum of its `modifyStats` Power on `chosen`, effects with
-   * an `if` included, because a bound must not undercount (D-219). 0 if none. Rules decide by applying the cast (look-ahead), not by this.
-   */
-  readonly grantsPower: number;
 }
 
 export interface OwnMonster {
@@ -40,6 +35,10 @@ export interface OwnMonster {
   /** a keyword obliges it to attack if able (Vain) */
   readonly forced: boolean;
   readonly appraised: boolean;
+  /** turn index at whose end an Unstable Chimera is destroyed, or -1 */
+  readonly unstableUntil: number;
+  /** Shroud protects it from Appraisal while the turn index is below this */
+  readonly shroudUntil: number;
 }
 
 /** What anyone can see of a card (a discard pile entry). */
@@ -50,6 +49,7 @@ export interface PublicCard {
 
 export interface PublicMonster {
   readonly faceDown: false;
+  readonly iid: Iid;
   readonly slot: number;
   readonly id: string;
   readonly element: string | null;
@@ -90,13 +90,7 @@ export function ownCard(b: Brain, s: GameState, iid: Iid): OwnCard {
   const kd = b.engine.kindOf(s, iid);
   const spell = c.spell[inst.def] ?? null;
   let drawOnly = false;
-  let grantsPower = 0;
-  if (spell !== null) {
-    drawOnly = spell.effects.length > 0 && spell.effects.every((e) => e.op === 'draw' && e.who === 'self');
-    for (const e of spell.effects) {
-      if (e.op === 'modifyStats' && e.target === 'chosen' && e.power !== undefined) grantsPower += Math.max(0, resolveNum(b.globals, e.power));
-    }
-  }
+  if (spell !== null) drawOnly = spell.effects.length > 0 && spell.effects.every((e) => e.op === 'draw' && e.who === 'self');
   return {
     iid,
     id: c.ids[inst.def] as string,
@@ -108,7 +102,6 @@ export function ownCard(b: Brain, s: GameState, iid: Iid): OwnCard {
     keywords,
     flaw,
     drawOnly,
-    grantsPower,
   };
 }
 
@@ -126,6 +119,8 @@ export function ownMonster(b: Brain, s: GameState, m: Monster, slot: number): Ow
     wardActive: (mask & b.content.hookMask.beforeDestroy) !== 0,
     forced: b.engine.mustAttack(s, m.iid),
     appraised: m.appraised,
+    unstableUntil: m.unstableUntil,
+    shroudUntil: m.shroudUntil,
   };
 }
 
@@ -137,6 +132,7 @@ export function foeMonster(b: Brain, s: GameState, m: Monster, slot: number): Fo
   const kd = b.engine.kindOf(s, m.iid);
   return {
     faceDown: false,
+    iid: m.iid,
     slot,
     id: b.content.ids[inst.def] as string,
     element: el >= 0 ? (b.content.elementIds[el] ?? null) : null,

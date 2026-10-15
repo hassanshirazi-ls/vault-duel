@@ -913,11 +913,11 @@ Do not copy the list from there into this guide. The check prints the count and 
 
 ### Worked example: a planned setting is accepted
 
-`OBJECTIVES_PER_DAY` is planned. Its reader is the daily objective code, which is not built yet. Set it to 5 and the
+`OBJECTIVE_STARS_MAX` is planned. Its reader is the bonus objective code, which is not built yet. Set it to 5 and the
 check accepts it and stays clean:
 
 ```text
-  OBJECTIVES_PER_DAY: 5,
+  OBJECTIVE_STARS_MAX: 5,
 ```
 
 When the reader lands, the change that wires it also deletes its line from `planned-globals.ts`, and a test enforces

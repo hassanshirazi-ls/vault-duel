@@ -97,8 +97,6 @@ export interface CollectorView {
   winningAttacks(): readonly ChoiceOf<'attack'>[];
   /** After `choice` (a play), can he still finish with attacks? */
   winsAfter(choice: ViewChoice): boolean;
-  /** An upper bound on the life his attackers can take this turn. */
-  attackPotential(): number;
 }
 
 // ---- building ---------------------------------------------------------------------------------
@@ -238,8 +236,6 @@ export function buildView(b: Brain, s: GameState): { readonly view: CollectorVie
     },
 
     winsAfter: (choice) => ahead.winsAfter(actionOf(choice)),
-
-    attackPotential: () => ahead.attackPotential(),
   };
   return { view, actions };
 }

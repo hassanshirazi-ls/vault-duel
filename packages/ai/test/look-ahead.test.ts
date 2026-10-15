@@ -44,7 +44,6 @@ describe('refusal (D-209)', () => {
     const s = collectorTurn().board(1, 0, 'c-brute').board(0, 0, 'p-open').hand(0, 'p-brute').state();
     const before = JSON.stringify(s);
     const la = lookAhead(brain, s, 1);
-    la.attackPotential();
     la.winningAttacks();
     for (const a of brain.engine.getLegalActions(s)) la.after(a);
     expect(JSON.stringify(s)).toBe(before);

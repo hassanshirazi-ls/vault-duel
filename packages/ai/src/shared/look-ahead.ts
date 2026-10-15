@@ -4,7 +4,7 @@
 //   - an action that targets a face-down opponent monster is refused (null), because `redactState` keeps that
 //     monster's identity for legality and applying the action would let the answer depend on it;
 //   - stats, keyword state, attack permission and combat outcomes are the engine's own queries. Nothing here is a rule.
-// `previewSummon`, `after`, `winsAfter`, `winningAttacks` and `attackPotential` are search policy, not rules.
+// `previewSummon`, `after`, `winsAfter` and `winningAttacks` are search policy, not rules.
 import { redactState } from '@vault-duel/engine';
 import type { Action, CombatPreview, GameState, Iid, Side } from '@vault-duel/engine';
 import type { Brain } from './brain';
@@ -33,8 +33,6 @@ export interface LookAhead {
   winningAttacks(): readonly AttackAction[];
   /** After `play`, does an attack sequence finish the opponent (D-220)? */
   winsAfter(play: Action): boolean;
-  /** An upper bound on the life his attackers can take with the attacks legal now. */
-  attackPotential(): number;
 }
 
 const UNKNOWN: CombatPreview = { known: false };
@@ -162,7 +160,5 @@ export function lookAhead(b: Brain, s: GameState, viewer: Side): LookAhead {
       if (next.result !== null) return won(next);
       return search(next, { n: b.globals.AI_SEARCH_NODE_BUDGET });
     },
-
-    attackPotential: () => potential(candidates(base())),
   };
 }
