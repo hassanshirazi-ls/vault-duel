@@ -2,8 +2,8 @@
 // D-100, D-102, D-103). `rateSeed` runs the expert with decision noise against the Collector on a seed, rerolling `k` until the
 // win rate falls in the accepted band; `prepareDay` wraps it with the deck, signature, objectives and twist of the day.
 // Every number comes from the compiled globals. The result depends only on (date, content, globals, expert weights).
-import { canonicalJson, createEngine, cyrb128, deckForSeed, DefType, rerollSeed, seedString, Sfc32 } from '@vault-duel/engine';
-import type { DefIdx, Engine, GameState, Globals } from '@vault-duel/engine';
+import { activeSide, canonicalJson, createEngine, cyrb128, deckForSeed, rerollSeed, seedString, Sfc32, signatureForSeed } from '@vault-duel/engine';
+import type { Engine, GameState, Globals } from '@vault-duel/engine';
 import type { GameContent } from '@vault-duel/content';
 import { createExpert, EXPERT_WEIGHTS } from './bots/expert';
 import { createNoise, noiseKey } from './bots/noise';
@@ -84,7 +84,7 @@ export function expertRunner(ctx: Pick<DayContext, 'content' | 'globals'>): Duel
     const bot = createExpert({ noise: createNoise(noiseKey(job.seedString, job.k, job.runIndex), globals.BOT_NOISE_EPSILON) });
     let s: GameState = engine.newGame(rerollSeed(job.seedString, job.k), { twist: job.twist }).state;
     while (s.result === null) {
-      const mine = (s.turn & 1) === 0 || s.step === 'mulligan';
+      const mine = activeSide(s) === 0 || s.step === 'mulligan';
       s = engine.applyAction(s, mine ? botAction(bot, collector.brain, s) : collector.act(s)).state;
     }
     return { won: s.result.winner === 0, round: s.result.round };
@@ -155,14 +155,6 @@ export function rateSeed(ctx: DayContext, base: string, twist: number, run: Duel
 }
 
 // ---- the day ------------------------------------------------------------------------------------------------------
-
-/** D-010: uniform among the distinct monster cards of the deck, from the 'signature' stream (the engine's own stream key, ARCHITECTURE.md §12.2). */
-function pickSignature(content: GameContent, deck: readonly DefIdx[], seed: string): DefIdx {
-  const distinct: DefIdx[] = [];
-  for (const d of deck) if (content.type[d] === DefType.Monster && !distinct.includes(d)) distinct.push(d);
-  if (distinct.length === 0) throw new Error('prepareDay: the deck has no monster');
-  return distinct[Sfc32.from(`${seed}/signature`).int(distinct.length)] as DefIdx;
-}
 
 /** D-102: `n` distinct ids from the 'objectives' stream (a partial Fisher-Yates over the file's order). */
 function pickObjectives(ids: readonly string[], n: number, seed: string): string[] {
@@ -242,7 +234,7 @@ export function daySetupFor(ctx: DayContext, date: string, rating: Pick<SeedRati
     seedString: base,
     k: rating.k,
     deckList: deck.map((d) => content.ids[d] as string),
-    signature: content.ids[pickSignature(content, deck, seed)] as string,
+    signature: content.ids[signatureForSeed(content, deck, seed)] as string,
     objectives: pickObjectives(ctx.objectiveIds, globals.OBJECTIVES_PER_DAY, seed),
     twist,
     expertHash: expertHash(),

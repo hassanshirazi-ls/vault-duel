@@ -33,8 +33,9 @@ export function monsterOf(s: GameState, iid: Iid): Monster | null {
   return loc < 0 ? null : (s.sides[locSide(loc)].board[locSlot(loc)] ?? null);
 }
 
-/** Round number (1-based) and active side derived from the turn index (§4). */
+/** Round number (1-based) derived from the turn index (§4): turns 2k and 2k+1 are round k+1. */
 export const roundOf = (s: GameState): number => (s.turn >> 1) + 1;
+/** The side to act, derived from the turn index (§4): the player (0) on even turns, the Collector (1) on odd turns. */
 export const activeSide = (s: GameState): Side => (s.turn & 1) as Side;
 
 // ---- card facts ---------------------------------------------------------------------------

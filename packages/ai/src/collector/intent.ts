@@ -7,7 +7,7 @@
 // a rule of the mood's attack list returns an attack, or a monster with an active mustAttack keyword has a legal attack)
 // > scheme (the first play rule that returns something returns a cast or a trap set) > guard.
 // It builds `collectorView` itself from the state it is given (D-150), so it sees what the Collector sees.
-import { redactState } from '@vault-duel/engine';
+import { activeSide, redactState } from '@vault-duel/engine';
 import type { GameState, Intent, IntentPolicy } from '@vault-duel/engine';
 import type { Brain } from '../shared/brain';
 import { ATTACK_RULES, PLAY_RULES } from './rules';
@@ -34,7 +34,7 @@ export function makeIntentPolicy(deps: IntentDeps): IntentPolicy {
   const { brain, moods, aceId } = deps;
   return (s: GameState): Intent => {
     const next = brain.engine.applyAction(redactState(s, COLLECTOR), { t: 'endTurn' }).state;
-    if (next.result !== null || (next.turn & 1) !== COLLECTOR) return 'guard';
+    if (next.result !== null || activeSide(next) !== COLLECTOR) return 'guard';
     if (next.appraisal.successes > s.appraisal.successes) return 'appraise';
 
     let view: CollectorView = collectorView(brain, next);

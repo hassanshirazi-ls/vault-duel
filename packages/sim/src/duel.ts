@@ -2,7 +2,7 @@
 // Only what the engine exposes without events: the final state (Track, appraisal counters, result) and the actions taken.
 import { createCollector, createExpert, createGreedy, createNoise, createNovice, botAction, noiseKey } from '@vault-duel/ai';
 import type { Bot, Collector } from '@vault-duel/ai';
-import { createEngine, rerollSeed } from '@vault-duel/engine';
+import { activeSide, createEngine, rerollSeed } from '@vault-duel/engine';
 import type { Action, Engine, GameState, Intent } from '@vault-duel/engine';
 import { bump, bumpBin, child } from './aggregate';
 import type { Aggregate } from './aggregate';
@@ -67,7 +67,7 @@ export function createDuelPlayer(ctx: SimContext): DuelPlayer {
 
         while (s.result === null) {
           if (actions >= ACTION_CAP) break;
-          const mine = (s.turn & 1) === 0 || s.step === 'mulligan';
+          const mine = activeSide(s) === 0 || s.step === 'mulligan';
           const a: Action = mine ? botAction(bot, collector.brain, s) : collector.act(s);
           if (mine) {
             if (a.t === 'summon' || a.t === 'summonCovetous' || a.t === 'cast' || a.t === 'setTrap') {

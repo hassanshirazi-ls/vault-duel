@@ -6,6 +6,7 @@
 // The few methods (previewAttack, previewSummon, after, winning...) compute answers from public information and his
 // own cards: engine queries on the state, or look-ahead on a redacted copy (D-209). They hand out numbers and views,
 // never a state.
+import { roundOf } from '@vault-duel/engine';
 import type { Action, GameState, Iid, Mood, Side } from '@vault-duel/engine';
 import type { Brain } from '../shared/brain';
 import { foeMonster, ownCard, ownMonster, typeOf } from '../shared/cards';
@@ -113,7 +114,7 @@ export function collectorView(b: Brain, s: GameState): CollectorView {
 export function buildView(b: Brain, s: GameState): { readonly view: CollectorView; readonly actions: readonly Action[] } {
   const mine = s.sides[ME];
   const foe = s.sides[PLAYER];
-  const round = (s.turn >> 1) + 1;
+  const round = roundOf(s);
 
   const hand = mine.hand.map((iid) => ownCard(b, s, iid));
   const board = mine.board.map((m, slot) => (m === null ? null : ownMonster(b, s, m, slot)));

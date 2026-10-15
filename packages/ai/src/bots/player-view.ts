@@ -2,7 +2,7 @@
 // number of cards in the Collector's hand, how many traps he has set, the mood and the intent. It has no field for the
 // Collector's hand contents, deck order, or set-trap identities. A bot receives a `BotContext`; the view is built only
 // when the bot asks, so a bot that needs no information (novice) costs nothing.
-import { redactState } from '@vault-duel/engine';
+import { activeSide, redactState, roundOf } from '@vault-duel/engine';
 import type { Action, CombatPreview, GameState, GraftPreview, Intent, Mood, Side } from '@vault-duel/engine';
 import type { Brain } from '../shared/brain';
 import { lookAhead } from '../shared/look-ahead';
@@ -83,8 +83,8 @@ function elementIndex(b: Brain): ReadonlyMap<string, number> {
 
 function appraisalTargetOf(b: Brain, s: GameState, board: readonly (OwnMonster | null)[]): OwnMonster | null {
   const g = b.globals;
-  const round = (s.turn >> 1) + 1;
-  if ((s.turn & 1) !== 0 || !g.FLAGS.APPRAISAL || !g.APPRAISAL_ROUNDS.includes(round)) return null;
+  const round = roundOf(s);
+  if (activeSide(s) !== 0 || !g.FLAGS.APPRAISAL || !g.APPRAISAL_ROUNDS.includes(round)) return null;
   let best: OwnMonster | null = null;
   for (const m of board) {
     if (m === null || m.faceDown || s.turn + 1 < m.shroudUntil || m.power < g.APPRAISAL_MIN_POWER) continue;
@@ -116,7 +116,7 @@ export function playerView(b: Brain, s: GameState): PlayerView {
   const redacted = (): GameState => (seen ??= redactState(s, PLAYER));
   return {
     turn: s.turn,
-    round: (s.turn >> 1) + 1,
+    round: roundOf(s),
     mood: s.collector.mood,
     intent: s.collector.intent,
     myLife: mine.life,
