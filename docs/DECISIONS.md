@@ -2260,6 +2260,17 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: Yes. The engine's public index exports `roundOf(s)` and `activeSide(s)` (`stats.ts`), `pickSignature(c, deckList, rng)`, and a thin wrapper `signatureForSeed(c, deckList, seed)` (`setup/signature.ts`). The wrapper takes the full seed string, rerolls included, and draws from that seed's `signature` stream (D-010). The algorithm and the stream key are unchanged. `ai/difficulty.ts › daySetupFor`, `ai/bots/player-view.ts`, `ai/collector/view.ts`, `ai/collector/intent.ts`, `sim/duel.ts` and `web/duel/turn.ts` use them in place of their own copies; web keeps its `activeSideOf`/`roundOfState` names as aliases. A deck with no monster now throws the engine's `EngineError('signature: the deck has no monster')` instead of ai's own error, a case real decks cannot reach. The ai tests still repeat the turn arithmetic as test code.
 - Reason: one source of truth for rules the UI, AI and sim all read. It is a pure refactor: regenerated seeds for a fallback date and an accepted date are byte-identical to the shipped manifest (D-255).
 
+**D-257 · Playtest readiness: developer's guide, How to play, feedback link, deploy** (owner, 2026-10-15)
+- Date: 2026-10-15
+- Question: What must exist before outside playtesters get a link, and where does it live?
+- Decision:
+  - **Developer's guide:** a repo file, `docs/DEVELOPER_GUIDE.md`, versioned with the code (not a Claude Doc). It shows how the packages wire together (content → engine → ai → sim and web) with Mermaid diagrams, the data flow of a daily duel, the build, test and seeds commands, and where to change what.
+  - **Playtest scope:** a How to play primer and a feedback link only. No bug-report footer and no analytics.
+  - **How to play:** 5–6 illustrated, swipeable catalogue pages in the D-240 gothic style: the goal, playing cards, combat and elements, Graft, Appraisal, winning. They show on first open and again from a "?" on Home. The copy follows the content and DESIGN rules; numbers such as Appraisal rounds and starting life are read from globals, never hard-coded.
+  - **Feedback link:** a Tally form. Its URL comes from the build-time variable `VITE_FEEDBACK_URL` (set in Vercel, or `.env.local` for dev); when it is unset, the link is hidden. The link appends `date`, `seed` and `build` query parameters, which the form reads as Tally hidden fields of the same names. `build` is the short commit SHA (`VERCEL_GIT_COMMIT_SHA`, else `git rev-parse --short HEAD`, else `dev`) plus `CONTENT_VERSION`.
+  - **Deploy:** GitHub + Vercel. The repo carries `vercel.json` (build command `pnpm build`, output `apps/web/dist`, Node 24, pnpm via `packageManager`/corepack, no-cache header on `sw.js`, short cache on `seeds.json`, SPA fallback). The owner creates the GitHub repo and connects Vercel. `phase-1` merges into `main` only when the owner says so. The daily date stays device-local (`localDate`).
+- Reason: owner's goal of a playtest-ready build on Vercel soon. An env variable lets the owner swap the form without a code change.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
