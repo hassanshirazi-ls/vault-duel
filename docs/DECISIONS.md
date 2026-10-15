@@ -2302,6 +2302,18 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: No. Like `?set=` and `?debug` (D-252), `?date=` is read only in dev builds (`import.meta.env.DEV` in `main.tsx`). Production always uses the device's local date (`localDate`). To check another day locally, use `pnpm dev` with `?date=`.
 - Reason: the daily duel is one attempt per real day (DESIGN "Daily loop"). Found while verifying W3.
 
+**D-263 · `vercel.json` details** (main session, 2026-10-15; applies D-257)
+- Date: 2026-10-15
+- Question: D-257 fixed the outline of the Vercel config. Which details does it leave open?
+- Decision:
+  - `framework: null`, `installCommand: pnpm install --frozen-lockfile`, `buildCommand: pnpm build`, `outputDirectory: apps/web/dist`.
+  - Node: root `engines.node` is now `24.x` (was `>=24`). Vercel reads it, and an open range makes it pick the newest major with a warning.
+  - pnpm: Vercel uses the `packageManager` pin (pnpm 12.11.2) only when the project env variable `ENABLE_EXPERIMENTAL_COREPACK=1` is set. Without it, Vercel picks pnpm from the lockfile version (9.0), which is an older pnpm that ignores `allowBuilds`. The owner sets this variable in the Vercel project.
+  - Caching: `sw.js` gets `no-cache`. `seeds.json` gets `public, max-age=600`; a stale copy is safe because the app checks the manifest key (D-236) and falls back to on-device `prepareDay`. `/assets/*` (Vite's hashed file names) gets a one-year immutable cache. Every other file keeps Vercel's default (revalidate each time).
+  - SPA fallback: paths without a file extension rewrite to `/index.html`. A missing `.js` or `.json` file stays a 404 instead of returning HTML. The app has no URL routes today, so this only catches mistyped links.
+  - `.gitignore` gains `*.local` (for `apps/web/.env.local`) and `.vercel/` (the CLI's local project link).
+- Reason: checked with a fresh clone (`pnpm install --frozen-lockfile` and `pnpm build` succeed, `seeds:check` passes, the commit SHA is stamped) and with the rewrite pattern tested against path-to-regexp 6.1.0.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

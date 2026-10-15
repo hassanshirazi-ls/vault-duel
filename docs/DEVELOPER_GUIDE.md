@@ -217,7 +217,7 @@ For the edit loop, error messages and per-task recipes, use `docs/CONTENT_GUIDE.
 
 ## 7. Commands
 
-Run from the repo root. Node 24 or later; the package manager is pnpm (pinned in `packageManager`).
+Run from the repo root. Node 24 (`engines.node` is `24.x`); the package manager is pnpm (pinned in `packageManager`).
 
 | Command | What it does |
 | --- | --- |
@@ -312,7 +312,7 @@ content loads, validates and plays.
 - **Never change a DESIGN rule on your own.** If a rule looks wrong, record a `PROPOSAL, needs owner review`
   entry in `docs/DECISIONS.md` and keep the rule.
 - **The decision log.** `docs/DECISIONS.md` entries use a D-number, a date, the question, the decision and the
-  reason. The next free number is **D-263**. When DESIGN.md is ambiguous, take the simplest reading and log it.
+  reason. The next free number is **D-264**. When DESIGN.md is ambiguous, take the simplest reading and log it.
 - **Regenerate `seeds.json` after any change to content, globals or the expert weights (D-255).** Otherwise
   the manifest hashes no longer match, every device falls back to the slow on-device check, and
   `pnpm build` prints a warning. Use `pnpm seeds --from <date> --days 90`. It takes a few minutes on a
@@ -340,9 +340,11 @@ flowchart LR
   env["VITE_FEEDBACK_URL<br/>(Vercel env)"] --> vercel
 ```
 
-- **Config.** A `vercel.json` at the repo root (the main session is adding it) sets the build command
-  `pnpm build`, the output directory `apps/web/dist`, Node 24, a no-cache header on `sw.js`, a short cache on
-  `seeds.json`, and a single-page-app fallback. pnpm is picked from `packageManager` through corepack.
+- **Config.** `vercel.json` at the repo root sets the install command `pnpm install --frozen-lockfile`, the
+  build command `pnpm build` and the output directory `apps/web/dist`. It sends `sw.js` with no-cache,
+  `seeds.json` with a 10-minute cache and the hashed `/assets/*` files with a one-year cache, and rewrites paths
+  without a file extension to `index.html` (D-263). Node 24 comes from `engines.node`. The Vercel project needs
+  the env variable `ENABLE_EXPERIMENTAL_COREPACK=1` so that pnpm comes from `packageManager`.
 - **Build.** `pnpm build` runs the content checks and `seeds:check` first. A stale manifest only warns; a
   content error fails the deploy.
 - **Feedback link.** The `VITE_FEEDBACK_URL` build variable holds the Tally form URL. When it is unset, the
