@@ -2111,6 +2111,20 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - **Collector: portrait + speech line.** A small header portrait that changes with mood, and a one-line quip on mood shifts and Appraisals that fades by itself.
 - Reason: owner's choice; the auction-house look fits the Collector, the vault, Appraisal and Relics.
 
+**D-238 · Web screens and card visuals** (owner choices, 2026-10-15; extends D-237)
+- Date: 2026-10-15
+- Question: What should the screens and card details D-237 leaves open look like?
+- Decision (owner chose each):
+  - **Home: auction catalogue.** "Lot of <date>" header, difficulty stars, the day's signature card on a velvet plinth, brass lines for the weekly twist and the Appraisal rounds (3 · 6 · 9), and a deck list (24) that folds open. One large "Enter the vault" button, with Practice · Binder · Stats beneath it.
+  - **Graft: workbench sheet.** Choosing Graft slides a sheet up over the hand, with two numbered material slots filled by tapping board or hand cards and a ⇄ button that swaps the order. A live result preview shows family, element (from slot 1), Power/Guard, inherited keywords (chips to choose from when more than 2 are available) and an Unstable warning, with Cancel and Graft buttons. After confirming, an Ascend button offers the second step. The board stays visible above the sheet.
+  - **Card inspect: bottom sheet.** Tapping a card opens a half-height sheet with an art thumbnail, name, element · kind, Power and Guard, each keyword or Flaw with its rule, and the element's beats/weak-to line. The board stays visible behind it, dimmed. Swipe down or tap outside to close.
+  - **Intent and Appraisal: round track and plaque.** The middle round marker is a 1–12 track with gavel marks on the Appraisal rounds, a sealed-vault mark on 12 and the current round lit. The Collector's intent icon sits on a brass plaque beside his portrait. Appraisal rounds are read from content, not hard-coded.
+  - **Result: bill of sale.** An ivory receipt with a wax stamp (ACQUIRED on a win, SEALED IN THE VAULT on a loss) listing the date, rounds against par, life left, the 3 objectives with ✓/✗, and the emoji round row exactly as it will be shared. On a win, an "Added to your Binder" strip shows the signature card. Buttons: Share, Practice, Binder.
+  - **Binder: calendar and kind matrix.** Two tabs. Signatures is a month calendar with a card thumbnail on each won day, and lost or unplayed days stay dark. Chimeras is the kind-pair triangle (15 cells for 5 kinds, built from content kinds), with discovered families painted and undiscovered ones as labelled silhouettes. Tapping a cell shows the card and its recipe.
+  - **Element colors: jewel tones.** Round gilt-ringed badges with a gem fill and an engraved icon: Ember ruby #C8323A, Gale pale jade #8FD3A8, Tide sapphire #2456A6, Lumen pearl-gold #F3E6B3 (kept apart from the UI gold leaf #C9A24A), Umbra amethyst #7A4FB8, on velvet #120D12. The icon always appears with the color. Colors are tokens keyed by element id, so a new element needs one token entry.
+  - **Keywords: frame effect plus glyph.** Each keyword changes the frame as DESIGN's keyword table lists it (Sentinel iron shield border, Pierce spear notch, Ward pale barrier, Haunt wisps, Echo double image, Swift motion streaks), and a small engraved corner glyph names it. With two keywords, the frame shows the higher-priority one (Sentinel > Ward > the rest) and both glyphs appear. Flaws show as a cracked-red glyph on Relics. Frame treatments and glyphs are keyed by keyword id, with a plain-glyph fallback for unknown ids.
+- Reason: owner's choice.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
