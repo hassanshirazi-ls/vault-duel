@@ -5,3 +5,5 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 sim-out/
+*.local
+.vercel/
