@@ -2,8 +2,8 @@
 // the middle, your monsters, traps, fanned hand and End turn at the bottom. Interaction is "tap card, tap target":
 // everything offered comes from `getLegalActions` through view/legal.ts and view/selection.ts, and every change goes
 // through the store's `act`. Animations are cues from engine events (visual/cues.ts), dropped by any tap.
-import { useEffect, useState } from 'react';
-import type { CSSProperties } from 'react';
+import { useState } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { Action, Iid, Monster, Side } from '@vault-duel/engine';
 import { MOOD_NAMES } from '@vault-duel/ai';
 import { roundOfState } from '../duel/turn';
@@ -12,13 +12,14 @@ import { INTENT_LABEL } from '../view/status';
 import { appraisalCountdown, moodName } from '../view/status';
 import { boardActionable, planFor, summonMode } from '../view/selection';
 import type { Plan, Selection } from '../view/selection';
-import { cueDurationMs, cuesFromEvents, quipMood } from '../visual/cues';
-import type { Cue } from '../visual/cues';
 import { Glyph } from '../visual/glyphs';
-import { CollectorHeader } from './Collector';
+import { CollectorHeader, LifeSeal } from './Collector';
+import { GhostCard } from './Ghost';
+import { SidePanel } from './SidePanel';
+import { useStepFx } from './useStepFx';
 import { useGame } from './context';
 import { GraftSheet } from './GraftSheet';
-import { prefersReducedMotion } from './hooks';
+import { useWide } from './hooks';
 import { Inspect } from './Inspect';
 import { CardBack, MiniCard } from './MiniCard';
 import { RoundTrack } from './RoundTrack';
@@ -35,34 +36,9 @@ export function Duel() {
   const act = useGame((s) => s.act);
   const [sel, setSel] = useState<Selection | null>(null);
   const [inspected, setInspected] = useState<Iid | null>(null);
-  const [seen, setSeen] = useState(events);
-  const [cues, setCues] = useState<readonly Cue[]>([]);
-  const [quip, setQuip] = useState<{ key: number; text: string } | null>(null);
-
-  // New engine events: build this step's cues and, on a mood shift or an Appraisal, the Collector's quip.
-  // (Derived in render, the React pattern for state that follows other state.)
-  if (seen !== events) {
-    setSeen(events);
-    if (ctx !== null && state !== null) {
-      const animate = ctx.globals.FLAGS.ANIMATIONS && !prefersReducedMotion();
-      setCues(animate ? cuesFromEvents(events) : []);
-      const mood = quipMood(events, state.collector.mood);
-      const lines = mood === null ? undefined : ctx.dialogue[MOOD_NAMES[mood] ?? 'composed'];
-      if (lines !== undefined && lines.length > 0) setQuip({ key: state.nActions, text: ctx.render(lines[state.nActions % lines.length] as string) });
-    }
-  }
-
-  // Cues end by themselves, or at the next tap anywhere (skippable, and the tap still does its normal job).
-  useEffect(() => {
-    if (cues.length === 0) return;
-    const clear = (): void => setCues([]);
-    const timer = window.setTimeout(clear, cueDurationMs(cues));
-    document.addEventListener('pointerdown', clear, { capture: true, once: true });
-    return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener('pointerdown', clear, { capture: true });
-    };
-  }, [cues]);
+  const [hovered, setHovered] = useState<Iid | null>(null);
+  const wide = useWide();
+  const { cues, ghosts, quip, log } = useStepFx(ctx, rt, state, events);
 
   if (ctx === null || rt === null || state === null || groups === null) return null;
   const g = ctx.globals;
@@ -103,25 +79,35 @@ export function Duel() {
     return (
       <div className="row monsters" data-side={mine ? 'me' : 'them'}>
         {s.board.map((m, i) => {
+          const niche = (key: string | number, child: ReactNode) => (
+            <div key={key} className="niche">
+              {child}
+            </div>
+          );
           if (m === null) {
+            const ghost = ghosts.find((gh) => gh.side === side && gh.slot === i);
+            if (ghost !== undefined) return niche(`g${i}`, <GhostCard ghost={ghost} />);
             const open = mine && plan.summon !== null;
-            return open ? (
-              <button key={i} type="button" className="empty-slot" data-glow="slot" aria-label="Empty monster slot, summon here" onClick={() => doAct(plan.summon as Action)}>
-                <Glyph id="pos" size={22} />
-              </button>
-            ) : (
-              <div key={i} className="empty-slot" aria-label="Empty monster slot" />
+            return niche(
+              i,
+              open ? (
+                <button type="button" className="empty-slot" data-glow="slot" aria-label="Empty monster slot, summon here" onClick={() => doAct(plan.summon as Action)}>
+                  <Glyph id="pos" size={22} />
+                </button>
+              ) : (
+                <div className="empty-slot" aria-label="Empty monster slot" />
+              ),
             );
           }
           const glow = targets.has(m.iid) ? 'target' : null;
           if (m.faceDown && !mine) {
-            return <CardBack key={m.iid} icon="facedown" label="Face-down monster" glow={glow} onTap={glow === null ? undefined : () => tapBoard(m, false)} />;
+            return niche(m.iid, <CardBack icon="facedown" label="Face-down monster" glow={glow} onTap={glow === null ? undefined : () => tapBoard(m, false)} />);
           }
           const c = view(m.iid);
           const dim = (sel !== null || pending !== null) && glow === null && !(sel?.t === 'board' && sel.iid === m.iid);
-          return (
+          return niche(
+            m.iid,
             <MiniCard
-              key={m.iid}
               view={c}
               monster={m}
               side={mine ? 'me' : 'them'}
@@ -132,7 +118,8 @@ export function Duel() {
               preview={glow === null ? undefined : hintFor(m.iid)}
               onTap={() => tapBoard(m, mine)}
               onLong={() => setInspected(m.iid)}
-            />
+              onHover={(on) => setHovered(on ? m.iid : null)}
+            />,
           );
         })}
       </div>
@@ -194,6 +181,7 @@ export function Duel() {
           cue={cueFor(iid)}
           onTap={() => (mulligan ? setInspected(iid) : setSel(selected ? null : { t: 'hand', iid, faceDown: false, guard: false }))}
           onLong={() => setInspected(iid)}
+          onHover={(on) => setHovered(on ? iid : null)}
         />
       </div>
     );
@@ -218,7 +206,7 @@ export function Duel() {
   const moodLabel = moodName(g, state);
 
   return (
-    <main className="duel" data-graft={pending !== null ? '' : undefined} onClick={() => setSel(null)}>
+    <main className="duel" data-graft={pending !== null ? '' : undefined} data-lifted={sel !== null ? '' : undefined} onClick={() => setSel(null)}>
       <CollectorHeader
         life={them.life}
         maxLife={g.COLLECTOR_LIFE}
@@ -336,14 +324,7 @@ export function Duel() {
 
           <div className="playerbar">
             <span className="life me" aria-label={`Your life ${me.life}`}>
-              <Glyph id="heart" size={20} filled />
-              <b>{Math.max(0, me.life)}</b>
-              <span className="life-max">/{maxLife}</span>
-              {myDamage !== undefined && (
-                <span className="float cue cue-float" style={{ '--b': myDamage.beat } as CSSProperties}>
-                  -{myDamage.amount}
-                </span>
-              )}
+              <LifeSeal life={me.life} maxLife={maxLife} hit={myDamage} />
             </span>
             {!mulligan && groups.graftBegin !== null && (
               <button type="button" className="btn" onClick={() => doAct(groups.graftBegin as Action)}>
@@ -359,7 +340,8 @@ export function Duel() {
         </footer>
       )}
 
-      {inspected !== null && <Inspect iid={inspected} onClose={() => setInspected(null)} />}
+      {wide && <SidePanel shown={inspected ?? hovered} pinned={inspected !== null} onUnpin={() => setInspected(null)} log={log} />}
+      {!wide && inspected !== null && <Inspect iid={inspected} onClose={() => setInspected(null)} />}
     </main>
   );
 }

@@ -3,7 +3,7 @@
 import type { GameEvent, Iid, Side } from '@vault-duel/engine';
 
 export type CueKind =
-  | 'enter' | 'graft' | 'lunge' | 'hit' | 'ward' | 'flash' | 'damage' | 'heal' | 'intent' | 'gavel' | 'mood';
+  | 'enter' | 'graft' | 'lunge' | 'hit' | 'ward' | 'flash' | 'damage' | 'heal' | 'intent' | 'gavel' | 'mood' | 'burn' | 'taken';
 
 export interface Cue {
   readonly kind: CueKind;
@@ -28,7 +28,8 @@ export function cuesFromEvents(events: readonly GameEvent[]): Cue[] {
     switch (e.e) {
       case 'Summoned': add({ kind: 'enter', iid: e.iid }); break;
       case 'Grafted': add({ kind: 'graft', iid: e.iid }); break;
-      case 'Appraised': add({ kind: 'flash', iid: e.iid }); break;
+      case 'Appraised': add({ kind: 'taken', iid: e.iid }, false); add({ kind: 'flash', iid: e.iid }); break;
+      case 'Destroyed': add({ kind: 'burn', iid: e.iid, side: e.side }); break;
       case 'AttackDeclared': add({ kind: 'lunge', iid: e.attacker }); break;
       case 'CombatResolved': add({ kind: 'hit', iid: e.defender }, false); break;
       case 'WardBroken': add({ kind: 'ward', iid: e.iid }, false); break;

@@ -1,6 +1,8 @@
-import '@fontsource/cormorant/latin-600.css';
-import '@fontsource/cormorant/latin-700.css';
-import '@fontsource-variable/inter/wght.css';
+import '@fontsource/cinzel-decorative/latin-400.css';
+import '@fontsource/cinzel-decorative/latin-700.css';
+import '@fontsource/eb-garamond/latin-400.css';
+import '@fontsource/eb-garamond/latin-400-italic.css';
+import '@fontsource/eb-garamond/latin-700.css';
 import './style/tokens.css';
 import './style/base.css';
 import './style/card.css';

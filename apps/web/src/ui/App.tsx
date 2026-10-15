@@ -1,5 +1,6 @@
 // Screen switch and the shell: the animations flag becomes `data-anim` (CSS zeroes every beat when it is off), the
 // notice toast and, behind FLAGS.DEBUG_OVERLAY, a small state readout.
+import type { CSSProperties } from 'react';
 import { useGame } from './context';
 import { Duel } from './Duel';
 import { Home } from './Home';
@@ -15,6 +16,29 @@ function DebugOverlay() {
   return (
     <div className="debug">
       seed {setup?.seedString}#{setup?.k} · turn {state?.turn} · step {state?.step} · legal {legal.length} · log {actions.length}
+    </div>
+  );
+}
+
+/** Idle atmosphere (D-240): two candle glows and a few drifting ash specks. CSS hides it when motion is off. */
+const ASH = [
+  { x: '8%', t: '17s', d: '0s', dx: '40px' },
+  { x: '22%', t: '21s', d: '-6s', dx: '-30px' },
+  { x: '37%', t: '19s', d: '-11s', dx: '55px' },
+  { x: '55%', t: '23s', d: '-3s', dx: '-45px' },
+  { x: '68%', t: '18s', d: '-14s', dx: '30px' },
+  { x: '81%', t: '22s', d: '-8s', dx: '-50px' },
+  { x: '93%', t: '20s', d: '-16s', dx: '25px' },
+] as const;
+
+function Atmosphere() {
+  return (
+    <div className="atmos" aria-hidden="true">
+      <i className="candle c1" />
+      <i className="candle c2" />
+      {ASH.map((a) => (
+        <i key={a.x} className="ash" style={{ '--x': a.x, '--t': a.t, '--d': a.d, '--dx': a.dx } as CSSProperties} />
+      ))}
     </div>
   );
 }
@@ -73,6 +97,7 @@ export function App() {
           </button>
         </p>
       )}
+      <Atmosphere />
       {body}
       <DebugOverlay />
     </div>

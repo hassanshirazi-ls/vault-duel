@@ -1,34 +1,69 @@
-/* Mini card (D-237, D-238): art, name, Power/Guard, element gem, keyword frame and corner glyphs. */
+/* Mini card (D-237, D-238, D-240): a gilt-framed exhibit with art, name, Power/Guard, element gem set in metal, keyword
+   frame and corner glyphs. Corner icons size from the card's own width (container query units), so they never collide. */
 .mini {
   --w: 84px;
+  --frame: var(--gilt);
+  --ic: clamp(13px, 24cqw, 24px);
   position: relative;
   display: block;
   width: var(--w);
   aspect-ratio: 4 / 5;
-  border-radius: 9px;
-  border: 2px solid var(--gold);
-  background: var(--velvet-2);
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.6), inset 0 0 0 1px rgb(0 0 0 / 0.6);
-  color: var(--ivory);
+  border: 3px solid transparent;
+  border-radius: 3px;
+  background: linear-gradient(var(--soot-2), var(--soot-2)) padding-box, var(--frame) border-box;
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.75), 0 0 0 1px #000;
+  color: var(--bone);
   text-align: left;
-  transition: transform var(--beat) var(--ease), box-shadow var(--beat), opacity var(--beat);
-  contain: layout style;
+  container-type: inline-size;
+  transition: transform var(--beat) var(--ease), box-shadow var(--beat), opacity var(--beat), filter var(--beat);
 }
 .mini-clip {
   position: absolute;
   inset: 0;
-  border-radius: 6px;
   overflow: hidden;
+}
+.mini-clip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 12px 2px rgb(0 0 0 / 0.85);
+  pointer-events: none;
 }
 .mini.large {
   --w: 120px;
 }
+@container (max-width: 72px) {
+  .mini-col > :nth-child(n + 3) {
+    display: none;
+  }
+  .mini .mini-stats {
+    font-size: 10.5px;
+    left: 2px;
+    right: 2px;
+  }
+  .mini .mini-stats .stat {
+    gap: 0;
+    padding: 0 1px;
+    border-width: 0;
+  }
+  .mini .mini-stats .stat svg {
+    width: 8px;
+    height: 8px;
+  }
+}
 
-/* placeholder art: dark kind silhouette on a radial glow in the element color */
+/* placeholder art: dark kind silhouette on a radial glow in the element color, under cracked lacquer */
 .art {
   position: absolute;
   inset: 0;
   background: radial-gradient(ellipse at 50% 100%, #0c080c 0%, #14101a 100%);
+}
+.art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--crack);
+  pointer-events: none;
 }
 .art-glow {
   position: absolute;
@@ -57,40 +92,59 @@
 }
 .mini-shade {
   position: absolute;
-  inset: 45% 0 0;
-  background: linear-gradient(transparent, rgb(8 5 9 / 0.92) 62%);
+  inset: 42% 0 0;
+  background: linear-gradient(transparent, rgb(8 5 6 / 0.94) 60%);
 }
 .mini-name {
   position: absolute;
   left: 4px;
   right: 4px;
   bottom: 21px;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 700;
-  font-size: 12.5px;
-  line-height: 1.02;
-  text-shadow: 0 1px 2px #000;
+  font-size: clamp(10px, 15cqw, 15px);
+  line-height: 1;
+  text-shadow: 0 1px 2px #000, 0 0 3px #000;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+@container (min-width: 88px) {
+  .mini-name {
+    font-family: var(--font-display);
+    font-size: clamp(9px, 10.5cqw, 14px);
+    line-height: 1.05;
+    -webkit-line-clamp: 2;
+    bottom: 24px;
+  }
 }
 .mini-stats {
   position: absolute;
   left: 3px;
   right: 3px;
-  bottom: 2px;
+  bottom: 3px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-weight: 700;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
+  font-size: clamp(12px, 17cqw, 17px);
+  line-height: 1;
 }
 .stat {
   display: inline-flex;
   align-items: center;
   gap: 2px;
+}
+.mini-stats .stat {
+  font-size: inherit;
+  padding: 1px 3px;
+  border-radius: 2px;
+  background: rgb(0 0 0 / 0.62);
+  border: 1px solid var(--gold-lo);
+}
+.mini-stats .stat svg {
+  width: 0.8em;
+  height: 0.8em;
 }
 .stat.p {
   color: #ffb08a;
@@ -104,40 +158,49 @@
 .stat[data-mod='down'] b {
   color: var(--bad);
 }
-.mini-gem {
+
+/* corner columns: element gem, then position and Unstable on the left; keyword glyphs, then Ascended on the right */
+.mini-col {
   position: absolute;
-  top: 3px;
-  left: 3px;
-}
-.mini-kw {
-  position: absolute;
-  top: 3px;
-  right: 3px;
+  top: 2px;
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+.mini-col.l {
+  left: 2px;
+}
+.mini-col.r {
+  right: 2px;
+}
+.mini .gem {
+  width: var(--ic);
+  height: var(--ic);
+  border-width: 1.5px;
+}
+.mini .gem svg,
+.mini .kw-glyph svg,
+.mini .tag svg {
+  width: 62%;
+  height: 62%;
 }
 .kw-glyph {
   display: grid;
   place-items: center;
   width: 20px;
   height: 20px;
-  border-radius: 5px;
-  background: rgb(10 7 11 / 0.82);
-  border: 1px solid var(--gold-lo);
+  border-radius: 2px;
+  background: rgb(10 7 8 / 0.88);
+  border: 1px solid var(--gold);
   color: var(--gold-hi);
+}
+.mini .kw-glyph {
+  width: var(--ic);
+  height: var(--ic);
 }
 .kw-glyph[data-flaw] {
   color: var(--flaw);
   border-color: var(--flaw);
-}
-.mini-tags {
-  position: absolute;
-  top: 3px;
-  left: 50%;
-  translate: -50% 0;
-  display: flex;
-  gap: 2px;
 }
 .tag {
   display: grid;
@@ -145,12 +208,17 @@
   min-width: 18px;
   height: 18px;
   padding: 0 3px;
-  border-radius: 9px;
-  background: rgb(10 7 11 / 0.85);
-  border: 1px solid var(--gold-lo);
-  font-size: 10px;
-  font-weight: 700;
+  border-radius: 2px;
+  background: rgb(10 7 8 / 0.88);
+  border: 1px solid var(--gold);
+  font-size: 11px;
   color: var(--gold-hi);
+}
+.mini .tag {
+  width: var(--ic);
+  height: var(--ic);
+  min-width: 0;
+  padding: 0;
 }
 .tag[data-warn] {
   color: var(--flaw);
@@ -164,22 +232,26 @@
   inset: 0;
   display: grid;
   place-items: center;
-  color: var(--ivory);
+  color: var(--bone);
   opacity: 0.85;
 }
 
-/* back of a hidden card (the Collector's traps and face-down monsters) */
+/* back of a hidden card (the Collector's traps and face-down monsters): oxblood velvet, gilt lattice */
 .mini.back .mini-clip {
   background:
-    radial-gradient(circle at 50% 50%, var(--gold-lo) 0 6px, transparent 7px),
-    repeating-linear-gradient(45deg, #2a1d2a 0 6px, #1e1520 6px 12px);
+    radial-gradient(circle at 50% 50%, var(--gold) 0 5px, var(--oxblood-lo) 6px 8px, transparent 9px),
+    repeating-linear-gradient(45deg, transparent 0 7px, rgb(156 124 60 / 0.35) 7px 8px),
+    repeating-linear-gradient(-45deg, transparent 0 7px, rgb(156 124 60 / 0.35) 7px 8px),
+    var(--moth),
+    linear-gradient(var(--oxblood), var(--oxblood-lo));
+  background-size: auto, auto, auto, var(--moth-size), auto;
 }
 .mini.back .back-icon {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  color: var(--gold-hi);
+  color: var(--soot);
 }
 
 /* ---- keyword frame treatments, keyed by KeywordDef.visual (D-195). Unknown ids get the plain gilt frame. ---- */
@@ -189,8 +261,9 @@
   border-radius: inherit;
 }
 .mini[data-frame='iron-shield-border'] {
-  border: 4px solid #b9c0c8;
-  box-shadow: 0 2px 8px #000, inset 0 0 0 2px #4a5058, 0 0 0 1.5px #1a1d21;
+  --frame: linear-gradient(135deg, #e4e8ec 0%, #6b727a 40%, #2e3338 58%, #aeb5bd 100%);
+  border-width: 4px;
+  box-shadow: 0 3px 8px #000, 0 0 0 1px #000;
 }
 .mini[data-frame='iron-shield-border'] .fx-a {
   inset: -3px;
@@ -201,31 +274,30 @@
     radial-gradient(circle at calc(100% - 5px) calc(100% - 5px), #e9edf2 0 2px, transparent 2.5px);
 }
 .mini[data-frame='spear-notch-on-frame'] .fx-a {
-  top: -7px;
+  top: -8px;
   left: 50%;
   width: 18px;
   height: 18px;
   translate: -50% 0;
-  background: var(--velvet);
+  background: var(--soot);
   rotate: 45deg;
-  border: 2px solid var(--gold);
+  border: 2px solid var(--gold-hi);
   border-right-color: transparent;
   border-bottom-color: transparent;
   border-radius: 0;
 }
 .mini[data-frame='pale-barrier'] {
-  border-color: #cfe9ff;
-  box-shadow: 0 0 10px 2px rgb(190 230 255 / 0.65), inset 0 0 12px 3px rgb(190 230 255 / 0.55);
+  --frame: linear-gradient(135deg, #f4fbff, #8cc4e8 50%, #e8f6ff);
+  box-shadow: 0 0 10px 2px rgb(190 230 255 / 0.6), inset 0 0 12px 3px rgb(190 230 255 / 0.5), 0 0 0 1px #000;
 }
 .mini[data-frame='pale-barrier'] .fx-a {
   inset: 0;
   border: 1px solid rgb(255 255 255 / 0.8);
-  border-radius: 7px;
   background: linear-gradient(135deg, rgb(255 255 255 / 0.18), transparent 40%);
 }
 .mini[data-frame='ghost-wisps'] {
-  border-color: #b9a6d8;
-  box-shadow: 0 0 10px 2px rgb(185 166 216 / 0.55);
+  --frame: linear-gradient(135deg, #e0d4f3, #8b72b8 50%, #cdbde8);
+  box-shadow: 0 0 10px 2px rgb(185 166 216 / 0.5), 0 0 0 1px #000;
 }
 .mini[data-frame='ghost-wisps'] .fx-a {
   inset: -9px;
@@ -244,7 +316,7 @@
 .mini[data-frame='faded-double-image'] .fx-a {
   inset: 0;
   translate: 4px -3px;
-  border: 2px solid var(--gold);
+  border: 2px solid var(--gold-hi);
   opacity: 0.45;
   z-index: -1;
 }
@@ -253,54 +325,105 @@
   bottom: 20%;
   left: -12px;
   width: 16px;
-  background: repeating-linear-gradient(0deg, rgb(232 204 126 / 0.85) 0 2px, transparent 2px 7px);
+  background: repeating-linear-gradient(0deg, rgb(210 178 106 / 0.85) 0 2px, transparent 2px 7px);
   mask-image: linear-gradient(90deg, transparent, #000);
 }
 
-/* Flaws: cracked red frame, plus the keyword-style frame id (`<flaw>-frame`) as data-flaw-frame for art to hook */
+/* Flaws and Unstable: a cracked oxblood frame with red cracks over the art */
 .mini[data-flaw] {
-  border-color: #b8453f;
+  --frame: linear-gradient(135deg, #8c2b33, #32090d 50%, #8c2b33);
 }
-.mini[data-flaw] .fx-b {
+.mini[data-flaw] .fx-b,
+.mini[data-unstable] .fx-b {
   inset: 0;
+  z-index: 2;
   background: linear-gradient(115deg, transparent 47%, var(--flaw) 47.5% 49%, transparent 49.5%),
     linear-gradient(60deg, transparent 63%, var(--flaw) 63.5% 64.5%, transparent 65%);
-  opacity: 0.7;
+  opacity: 0.45;
 }
 
 /* ---- states ---- */
 .mini[data-selected] {
-  box-shadow: 0 0 0 3px var(--gold-hi), 0 6px 18px rgb(0 0 0 / 0.7);
+  box-shadow: 0 0 0 3px var(--gold-hi), 0 6px 18px rgb(0 0 0 / 0.8);
 }
+/* glowing targets: a static ring plus a pulsing halo (opacity only, so it stays cheap) */
 .mini[data-glow='target'] {
-  box-shadow: 0 0 0 3px var(--gold-hi), 0 0 16px 4px rgb(232 204 126 / 0.7);
-  animation: pulse calc(var(--beat) * 6) ease-in-out infinite alternate;
+  box-shadow: 0 0 0 2px var(--gold-hi), 0 0 14px 3px rgb(210 178 106 / 0.6);
+}
+.mini[data-glow='target']::after,
+.empty-slot[data-glow='slot']::after,
+.trap-slot[data-glow='slot']::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: 2px solid var(--gold-hi);
+  border-radius: 5px;
+  box-shadow: 0 0 12px 2px rgb(210 178 106 / 0.7);
+  pointer-events: none;
+  animation: ring calc(var(--beat) * 6) ease-in-out infinite alternate;
+}
+@keyframes ring {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.3;
+  }
 }
 .mini[data-dim] {
   opacity: 0.55;
 }
-@keyframes pulse {
-  to {
-    box-shadow: 0 0 0 3px var(--gold-hi), 0 0 6px 1px rgb(232 204 126 / 0.4);
+@media (hover: hover) and (pointer: fine) {
+  .mini:hover:not(:disabled) {
+    filter: brightness(1.14);
   }
+}
+.preview-badge {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  z-index: 3;
+  padding: 2px 6px;
+  border-radius: 2px;
+  background: rgb(10 7 8 / 0.94);
+  border: 1px solid var(--gold-hi);
+  color: var(--gold-hi);
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* ---- carved display niches (D-240): an arch cut into stone, cards stand inside ---- */
+.niche {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  border: 2px solid #3d312c;
+  border-radius: calc(var(--w, 84px) * 0.4) calc(var(--w, 84px) * 0.4) 3px 3px / calc(var(--w, 84px) * 0.3) calc(var(--w, 84px) * 0.3) 3px 3px;
+  background:
+    var(--moth),
+    radial-gradient(ellipse at 50% 15%, #000 0%, #140e0e 75%);
+  background-size: var(--moth-size), auto;
+  box-shadow: inset 0 8px 16px #000, inset 0 -2px 0 rgb(210 178 106 / 0.2), 0 1px 0 rgb(255 255 255 / 0.05);
 }
 .empty-slot {
   --w: 84px;
+  position: relative;
   width: var(--w);
   aspect-ratio: 4 / 5;
-  border-radius: 9px;
-  border: 2px dashed var(--gold-lo);
   display: grid;
   place-items: center;
+  border-radius: 2px;
+  border: 1px solid rgb(0 0 0 / 0.6);
+  box-shadow: inset 0 0 14px #000;
   color: var(--gold-lo);
-  background: rgb(255 255 255 / 0.02);
-  transition: box-shadow var(--beat);
 }
 .empty-slot[data-glow='slot'] {
-  border-color: var(--gold-hi);
+  border: 2px solid var(--gold-hi);
   color: var(--gold-hi);
-  background: rgb(232 204 126 / 0.1);
-  animation: pulse calc(var(--beat) * 6) ease-in-out infinite alternate;
+  background: radial-gradient(circle, rgb(210 178 106 / 0.2), transparent 70%);
 }
 
 /* ---- engine-event cues (cues.ts), delayed by beat index; zero --beat makes them instant ---- */
@@ -361,12 +484,227 @@
 }
 @keyframes cue-flash {
   40% {
-    filter: brightness(2) saturate(1.4);
-    box-shadow: 0 0 22px 6px var(--gold-hi);
+    filter: brightness(2) saturate(1.3);
   }
 }
 @keyframes cue-ward {
   40% {
-    box-shadow: 0 0 0 6px rgb(200 235 255 / 0.9), 0 0 22px 8px rgb(200 235 255 / 0.7);
+    filter: brightness(1.7) hue-rotate(160deg);
+  }
+}
+
+/* Graft: the materials stitched together in smoke */
+.fx-smoke,
+.fx-stitch {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+.fx-smoke i {
+  position: absolute;
+  left: 15%;
+  bottom: 10%;
+  width: 70%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(196 178 214 / 0.65), transparent 68%);
+  opacity: 0;
+  animation: smoke calc(var(--beat) * 3.4) ease-out calc(var(--beat) * (var(--b, 0) + var(--i))) both;
+}
+.fx-smoke i:nth-child(1) {
+  --i: 0;
+}
+.fx-smoke i:nth-child(2) {
+  --i: 0.5;
+  left: 0;
+}
+.fx-smoke i:nth-child(3) {
+  --i: 1;
+  left: 30%;
+}
+@keyframes smoke {
+  0% {
+    transform: translateY(20%) scale(0.5);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-70%) scale(1.5);
+    opacity: 0;
+  }
+}
+.fx-stitch {
+  fill: none;
+  stroke: var(--gold-hi);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  width: 100%;
+  height: 100%;
+  stroke-dasharray: 0.035 0.03;
+  animation: stitch calc(var(--beat) * 2.4) ease-out calc(var(--beat) * var(--b, 0)) both;
+}
+@keyframes stitch {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 1;
+  }
+  60% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 0;
+  }
+}
+
+/* Destroyed and taken cards leave a ghost in their slot: burning to embers, or snatched by a shadow hand */
+.ghost-card {
+  position: relative;
+  width: var(--w);
+  aspect-ratio: 4 / 5;
+  pointer-events: none;
+}
+.ghost-card .mini {
+  --w: 100%;
+  width: 100%;
+}
+.ghost-card[data-kind='burn'] .mini {
+  animation: burn-card calc(var(--beat) * 2) ease-in calc(var(--beat) * var(--b, 0)) both;
+}
+.ghost-card[data-kind='taken'] .mini {
+  animation: taken-card calc(var(--beat) * 3) ease-in calc(var(--beat) * var(--b, 0)) both;
+}
+@keyframes burn-card {
+  0% {
+    filter: none;
+    opacity: 1;
+  }
+  35% {
+    filter: brightness(1.7) sepia(1) saturate(4);
+    opacity: 1;
+  }
+  100% {
+    filter: brightness(0.15) sepia(1);
+    opacity: 0;
+    transform: scale(0.93);
+  }
+}
+.char {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 3;
+}
+.char::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(0deg, transparent 0%, rgb(255 90 20 / 0.95) 30%, rgb(255 190 80 / 0.9) 42%, rgb(30 10 6 / 0.9) 55%, rgb(20 8 6 / 0.95) 100%);
+  animation: char-rise calc(var(--beat) * 2) ease-in calc(var(--beat) * var(--b, 0)) both;
+}
+@keyframes char-rise {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(-40%);
+  }
+}
+.embers i {
+  position: absolute;
+  left: 50%;
+  top: 60%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #ffb04a;
+  box-shadow: 0 0 4px 1px #ff6a1a;
+  opacity: 0;
+  z-index: 4;
+  animation: ember calc(var(--beat) * 3.2) ease-out calc(var(--beat) * (var(--b, 0) + 0.4)) both;
+}
+.embers i:nth-child(1) {
+  --dx: -30px;
+  --dy: -60px;
+}
+.embers i:nth-child(2) {
+  --dx: 24px;
+  --dy: -72px;
+  left: 35%;
+}
+.embers i:nth-child(3) {
+  --dx: 8px;
+  --dy: -90px;
+  left: 62%;
+}
+.embers i:nth-child(4) {
+  --dx: -16px;
+  --dy: -50px;
+  left: 20%;
+}
+.embers i:nth-child(5) {
+  --dx: 36px;
+  --dy: -64px;
+  left: 78%;
+}
+@keyframes ember {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy));
+    opacity: 0;
+  }
+}
+@keyframes taken-card {
+  0%,
+  45% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-140%) scale(0.8);
+    opacity: 0;
+    filter: brightness(0.3);
+  }
+}
+.shadow-hand {
+  position: absolute;
+  left: -10%;
+  width: 120%;
+  top: -10%;
+  z-index: 5;
+  color: #05030a;
+  filter: drop-shadow(0 0 6px #7a4fb8);
+  opacity: 0;
+  animation: hand-grab calc(var(--beat) * 3) ease-in-out calc(var(--beat) * var(--b, 0)) both;
+}
+@keyframes hand-grab {
+  0% {
+    transform: translateY(-160%);
+    opacity: 0;
+  }
+  30% {
+    transform: translateY(0);
+    opacity: 0.97;
+  }
+  50% {
+    transform: translateY(0);
+    opacity: 0.97;
+  }
+  100% {
+    transform: translateY(-190%);
+    opacity: 0;
   }
 }

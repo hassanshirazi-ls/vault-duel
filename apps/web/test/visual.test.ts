@@ -8,6 +8,7 @@ import { planFor } from '../src/view/selection';
 import { elementColorVar, elementInkVar } from '../src/visual/elements';
 import { cuesFromEvents, MAX_BEATS, quipMood } from '../src/visual/cues';
 import { frameFor } from '../src/visual/keywordFrame';
+import { logLines } from '../src/view/log';
 import { roundTrack } from '../src/visual/roundTrack';
 import { hasGlyph } from '../src/visual/glyphs';
 import { started } from './helpers';
@@ -81,10 +82,32 @@ describe('cues from events', () => {
     const many = cuesFromEvents(Array.from({ length: 20 }, (_, i) => ({ e: 'Summoned' as const, side: 1 as const, iid: i, slot: 0, pos: 0 as const, faceDown: false })));
     expect(Math.max(...many.map((c) => c.beat))).toBe(MAX_BEATS);
   });
+  it('burns destroyed cards and has a shadow hand take appraised ones', () => {
+    const cues = cuesFromEvents([
+      { e: 'Destroyed', iid: 4, side: 1, cause: 'combat', by: 2 },
+      { e: 'Appraised', iid: 7, fromSlot: 1, to: 'board', toSlot: 0 },
+    ]);
+    expect(cues.map((c) => c.kind)).toEqual(['burn', 'taken', 'flash']);
+    expect(cues[1]?.beat).toBe(cues[2]?.beat);
+  });
   it('speaks on a mood shift or an Appraisal, not otherwise', () => {
     expect(quipMood([{ e: 'MoodChanged', from: 0, to: 2 }], 2)).toBe(2);
     expect(quipMood([{ e: 'AppraisalAttempt', round: 3 }], 1)).toBe(1);
     expect(quipMood([{ e: 'TurnEnded', turn: 1 }], 0)).toBeNull();
+  });
+});
+
+describe('duel log lines', () => {
+  it('describes events with names from content and numbers from the events', async () => {
+    const h = await started('2026-10-14');
+    const state = h.store.getState().state as NonNullable<ReturnType<typeof h.store.getState>['state']>;
+    const lines = logLines(ctx, state, [
+      { e: 'Damage', side: 0, amount: 3, source: -1, lifeAfter: 17 },
+      { e: 'AppraisalAttempt', round: 3 },
+      { e: 'CardDrawn', side: 0, iid: 0, byEffect: false },
+    ]);
+    expect(lines.map((l) => l.text)).toEqual(['You took 3 damage', 'The Collector appraises']);
+    expect(lines.every((l) => hasGlyph(l.icon))).toBe(true);
   });
 });
 

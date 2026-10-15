@@ -2,7 +2,7 @@
 // the mood indicator and a one-line quip that fades by itself. The 1-12 round track lives in RoundTrack.
 import type { CSSProperties } from 'react';
 import type { Cue } from '../visual/cues';
-import { Glyph } from '../visual/glyphs';
+import { Glyph, InkSplash } from '../visual/glyphs';
 
 const MOOD_LABEL: Readonly<Record<string, string>> = { composed: 'Composed', agitated: 'Agitated', desperate: 'Desperate' };
 
@@ -60,6 +60,28 @@ function Face({ mood }: { readonly mood: number }) {
   );
 }
 
+/** The red wax life seal: heart and number, with the blood-ink splash and the floating loss when damage lands (D-240). */
+export function LifeSeal({ life, maxLife, hit }: { readonly life: number; readonly maxLife: number; readonly hit: Cue | undefined }) {
+  const style = { '--b': hit?.beat ?? 0 } as CSSProperties;
+  return (
+    <>
+      <span className="seal">
+        <Glyph id="heart" size={11} filled />
+        <b>{Math.max(0, life)}</b>
+      </span>
+      <span className="life-max">/{maxLife}</span>
+      {hit !== undefined && (
+        <>
+          <InkSplash className="splash" style={style} />
+          <span className="float cue cue-float" style={style}>
+            -{hit.amount}
+          </span>
+        </>
+      )}
+    </>
+  );
+}
+
 export interface CollectorHeaderProps {
   readonly life: number;
   readonly maxLife: number;
@@ -77,13 +99,18 @@ export interface CollectorHeaderProps {
 
 export function CollectorHeader(p: CollectorHeaderProps) {
   const damage = p.cues.find((c) => c.kind === 'damage' && c.side === 1);
-  const gavel = p.cues.some((c) => c.kind === 'gavel');
+  const gavel = p.cues.find((c) => c.kind === 'gavel');
   const intentCue = p.cues.find((c) => c.kind === 'intent');
   return (
     <header className="collector">
       <div className="portrait" data-mood={p.mood}>
         <Face mood={p.mood} />
       </div>
+      {gavel !== undefined && (
+        <span className="gavel-fx cue" style={{ '--b': gavel.beat } as CSSProperties}>
+          <Glyph id="gavel" size={34} filled />
+        </span>
+      )}
       <div className="collector-main">
         <div className="collector-row">
           <h2 className="collector-name">The Collector</h2>
@@ -107,17 +134,10 @@ export function CollectorHeader(p: CollectorHeaderProps) {
             disabled={!p.directGlow}
             aria-label={`Collector life ${p.life}${p.directGlow ? ', attack directly' : ''}`}
           >
-            <Glyph id="heart" size={18} filled />
-            <b>{Math.max(0, p.life)}</b>
-            <span className="life-max">/{p.maxLife}</span>
+            <LifeSeal life={p.life} maxLife={p.maxLife} hit={damage} />
             {p.directGlow && (
               <span className="life-hit">
                 <Glyph id="sword" size={14} /> {p.previewDirect ?? 'Attack'}
-              </span>
-            )}
-            {damage !== undefined && (
-              <span className="float cue cue-float" style={{ '--b': damage.beat } as CSSProperties}>
-                -{damage.amount}
               </span>
             )}
           </button>
@@ -129,7 +149,7 @@ export function CollectorHeader(p: CollectorHeaderProps) {
           )}
         </div>
         {p.appraisal !== null && (
-          <p className={`appraisal ${gavel ? 'cue cue-flash' : ''}`}>
+          <p className={`appraisal ${gavel !== undefined ? 'cue cue-flash' : ''}`} style={{ '--b': gavel?.beat ?? 0 } as CSSProperties}>
             <Glyph id="gavel" size={16} /> {p.appraisal}
           </p>
         )}

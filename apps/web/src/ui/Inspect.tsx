@@ -1,4 +1,5 @@
-// Card inspect bottom sheet (D-238): art thumbnail, name, element and kind, Power/Guard, every keyword or Flaw with its
+// Card inspect (D-238): a bottom sheet on phones and tablets, a card in the ledger panel on wide screens (D-240).
+// Content: art thumbnail, name, element and kind, Power/Guard, every keyword or Flaw with its
 // rule, and the element's beats/weak-to line. All rule text comes through renderText (the view layer's `ctx.render`).
 import type { Iid } from '@vault-duel/engine';
 import { cardView, elementMatchups } from '../view/cards';
@@ -9,7 +10,8 @@ import { Gem } from './Gem';
 import { Sheet } from './Sheet';
 import { elementStyle } from '../visual/elements';
 
-export function Inspect({ iid, onClose }: { readonly iid: Iid; readonly onClose: () => void }) {
+/** The card details, without a container: the sheet and the wide-screen ledger panel both draw this. */
+export function InspectCard({ iid, onClose }: { readonly iid: Iid; readonly onClose?: (() => void) | undefined }) {
   const ctx = useGame((s) => s.ctx);
   const rt = useGame((s) => s.rt);
   const state = useGame((s) => s.state);
@@ -17,7 +19,6 @@ export function Inspect({ iid, onClose }: { readonly iid: Iid; readonly onClose:
   const c = cardView(ctx, rt.engine, state, iid);
   const matchups = c.element === null ? null : elementMatchups(ctx, c.element.id);
   return (
-    <Sheet modal onClose={onClose} label={`Card: ${c.name}`}>
       <div className="inspect">
         <div className="inspect-body">
         <div className="inspect-head">
@@ -97,10 +98,24 @@ export function Inspect({ iid, onClose }: { readonly iid: Iid; readonly onClose:
           </p>
         )}
         </div>
-        <button type="button" className="btn ghost inspect-close" onClick={onClose}>
-          <Glyph id="cross" /> Close
-        </button>
+        {onClose !== undefined && (
+          <button type="button" className="btn ghost inspect-close" onClick={onClose}>
+            <Glyph id="cross" /> Close
+          </button>
+        )}
       </div>
+  );
+}
+
+export function Inspect({ iid, onClose }: { readonly iid: Iid; readonly onClose: () => void }) {
+  const ctx = useGame((s) => s.ctx);
+  const rt = useGame((s) => s.rt);
+  const state = useGame((s) => s.state);
+  if (ctx === null || rt === null || state === null) return null;
+  const c = cardView(ctx, rt.engine, state, iid);
+  return (
+    <Sheet modal onClose={onClose} label={`Card: ${c.name}`}>
+      <InspectCard iid={iid} onClose={onClose} />
     </Sheet>
   );
 }

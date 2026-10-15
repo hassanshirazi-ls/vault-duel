@@ -58,7 +58,6 @@ export function GraftSheet({ onInspect }: { readonly onInspect: (iid: Iid) => vo
           </button>
         </div>
 
-        <div className="bench-scroll">
         <div className="slots">
           {Array.from({ length: slotCount }, (_, i) => {
             const iid = pending.mats[i];
@@ -97,6 +96,7 @@ export function GraftSheet({ onInspect }: { readonly onInspect: (iid: Iid) => vo
           })}
         </div>
 
+        <div className="bench-scroll">
         <div className="preview" aria-live="polite">
           {preview === null ? (
             <p className="muted">{STAGE_HINT[pending.stage] ?? ''}</p>

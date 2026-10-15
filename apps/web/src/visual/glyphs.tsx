@@ -1,7 +1,7 @@
 // Engraved glyphs and kind silhouettes, keyed by the icon / silhouette ids that content carries (elements.json
 // `icon`, KeywordDef `icon`, kinds.json `silhouette`). Adding one is one entry in a table; an id with no entry
 // draws the plain fallback glyph (D-238), so a content edit never breaks the UI.
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 const STROKE: Readonly<Record<string, ReactNode>> = {
   // elements
@@ -80,6 +80,8 @@ const STROKE: Readonly<Record<string, ReactNode>> = {
   spell: <path d="m12 3 2.5 6 6.5.5-5 4.5 1.5 6.5-5.5-3.5L6.5 20.5 8 14 3 9.5 9.5 9z" />,
   star: <path d="m12 3 2.7 5.8 6.3.7-4.7 4.3 1.3 6.2L12 17l-5.6 3 1.3-6.2L3 9.5l6.3-.7z" />,
   pos: <path d="M12 3v6M12 15v6M3 12h6M15 12h6" />,
+  deck: <path d="M7 8h11v12H7zM4 5h11M4 5v12" />,
+  tomb: <path d="M7 21V10a5 5 0 0 1 10 0v11zM12 10v6M9.5 12.5h5M4 21h16" />,
 };
 
 const FALLBACK: ReactNode = <path d="M12 4 20 12 12 20 4 12z" />;
@@ -171,6 +173,30 @@ export function Silhouette({ id, className }: { readonly id: string; readonly cl
   return (
     <svg className={className} viewBox="0 0 100 100" fill="currentColor" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid meet">
       {body}
+    </svg>
+  );
+}
+
+/** A blood-ink blot, drawn over the life seal when damage lands (D-240). */
+export function InkSplash({ className, style }: { readonly className?: string; readonly style?: CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 100 100" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M50 14c5 8 6 14 12 12 8-4 14-12 18-6s-4 12 0 18 14 4 12 12-12 8-12 14 8 14 2 20-12-4-18 2-4 16-12 14-8-12-14-14-16 6-20-2 6-14 4-20-14-8-12-16 12-6 16-10-2-14 4-18 10 6 14 4 6-8 8-14z" />
+      <circle cx="14" cy="22" r="4" />
+      <circle cx="88" cy="78" r="5" />
+      <circle cx="82" cy="12" r="3" />
+      <circle cx="10" cy="80" r="3.5" />
+    </svg>
+  );
+}
+
+/** The shadow hand that takes a card on an Appraisal (D-240). Dark with a violet rim, drawn from the top. */
+export function ShadowHand({ className }: { readonly className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 100 120" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M32 0h36v38c6-4 12-2 12 4l-4 14c8 0 10 6 8 12l-6 22c-2 8-12 14-24 14H40c-12 0-20-8-22-18L12 56c-2-6 2-10 8-8l6 8V0z" />
+      <path d="M26 56l-4 56 8-8 4-52zM44 62l-2 54 8-6 2-50zM60 60l2 48 8-8-2-44z" opacity="0.5" />
+      <path d="M26 38 18 68 12 62zM74 40l8 22-8 4z" />
     </svg>
   );
 }

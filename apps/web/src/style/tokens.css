@@ -1,24 +1,37 @@
-/* Design tokens (D-237, D-238). Palette first, then one token pair per element id: --el-<id> is the gem color and
-   --el-on-<id> the ink drawn on it. A new element is one entry here; an id without an entry uses --el-neutral. */
+/* Design tokens (D-237, D-238, D-240: the cursed auction house). Base palette first (soot, oxblood, tarnished gold,
+   bone, with shades derived from those four), then textures built from gradients and inline SVG, then one token pair
+   per element id: --el-<id> is the gem color and --el-on-<id> the ink drawn on it. A new element is one entry here;
+   an id without an entry uses --el-neutral. */
 :root {
-  /* velvet, gold leaf, ivory, brass */
-  --velvet: #120d12;
-  --velvet-2: #1b141b;
-  --velvet-3: #271c27;
-  --gold: #c9a24a;
-  --gold-hi: #e8cc7e;
-  --gold-lo: #7a6029;
-  --ivory: #f2ead3;
-  --ivory-dim: #bdb49a;
-  --paper: #efe6cc;
-  --paper-ink: #2a2014;
-  --brass: #a0803c;
-  --brass-dark: #3a2d14;
-  --flaw: #ff5a52;
+  /* soot and iron */
+  --soot: #0d0a0b;
+  --soot-2: #171112;
+  --soot-3: #241a1b;
+  --iron: #2d2625;
+  --iron-2: #1b1615;
+  --iron-hi: #4a403d;
+  /* oxblood */
+  --oxblood: #5a1a1f;
+  --oxblood-hi: #8c2b33;
+  --oxblood-lo: #32090d;
+  /* tarnished gold and brass */
+  --gold: #9c7c3c;
+  --gold-hi: #d2b26a;
+  --gold-lo: #5c4722;
+  --brass: #b08f4a;
+  --brass-dark: #2f2410;
+  /* bone and aged paper */
+  --bone: #d9cdb4;
+  --bone-dim: #ada18a;
+  --paper: #e0d5ba;
+  --paper-ink: #241a10;
+  /* signal inks (always paired with an icon) */
+  --flaw: #ff6a5e;
   --good: #8fd09a;
-  --bad: #ff7a70;
+  --bad: #ff8a80;
+  --blood: #7d0f17;
 
-  /* element gems (D-238 jewel tones), keyed by element id */
+  /* element gems (D-238 jewel tones, set in metal by D-240), keyed by element id */
   --el-ember: #c8323a;
   --el-on-ember: #fff3ee;
   --el-gale: #8fd3a8;
@@ -32,17 +45,34 @@
   --el-neutral: #8a8478;
   --el-on-neutral: #15110d;
 
-  /* type */
-  --font-display: 'Cormorant', 'Cinzel', Georgia, 'Times New Roman', serif;
-  --font-body: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* type (D-240): engraved serif throughout, no sans */
+  --font-display: 'Cinzel Decorative', 'Cinzel', Georgia, 'Times New Roman', serif;
+  --font-body: 'EB Garamond', Garamond, Georgia, 'Times New Roman', serif;
+  --font-num: 'EB Garamond', Garamond, Georgia, 'Times New Roman', serif;
 
-  /* motion: one beat is about 200 ms (D-237); zero turns every animation off */
+  /* textures: moth-eaten velvet, cracked lacquer, thorned filigree, rivets. Pure CSS and inline SVG, no files. */
+  --moth:
+    radial-gradient(circle at 12% 22%, rgb(0 0 0 / 0.55) 0 1.2px, transparent 1.9px),
+    radial-gradient(circle at 63% 71%, rgb(0 0 0 / 0.5) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 88% 38%, rgb(0 0 0 / 0.45) 0 1.7px, transparent 2.4px);
+  --moth-size: 97px 83px, 61px 71px, 113px 89px;
+  --weave: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.014) 0 1px, transparent 1px 3px);
+  --crack: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cpath d='M0 40l22 8 10 22 28 6 14 26 40 8M60 76l-6 30 18 30M32 70l-24 18M120 0l-10 30 24 22 26 4M134 52l-4 40 20 26' fill='none' stroke='%23d2b26a' stroke-opacity='.17' stroke-width='.8'/%3E%3C/svg%3E");
+  --thorns: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='12'%3E%3Cpath d='M0 6c6 0 6-3 12-3s6 6 12 6 6-6 12-6 6 3 12 3M12 3l2-3M24 9l2 3M36 3l2-3' fill='none' stroke='%239c7c3c' stroke-width='1.1' stroke-linecap='round'/%3E%3Ccircle cx='24' cy='6' r='1.1' fill='%23d2b26a'/%3E%3C/svg%3E");
+  --rivets:
+    radial-gradient(circle at 7px 50%, #ecd698 0 0.9px, #9a7a33 1.5px, #3b2c0f 2.6px, transparent 3.1px),
+    radial-gradient(circle at calc(100% - 7px) 50%, #ecd698 0 0.9px, #9a7a33 1.5px, #3b2c0f 2.6px, transparent 3.1px);
+  --gilt: linear-gradient(135deg, #e3c77f 0%, #9c7c3c 30%, #5c4722 55%, #b8964a 80%, #6b5428 100%);
+  --iron-plate: linear-gradient(#3a322f 0%, #251f1d 48%, #1a1514 100%);
+  --brass-plate: linear-gradient(#d9bb72 0%, #b08f4a 42%, #7b5f28 100%);
+
+  /* motion: one beat is about 190 ms (D-237); zero turns every animation off */
   --beat: 190ms;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
-  /* sizes */
+  /* sizes: corners stay small and square-ish; nothing is a pill */
   --tap: 44px;
-  --radius: 10px;
+  --radius: 4px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 

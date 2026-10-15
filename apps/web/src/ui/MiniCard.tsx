@@ -1,5 +1,6 @@
-// The mini card (D-237): art, name, Power/Guard, element gem, keyword frame and corner glyphs. Also used for the
-// hand. Tap and long-press are handled by the caller's callbacks; this component draws and nothing else.
+// The mini card (D-237, D-240): art, name, Power/Guard, element gem, keyword frame and corner glyphs. Also used for the
+// hand. Tap and long-press are handled by the caller's callbacks; this component draws and nothing else. A mouse
+// hovering over it only reports `onHover` (a preview), never an action.
 import type { CSSProperties } from 'react';
 import type { Monster } from '@vault-duel/engine';
 import type { CardView } from '../view/cards';
@@ -26,9 +27,11 @@ export interface MiniCardProps {
   readonly preview?: string | undefined;
   readonly style?: CSSProperties;
   readonly label?: string;
+  /** a mouse entered or left the card; touch and pen never call this */
+  readonly onHover?: ((on: boolean) => void) | undefined;
 }
 
-export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, style, label }: MiniCardProps) {
+export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, style, label, onHover }: MiniCardProps) {
   const press = useLongPress(onTap, onLong);
   const frame = frameFor(view.keywords);
   const faceDown = monster?.faceDown === true;
@@ -36,6 +39,7 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
   const cueStyle = cue === undefined ? undefined : ({ '--b': cue.beat } as CSSProperties);
   const classes = ['mini', large ? 'large' : '', cue === undefined ? '' : `cue cue-${cue.kind}`].filter(Boolean).join(' ');
   const stat = (base: number | null): string => (base === null ? '' : String(base));
+  const status = [monster === undefined ? '' : monster.pos === 0 ? 'Attack position' : 'Guard position', view.ascended ? 'Ascended' : '', unstable ? 'Unstable' : ''].filter(Boolean);
   return (
     <button
       type="button"
@@ -47,10 +51,18 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
       data-selected={selected ? '' : undefined}
       data-dim={dim ? '' : undefined}
       data-down={faceDown ? '' : undefined}
+      data-unstable={unstable ? '' : undefined}
       data-pos={monster?.pos}
       style={{ ...elementStyle(view.element?.id), ...cueStyle, ...style }}
-      aria-label={label ?? `${view.name}${view.power !== null ? `, Power ${stat(view.power)}, Guard ${stat(view.guard)}` : ''}`}
+      aria-label={label ?? `${view.name}${view.power !== null ? `, Power ${stat(view.power)}, Guard ${stat(view.guard)}` : ''}${status.length > 0 ? `, ${status.join(', ')}` : ''}`}
       {...press}
+      onPointerEnter={(e) => {
+        if (e.pointerType === 'mouse') onHover?.(true);
+      }}
+      onPointerLeave={(e) => {
+        press.onPointerLeave();
+        if (e.pointerType === 'mouse') onHover?.(false);
+      }}
     >
       <span className="fx fx-a" />
       <span className="fx fx-b" />
@@ -63,23 +75,16 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
           </span>
         )}
       </span>
-      <span className="mini-gem">
+      <span className="mini-col l">
         <Gem element={view.element} />
         {view.element === null && (
           <span className="gem" style={elementStyle(null)}>
             <Glyph id={view.type === 'trap' ? 'trap' : 'spell'} size={14} />
           </span>
         )}
-      </span>
-      <span className="mini-tags">
         {monster !== undefined && (
           <span className="tag" title={monster.pos === 0 ? 'Attack position' : 'Guard position'}>
             <Glyph id={monster.pos === 0 ? 'sword' : 'shield'} size={12} />
-          </span>
-        )}
-        {view.ascended && (
-          <span className="tag" title="Ascended">
-            <Glyph id="star" size={12} filled />
           </span>
         )}
         {unstable && (
@@ -88,12 +93,17 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
           </span>
         )}
       </span>
-      <span className="mini-kw">
+      <span className="mini-col r">
         {frame.glyphs.map((k) => (
           <span key={k.id} className="kw-glyph" data-flaw={k.flaw ? '' : undefined} title={k.name}>
             <Glyph id={k.icon} size={14} cracked={k.flaw} />
           </span>
         ))}
+        {view.ascended && (
+          <span className="tag" title="Ascended">
+            <Glyph id="star" size={12} filled />
+          </span>
+        )}
       </span>
       <span className="mini-name">{view.name}</span>
       {view.power !== null && (
@@ -107,6 +117,18 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
             <b>{view.guard}</b>
           </span>
         </span>
+      )}
+      {cue?.kind === 'graft' && (
+        <>
+          <span className="fx-smoke">
+            <i />
+            <i />
+            <i />
+          </span>
+          <svg className="fx-stitch" viewBox="0 0 100 125" preserveAspectRatio="none" aria-hidden="true">
+            <path pathLength="1" d="M2 62 14 74 26 52 38 74 50 52 62 74 74 52 86 74 98 60" />
+          </svg>
+        </>
       )}
       {preview !== undefined && <span className="preview-badge">{preview}</span>}
     </button>
