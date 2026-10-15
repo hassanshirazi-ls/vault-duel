@@ -2254,6 +2254,12 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Observed, not tuned (for Phase 3 with the D-229/D-230 items): par ranges from 3 to 12 (10 days at par 3, against BT-3's 9–11), and 57 of the 90 days rate 1 star.
 - Reason: D-236 measured cost; the window gives about two months of headroom before the next regeneration is needed.
 
+**D-256 · Engine exports for turn arithmetic and the signature pick** (closes the D-228 later item)
+- Date: 2026-10-15
+- Question: ai, sim and web each re-implemented the round, the active side and the D-010 signature pick, because the engine kept them internal. Should the engine export them?
+- Decision: Yes. The engine's public index exports `roundOf(s)` and `activeSide(s)` (`stats.ts`), `pickSignature(c, deckList, rng)`, and a thin wrapper `signatureForSeed(c, deckList, seed)` (`setup/signature.ts`). The wrapper takes the full seed string, rerolls included, and draws from that seed's `signature` stream (D-010). The algorithm and the stream key are unchanged. `ai/difficulty.ts › daySetupFor`, `ai/bots/player-view.ts`, `ai/collector/view.ts`, `ai/collector/intent.ts`, `sim/duel.ts` and `web/duel/turn.ts` use them in place of their own copies; web keeps its `activeSideOf`/`roundOfState` names as aliases. A deck with no monster now throws the engine's `EngineError('signature: the deck has no monster')` instead of ai's own error, a case real decks cannot reach. The ai tests still repeat the turn arithmetic as test code.
+- Reason: one source of truth for rules the UI, AI and sim all read. It is a pure refactor: regenerated seeds for a fallback date and an accepted date are byte-identical to the shipped manifest (D-255).
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
