@@ -173,6 +173,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Question: Can the Collector summon face-down?
 - Decision: The engine allows it (rules are symmetric), but the Collector AI never chooses it (`collector.json › ai.allowFaceDown = false`).
 - Reason: his priority list never mentions face-down; keeping it off keeps his play readable and his intents honest.
+- Amended by D-214: `allowFaceDown: true` now has a defined meaning (his guard summons go face-down). The default stays `false`.
 
 **D-026 · The Collector never grafts**
 - Date: 2026-10-14
@@ -365,6 +366,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: The Unpriced is summoned with a dedicated action `summonCovetous{card, sacrifice}`, legal when `sacrifice` is a monster he acquired through Appraisal that is on his board **or in his vault**, and a monster slot is free after the sacrifice. Sacrifice is not destruction (no Ward, Echo, Haunt, Last Rites, Insurance Claim); the sacrificed card goes to its owner's (the player's) discard. It is his one play.
 - Reason: "his ace can only arrive if Appraisal succeeded" — counting the vault means any success enables the ace, which supports the 20–40% appearance target.
 - Paper-sim: A9, A20 — agrees (a vaulted monster is a legal sacrifice; sacrifice is not destruction).
+- Amended by D-213: when several sacrifices are legal, the AI sacrifices a vault monster before a board monster.
 
 **D-055 · Covetous with Appraisal disabled**
 - Date: 2026-10-14
@@ -556,12 +558,14 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - Desperate — "attacks anything, including face-down monsters": every able attack-position monster attacks (best target per D-091), face-down threshold (rule 3) drops to 0, reposition puts all monsters in attack.
 - Reason: smallest set of switches that make each prose line true; all are data so designers can retune.
 - Paper-sim: A4 differs. The paper-sim used: Composed = the list exactly as written; Agitated = attack rule 2 also takes ties; Desperate = attacks face-down monsters with any Power and takes trades. **Kept as decided**, because the paper-sim's Composed ignores DESIGN's written "favors guard and traps", Agitated drops "prioritizes removing your monsters", and Desperate is weaker than "attacks anything". Each switch is one data field in `collector.json`, so the paper-sim variant can be A/B-tested in the Phase 3 sim at no code cost (logged as M-13).
+- Amended by D-216 (Composed's guard rule with no face-up monster to compare: attack) and D-218 (Agitated's trades rank after clean kills and before Ward strips; the trade test uses Power without the element bonus).
 
 **D-082 · AI "can win this turn" uses public information only**
 - Date: 2026-10-14
 - Question: Can the lethal check account for the player's set traps or face-down monsters' stats?
 - Decision: No. Lethal is computed from his own known cards and the public board; unknown traps are ignored; face-down monsters are treated as blockers of unknown Guard (assumed to survive). If the attempt is foiled by a trap, so be it.
 - Reason: "The Collector never cheats … sees only public information".
+- Amended by D-211 (the search's node budget is the global `AI_SEARCH_NODE_BUDGET`) and D-220 (the search runs on a redacted copy, and every legal play is tried as the play that enables the win).
 
 **D-083 · Priority 3 "beats your strongest face-up monster"** (revised after paper-sim)
 - Date: 2026-10-14
@@ -576,6 +580,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: The Slow monster with the highest Guard (tie: card id), face-up guard.
 - Reason: a guard-position summon is about defense.
 - Paper-sim: A3 — agrees on the guard position (it doesn't specify which Slow monster).
+- Amended by D-212: "Slow" means an active keyword restricts the monster's attack permission to `none` on its entry turn, found by hook rather than by Flaw id.
 
 **D-085 · Provenance Ledger and other "no target" spells are never cast by the written priorities** [EXTENDS] [REVIEW] (revised after paper-sim)
 - Date: 2026-10-14
@@ -583,6 +588,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: Add an implicit final play step 7: "otherwise cast a draw spell (Provenance Ledger) if held; otherwise set a trap if he holds one and a trap slot is free; otherwise pass". Defined in `collector.json` so it can be removed.
 - Reason: a deck card that is never played is a dead draw, which skews the balance sim. Owner should confirm.
 - Paper-sim: A7 — **changed to match**. The first draft only cast Ledger with a hand of ≤ 2 cards; the paper-sim's unconditional order is simpler (no extra threshold number).
+- Amended by D-215: step 7 sets the first held trap in `trapPreference`, and otherwise any other held trap in card-id order.
 
 **D-086 · Redacted view references enemy cards by slot**
 - Date: 2026-10-14
@@ -596,12 +602,14 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision (data): Forfeit — any face-up enemy monster with Power ≤ 4 (pick highest Power). Restoration — any Relic in his discard (pick highest Power). Gilt Frame "on a contested attack" — one of his attack-position monsters that can attack this turn, whose best attack would not destroy a target without +2 Power but would with it (pick the one enabling the highest-Power kill).
 - Reason: literal reading with deterministic picks.
 - Paper-sim: A18 — agrees on all three definitions.
+- Amended by D-219: the contested-attack test is per target, and the spell's effect is found by applying the cast to a redacted copy instead of reading a literal +2.
 
 **D-088 · Trap choice (priority 4)**
 - Date: 2026-10-14
 - Question: Which trap is set when he holds several?
 - Decision: `collector.json › ai.trapPreference = ["display-case", "insurance-claim", "counterfeit"]`, first one held.
 - Reason: deterministic and data-driven.
+- Amended by D-215: rule 4 sets only traps in the list. Step 7 (D-085) also sets an unlisted trap.
 
 **D-089 · Collector repositioning** [EXTENDS] (revised after paper-sim)
 - Date: 2026-10-14
@@ -609,6 +617,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: Before playing, a guard monster switches to attack only if that gives it an attack under rule 1, 2 or 4 this turn. He never switches attack → guard. Desperate: all monsters switch to attack. Summon positions: attack, except rule 6's all-Slow case and Composed's guard preference (D-081).
 - Reason: without it, guard summons would stay in guard forever; one direction only is the simplest policy.
 - Paper-sim: A3 — **changed to match**. The first draft also had a defensive attack → guard switch; it was dropped as extra complexity. Composed's "favors guard" is still expressed through its summon position (D-081).
+- Amended by D-217: the "gives it an attack" test runs the mood's rules on a redacted copy. A face-down monster counts as a guard monster.
 
 **D-090 · AI tie-breaks**
 - Date: 2026-10-14
@@ -616,6 +625,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: Board: leftmost slot, then card id. Hand: card id (string order), then instance id. Attackers act in descending effective Power, tie leftmost.
 - Reason: total order; deterministic.
 - Paper-sim: A6 — agrees on card id for hand ties. Small difference: the paper-sim used DESIGN table order (M1…M13), whereas this entry uses lexical order of the kebab-case id. **Kept**: ids are the only stable key in content, and no extra "order" field is needed. (Both orders give the same result in every tie seen in the paper duels.)
+- See D-218: the strongest attacker takes attack rule 2's kill (owner ruling, 2026-10-15). The weakest-sufficient alternative is Phase 3 proposal M-17.
 
 **D-091 · "Best legal target" (Vain, Desperate)**
 - Date: 2026-10-14
@@ -629,6 +639,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Question: Does stripping a Ward count as "destroy your highest-Power monster he can beat"?
 - Decision: Candidates are attacks his preview says he wins without losing the attacker; actual destructions rank before Ward strips, then by target Power.
 - Reason: a Ward strip is progress but not a kill.
+- Amended by D-218: with trades on (Agitated), the order is clean kills, then trades, then Ward strips.
 
 **D-093 · Face-down attack threshold (rule 3)**
 - Date: 2026-10-14
@@ -647,6 +658,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Question: When is the intent computed, from what, and is the Collector bound by it?
 - Decision: Computed once at the start of each player turn (after the draw) from the Collector's view of the current state, then frozen for that turn. Category priority: **appraise** (his next turn is an Appraisal round and you currently have an eligible target) > **attack** (his attack rules would make ≥ 1 attack on the current board) > **scheme** (his play rules would cast a spell or set a trap) > **guard**. It is a forecast: his actual turn is chosen by the same AI on the board as it is then, so your turn can change what he does. The sim reports intent accuracy.
 - Reason: computing it after the player's turn would leak his hand in response to your moves; freezing it at turn start shows a category only. Binding him to it would require planning ahead of the player's actions.
+- Amended by D-221: the forecast is `endTurn` applied to a redacted copy, and the engine computes the intent after `step = 'main'`. Forced Vain attacks count as attack.
 
 **D-096 · Intent policy is injected into the engine**
 - Date: 2026-10-14
@@ -783,6 +795,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Question: DESIGN lists a greedy bot but no balance target for it.
 - Decision: Greedy = one-ply: picks the legal action with the best immediate evaluation; used as a reference line in reports only.
 - Reason: diagnostic midpoint between novice and expert.
+- Amended by D-222: the look-ahead uses a redacted copy, the bot keeps its opening hand, a Graft is scored by its first-choice completion, and the weights are in `bots/greedy.weights.json`.
 
 **D-117 · Novice bot = uniform random legal action**
 - Date: 2026-10-14
@@ -790,6 +803,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: Uniform over `getLegalActions(state)` at every decision, including pending Graft steps (so Graft is one option among many at the top level, not hundreds).
 - Reason: matches "random legal moves"; the pending model keeps it from over-weighting Graft.
 - Paper-sim: P11 differs: it argues 20–30% is unreachable for random play and proposes a scripted "naive" bot instead. **Not adopted**, because DESIGN's balance table defines the novice as "random legal moves". Logged as M-09; the sim will report both bots side by side so the owner can choose.
+- See D-223: AI milestone 1 measured 0% for this bot in 300 duels on live content. This is handled in Phase 3 (M-09).
 
 **D-118 · Does The Unpriced count toward the Collector's opening-hand monster guarantee?** (added from paper-sim)
 - Date: 2026-10-14
@@ -902,6 +916,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - `EffectHost { emit, destroy, lifeChanged }` is how the interpreter reaches later pipelines. `destroy` always means cause `'effect'` with no destroyer. Unstable expiry and combat call `destroyBatch` (§5.5) directly with their own cause.
   ARCHITECTURE §8.6 lists them.
 - Reason: the names and files match the §2 layout. Keeping them internal keeps the public surface to `createEngine`, `applyAction`, `getLegalActions` and the content-facing types.
+- Amended by D-209: `Env` stays internal. The read-only queries that need it (stats, keyword folds, `previewCombat`, `previewGraft`) are public as methods on the `Engine` facade, which binds the `Env` once.
 
 **D-132 · `EngineError` is a public export**
 - Date: 2026-10-14
@@ -1004,6 +1019,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - **Cross-file validator rule:** `trapPreference` ids and the `castHighValueSpell` keys must be Collector-pool trap/spell ids present in `collector.json › deck`.
   - **ai mirror:** a test in `packages/ai` asserts that the `ai/collector/rules/` registry keys equal `AI_PLAY_RULES ∪ AI_ATTACK_RULES` and that every enum value has a handler. Adding a rule then means one enum entry plus one rule file, and the build fails if either is missing.
 - Reason: catching typos at `content:check` time is the point of the validator. The ai-side test closes the loop, the dependency direction stays intact, and every value is a data field (the M-13 A/B variant only uses existing ids).
+- Amended by D-210: `ai` reads the block from the compiled content (`GameContent.collector.ai`). It no longer reads it from `RAW_CONTENT` or from a `createCollector` option.
 - Amended by D-204: `castHighValueSpell` is a record keyed by Collector spell id, with `pick`/`when` as the closed values. The cross-file rule's field is `params.castHighValueSpell.<id>`.
 
 **D-146 · Zod 4 conventions in the schemas**
@@ -1056,6 +1072,10 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - `Services.appraisal` is temporary. When `appraisal.ts` lands, `turn.ts` imports `appraisal()` directly and the field is removed, so no configuration can skip Appraisal silently. `Services` then holds only `intent`.
   - §5.2 now reads `intentPolicy(tx.state)`. §8.6 lists `Run`, `Services` and `IntentPolicy`.
 - Reason: the injection seam was the right call while modules land in sequence. Once a service is an engine module, an optional field only adds a way to misconfigure the engine. Passing the state and redacting in `ai` is the only option that keeps the dependency direction (§2).
+- Amended by D-209, D-210 and D-221:
+  - The policy may apply actions to a `redactState` copy through its own engine (look-ahead). That is still read-only for `s`.
+  - The engine calls the policy after `step = 'main'` and `played = false`.
+  - `createCollector` takes the compiled content that carries the AI block.
 
 **D-151 · `checkWin`, `lifeChanged` and `endGame` live in `pipeline.ts`**
 - Date: 2026-10-14
@@ -1570,6 +1590,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
     - In the web dev build, ui-dev restarts the duel on any content hot reload (D-176), not only when `cfg` changes.
     - Globals stay out of `CompiledContent.hash`, because `state.cfg` covers them (D-191).
 - Reason: a pure reordering of a JSON file shouldn't change play, and the hash should cover what §3 says it covers.
+- Amended by D-210: the hash already covers `collector.json › ai`, because it hashes the whole parsed content. This is confirmed as required. `compileContent` now also returns the AI block (`GameContent`).
 
 **D-198 · Validator keyword rules and messages**
 - Date: 2026-10-14
@@ -1663,6 +1684,9 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - **Ownership (owner ruling, 2026-10-14; amends D-166).** `castHighValueSpell` entries and `trapPreference` ids are card lists, like `deck`: the owner adds or removes them freely when adding or removing a Collector card, with no D-entry. The rule lists, mood rule lists, `reposition` and the other `collector.json › ai` params stay owner-only under D-166.
   - **Edit count.** A new Collector spell that the AI casts takes three data edits: the card, its deck line and its `castHighValueSpell` entry. Its art brief is only a warning. A missing AI entry is a D-177 warning. No code changes.
 - Reason: the keys were always spell ids (D-145, D-177). With fixed keys, the AI was the one place where new content needed code. The AI's vocabulary is the modes, not the spell ids, so the closed enums move to the values.
+- Amended by D-219:
+  - `contestedAttack` applies the cast to a redacted copy and compares combat previews, instead of reading the resolved `power` of a `modifyStats` effect.
+  - The validator's check resolves `$NAME` references and requires a resolved Power above 0.
 
 **D-205 · Unread globals: pinned, planned, or read, kept true by a test** (amends D-170)
 - Date: 2026-10-14
@@ -1742,6 +1766,227 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - `docs/CHANGELOG.md` (new, docs-keeper) is the owner-facing log of the tooling changes he will notice: new or changed `content:check` lines, newly pinned or planned globals, and new edit steps. Each change gets a dated section, and each line ends with its D-number. It is not a commit log.
 - Reason: the guide is only useful while it matches the tool. Bundling the edits turns drift into a failing test in the same change, and the changelog tells the owner why a familiar line changed.
 
+**D-209 · Read-only engine queries are methods on the `Engine` facade; `ai/shared/mirror.ts` is deleted** (extends D-083, D-131, D-150)
+- Date: 2026-10-14
+- Question: The engine root exports none of `effectivePower`, `effectiveGuard`, `previewCombat`, `attackPermission` or `mustAttack`, because each needs the internal `Env` (D-131).
+  - So AI milestone 1 recomputes them in `packages/ai/src/shared/mirror.ts`, about 440 lines covering stats, conditions, twist modifiers, the hook folds and the resolve table.
+  - `ai/test/mirror.test.ts` checks it against engine events over 100 live-content duels.
+  - That makes a second implementation of the rules, the kind of drift §6.2 rules out for legality.
+
+  What is the public API that replaces it? Where does it live? Which helpers from `mirror.ts` and `brain.ts` (`previewSummon`, the `after`/`winsAfter` look-ahead, `scrub`) should move to the engine?
+- Decision:
+  - **Where.** The queries are methods on the `Engine` that `createEngine` returns, next to `getLegalActions`. They are not root functions taking `(content, globals, state)`, because those would have to rebuild the `Env` on every call (the hook registry and the compiled traps) or hide a cache in module state. The facade already holds the `Env`, and the AI already owns an engine for legality (`Brain.engine`).
+  - **Methods.** The state comes first. `iid` is any instance id.
+    ```ts
+    effectivePower(s, iid): number         // D-031, no element bonus, ≥ STAT_FLOOR; off the board: printed (+ Ascend)
+    effectiveGuard(s, iid): number
+    printedKeywords(s, iid): KwMask        // definition bits | Chimera-inherited bits
+    activeKeywords(s, iid): KwMask         // 0 off the board or face-down; a used Ward's beforeDestroy bits removed (D-037, D-133)
+    elementOf(s, iid): ElemIdx             // a Chimera's is its first material's; -1 for spells and traps
+    kindOf(s, iid): KindIdx                // -1 for Chimeras, spells and traps (D-129)
+    attackPermission(s, iid): AttackPerm   // the §6.2 lattice: summoning sickness, the round-1 ban, grants, restrictions; 'none' off the board
+    attackRestriction(s, iid): AttackPerm  // the restriction fold alone, 'any' when no hook restricts (D-212)
+    mustAttack(s, iid): boolean            // OR of the active mustAttack hooks (Vain)
+    previewCombat(s, attacker, target: Iid | -1): CombatPreview   // §5.4 without side effects
+    previewGraft(s): GraftPreview | null   // §5.6
+    ```
+    - The root also exports the types `CombatPreview`, `CombatOutcome` and `GraftPreview`.
+    - `previewCombat` is the engine's existing `combat.ts › previewCombat`. It doesn't reveal, trigger traps or queue effects. `beforeCombat` hooks run into a sink that discards their effects, so Pierce and Brittle show in the result. A face-down target gives `{ known: false }`, and an attacker or target that isn't on a board throws `EngineError`.
+    - There is no "extra Power" parameter. To ask what a buff would do, apply the cast to a redacted copy (D-219).
+  - **Purity.** Each method is a pure function of the bound content, the bound globals and its arguments:
+    - it never writes `s` and keeps no reference into it;
+    - it reads no clock and no random source;
+    - it works on a `Tx` draft and on a frozen state;
+    - a call never changes the engine (no caches).
+  - **Performance.** Each method calls straight into `stats.ts`, `hooks/dispatch.ts`, `combat.ts` or `graft.ts` with the bound `Env`. There is no `Env` per call and no state copy. Only `previewCombat` and `previewGraft` allocate (their result and one dispatcher). §18's budget of about 5 µs per action holds.
+  - **Redaction moves to the engine.** `brain.ts › scrub` becomes `redactState(s, viewer): GameState` in `engine/src/view/redact.ts`, exported from the root. It is pure and needs no `Env`.
+    - It empties the opponent's hand, the opponent's deck and every opponent trap slot. It also empties the viewer's own deck, because its order is unknown even to him. It sets `log: null`. Everything else is shared by reference.
+    - It lives next to `redactEvent` because it encodes which parts of `GameState` are hidden. A new hidden zone, such as D-184's `aside`, is then redacted by the same change that adds it.
+    - **What it doesn't hide.** A face-down opponent monster keeps its identity, because the board needs it for legality. So look-ahead code must never apply an action that targets a face-down opponent monster (an attack on it, or a cast on it). `ai` makes that check in one helper (below).
+  - **What stays in `ai`.** `previewSummon`, `after`, `winsAfter`, `winningAttacks` and `attackPotential` are AI search policy, not rules.
+    - They are built from `applyAction` on a `redactState` copy plus the queries above, in one helper file, `ai/src/shared/look-ahead.ts`. The helper returns null for an action that targets a face-down opponent monster.
+    - `previewSummon` applies the summon (attack mode) to the copy and queries the result, so `ai` never builds a `Monster` record by hand.
+    - The copy is made once per decision and shared by that decision's look-aheads.
+    - Small locating helpers (the slot of an iid) stay in `ai`, because they only read the public state shape.
+  - **Tests.**
+    - `ai/test/mirror.test.ts` is deleted together with `mirror.ts`.
+    - Its check becomes an engine property in `properties.test.ts`. It runs on fixture content (D-168) under `TEST_GLOBALS` and `ALT_GLOBALS`, and once more with a fixture twist and `FLAGS.WEEKLY_TWIST` on. In a random walk, take every legal attack on a face-up target with no trap set on either side. `previewCombat` must equal the `CombatResolved` fields (`aP`, `dStat`, `advantage`, `pierce`, `brittle`, `destroyed`) and both life changes. For a direct attack it must equal the `Damage` amount.
+    - A second property: two states that differ only in hidden information give equal `hashState(redactState(s, viewer))`.
+    - Unit tests cover each facade method on fixture cards.
+- Reason: every rule has one implementation. The facade binds the `Env` once, so a query costs what the engine's own call costs, and the dependency direction (§2) doesn't change. Redaction depends on the state shape, which the engine owns.
+
+**D-210 · The compiled content carries `collector.json › ai`** (extends D-145, D-197)
+- Date: 2026-10-14
+- Question: `ai` reads the AI block with `parseContent(RAW_CONTENT)` (`liveCollectorAi()`), and `createCollector({ ai })` takes an override.
+  - The bundled files and the compiled content can differ: sim overrides of `collector.json` for the M-08, M-10 and M-13 A/B runs, web hot reload, test fixtures.
+  - When they do, the AI silently plays the bundled block unless every caller remembers to pass `ai`.
+
+  Should the compiled content carry the block? Should it go into the content hash and `state.cfg`?
+- Decision:
+  - **Type.** `compileContent` returns `GameContent`, a type that the content package owns:
+    ```ts
+    interface GameContent extends CompiledContent {
+      readonly collector: CompiledContent['collector'] & { readonly ai: CollectorAiConfig };
+    }
+    ```
+    `CollectorAiConfig` is the parsed `collector.json › ai` (`z.output<typeof CollectorAi>`). It is exported from the content root and deep-frozen. The path matches the JSON path.
+    - The engine's `CompiledContent` doesn't change, and the engine still knows nothing about the AI. A `GameContent` is a valid `CompiledContent` for `createEngine`.
+  - **Hash.** Nothing changes. D-197's hash already covers the whole parsed content, `collector.json` included, so an edit to the AI block changes `CompiledContent.hash` and therefore `state.cfg`. That coverage is required: replays recompute the stored intent with the policy (D-096), so a replay under a different AI block would diverge.
+  - **ai.** `createCollector({ content: GameContent, globals })`. The `ai` option and `liveCollectorAi()` are removed, which leaves one source.
+    - A test that needs a different block builds it through content, either with a fixture or with `{ ...content, collector: { ...content.collector, ai } }`. The spread leaves the hash stale, so it is for tests only.
+    - The sim applies `collector.json` overrides to the raw content before compiling (§15), so A/B levers reach the AI with no extra plumbing.
+    - The web recompiles on hot reload (D-176) and builds a new Collector from the result.
+- Reason: there is one path from the file to the AI, so an override can't be silently ignored (the D-170 principle). The engine gets no AI type.
+
+**D-211 · The win search's node budget is the core global `AI_SEARCH_NODE_BUDGET`** (extends D-082, D-171)
+- Date: 2026-10-14
+- Question: `ai/collector/win-search.ts` caps each "can he win this turn" search at 600 nodes with a module constant. Should that be a global or an implementation constant?
+- Decision: it is a core global, `AI_SEARCH_NODE_BUDGET: 600`. That is ai-dev's value, not a new one.
+  - `ai` reads it as a property, so under D-171 it is a core global:
+    - engine `Globals` and `TEST_GLOBALS`;
+    - content `DEFAULT_GLOBALS`, in a new "Collector AI" group;
+    - `GlobalsSchema`, as an integer of at least 1.
+  - It is listed in `planned-globals.ts` (reader `ai`) until `ai` reads it. The `ai` change that reads it deletes the line (D-205).
+  - It is a safety cap like `MAX_TRIGGER_CHAIN` and `DECKGEN_MAX_ATTEMPTS`.
+    - With `BOARD_SLOTS = 3`, a full search is at most about 225 nodes: at most 3 attackers, each attacking once, with at most 3 targets each. So the cap never binds at launch values.
+    - A larger `BOARD_SLOTS` can make it bind. Then it changes what he does, so it has to be tunable in one place and hashed into `state.cfg` like every other global.
+- Reason: a number that can change the Collector's play is a global (§1.3), with `MAX_TRIGGER_CHAIN` as the precedent.
+
+**D-212 · Rule 6's "not Slow": an active keyword restricts attack permission to `none` on the entry turn** (extends D-084)
+- Date: 2026-10-14
+- Question: How does the AI know that a hand monster is Slow? With `SLOW_TURNS = 1`, Slow changes nothing in practice (D-053), so the folded attack permission on the entry turn is `none` for every non-Swift monster and can't tell them apart.
+- Decision: ai-dev's reading is confirmed, now through the engine query.
+  - Summon the card in attack mode on the redacted copy (D-209). It is Slow for rule 6 when `attackRestriction(copy, iid) === 'none'`.
+  - This is generic: any keyword whose `attackPermission` hook restricts to `none` on the entry turn counts. The AI finds it by hook, not by Flaw id, the same way the engine finds Ward (D-162).
+  - It works unchanged under M-01 (`SLOW_TURNS = 2`).
+- Reason: rule 6 means "a monster held back from attacking", and the restriction fold is exactly that. No Flaw id appears in code.
+
+**D-213 · Rule 2 (the ace): attack position, and a vault sacrifice before a board one** (extends D-054, D-089, D-203)
+- Date: 2026-10-14
+- Question: ai summons the ace in attack position. When several Covetous sacrifices are legal, it takes the weakest by Power, a board monster before a vault one, then `tieBreak`. Neither DESIGN nor D-054 says which acquired monster he sacrifices.
+- Decision:
+  - **Position:** attack, confirmed. D-089 lets only rule 6 summon in guard.
+  - **Normal summon first:** confirmed. If the engine lists a normal summon of the ace (D-203 doesn't require the ace to carry Covetous), that is taken first.
+  - **Sacrifice order (changed):** a vault monster first, then a board monster. Within a zone, the lowest Power goes first (board: effective Power; vault: printed Power), then `tieBreak` (board: leftmost slot; vault: card id, then instance id).
+- Reason: a vault card has no use except as this sacrifice (D-078), while a board monster attacks and blocks. A vault sacrifice never costs him board, so board-first would throw away a live monster to keep a dead card. When his board is full, only a board sacrifice is legal (a slot must be free after the sacrifice), and the engine's legal list already says so.
+
+**D-214 · `allowFaceDown: true` makes his guard summons face-down** (extends D-025)
+- Date: 2026-10-14
+- Question: `collector.json › ai.allowFaceDown` exists (D-025) but has no written meaning. ai-dev made a guard summon go face-down when it is on.
+- Decision: confirmed. The flag stays `false` (D-025) and is owner-only like the other AI params (D-166).
+  - When it is `true`, every summon that a rule makes in guard position is face-down guard instead of face-up guard. Those are rule 6's guard cases: Composed's `guardUnlessBeater`, and the all-Slow case (`slowPosition: guard`).
+  - Attack-position summons (rules 2 and 3, and rule 6 in attack) don't change.
+  - When it is `false`, no rule summons face-down.
+  - With the flag on, the player bots face face-down Collector monsters, and look-ahead must not peek at them (D-209).
+- Reason: a schema field must do something when it is changed (D-170). Face-down is one way of being in guard (D-037), so this reading leaves each rule's position choice intact.
+
+**D-215 · Which trap rule 4 and play step 7 set** (extends D-085, D-088)
+- Date: 2026-10-14
+- Question: D-088 orders traps by `trapPreference` for rule 4. D-085's step 7 says "set a trap if he holds one". What happens with a held trap that isn't on the list?
+- Decision: ai-dev's reading is confirmed.
+  - Rule 4 sets only the first held trap in `trapPreference` order. D-177's warning ("AI rule 4 never sets it") assumes this.
+  - Step 7 (`utility.setTrap`) sets the first held trap in `trapPreference` order. Otherwise it sets any other held trap, by card id, then instance id.
+- Reason: rule 4 is driven by the preference list. Step 7 literally says "a trap", so an unlisted trap is still played rather than staying a dead card.
+
+**D-216 · `guardUnlessBeater` with no face-up opposing monster summons in attack** (extends D-081)
+- Date: 2026-10-14
+- Question: Composed summons in guard "unless the monster's Power exceeds your strongest face-up monster's Power". What if you have no face-up monster?
+- Decision: confirmed. With no face-up opposing monster, the summon goes in attack position. Face-down monsters aren't compared, because only public information counts (D-082, D-086).
+- Reason: with nothing to compare, nothing stops the summon from counting as exceeding. A guard summon facing an empty board would also waste his next attack.
+
+**D-217 · `toAttackIfUsable` runs the mood's rules on a redacted copy** (extends D-089)
+- Date: 2026-10-14
+- Question: D-089 says a guard monster switches to attack only if that gives it an attack under rule 1, 2 or 4 this turn. How exactly is that tested?
+- Decision: ai-dev's reading is confirmed.
+  - Rules 1, 2 and 4 are `lethal`, `killWithoutLoss` and `directIfEmpty`. Each counts only when it is in the current mood's attack list.
+  - The test is exact: apply the reposition to the redacted copy (D-209), then run those rules on the copy's view. If one of them returns an attack by that monster, he switches.
+  - His face-down monster is in guard position (D-037), so it may flip to attack under the same test. The flip reveals it (D-161).
+  - He considers one reposition at a time, in slot order, and the policy asks again after each one. That gives D-089's "zero or more".
+- Reason: "gives it an attack under rule 1, 2 or 4" is a statement about what those rules would do, so running them is the exact test. A rule that isn't in the mood's list can't give an attack.
+
+**D-218 · Attack rule 2 (`killWithoutLoss`): trades, the trade test, and which attacker** (extends D-081, D-092; the attacker choice is an owner item)
+- Date: 2026-10-14
+- Question: ai-dev made three choices that D-081 and D-092 don't settle:
+  - Agitated's trades rank after clean kills and after Ward strips.
+  - The trade test compares Power without the element bonus.
+  - For a given target, the strongest attacker that can kill it takes the kill (D-090 read literally), not the weakest one that is enough.
+- Decision:
+  - **Ranking (changed):** clean kills first, then trades (only when `allowTrades` is on, as for Agitated), then Ward strips. Within a tier, the highest target Power goes first, then attackers in D-090 order.
+  - **Trade test (confirmed):** effective Power without the element bonus on both sides, the same "Power" as D-093. With launch rules, every attack-position tie already meets it (target Power = attacker Power + the element bonus, if any), so it only binds for a future keyword.
+  - **Which attacker (owner ruling, 2026-10-15):** the strongest attacker that can kill the target, per D-090's "attackers act in descending effective Power", for v0.1. The alternative, the weakest attacker whose kill succeeds, is A/B-tested in Phase 3 as M-17.
+- Reason: D-091 already orders a trade before a Ward strip, and Agitated "prioritizes removing your monsters". A trade removes a monster and a strip removes none. The trade test changes nothing today, so the simplest basis is kept. The attacker choice is a strategy and balance question, so it belongs to the owner.
+
+**D-219 · `contestedAttack`: per target, tested by applying the cast; the validator resolves `$NAME`** (amends D-204; extends D-087)
+- Date: 2026-10-14
+- Question:
+  - ai-dev reads D-087's test per target: a kill that the extra Power newly makes possible.
+  - The extra Power is the sum of the spell's `modifyStats` Power on `chosen`, and effects with an `if` are ignored.
+  - Separately, `validate.ts › givesPowerToChosen` doesn't resolve `$NAME` references. So a `$GLOBAL` that resolves to 0 passes, against D-204's "resolved Power".
+- Decision:
+  - **Per target (confirmed).** A cast on his monster M qualifies when M is in attack position and can attack this turn, and some face-up target that M doesn't destroy now would be destroyed after the cast. Ward counts as in D-092: a strip is not a kill. Among the qualifying casts, he picks the one that enables the highest-Power kill, then `tieBreak`.
+  - **How the effect is known (changed).** The AI no longer adds up `modifyStats` Power. It applies the cast to the redacted copy (D-209) and compares `previewCombat` before and after. That uses the spell's whole effect list, `if` conditions included, and needs no "extra Power" parameter. For Gilt Frame at launch the result is the same.
+    - `OwnCard.grantsPower` stays only as an upper bound for the pruning in `winThisTurn` (D-220). It counts effects with an `if` too, because an upper bound must not undercount.
+  - **Validator (content-author).** `givesPowerToChosen` resolves each `power` with `resolveNum`, using the globals passed to `validateContent`. It requires at least one `modifyStats` effect on `chosen` whose resolved Power is above 0. Effects with an `if` count, because they can apply.
+    - A reference to an unknown name is skipped here, because the unknown-reference rule already reports it.
+    - The message text doesn't change. The line now also appears when the reference resolves to 0 or less. That goes in `docs/CHANGELOG.md`.
+- Reason: "a contested attack" is an attack that fails without the spell and succeeds with it, which is a per-target question. Applying the real cast is exact for any spell, and it leaves one combat implementation. The validator's purpose is to refuse an entry that can never fire, and a Power that resolves to 0 can't fire.
+
+**D-220 · `winThisTurn` and `lethal`: every legal play is tried as the enabling play** (extends D-082)
+- Date: 2026-10-14
+- Question: ai-dev's win search runs on a scrubbed copy, never attacks face-down targets and ignores traps. It tries only casts other than draw spells as the play that makes the win possible.
+- Decision:
+  - **Search (confirmed).** It runs on `redactState(s, Collector)`, with `AI_SEARCH_NODE_BUDGET` as the node budget (D-211). It never attacks a face-down monster, which stays as a blocker ("assumed to survive", D-082). Your set traps are ignored, because the copy has none (D-082). `lethal` is the same search with no play.
+  - **Enabling play (changed).** Every legal play is tried on the copy: summons in each mode, Covetous summons, casts and trap sets.
+    - Example: a Swift summon that destroys your only monster opens direct attacks for his other monsters. Ashen Duchess can do this at launch.
+    - A draw finds nothing on the copy, because his deck is redacted. So a draw-only cast can never succeed, and `ai` may skip it as a pure optimisation.
+    - The order is the hand card's id, then instance id, then the engine's legal order (§6.2). The first play that wins is played.
+    - Any pruning (such as `attackPotential` plus `grantsPower`) must be an upper bound over the plays it skips. ai-dev chooses how.
+- Reason: DESIGN says "If he can win this turn, do it", and Swift summons are a real way to win at launch. On the redacted copy every play is evaluated with public information only, so no special case is needed for draws.
+
+**D-221 · The intent forecast is `endTurn` applied to a redacted copy** (extends D-095; changes the §5.2 order)
+- Date: 2026-10-14
+- Question: ai forecasts his next turn on a hand-built state: the same state with the turn index plus 1, `step: 'main'`, no draw, and the same life and mood. That skips the end of your turn and the start of his: Unstable expiry, turn hooks and Appraisal. Does it count repositions and forced Vain attacks? Is "scheme" the first non-null play rule being a cast or a trap?
+- Decision:
+  - **Engine.** `startTurn` computes the intent after `step = 'main'` and `played = false` (§5.2 is reordered). `IntentSet` is still the last event of the turn start. The policy then sees a well-formed decision state.
+  - **ai.** The forecast state is `endTurn` applied to `redactState(s, Collector)` with the Brain's engine. The engine runs the end of your turn and the start of his: turn hooks, Unstable expiry and Appraisal. He draws nothing, because his deck is redacted (D-095's "no draw"). Life and mood change only if those steps change them. There is no hand-built state.
+    - This can't recurse. The Brain's engine has a stub intent policy, and the start of his turn never calls the policy.
+    - `s` is only read.
+  - **Categories (D-095 priority, confirmed):**
+    - **appraise:** the Appraisal at the start of his turn took a monster in the forecast (`appraisal.successes` grew).
+    - **attack:** after the repositions he would make (D-217), some rule in the mood's attack list returns an attack, or a monster with an active `mustAttack` keyword has a legal attack. The second case is a forced attack (D-052), whatever the list says.
+    - **scheme:** the first play rule that returns something returns a cast or a trap set.
+    - **guard:** otherwise.
+- Reason: turn advancement then has one implementation, and the forecast is what happens if you do nothing. "appraise" differs from D-095's "you currently have an eligible target" only when that monster expires (Unstable) at the end of your turn, and there the forecast is the honest answer. Counting forced attacks keeps the icon true even if the owner removes `holdExceptVain` from a list.
+
+**D-222 · Greedy bot: look-ahead, opening hand, Graft scoring, weights in JSON** (extends D-116)
+- Date: 2026-10-14
+- Question: ai-dev's greedy bot looks ahead on a scrubbed copy, so it never values a draw spell. It always keeps its opening hand. It scores a Graft by its first-choice completion. `GREEDY_WEIGHTS` lives in `evaluate.ts` as heuristic tuning, and is planned to move to `expert.weights.json` in milestone 2. Is that right under the one-edit rule (D-166 to D-171)?
+- Decision:
+  - **Confirmed:**
+    - The look-ahead uses `redactState(s, Player)` (D-209). Draws find nothing there, which is acceptable for a diagnostic bot.
+    - It keeps its opening hand, because the outcome of a redraw is hidden.
+    - It scores a Graft by completing it with its best choice at each step.
+    - A look-ahead that the helper refuses (an action on a face-down Collector monster, D-209) scores as the current position.
+  - **Weights (changed):** they move now to `packages/ai/src/bots/greedy.weights.json`, typed as `EvalWeights` where it is imported.
+    - The one-edit rule already holds in `evaluate.ts` (one value, one line). But §1.3 and §14 put tuning numbers in data files, and the expert's weights go to `bots/expert.weights.json` in milestone 2, so both bots follow the same pattern.
+    - They are not globals. They are settings of a measuring instrument, not rules, and they aren't in `state.cfg`.
+    - Tests never pin them (D-168).
+  - **Note for milestone 2.** The expert drives the difficulty check, which picks the date's reroll `k` (D-003). So a change to the expert's weights changes which duel a date produces. Milestone 2's D-entry must tie those weights to the daily setup. The greedy bot doesn't feed the difficulty check.
+- Reason: both bots keep their weights in data the same way. The milestone-2 note keeps "same game for everyone" from depending on an untracked file.
+
+**D-223 · Balance note from AI milestone 1 (record, not a decision)**
+- Date: 2026-10-14
+- Question: In 300 duels on live content, the novice bot won 0% and the greedy bot about 7%. The novice target is 20–30% (`TARGET_NOVICE_WINRATE`, D-117). Where is this handled?
+- Decision: nothing is tuned now.
+  - The result matches the paper-sim's estimate for uniform-random play (under 5%, P11), which is why M-09 exists.
+  - It is handled in Phase 3:
+    - balance-analyst runs `sim:quick`/`sim:full` against the `TARGET_*` globals, with entries in `BALANCE_LOG.md`;
+    - the owner rules on M-09 (the novice bot's definition);
+    - the owner rules on the M-01…M-17 A/B results.
+  - The AI readings in D-212 to D-221 land before the Phase 3 runs, so the sim measures the final AI.
+  - The greedy bot has no target (D-116).
+- Reason: tuning before the AI and the expert bot are final would measure the wrong thing.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
@@ -1775,7 +2020,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 
 ## L. Summary of items needing owner review
 
-> **2026-10-14:** the owner confirmed every D-row below up to D-149 (D-149). D-152 (added after D-149) was ruled (A) the same day. D-182 (B), D-189 (A) and D-195 (A) were ruled the same day. Still open: the M-01…M-16 row.
+> **2026-10-14:** the owner confirmed every D-row below up to D-149 (D-149). D-152 (added after D-149) was ruled (A) the same day. D-182 (B), D-189 (A) and D-195 (A) were ruled the same day. D-218 was ruled on 2026-10-15 (strongest attacker for v0.1). Still open: the M-01…M-17 proposals.
 
 | Id | Topic | Why |
 | --- | --- | --- |
@@ -1783,6 +2028,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 | D-189 | May a Chimera card summoned from the hand go face-down? | D-063 covers only the Graft entry. Owner ruled (A): all three summon modes |
 | D-204 | Is a `castHighValueSpell` entry (or a `trapPreference` id) for a newly added Collector card an owner-only AI param under D-166, or a card list the owner edits freely like `deck`? | Settled 2026-10-14 (owner): both are card lists, edited freely like `deck`. The rule lists, mood rule lists, `reposition` and the other params stay owner-only |
 | D-195 | Keyword and Flaw icon/visual ids; do Flaws get a frame? | Art decision; DESIGN gives no icons and no Flaw visuals. Owner ruled (A): content-author's ids as drafts, Flaws framed |
+| D-218 | Attack rule 2: which of his attackers takes a kill, the strongest that can (D-090 literal, current) or the weakest that is enough? | Ruled 2026-10-15 (owner): the strongest, for v0.1. The weakest-sufficient alternative is A/B-tested in Phase 3 as M-17 |
 | M-01…M-16 | Balance/rule proposals from the paper-sim (section M) | None applied; each needs a Phase 3 sim A/B test and an owner decision. Levers M-01 and M-02 get plumbing in D-183, and M-04 in D-184 |
 | D-152 | Ward saves an Unstable Chimera from expiry: does it keep the +3? | DESIGN is silent and it's reachable with launch cards. Owner ruled (A): Unstable ends and the +3 goes |
 | D-019 | No life cap (changed after paper-sim) | First draft capped life; DESIGN states no cap |
@@ -1826,6 +2072,7 @@ Source: `docs/reports/phase0-paper-sim.md` §3 (5 hand-played duels, n = 5, dire
 | M-14 | P10 | global | `PLAYER_LIFE` 20 → 24 | Most losses were empty-board swings of 13–23 damage; +4 life buys one more decision turn | `--set PLAYER_LIFE=24` |
 | M-15 | feel notes | UX only | Mark "will be appraised" on face-up 7+ Power monsters during the player turn before an Appraisal round | Novices lose 7-Power base cards on R3 to a rule they haven't absorbed | none (UI; no rule change, no sim needed); recommended for the UI phase |
 | M-16 | P9 (note) | card | Mirror Sigil −3 → −2, only if walls stay too strong after M-06 | Vain bounce damage into Mirror Sigil + high Guard is large (6 in one hit, D3) | `--set MIRROR_SIGIL_PENALTY=2` |
+| M-17 | AI milestone 1 (D-218) | AI | Attack rule 2: the weakest attacker that is enough takes the kill, instead of the strongest | More kills per turn; D-090 read literally sends the strongest | `collector.json › ai.params.killWithoutLoss.attacker` (`strongest` / `weakestSufficient`). Not built; built only if the owner asks for the A/B |
 
 **Paper-sim proposals that were pure clarifications** (adopted as decisions, not listed above):
 - **P2** — summoning sickness on the stolen monster, timers staying with the grafter, Echo to the original owner: D-077, D-062, D-046. Only the "enters in guard" part is a proposal (M-03).

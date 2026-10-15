@@ -60,7 +60,7 @@ project-daily/
 │  │     ├─ traps.ts            # compiles trap DSL into hook subscribers
 │  │     ├─ meta/{objectives,share-grid,track}.ts      # pure post-game summaries
 │  │     ├─ replay.ts           # replay(seed, actions), hashState()
-│  │     └─ view/redact.ts      # redacted views (Collector view, player view)
+│  │     └─ view/redact.ts      # redactEvent; redactState(s, viewer) for AI look-ahead (public, D-209)
 │  │  └─ test-utils/{board-dsl,globals,…}.ts  # scenario DSL parser (§17), TEST_GLOBALS; package subpath
 │  │                                         # "@vault-duel/engine/test-utils/*" for content tests (D-143)
 │  ├─ content/                  # data + schemas + validator; depends on engine (types, defineKeyword)
@@ -73,7 +73,7 @@ project-daily/
 │  │  │  ├─ load.ts             # Node only ("./node" export): reads JSON from a root, then parseContent
 │  │  │  ├─ keyword-files.ts    # Node only ("./node" export): keyword file and barrel checks
 │  │  │  ├─ text.ts             # parseTemplate, renderText: {NAME} placeholders (D-172)
-│  │  │  ├─ compile.ts          # → CompiledContent (dense typed arrays)
+│  │  │  ├─ compile.ts          # → GameContent = CompiledContent + collector.ai (D-210)
 │  │  │  ├─ feasibility.ts      # checkDeckgen: engine deckForSeed on 1,000 dates (pure; D-200)
 │  │  │  └─ validate.ts         # cross-file rules (§10.3)
 │  │  ├─ test-utils/scenario-content.ts  # live elements/kinds/recipes/KEYWORDS + declared cards (D-169)
@@ -89,9 +89,11 @@ project-daily/
 │  │  └─ scripts/{content-check,gen-keyword-index}.ts
 │  ├─ ai/                       # depends on engine (+ content types)
 │  │  └─ src/
-│  │     ├─ collector/{policy,view,rules/*,moods,intent,best-target,combat-estimate}.ts
+│  │     ├─ collector/{policy,view,config,rules/*,moods,intent,reposition,attacks,best-target,
+│  │     │             combat-estimate,win-search}.ts
+│  │     ├─ shared/{brain,cards,look-ahead}.ts   # engine + content handle; card records; redacted look-ahead (D-209)
 │  │     ├─ bots/{player-view,novice,greedy,expert,noise,evaluate}.ts
-│  │     ├─ bots/expert.weights.json
+│  │     ├─ bots/{greedy,expert}.weights.json     # bot tuning, not globals (D-222)
 │  │     └─ difficulty.ts       # rateSeed(): pure, used by sim and the web worker
 │  └─ sim/                      # Node only
 │     └─ src/{cli,pool,worker,run-duel,difficulty-batch,overrides,aggregate,report}.ts
@@ -188,6 +190,18 @@ export interface CompiledContent {
   readonly twists: readonly CompiledTwist[];
 }
 ```
+
+**The AI block travels with the compiled content (D-210).** `compileContent` returns the content-owned `GameContent`, which extends `CompiledContent` with the parsed, deep-frozen `collector.json › ai`:
+
+```ts
+// packages/content/src/compile.ts
+export type CollectorAiConfig = z.output<typeof CollectorAi>;   // exported from the content root
+export interface GameContent extends CompiledContent {
+  readonly collector: CompiledContent['collector'] & { readonly ai: CollectorAiConfig };
+}
+```
+
+The engine type doesn't change and knows nothing of the AI. A `GameContent` is passed to `createEngine` as a `CompiledContent` and to `ai`'s `createCollector` as itself. `hash` already covers the block, because it hashes the whole parsed content (D-197), so an AI edit changes `state.cfg`. That is required, because replays recompute the stored intent with the policy.
 
 **Display text is not compiled (D-172).** `CompiledContent` holds no rendered strings and stays independent of globals (D-120). Two strings do pass through it, `KeywordDef.text` (in `keywords`) and `CompiledTwist.text`, and both are **templates** that may contain `{NAME}` placeholders. Card names and card text are read from the parsed content data. The UI, and any report that prints text, calls `renderText(template, g)` from `content/src/text.ts` with the same `Globals` object the engine was created with, so `--set` and `?set=` overrides show up in the text. `hash` covers the templates, so a text edit changes `state.cfg` like any other content edit.
 
@@ -397,9 +411,11 @@ dispatch onTurnStart                                   (§8.3 order)
 if side === Collector && FLAGS.APPRAISAL && APPRAISAL_ROUNDS.includes(round): appraisal()   (§5.7)
 draw step: n = min(MAX_DRAW_PER_TURN, max(0, HAND_SIZE − hand.length), deck.length)  (D-011)
            wanted 0 → DrawSkipped{handFull}; deck short → CardDrawn… then DrawSkipped{deckEmpty}  (D-153)
-if side === Player && FLAGS.INTENTS: collector.intent = intentPolicy(tx.state); emit IntentSet   (D-095, D-150)
 step = 'main'; played = false
+if side === Player && FLAGS.INTENTS: collector.intent = intentPolicy(tx.state); emit IntentSet   (D-095, D-150, D-221)
 ```
+
+The intent comes last, so the policy sees a well-formed decision state. It forecasts by applying `endTurn` to `redactState(s, 1)` with its own engine (D-221).
 
 The policy receives the state, not a view: `ai`'s `intentPolicy` builds `collectorView(s)` itself, because the engine can't import `ai` (D-150). `createEngine` throws `EngineError` if `FLAGS.INTENTS` is on and no policy is given. `appraisal()` is imported directly from `appraisal.ts` once it exists. Until then it is the temporary `Services.appraisal` hook.
 
@@ -449,7 +465,7 @@ declare(attacker A, target T | direct):
 
 A direct attack emits no `CombatResolved`, just one `Damage` with `source` = the attacker.
 
-`previewCombat(state, A, T)` runs the same `resolve` without side effects (used by the UI, the Collector AI with public info, and bots). For a face-down target, preview returns `unknown`.
+`engine.previewCombat(state, A, T)` runs the same `resolveCombat` without side effects. The UI, the Collector AI (public information) and the bots use it. It is a method on the `Engine` facade (§8.7, D-209). There is no reveal, no trap and no queued effect. `beforeCombat` hooks run into a sink that discards their effects, so Pierce and Brittle show in the result. For a face-down target it returns `{ known: false }`. An engine property test checks it against `CombatResolved` and `Damage` (§17).
 
 ### 5.5 Destruction batch (`destroy.ts`)
 
@@ -494,7 +510,7 @@ graftPosition pos          → COMMIT:
 graftCancel (any stage)    → pending = null (nothing was applied)
 ```
 
-`previewGraft(state)` returns the Chimera that the current pending choices would create (family, element, stats incl. Ascend/Unstable, keyword options, expiry) — the UI's confirm screen.
+`engine.previewGraft(state)` (facade method, §8.7) returns the Chimera that the current pending choices would create (family, element, stats incl. Ascend/Unstable, keyword options, expiry) — the UI's confirm screen.
 
 ### 5.7 Appraisal (`appraisal.ts`) — D-075…D-079
 
@@ -595,7 +611,7 @@ else:
   perm   = min(max(base, grants), restr)
 ```
 
-Order-independent by construction, so adding keywords cannot create ordering bugs.
+Order-independent by construction, so adding keywords cannot create ordering bugs. `engine.attackRestriction(s, iid)` returns `restr` alone. The AI uses it to find "Slow" by hook (D-212).
 
 **Multi-step choices, summary**: Graft material order (`graftPick` order = material order), Ascend (`ascend` stage), keyword picks (`keywords` stage, only when > 2 available), Chimera position (`position` stage), spell targets (one `cast` action per target), summon position (one `summon` per mode), attack targets (one `attack` per target incl. direct). Nothing outside the pending Graft spans multiple actions.
 
@@ -863,7 +879,27 @@ The five legality-constraining keywords (Sentinel, Swift, Vain, Slow, Covetous) 
 | `Dispatcher` | `hooks/dispatch.ts` | One per dispatch. Collects subscribers into a local list first (§4.1 contract 1), then calls them in §8.3 order |
 | `Run` | `pipeline.ts` | One per `applyAction`, built by `reducer.ts`: the `Tx`, the event list (`null` under `{ events: false }`), the FIFO `EffectQueue`, the `EffectHost`, and `flush()`. A re-entrant `flush()` is a no-op, and the outer drain runs the new effects (D-150) |
 | `Services { intent? }` | `pipeline.ts` | Injected services. `intent` comes from `createEngine` (D-096). `appraisal?` is temporary and is removed when `appraisal.ts` lands (D-150) |
-| `IntentPolicy = (s: GameState) => Intent` | `pipeline.ts`, type exported from the root | Pure, read-only, keeps no references into `s`. `ai` builds `collectorView(s)` inside it. Required when `FLAGS.INTENTS` is on (D-150) |
+| `IntentPolicy = (s: GameState) => Intent` | `pipeline.ts`, type exported from the root | Pure, read-only, keeps no references into `s`. `ai` builds `collectorView(s)` inside it, and it may look ahead on a `redactState` copy through its own engine (D-221). Called after `step = 'main'`. Required when `FLAGS.INTENTS` is on (D-150) |
+
+### 8.7 Public engine API (D-209)
+
+The root exports types, `createEngine` and a few pure helpers. Everything that needs the `Env` is a method on the `Engine` facade, which binds the `Env` once at `createEngine`.
+
+| Member | Kind | Contract |
+| --- | --- | --- |
+| `newGame`, `applyAction`, `getLegalActions`, `forEachLegal`, `countLegal`, `isLegal`, `replay` | facade | §5, §6.2, D-191 |
+| `effectivePower(s, iid)`, `effectiveGuard(s, iid)` | facade, query | D-031: no element bonus, floored at `STAT_FLOOR`. Off the board: printed (+ Ascend) |
+| `printedKeywords(s, iid)`, `activeKeywords(s, iid)` | facade, query | `KwMask`. Active = printed, minus everything if face-down, minus a used Ward's `beforeDestroy` bits; 0 off the board (D-037, D-133) |
+| `elementOf(s, iid)`, `kindOf(s, iid)` | facade, query | A Chimera's element is its first material's; Chimeras, spells and traps have kind −1 (D-129) |
+| `attackPermission(s, iid)`, `attackRestriction(s, iid)` | facade, query | §6.2 lattice; the restriction fold alone (D-212) |
+| `mustAttack(s, iid)` | facade, query | OR of active `mustAttack` hooks (Vain) |
+| `previewCombat(s, attacker, target \| -1)` | facade, query | `CombatPreview` (§5.4); `{ known: false }` for a face-down target |
+| `previewGraft(s)` | facade, query | `GraftPreview \| null` (§5.6) |
+| `redactState(s, viewer)` | root function | Empties the opponent's hand, deck and trap slots and the viewer's own deck; `log: null`. A face-down opponent monster keeps its identity: look-ahead code must not apply an action that targets one (D-209) |
+| `resolveNum`, `deckForSeed`, `hashState`, `replay`, `toActions`, `seedString`, `rerollSeed`, `canonicalJson`, `deepFreeze`, `cyrb128`, `Sfc32`, `defineKeyword`, `EngineError` | root | as in the sections that define them |
+| types: state, actions, events, content, globals, hooks, effects, `CombatPreview`, `CombatOutcome`, `GraftPreview`, `IntentPolicy`, `Engine*` | root | — |
+
+Every query is a pure function of the bound content, the bound globals and its arguments. It never writes `s`, keeps no reference into it, has no cache, and works on a `Tx` draft or a frozen state. A query is a direct call with the bound `Env`. Only the two previews allocate (their result and one dispatcher). That is what lets the AI call them inside look-aheads within the §18 budget. `ai` has no copy of any rule: `ai/shared/mirror.ts` is deleted (D-209).
 
 ---
 
@@ -1144,7 +1180,7 @@ Parse errors come from zod 4 issues rendered by `files.ts › describeIssue` (D-
 | unknown key (zod strict) | `cards/relics.json › r1 › unknown key(s) foo › remove foo` (whole entry, so no field part, D-206) |
 | unknown AI rule id / param value (zod enum, D-145) | `collector.json › ai › play.[2]: got "summonBeeter" › use one of: winThisTurn, summonAce, summonBeater, …` |
 | AI card refs (D-145, D-204) | `collector.json › ai › trapPreference.[1]: "snare" is not a Collector trap in the deck › use a trap id from collector.json › deck`; for spells: `collector.json › ai › params.castHighValueSpell.forfeit: "forfeit" is not a Collector spell in the deck › use a spell id from collector.json › deck` (mood form: `moods.agitated.params.castHighValueSpell.forfeit: …`) |
-| `castHighValueSpell` entry shape (D-204, D-207) | `collector.json › ai › params.castHighValueSpell.x: needs exactly one of "pick" or "when" › keep exactly one of "pick" or "when"`; a `contestedAttack` entry on a spell that gives no Power to `chosen`: `collector.json › ai › params.castHighValueSpell.x: "contestedAttack" needs a spell that gives Power to "chosen" › use "pick": "highestPower" instead` |
+| `castHighValueSpell` entry shape (D-204, D-207) | `collector.json › ai › params.castHighValueSpell.x: needs exactly one of "pick" or "when" › keep exactly one of "pick" or "when"`; a `contestedAttack` entry on a spell with no `modifyStats` on `chosen` whose Power resolves (with the validated globals, `if` effects included) above 0: `collector.json › ai › params.castHighValueSpell.x: "contestedAttack" needs a spell that gives Power to "chosen" › use "pick": "highestPower" instead` (D-219) |
 | Collector ace (D-203) | `collector.json › ace › "no-such-relic" is not a Relic › use a Relic id from cards/relics.json`; `collector.json › ace › "the-unpriced" is not in the deck › add it to the deck list in collector.json` |
 | duplicate id (any file, incl. families) | `cards/relics.json › halo-stag › duplicate id (also in cards/player-monsters.json) › rename one of them` |
 | unknown element/kind | `cards/player-monsters.json › stormcrow › unknown element "wind" › use one of: ember, gale, tide, lumen, umbra, or add it to elements.json` |
@@ -1295,6 +1331,8 @@ export const DEFAULT_GLOBALS = deepFreeze({
   PERF_DUELS_PER_SEC_PER_CORE: 1000,
   // Engine safety
   MAX_TRIGGER_CHAIN: 64,
+  // Collector AI (read by ai as properties, so core globals; D-171)
+  AI_SEARCH_NODE_BUDGET: 600,   // win-search safety cap; never binds with BOARD_SLOTS 3 (D-211)
   // Feature flags
   FLAGS: {
     ASCEND: true, UNSTABLE: true, APPRAISAL: true, MOODS: true, INTENTS: true,
@@ -1344,6 +1382,7 @@ export const PLANNED_GLOBALS: Readonly<Record<string, PlannedGlobal>> = {
   'FLAGS.BONUS_OBJECTIVES':   { reader: 'engine', where: 'engine meta/objectives.ts (BO-1)' },
   'FLAGS.ANIMATIONS':         { reader: 'web',    where: 'web duel store (§16)' },
   'FLAGS.DEBUG_OVERLAY':      { reader: 'web',    where: 'web debug overlay (§16)' },
+  AI_SEARCH_NODE_BUDGET:      { reader: 'ai',     where: 'ai/collector/win-search.ts (D-211)' },  // until ai reads it
   // ai/sim keys formerly exempt by prefix (D-170): SIM_RUNS_PER_SEED, SEED_WINRATE_MIN/MAX, SEED_MAX_REROLLS,
   // BOT_NOISE_EPSILON, DIFFICULTY_STAR_CUTS (ai/difficulty.ts); SIM_QUICK_GAMES, SIM_FULL_GAMES,
   // SIM_SEED_CHECK_DATES, TARGET_*, PERF_DUELS_PER_SEC_PER_CORE (sim) — one line each
@@ -1471,11 +1510,22 @@ export interface CollectorView {
   readonly foeTrapSlots: readonly boolean[];         // occupied or not
   // decisions: engine legal actions translated 1:1 (enemy refs by slot, face-down without identity)
   readonly choices: readonly ViewChoice[];
-  previewAttack(attackerSlot: number, foeSlot: number | 'direct'): CombatEstimate; // public info only
+  // answers from public information (D-209): engine queries on the state, or look-ahead on redactState(s, 1)
+  previewAttack(attackerSlot: number, foeSlot: number | 'direct'): CombatEstimate; // engine.previewCombat
+  previewSummon(card: OwnCard): SummonPreview | null;  // the summon applied to the redacted copy, then queried
+  after(choice: ViewChoice): CollectorView | null;    // null for an action on a face-down foe monster
+  winningAttacks(): readonly ViewChoice[];             // D-220
+  winsAfter(choice: ViewChoice): boolean;              // D-220
 }
 ```
 
-`ai/collector/view.ts` builds it from `GameState`; a unit test asserts that two states differing only in hidden information (player hand, deck order, face-down identities, player trap identities) produce identical views.
+`ai/collector/view.ts` builds it from `GameState`. A unit test asserts that two states differing only in hidden information (player hand, deck order, face-down identities, player trap identities) produce identical views. That includes the answers of the look-ahead methods.
+
+**Look-ahead (D-209).** Every look-ahead goes through one helper, `ai/shared/look-ahead.ts`:
+- It applies actions with the Brain's engine (`{ events: false, log: false, trusted: true }`) to `redactState(s, viewer)`.
+- The redacted copy is made once per decision and shared by that decision's look-aheads.
+- The helper refuses an action that targets a face-down opponent monster, because `redactState` keeps those identities for legality.
+- Stats, keyword state, attack permission and combat outcomes come from the engine facade (§8.7). `ai` keeps no copy of any rule.
 
 ### 13.2 Data-driven priorities (`collector.json › ai`)
 
@@ -1512,7 +1562,18 @@ export interface CollectorView {
 
 `reposition: "toAttackIfUsable"` = a guard monster switches to attack only if that gives it a rule 1, 2 or 4 attack; never attack → guard (D-089). `summonBeater.compare: "previewAttack"` = "beats" means `previewAttack` with post-summon stats and element bonus (D-083); `skipBrittleCountered` is the A/B switch for proposal M-10. Each rule id maps to a function in `ai/collector/rules/<id>.ts`: `(view, params) → ViewChoice | null`. Rule ids, reposition modes and string parameter values are closed zod enums in `content/src/schemas/collector.ts` (§10.2). A test in `packages/ai` asserts that the rule registry equals `AI_PLAY_RULES ∪ AI_ATTACK_RULES`, so a typo fails `content:check` and a missing rule file fails the tests (D-145). The policy walks the mood's list (mood overrides merge over the base) and takes the first non-null choice; if none, `endTurn` (or the forced Vain attack — `holdExceptVain` returns Vain attacks via `bestTarget`, D-091). Rule semantics: D-081…D-093.
 
-`castHighValueSpell` (D-087, D-204) is keyed by Collector spell id; each value has exactly one mode. `{ "pick": "highestPower" }`: the spell qualifies if it has a legal cast choice, and is cast on the target with the highest effective Power the view shows (face-down skipped, D-086; ties by `tieBreak`); an untargeted spell has its one choice. `{ "when": "contestedAttack" }`: D-087's Gilt Frame test, using the Power the spell's `modifyStats` gives `chosen` instead of a literal +2. Candidates are the hand spells with an entry, in card-id order (D-090); the first that qualifies is cast, so JSON key order never matters. Mood params merge over base params per rule, then per key: a mood's `castHighValueSpell.<id>` replaces that id's base entry and leaves the others. Adding a spell the AI casts is a data entry; adding a mode is an enum value plus a handler.
+**Where the block comes from (D-210).** `createCollector({ content, globals })` takes the `GameContent` (§3) and reads `content.collector.ai`. There is no separate `ai` option, and nothing reads `RAW_CONTENT`. So sim overrides of `collector.json` and web hot reload reach the AI without extra plumbing.
+
+**Rule readings (D-212 to D-221), in short:**
+- Rule 1 / `lethal` try every legal play on the redacted copy (D-220). The search is capped at `AI_SEARCH_NODE_BUDGET` nodes (D-211).
+- Rule 2 summons the ace in attack position. For the sacrifice, a vault monster goes before a board one, and the weakest within each zone (D-213).
+- Rule 4 sets only `trapPreference` traps. Step 7 also sets unlisted ones by card id (D-215).
+- Rule 6's "Slow" is `attackRestriction === 'none'` on the entry turn (D-212). `guardUnlessBeater` with no face-up foe summons in attack (D-216). `allowFaceDown: true` turns guard summons face-down (D-214).
+- `toAttackIfUsable` runs the mood's `lethal`, `killWithoutLoss` and `directIfEmpty` on the copy (D-217).
+- `killWithoutLoss` ranks clean kills, then trades, then Ward strips. Which attacker takes a kill is an open owner item (D-218, M-17).
+- `contestedAttack` applies the cast to the copy and compares `previewCombat` per target (D-219).
+
+`castHighValueSpell` (D-087, D-204) is keyed by Collector spell id; each value has exactly one mode. `{ "pick": "highestPower" }`: the spell qualifies if it has a legal cast choice, and is cast on the target with the highest effective Power the view shows (face-down skipped, D-086; ties by `tieBreak`); an untargeted spell has its one choice. `{ "when": "contestedAttack" }`: D-087's Gilt Frame test, per target. The cast is applied to the redacted copy, and a face-up target that the monster doesn't destroy now must be destroyed after it (D-219). Candidates are the hand spells with an entry, in card-id order (D-090); the first that qualifies is cast, so JSON key order never matters. Mood params merge over base params per rule, then per key: a mood's `castHighValueSpell.<id>` replaces that id's base entry and leaves the others. Adding a spell the AI casts is a data entry; adding a mode is an enum value plus a handler.
 
 ### 13.3 Turn procedure
 
@@ -1528,7 +1589,10 @@ The policy is a pure function of the view, so the Collector is deterministic. Th
 ### 13.4 Moods and intents
 
 - Mood: engine (`mood.ts`) computes from life (D-080), emits `MoodChanged`; AI reads `view.mood`. Dialogue from `collector.json › dialogue` (D-097).
-- Intent: `ai/collector/intent.ts › intentPolicy: IntentPolicy` takes the `GameState`, builds `collectorView(s)` first, then simulates the rule lists on that view (no hidden info) and returns `appraise | attack | scheme | guard` with the priority in D-095. It is injected into the engine (D-096, D-150; required when `FLAGS.INTENTS` is on), stored in `state.collector.intent`, and shown by `IntentBadge`.
+- Intent: `ai/collector/intent.ts › intentPolicy: IntentPolicy` takes the `GameState` and applies `endTurn` to `redactState(s, 1)` with the Brain's engine. That runs the end of your turn and the start of his: turn hooks, Unstable expiry and Appraisal, with no draw. It builds `collectorView` of the result and simulates the rule lists on that view, so it uses no hidden information. It returns `appraise | attack | scheme | guard` with the priority in D-095:
+  - appraise = that Appraisal took a monster;
+  - attack = an attack rule fires after his repositions, or a forced (Vain) attack exists;
+  - scheme = the first play rule that returns something returns a cast or a trap set (D-221). It is injected into the engine (D-096, D-150; required when `FLAGS.INTENTS` is on), stored in `state.collector.intent`, and shown by `IntentBadge`.
 
 ---
 
@@ -1539,10 +1603,10 @@ All bots see a `PlayerView` (mirror of §13.1: own hand/board/traps, the Collect
 | Bot | Policy | Use |
 | --- | --- | --- |
 | novice | uniform random legal action (pending Graft steps included) (D-117) | target 20–30% |
-| greedy | one-ply: apply each legal action on a determinized copy, score with `evaluate()`, take best (D-116) | diagnostic line |
+| greedy | One-ply: apply each legal action to `redactState(s, 0)` through the look-ahead helper, score with `evaluate()`, take the best. It keeps its opening hand. A Graft is scored by its first-choice completion. A refused look-ahead (an action on a face-down Collector monster) scores as the current position (D-116, D-222) | diagnostic line |
 | expert | per turn, enumerate turn plans = {reposition subsets} × {play options incl. full Graft variants} × greedy attack ordering; score end-of-turn positions with `evaluate()` (life diff, board power, Appraisal exposure next Collector turn, Unstable timers, trap count, element matchups, Collector Sentinels); hidden Collector hand treated as unknown (no peeking) | target 45–55%; difficulty-check reference with ε-noise (D-094) |
 
-Weights live in `bots/expert.weights.json` (tunable without code). The expert's plan enumeration is bounded (≤ ~400 plans/turn with launch content) and uses `previewCombat`/`previewGraft`, not full engine clones, to stay within the performance budget.
+Weights live in `bots/greedy.weights.json` and `bots/expert.weights.json`, tunable without code (D-222). They are bot settings, not globals, and tests never pin them. The expert's weights feed the difficulty check, which picks the date's reroll `k`, so milestone 2 ties them to the daily setup (D-222). The expert's plan enumeration is bounded (≤ ~400 plans/turn with launch content) and uses `engine.previewCombat`/`engine.previewGraft` (§8.7), not full engine clones, to stay within the performance budget.
 
 ---
 
@@ -1599,7 +1663,7 @@ sim seed   <YYYY-MM-DD>  [--set K=V]…        # prints the difficulty check, re
 
 `ALT_GLOBALS = withGlobals({ … })` changes board, hand, draw, round, Appraisal-round, life and bonus values (engine-dev picks values that keep the fixture setup feasible), so a hard-coded constant fails the property suite. Engine tests derive incidental numbers from `g`. Golden replays with stored hashes use fixture content only. A live-content replay asserts only that it reproduces its own run's hash. Still pinned: the RNG known-answer vectors, the rule levers (`globals.test.ts`, D-168), and the `GlobalsSchema` refinements.
 
-**Properties (fast-check)**: random seeds × random legal-action walks: (1) every action from `getLegalActions` applies without throwing; (2) card conservation (§4); (3) board ≤ BOARD_SLOTS, traps ≤ TRAP_SLOTS, hand/deck/discard sizes consistent with conservation; (4) `replay(seed, toActions(s))` hashes equal to `s`; (5) the game ends within 2×MAX_ROUNDS turns; (6) Collector view invariance under hidden-info changes; (7) `isLegal` agrees with `getLegalActions` membership.
+**Properties (fast-check)**: random seeds × random legal-action walks: (1) every action from `getLegalActions` applies without throwing; (2) card conservation (§4); (3) board ≤ BOARD_SLOTS, traps ≤ TRAP_SLOTS, hand/deck/discard sizes consistent with conservation; (4) `replay(seed, toActions(s))` hashes equal to `s`; (5) the game ends within 2×MAX_ROUNDS turns; (6) Collector view invariance under hidden-info changes; (7) `isLegal` agrees with `getLegalActions` membership; (8) before every legal attack on a face-up target with no trap set, `previewCombat` equals the `CombatResolved` fields and both life changes, and for a direct attack it equals the `Damage` amount, also under a fixture twist (replaces `ai/test/mirror.test.ts`, D-209); (9) two states that differ only in hidden information have equal `hashState(redactState(s, viewer))` (D-209).
 
 **Board-state DSL** (`packages/engine/test-utils/board-dsl.ts`): a line-based text format parsed into a valid `GameState` (unspecified zones get filler cards so conservation holds). `parseScenario(text)` is pure and returns the declared cards separately from setup, actions and expectations, so each package builds the content itself: engine tests use `buildContent(FX_SPEC + declared)`, and content tests use `scenarioContent(declared)` (D-169). The card ids in the example below only illustrate the syntax: real scenarios use `fx-` or declared cards, never live card ids.
 
@@ -1655,7 +1719,7 @@ Budget: a duel ≈ 24 turns × ~6–8 actions ≈ 150–200 actions incl. AI dec
 5. **Legal action buffer**: `forEachLegal(state, visit)` lets bots count/choose without materializing arrays; `getLegalActions` (UI) materializes.
 6. **Hook fast path**: `activeKw & hookMask[hook]` before any call; ≤ 10 subscribers scanned per event.
 7. **Monomorphic objects**: every `Monster`/`SideState` created by one factory with all fields in fixed order (stable hidden classes); integer-only math.
-8. **AI on the facade**: the Collector view is an accessor object over the state (lazy), not a deep copy; `previewCombat` instead of engine clones for evaluations.
+8. **AI on the facade**: the Collector view reads the state through the engine's query methods (§8.7), not a deep copy and not an `ai` copy of the rules. Combat questions use `previewCombat`. Look-aheads apply actions to one `redactState` copy per decision with a trusted engine without events or log (D-209). The win search is capped by `AI_SEARCH_NODE_BUDGET` (D-211).
 9. **Dev-only safety**: dev mode is the explicit engine option `createEngine(…, { dev: true })`, stored as `Env.dev`. The engine never reads `process.env` (§1.2). Tests, board-DSL fixtures and the web dev build set it; the sim and production web don't. In dev mode every committed state is `deepFreeze`d and each `CombatSnapshot` is `Object.freeze`d before `beforeCombat`, so a hook that writes throws (D-141). `isLegal` validation is skipped only with `{ trusted: true }` (§6.2).
 10. **Measurement**: `pnpm bench` runs 5,000 expert-vs-Collector duels single-threaded and fails below `PERF_DUELS_PER_SEC_PER_CORE`; the sim report prints duels/sec/core. Profiling hot spots with `--cpu-prof` before optimizing further.
 11. **Worker threads**: §15; linear scaling expected because workers share nothing and return aggregates.
@@ -1673,7 +1737,8 @@ Budget: a duel ≈ 24 turns × ~6–8 actions ≈ 150–200 actions incl. AI dec
 - [ ] All state changes go through `Tx` and the effect interpreter; hooks only `effect()` (plus `cancelAttack` and the `beforeCombat` flag setters, §8.2).
 - [ ] No array or record read from `tx.state` is held across a later write; targets are collected first (§4.1, D-128).
 - [ ] Hook-visible combat data is read-only; `beforeCombat` only raises on-only flags (D-124).
-- [ ] Legality changes only in `legal.ts`/query hooks; UI/AI/bots never re-implement legality.
+- [ ] Legality changes only in `legal.ts`/query hooks; UI/AI/bots never re-implement legality, stats or combat. They call the facade queries (§8.7, D-209).
+- [ ] A new hidden zone or hidden field in `GameState` is redacted by `redactState` in the same change (D-209).
 - [ ] New keyword = one file + icon + examples; new card = JSON only; new card number = one `CONTENT_NUMBERS` line (D-171).
 - [ ] Engine logic never assumes a specific global value; tests derive incidental numbers from `g` and pass under `ALT_GLOBALS` (D-168).
 - [ ] No test asserts a live content value, a live count or a `DEFAULT_GLOBALS` value (except the rule levers); scenarios and keyword examples use fixture or declared cards under `TEST_GLOBALS` (D-168, D-169).
@@ -1698,7 +1763,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | OV-4 | Original IP | not code: content review of names/art briefs in `cards/*.json`, `art-briefs.json` | — |
 | P-1 | Same game for everyone (both decks from date seed; comparable/shareable) | `setup/seed.ts`, `setup/shuffle.ts`, `meta/share-grid.ts` | D-001…D-003 |
 | P-2 | Simple rules, deep combos | rules modules; tutorial out of scope (v0.2) | — |
-| P-3 | Boss never cheats, deterministic, telegraphs intent | `ai/collector/view.ts`, `policy.ts`, `intent.ts` | D-082, D-086, D-095 |
+| P-3 | Boss never cheats, deterministic, telegraphs intent | `ai/collector/view.ts`, `policy.ts`, `intent.ts`, `ai/shared/look-ahead.ts`, engine `view/redact.ts › redactState`, engine facade queries (§8.7) | D-082, D-086, D-095, D-209, D-221 |
 | P-4 | Fast: one card per turn, ≤ 12 rounds, no waiting on animations | `legal.ts` (`played`), `turn.ts`, web `anim/` | D-014 |
 | LD-1 | Format: duel, hidden draw order, identical seed | `setup/shuffle.ts`, `view/redact.ts` | D-006 |
 | LD-2 | The Collector is the only boss; weekly rule twist | `collector.json`, `twists.json`, `stats.ts` (twist modifiers) | D-103 |
@@ -1822,18 +1887,19 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | AP-5 | Countdown always on screen | web `AppraisalCountdown.tsx` | — |
 | AC-1 | Ace only if Appraisal succeeded | `keywords/covetous.ts`, `summon.ts` | D-054 |
 | MO-1 | Moods by life: Composed 16–25, Agitated 8–15, Desperate 1–7 | `mood.ts`, `globals.MOOD_*`, `FLAGS.MOODS` | D-080 |
-| MO-2 | Mood behaviors | `collector.json › ai.moods`, `ai/collector/moods.ts` | D-081 |
-| IN-1 | Intent icon (attack/appraise/guard/scheme), never the card | `ai/collector/intent.ts`, `state.collector.intent`, web `IntentBadge.tsx`, `FLAGS.INTENTS` | D-095, D-096 |
+| MO-2 | Mood behaviors | `collector.json › ai.moods` (carried by `GameContent`), `ai/collector/moods.ts` | D-081, D-210, D-216, D-218 |
+| IN-1 | Intent icon (attack/appraise/guard/scheme), never the card | `ai/collector/intent.ts`, `turn.ts › startTurn` (intent after `step = 'main'`), `state.collector.intent`, web `IntentBadge.tsx`, `FLAGS.INTENTS` | D-095, D-096, D-221 |
 | IN-2 | Dialogue changes with mood | `collector.json › dialogue`, web `MoodDialogue.tsx` | D-097 |
-| AI-0 | Deterministic, public info only, tie-break leftmost then card id | `ai/collector/view.ts`, `policy.ts` | D-086, D-090 |
-| AI-P1 | Win this turn if possible | `rules/winThisTurn.ts` | D-082 |
-| AI-P2 | Summon The Unpriced if summonable | `rules/summonAce.ts` | D-054 |
+| AI-0 | Deterministic, public info only, tie-break leftmost then card id | `ai/collector/view.ts`, `policy.ts`, `ai/shared/look-ahead.ts` | D-086, D-090, D-209 |
+| AI-P1 | Win this turn if possible | `rules/winThisTurn.ts`, `collector/win-search.ts`, `globals.AI_SEARCH_NODE_BUDGET` | D-082, D-211, D-220 |
+| AI-P2 | Summon The Unpriced if summonable | `rules/summonAce.ts` | D-054, D-213 |
 | AI-P3 | Slot open + monster that beats your strongest face-up → play it | `rules/summonBeater.ts` | D-083 |
-| AI-P4 | Fewer monsters than you + holds trap → set it | `rules/setTrapWhenBehind.ts` | D-088 |
-| AI-P5 | Spell with high-value target (Forfeit, Restoration, Gilt Frame contested) | `rules/castHighValueSpell.ts`, `collector.json › ai.params.castHighValueSpell` (keyed by spell id), validator (refs, entry shape, D-177 warnings) | D-087, D-145, D-177, D-204 |
-| AI-P6 | Else summon highest-Power non-Slow; all Slow → guard | `rules/summonFallback.ts` | D-084, D-085 |
-| AI-A1 | Take any lethal attack | `rules/lethal.ts` | D-082 |
-| AI-A2 | Destroy your highest-Power monster he beats without losing attacker | `rules/killWithoutLoss.ts` | D-092 |
+| AI-P4 | Fewer monsters than you + holds trap → set it | `rules/setTrapWhenBehind.ts` | D-088, D-215 |
+| AI-P5 | Spell with high-value target (Forfeit, Restoration, Gilt Frame contested) | `rules/castHighValueSpell.ts`, `collector.json › ai.params.castHighValueSpell` (keyed by spell id), validator (refs, entry shape, resolved Power, D-177 warnings) | D-087, D-145, D-177, D-204, D-219 |
+| AI-P6 | Else summon highest-Power non-Slow; all Slow → guard | `rules/summonFallback.ts`, `rules/utility.ts` (step 7), engine `attackRestriction` | D-084, D-085, D-212, D-214, D-215, D-216 |
+| AI-R | Collector repositioning (not in DESIGN's list; D-089) | `collector/reposition.ts` | D-089, D-217 |
+| AI-A1 | Take any lethal attack | `rules/lethal.ts`, `collector/win-search.ts` | D-082, D-220 |
+| AI-A2 | Destroy your highest-Power monster he beats without losing attacker | `rules/killWithoutLoss.ts` | D-092, D-218 (attacker choice: owner item) |
 | AI-A3 | Face-down only with 7+ Power unless Desperate | `rules/faceDownIfStrong.ts` | D-093 |
 | AI-A4 | Direct attack if your board is empty | `rules/directIfEmpty.ts` | — |
 | AI-A5 | Otherwise hold; Vain still attacks best target | `rules/holdExceptVain.ts`, `best-target.ts` | D-052, D-091 |
@@ -1866,14 +1932,14 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | # | Rule | Implemented in | Decisions |
 | --- | --- | --- | --- |
 | BT-1 | Expert 45–55% | `sim/report.ts`, `globals.TARGET_EXPERT_WINRATE` | — |
-| BT-2 | Novice ~25% (20–30%) | `sim/report.ts`, `ai/bots/novice.ts` | D-117 |
+| BT-2 | Novice ~25% (20–30%) | `sim/report.ts`, `ai/bots/novice.ts`; measured 0% in AI milestone 1, handled in Phase 3 | D-117, D-223, M-09 |
 | BT-3 | Most games end rounds 8–12; median 9–11 | `sim/report.ts` | — |
 | BT-4 | 15–30% go full 12 rounds | `sim/report.ts` | — |
 | BT-5 | 1.5–3 grafts per winning game | `track.grafts`, `sim/report.ts` | — |
 | BT-6 | 30–60% Appraisals succeed | `state.appraisal`, `sim/report.ts` | D-079 |
 | BT-7 | Unpriced appears in 20–40% | `track.unpriced`, `sim/report.ts` | — |
 | BT-8 | < 15% seeds rejected | `sim/difficulty-batch.ts` | — |
-| GL-1 | Every number is a global in one file | `content/src/globals.ts` (core globals + `CONTENT_NUMBERS`), `content/src/schemas/globals.ts`, `engine/src/types/globals.ts`; canonical after the switch; no derived globals; every key read, pinned or planned (`planned-globals.ts`, `content/test/globals-readers.test.ts`); unused content numbers warned | D-074, D-126, D-147, D-166, D-168, D-170, D-171, D-205 |
+| GL-1 | Every number is a global in one file | `content/src/globals.ts` (core globals + `CONTENT_NUMBERS`), `content/src/schemas/globals.ts`, `engine/src/types/globals.ts`; canonical after the switch; no derived globals; every key read, pinned or planned (`planned-globals.ts`, `content/test/globals-readers.test.ts`); unused content numbers warned; AI search cap `AI_SEARCH_NODE_BUDGET` | D-074, D-126, D-147, D-166, D-168, D-170, D-171, D-205, D-211 |
 | GL-2 | Feature flags (10) | `globals.FLAGS` | — |
 
 ### Technical architecture and content pipeline
@@ -1885,7 +1951,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | TA-3 | Package layout | §2 | — |
 | TA-4 | One plain serializable state; `applyAction` → state + events | `types/state.ts`, `reducer.ts`, `types/events.ts` | — |
 | TA-5 | Seeded sfc32 by string hash; no Math.random/dates in engine | `rng.ts`, ESLint | D-002, D-125 |
-| TA-6 | `getLegalActions` single source of truth | `legal.ts` | D-064 |
+| TA-6 | `getLegalActions` single source of truth | `legal.ts`; derived stats and combat previews likewise come only from the engine facade (§8.7) | D-064, D-209 |
 | TA-7 | Hook registry (7 hooks) for keywords, Flaws, spells/traps | `types/hooks.ts`, `hooks/*`, `traps.ts` | D-112, D-122, D-124, D-127 |
 | TA-8 | No deep cloning; structural sharing; small integer ids | `tx.ts` (§4.1), §18 | D-006, D-128 |
 | TA-9 | Reproducible from seed + action log (leaderboards later) | `replay.ts` (`cfg` check), `canonical.ts`, `state.log` | D-108, D-191, D-194 |
@@ -1912,7 +1978,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | SC-5 | Result, share text, local stats/streaks, Binder | web `screens/Result.tsx`, `persistence/*`, `meta/share.ts` | D-106 |
 | SC-6 | Practice mode | web | D-105 |
 | SC-7 | Placeholder art from data | web `art/placeholder.ts` | — |
-| SC-8 | Simulator CLI + balance report meeting targets | `packages/sim` (incl. `--ab` for DECISIONS §M proposals) | D-115, M-01…M-16 |
+| SC-8 | Simulator CLI + balance report meeting targets | `packages/sim` (incl. `--ab` for DECISIONS §M proposals) | D-115, D-223, M-01…M-17 |
 | SC-9 | CONTENT_GUIDE.md + validator | `docs/CONTENT_GUIDE.md` (Phase 1, plan §10.5), `validate.ts` | D-178 |
 | NS-1 | Not in v0.1: accounts, leaderboards, server verification, sound, painted art, native builds, monetization, weekly twists | not implemented; seams: `replay.ts` hash (server verification), `FLAGS.WEEKLY_TWIST` off, art lookup by id | — |
 | RM-1 | Roadmap v0.2–v1.0 | not in scope; engine stays server-ready (pure, replayable) | — |

@@ -1,7 +1,7 @@
 ---
 name: game-architect
 description: Designs Vault Duel engine module boundaries, state shape, hook registry, effect-primitive DSL and content schemas before code is written; reviews every engine change for determinism, performance and content-extensibility; owns docs/DECISIONS.md.
-model: opus
+model: sonnet
 tools: Read, Grep, Glob, Write, Edit
 ---
 
