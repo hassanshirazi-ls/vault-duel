@@ -2150,6 +2150,42 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - **Screens: scaled stage plus side panels.** Phones keep the portrait layout. Tablets get the same layout with larger cards. Wide landscape screens (laptop, desktop) keep the board central at a comfortable size, with a left panel for the Collector (portrait, quip, intent, mood) and a right panel for a duel log, deck and graveyard counts, and card inspect (which replaces the bottom sheet there). A mouse hover previews a card. Tap-only play still works everywhere; hover only adds information.
 - Reason: owner's choice. The UI should sit under the commissioned gothic dark-fantasy card art rather than compete with it.
 
+**D-241 · Card-name face by card width** (W1.6, applies D-240)
+- Date: 2026-10-15
+- Question: Cinzel Decorative is illegible at the smallest card widths (~50 px). Which face do small card names use?
+- Decision: Mini-card names use EB Garamond 700 below an 88 px card width and Cinzel Decorative at 88 px and up (a container query on the card). Headers and the inspect view always use Cinzel Decorative. Fonts are `@fontsource/cinzel-decorative` 5.3.0 (400, 700) and `@fontsource/eb-garamond` 5.3.0 (400, 400 italic, 700), latin only; Inter and Cormorant are removed. Only the debug overlay and the error screen's code use a monospace stack.
+- Reason: ui-dev's draft, reviewed by the main session; D-240's "engraved serif throughout" still holds, the readable serif just takes over where the decorative capitals break down.
+
+**D-242 · Unstable and the small-card icon cap** (W1.6)
+- Date: 2026-10-15
+- Question: At 360×640 the mini-card corner icons (element badge, position, keyword glyph, Unstable) overlapped. How do they fit?
+- Decision: The corners are two columns sized from the card width. On cards 72 px wide or less, each column shows at most 2 icons, so Unstable (third, after position) can be dropped. Unstable is therefore also drawn as a cracked-frame overlay (`data-unstable`), and the card's aria-label always states position, Ascended and Unstable. Flaw cracks (D-239 item 8) are drawn at 0.45 opacity. On cards 72 px or less the stat row shrinks (10.5 px figures, 8 px icons) so both numbers stay inside the frame down to the 44 px minimum.
+- Reason: ui-dev's draft, reviewed by the main session; color and icons are never the only signal (the overlay and aria-label carry Unstable).
+
+**D-243 · Burn and taken cues, ghosts and the duel log** (W1.6)
+- Date: 2026-10-15
+- Question: How do D-240's destroy and Appraisal effects and the wide-screen duel log get their data without new engine coupling?
+- Decision: New visual cues: `burn` from `Destroyed`, `taken` (plus a flash) from `Appraised`. Because `Destroyed` carries no slot, the burning or taken card is a ghost rebuilt from the previous state in `ui/useStepFx.ts`. The duel log is built from step events by `view/log.ts`, newest first, and is not persisted, so it starts empty after a reload.
+- Reason: ui-dev's draft, reviewed by the main session; presentation only. A persisted log is a possible later item.
+
+**D-244 · Wide breakpoint and hover** (W1.6)
+- Date: 2026-10-15
+- Question: Where does D-240's wide layout start, and how is hover gated?
+- Decision: Wide means `min-width: 1024px and orientation: landscape`. The same query drives the CSS and the `useWide` hook, which swaps the inspect bottom sheet for the right panel. Hover preview fires only for `pointerType === 'mouse'`, and the CSS hover lift is under `@media (hover: hover) and (pointer: fine)`; hover never acts. On wide screens the hand fan is half strength with 28 px side padding and a 26 px gap above the action row, so no card overlaps End turn, Graft or the life seal at 1024×768 or 1440×900.
+- Reason: ui-dev's draft, reviewed by the main session. Tablets in landscape below 1024 px and phones in landscape keep the portrait layout (not separately designed).
+
+**D-245 · Short-phone layout** (W1.6)
+- Date: 2026-10-15
+- Question: How does the gothic chrome fit 360×640?
+- Decision: Minimum card width is 44 px (was 48). The Collector life seal is 42 px and the hand strip is 6 px shorter. The Graft sheet's max height is 54dvh on phones and 46dvh when wide; its header, material slots and confirm row stay outside the scroll area. On phones under 700 px tall, lifting a card hides the Collector's set-trap row and Appraisal line until the card is dropped, so the board keeps its size.
+- Reason: ui-dev's draft, reviewed by the main session (verified at 360×640: board fills 287/287 px, Graft slots and confirm visible with the preview showing).
+
+**D-246 · Graft smoke and stitch** (W1.6)
+- Date: 2026-10-15
+- Question: D-240 says Graft stitches the materials together in smoke. What animates?
+- Decision: The stitch and smoke play on the new Chimera only; the materials do not animate in.
+- Reason: ui-dev's judgment that material ghosts aren't worth the extra plumbing; reviewed by the main session. Can be revisited with real art.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
