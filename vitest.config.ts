@@ -5,10 +5,14 @@ import { configDefaults, defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     passWithNoTests: true,
-    projects: ['engine', 'content', 'ai', 'sim'].map((name) => ({
-      extends: true,
-      test: { name: `@vault-duel/${name}`, root: `packages/${name}` },
-    })),
+    projects: [
+      ...['engine', 'content', 'ai', 'sim'].map((name) => ({
+        extends: true,
+        test: { name: `@vault-duel/${name}`, root: `packages/${name}` },
+      })),
+      // The web logic tests are pure (store, session, manifest); they run under Node, no DOM.
+      { extends: true, test: { name: 'web', root: 'apps/web' } },
+    ],
     exclude: [...configDefaults.exclude, '**/dist/**'],
   },
 });

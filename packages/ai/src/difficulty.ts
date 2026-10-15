@@ -96,6 +96,18 @@ export function expertHash(): string {
   return cyrb128(canonicalJson(EXPERT_WEIGHTS)).map((w) => w.toString(16).padStart(8, '0')).join('');
 }
 
+/** D-236: what a day's rating depends on besides the date. A shipped seeds manifest or a cached rating is valid only when all three match. */
+export interface CheckKey {
+  readonly contentHash: string;
+  readonly globalsHash: string;
+  readonly expertHash: string;
+}
+
+export function checkKey(ctx: Pick<DayContext, 'content' | 'globals'>): CheckKey {
+  const globalsHash = cyrb128(canonicalJson(ctx.globals)).map((w) => w.toString(16).padStart(8, '0')).join('');
+  return { contentHash: ctx.content.hash, globalsHash, expertHash: expertHash() };
+}
+
 /** D-098: win rate at or above the first cut is easy (1 star), at or above the second is 2, below is 3. */
 export function starsFor(g: Pick<Globals, 'DIFFICULTY_STAR_CUTS'>, winRate: number): 1 | 2 | 3 {
   const [easy, medium] = g.DIFFICULTY_STAR_CUTS;
@@ -212,9 +224,17 @@ export function twistFor(content: GameContent, globals: Globals, date: string): 
  */
 export function prepareDay(ctx: DayContext, date: string, run?: DuelRunner): DailySetup {
   const { content, globals } = ctx;
+  return daySetupFor(ctx, date, rateSeed(ctx, seedString(globals, date), twistFor(content, globals, date), run));
+}
+
+/**
+ * D-236: the day's setup from an already-known rating (a shipped seeds manifest or a cache), without playing any duel.
+ * `prepareDay(ctx, date)` equals `daySetupFor(ctx, date, rateSeed(...))`.
+ */
+export function daySetupFor(ctx: DayContext, date: string, rating: Pick<SeedRating, 'k' | 'winRate' | 'stars' | 'par' | 'check'>): DailySetup {
+  const { content, globals } = ctx;
   const base = seedString(globals, date);
   const twist = twistFor(content, globals, date);
-  const rating = rateSeed(ctx, base, twist, run);
   const seed = rerollSeed(base, rating.k);
   const deck = deckForSeed(content, globals, seed);
   return {

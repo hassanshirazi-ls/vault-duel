@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "node_modules/.tsc",
+    "emitDeclarationOnly": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "jsx": "react-jsx",
+    "types": ["vite/client"]
+  },
+  "include": ["src", "test", "vite.config.ts", "env.d.ts"],
+  "references": [{ "path": "../../packages/engine" }, { "path": "../../packages/content" }, { "path": "../../packages/ai" }]
+}

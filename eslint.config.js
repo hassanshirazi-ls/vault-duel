@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import globals from 'globals';
+import reactHooks from 'eslint-plugin-react-hooks';
 import { builtinModules } from 'node:module';
 
 // Determinism bans (ARCHITECTURE.md §1.2, §18 checklist): engine, content keywords and ai
@@ -101,8 +102,25 @@ export default tseslint.config(
   },
   layer(['packages/content/keywords/**/*.ts'], 'content', ['ai', 'sim'], true),
   layer(['packages/ai/**/*.ts'], 'ai', ['sim'], true),
+  // apps/web: browser code with React. The determinism bans do not apply (they cover engine, keywords and ai only).
   {
-    files: ['packages/sim/**/*.ts', 'packages/content/scripts/**/*.ts', '*.config.{js,ts}'],
+    files: ['apps/web/**/*.{ts,tsx}'],
+    languageOptions: { globals: globals.browser },
+    plugins: { 'react-hooks': reactHooks },
+    rules: reactHooks.configs.recommended.rules,
+  },
+  // The difficulty worker runs in a WebWorker scope: `self` is its global, `window` does not exist there.
+  {
+    files: ['apps/web/src/daily/difficulty.worker.ts'],
+    languageOptions: { globals: globals.worker },
+  },
+  // Web tests run under Node (vitest), not in a browser.
+  {
+    files: ['apps/web/test/**/*.ts'],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['packages/sim/**/*.ts', 'packages/content/scripts/**/*.ts', '*.config.{js,ts}', 'apps/web/vite.config.ts'],
     languageOptions: { globals: globals.node },
   },
 );

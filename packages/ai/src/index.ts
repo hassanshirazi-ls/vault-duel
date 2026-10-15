@@ -35,5 +35,5 @@ export type { ExpertBot, ExpertOptions, ExpertStats, ExpertWeights } from './bot
 export { createNoise, noiseKey } from './bots/noise';
 export type { Noise } from './bots/noise';
 export type { ExpertTerms } from './bots/evaluate';
-export { expertHash, expertRunner, isoWeekOf, parOf, prepareDay, rateSeed, starsFor, twistFor } from './difficulty';
-export type { Candidate, DailySetup, DayContext, DuelJob, DuelOutcome, DuelRunner, SeedRating } from './difficulty';
+export { checkKey, daySetupFor, expertHash, expertRunner, isoWeekOf, parOf, prepareDay, rateSeed, starsFor, twistFor } from './difficulty';
+export type { Candidate, CheckKey, DailySetup, DayContext, DuelJob, DuelOutcome, DuelRunner, SeedRating } from './difficulty';

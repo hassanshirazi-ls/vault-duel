@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { createEngine, rerollSeed } from '@vault-duel/engine';
 import type { Globals } from '@vault-duel/engine';
-import { createCollector, expertHash, isoWeekOf, parOf, prepareDay, rateSeed, starsFor, twistFor } from '../src';
+import { checkKey, createCollector, daySetupFor, expertHash, isoWeekOf, parOf, prepareDay, rateSeed, starsFor, twistFor } from '../src';
 import type { DayContext, DuelJob, DuelRunner } from '../src';
 import { CONTENT, GLOBALS as LIVE } from './helpers';
 
@@ -157,6 +157,17 @@ describe('prepareDay (§12.5)', () => {
     const first = prepareDay(ctx(), '2026-05-05', stub([5]));
     expect(first.k).toBe(0);
     expect(first.deckList).not.toEqual(d.deckList);
+  });
+
+  it('daySetupFor rebuilds the same setup from the rating alone, without playing a duel (D-236)', () => {
+    const d = prepareDay(ctx(), '2026-05-05', stub([0, 0, 5]));
+    expect(JSON.stringify(daySetupFor(ctx(), '2026-05-05', { k: d.k, ...d.difficulty }))).toBe(JSON.stringify(d));
+  });
+
+  it('checkKey changes with the globals and carries the content and expert hashes (D-236)', () => {
+    const a = checkKey(ctx());
+    expect(a).toEqual({ contentHash: CONTENT.hash, globalsHash: a.globalsHash, expertHash: expertHash() });
+    expect(checkKey(ctx({ ...G, SIM_RUNS_PER_SEED: G.SIM_RUNS_PER_SEED + 1 })).globalsHash).not.toBe(a.globalsHash);
   });
 
   it('the real expert-with-noise check is deterministic too (few runs)', () => {
