@@ -8,6 +8,7 @@ import './style/base.css';
 import './style/card.css';
 import './style/screens.css';
 import './style/meta.css';
+import './style/howto.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initialContentApi, onContentReload } from './content/hot';

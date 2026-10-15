@@ -4,6 +4,7 @@
 import { deckLine, definitionView } from '../view/cards';
 import { Glyph } from '../visual/glyphs';
 import { useGame } from './context';
+import { FeedbackLink } from './Feedback';
 import { Gem } from './Gem';
 import { MiniCard } from './MiniCard';
 import { useState } from 'react';
@@ -22,6 +23,7 @@ export function Home() {
   const dailyDone = useGame((s) => s.dailyDone);
   const startPractice = useGame((s) => s.startPractice);
   const openScreen = useGame((s) => s.openScreen);
+  const openHowTo = useGame((s) => s.openHowTo);
   const [inspect, setInspect] = useState(false);
   if (ctx === null || setup === null) return null;
   const { difficulty } = setup;
@@ -31,6 +33,9 @@ export function Home() {
   return (
     <main className="home">
       <header className="lot-head">
+        <button type="button" className="btn ghost help" onClick={openHowTo} aria-label="How to play" title="How to play">
+          <span aria-hidden="true">?</span>
+        </button>
         <p className="eyebrow">Vault Duel · Auction catalogue</p>
         <h1>Lot of {lotDate(setup.date)}</h1>
         <p className="stars" role="img" aria-label={`Difficulty ${difficulty.stars} of ${g.DIFFICULTY_STAR_CUTS.length + 1} stars`}>
@@ -121,6 +126,7 @@ export function Home() {
           Stats
         </button>
       </nav>
+      <FeedbackLink />
       {g.FLAGS.DEBUG_OVERLAY && source !== null && <p className="muted">Setup source: {source}</p>}
     </main>
   );

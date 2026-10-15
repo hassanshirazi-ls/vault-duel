@@ -1,0 +1,324 @@
+/* How to play (D-257): a gothic catalogue in a modal dialog. Scroll-snap strip of pages, dots, plaque buttons.
+   Mobile first (360 px), centered panel on larger screens. Motion is the browser's own scrolling only. */
+.help {
+  position: absolute;
+  top: -6px;
+  right: 0;
+  padding: 0;
+  width: var(--tap);
+  font-size: 22px;
+}
+.lot-head .eyebrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  margin-top: -6px;
+  padding-inline: 48px;
+}
+.lot-head {
+  position: relative;
+}
+.feedback {
+  justify-self: center;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.ht-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  align-items: center;
+  background: rgb(5 3 4 / 0.86);
+}
+.ht {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  max-width: 560px;
+  height: 100dvh;
+  min-height: 0;
+  padding-bottom: var(--safe-bottom);
+  background: radial-gradient(120% 60% at 50% 0%, #2a1416 0%, transparent 70%), var(--moth), var(--soot);
+  background-size: auto, var(--moth-size), auto;
+  color: var(--bone);
+  outline: none;
+}
+@media (min-width: 600px) and (min-height: 700px) {
+  .ht {
+    height: min(820px, 92dvh);
+    border: 3px double var(--gold-lo);
+    box-shadow: 0 0 0 1px #000, 0 12px 48px rgb(0 0 0 / 0.8);
+  }
+}
+.ht-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px 0;
+}
+.ht-head h2 {
+  font-size: 20px;
+  color: var(--gold-hi);
+  text-shadow: 0 2px 0 #000, 0 0 14px rgb(156 124 60 / 0.35);
+}
+.ht-strip {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.ht-strip::-webkit-scrollbar {
+  display: none;
+}
+.ht-page {
+  flex: 0 0 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow-y: auto;
+  padding: 6px 18px 26px;
+  outline-offset: -3px;
+  mask-image: linear-gradient(#000 calc(100% - 22px), transparent);
+}
+.ht-page h3 {
+  font-size: 22px;
+  line-height: 1.15;
+  margin: 2px 0 8px;
+  color: var(--gold-hi);
+  text-shadow: 0 2px 0 #000;
+}
+.ht-page h3::after {
+  content: '';
+  display: block;
+  height: 12px;
+  margin-top: 4px;
+  background: var(--thorns) repeat-x center / 48px 12px;
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+.ht-art {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 12px 8px;
+  margin-bottom: 10px;
+  border: 2px solid var(--gold-lo);
+  border-radius: 3px;
+  background: linear-gradient(#1d1517, #120d0f);
+  box-shadow: inset 0 0 18px rgb(0 0 0 / 0.8);
+  overflow: hidden;
+}
+.ht-art .track {
+  width: 100%;
+}
+.ht-lines {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 17px;
+  line-height: 1.32;
+}
+.ht-lines li {
+  position: relative;
+  padding-left: 18px;
+}
+.ht-lines li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.5em;
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  background: var(--gold);
+  box-shadow: 0 0 0 1px #000;
+}
+
+/* illustrations */
+.ht-lives {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  color: var(--gold-hi);
+}
+.ht-life {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 4px 6px;
+  color: var(--bone);
+}
+.ht-life.foe svg {
+  color: var(--oxblood-hi);
+}
+.ht-life b {
+  font-size: 28px;
+  font-family: var(--font-num);
+}
+.ht-life small {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  color: var(--bone-dim);
+}
+.ht-board {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+.ht-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+.ht-niche {
+  display: grid;
+  place-items: center;
+  width: 78px;
+  aspect-ratio: 4 / 5;
+  border: 2px solid var(--gold-lo);
+  border-radius: 3px;
+  background: radial-gradient(#050304, #14100f);
+  box-shadow: inset 0 3px 8px #000;
+  color: var(--gold);
+}
+.ht-niche.small {
+  width: 56px;
+  aspect-ratio: 5 / 3;
+}
+.ht-card .mini {
+  --w: 70px;
+  pointer-events: none;
+}
+.ht-graft {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--gold-hi);
+}
+.ht-graft .mini {
+  --w: 64px;
+}
+.ht-plus {
+  font-size: 24px;
+  line-height: 1;
+}
+.ht-beats {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ht-beats li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gold-hi);
+}
+.ht-el {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 84px;
+  color: var(--bone);
+  font-size: 16px;
+}
+.ht-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.ht-gavel {
+  color: var(--gold-hi);
+}
+.ht-win {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.ht-win .seal-mark {
+  width: 76px;
+  height: 76px;
+}
+.ht-stars {
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  color: var(--gold-hi);
+}
+
+/* footer: previous, dots, next/done */
+.ht-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 8px;
+  padding: 0 16px 10px;
+  border-top: 1px solid var(--gold-lo);
+}
+.ht-nav {
+  padding: 0 10px;
+  min-width: 52px;
+}
+.ht-nav.wide {
+  min-width: 96px;
+}
+.ht-dots {
+  order: -1;
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ht-dot {
+  display: grid;
+  place-items: center;
+  width: var(--tap);
+  height: var(--tap);
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.ht-dot i {
+  width: 11px;
+  height: 11px;
+  transform: rotate(45deg);
+  border: 2px solid var(--gold);
+  background: var(--soot);
+}
+.ht-dot[aria-current='step'] i {
+  background: var(--gold-hi);
+  box-shadow: 0 0 8px rgb(210 178 106 / 0.7);
+}
+.ht-dot:focus-visible,
+.ht-page:focus-visible {
+  outline: 2px solid var(--gold-hi);
+  outline-offset: 0;
+}
+@media (max-width: 380px) {
+  .ht-page {
+    padding-inline: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ht-strip {
+    scroll-behavior: auto;
+  }
+}

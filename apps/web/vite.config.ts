@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -41,10 +42,23 @@ function offlineShell(): Plugin {
   };
 }
 
+/** D-257: the first 7 characters of VERCEL_GIT_COMMIT_SHA, else `git rev-parse --short HEAD`, else `dev`. */
+function buildSha(): string {
+  const vercel = process.env['VERCEL_GIT_COMMIT_SHA'];
+  if (vercel !== undefined && vercel.trim() !== '') return vercel.trim().slice(0, 7);
+  try {
+    const out = execSync('git rev-parse --short HEAD', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return out === '' ? 'dev' : out;
+  } catch {
+    return 'dev';
+  }
+}
+
 // Workspace packages export TypeScript source ("exports": "./src/index.ts"), so Vite compiles them like app code
 // and JSON/keyword edits reach the HMR graph (D-176).
 export default defineConfig({
   plugins: [react(), offlineShell()],
+  define: { __BUILD_SHA__: JSON.stringify(buildSha()) },
   worker: { format: 'es' },
   build: { target: 'es2022' },
 });

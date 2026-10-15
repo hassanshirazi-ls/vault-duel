@@ -9,6 +9,7 @@ import { browserShareEnv, sendShare, shareText } from '../view/share';
 import type { ShareOutcome } from '../view/share';
 import { Glyph } from '../visual/glyphs';
 import { useGame } from './context';
+import { FeedbackLink } from './Feedback';
 import { Gem } from './Gem';
 import { MiniCard } from './MiniCard';
 
@@ -160,6 +161,7 @@ export function Result() {
           </button>
         </div>
       )}
+      {!practice && <FeedbackLink />}
     </main>
   );
 }

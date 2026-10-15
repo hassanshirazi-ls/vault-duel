@@ -9,6 +9,7 @@ import { newDuel, playerStep } from '../duel/runtime';
 import type { Runtime } from '../duel/runtime';
 import { createRuntime } from '../duel/runtime';
 import { clearSession, loadSession, recordFor, resumeSession, saveSession } from '../daily/session';
+import { howToSeen, markHowToSeen } from '../persistence/howto';
 import { emptyBinder, emptyStats, loadBinder, loadStats, recordDaily } from '../persistence/meta';
 import type { BinderRecord, StatsRecord } from '../persistence/meta';
 import { objectivesMet } from '../view/objectives';
@@ -68,6 +69,8 @@ export interface GameState_ {
   readonly dailyDone: boolean;
   /** a full-page screen over Home or the Result */
   readonly screen: Screen | null;
+  /** the How to play pages are open (D-257): on first open, and again from the "?" on Home */
+  readonly howTo: boolean;
   readonly stats: StatsRecord;
   readonly binder: BinderRecord;
 }
@@ -87,13 +90,16 @@ export interface GameActions {
   leavePractice(): void;
   openScreen(screen: Screen): void;
   closeScreen(): void;
+  openHowTo(): void;
+  /** Skip and Done: closes the pages and remembers that they were seen */
+  closeHowTo(): void;
 }
 
 export type GameStore = ReturnType<typeof createGameStore>;
 
 const IDLE: GameState_ = {
   phase: { name: 'booting' }, ctx: null, rt: null, setup: null, source: null, state: null, actions: [], events: [], legal: [],
-  groups: null, notice: null, error: null, mode: 'daily', daily: null, dailyDone: false, screen: null,
+  groups: null, notice: null, error: null, mode: 'daily', daily: null, dailyDone: false, screen: null, howTo: false,
   stats: emptyStats(), binder: emptyBinder(),
 };
 
@@ -150,6 +156,11 @@ export function createGameStore(deps: GameDeps) {
       set({ stats: r.stats, binder: r.binder, dailyDone: true });
     };
 
+    /** First open (D-257): the How to play pages show once, when the app lands on Home. */
+    const firstRun = (): void => {
+      if (!howToSeen(deps.storage)) set({ howTo: true });
+    };
+
     const snapshot = (): Snapshot => {
       const { phase, state, actions, events, legal, groups } = get();
       return { phase, state, actions, events, legal, groups };
@@ -189,13 +200,17 @@ export function createGameStore(deps: GameDeps) {
         const record = loadSession(deps.storage, date);
         if (record === null) {
           set({ phase: { name: 'home' }, notice: opts.restartNotice ?? null });
-          if (opts.restartNotice !== undefined) beginDuel(opts.restartNotice);
+          if (opts.restartNotice === undefined) firstRun();
+          else beginDuel(opts.restartNotice);
           return;
         }
         const resumed = resumeSession(rt, resolved.setup, record);
         if (resumed.ok) {
           set({ ...show(resumed.state, record.actions, []), notice: opts.restartNotice ?? null });
-          if (record.actions.length === 0 && opts.restartNotice === undefined) set({ phase: { name: 'home' } });
+          if (record.actions.length === 0 && opts.restartNotice === undefined) {
+            set({ phase: { name: 'home' } });
+            firstRun();
+          }
           settle(resumed.state);
           if (resumed.state.result !== null) resumePractice(date);
           return;
@@ -273,6 +288,15 @@ export function createGameStore(deps: GameDeps) {
 
       closeScreen() {
         set({ screen: null });
+      },
+
+      openHowTo() {
+        set({ howTo: true });
+      },
+
+      closeHowTo() {
+        markHowToSeen(deps.storage);
+        set({ howTo: false });
       },
     };
   });

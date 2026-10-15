@@ -6,6 +6,7 @@ import { Binder } from './Binder';
 import { DebugOverlay } from './Debug';
 import { Duel } from './Duel';
 import { Home } from './Home';
+import { HowToPlay } from './HowToPlay';
 import { Result } from './Result';
 import { Seal } from './Seal';
 import { Stats } from './Stats';
@@ -40,6 +41,7 @@ export function App() {
   const ctx = useGame((s) => s.ctx);
   const mode = useGame((s) => s.mode);
   const screen = useGame((s) => s.screen);
+  const howTo = useGame((s) => s.howTo);
   const body = (() => {
     if (screen !== null && (phase.name === 'home' || phase.name === 'result')) return screen === 'binder' ? <Binder /> : <Stats />;
     switch (phase.name) {
@@ -92,6 +94,7 @@ export function App() {
       )}
       <Atmosphere />
       {body}
+      {howTo && <HowToPlay />}
       <DebugOverlay />
     </div>
   );
