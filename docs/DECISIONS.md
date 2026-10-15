@@ -687,6 +687,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Question: The client must know the day's deck before play.
 - Decision: The client runs the check on-device in a Web Worker on first open of the day and caches the result per date + content version. Determinism guarantees all devices reach the same result; `pnpm sim:seed <date>` reproduces it. A precomputed `seeds/<date>.json` shipped with a build is used if present and must match.
 - Reason: offline-capable PWA, no server in v0.1. Expected cost: 500 duels ≈ 1–2 s on a phone at ≥ 300 duels/s.
+- Amended by D-236: a shipped seeds manifest is the primary source; the on-device check is the fallback.
 
 **D-100 · "Par" for the share text** [EXTENDS]
 - Date: 2026-10-14
@@ -2085,6 +2086,31 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 
 **Sim milestone note (record, extends D-229):** the first `sim full` over 60 dates from 2026-01-01 rejected **88.1%** of candidate seeds (428 of 486; BT-8 ≤ 15%), 55 of 60 dates needed a reroll (7.1 on average), and **2 dates reached the D-004 fallback**. Candidate win rates are bimodal (172 in 0–0.1, 78 in 0.9–1.0, 6 in 0.4–0.5). `sim quick`: expert 47.4% (pass), novice 0.1%, expert median round 6 (BT-3 9–11), 2.0% reach round 12 (BT-4 15–30%), expert ~400 duels/s on one core (PERF 1000). Nothing tuned; reports in `docs/reports/*-2026-10-15.*`.
 
+**D-236 · Daily seeds are precomputed at build time; the on-device check is the fallback** (amends D-099, D-225; answers the D-229 owner item)
+- Date: 2026-10-15
+- Question: D-229 and the sim milestone showed the on-device check is far slower than D-099 assumed. Should web rate the day on the device or ship precomputed ratings?
+- Decision:
+  - **Primary: a shipped manifest.** `apps/web/public/seeds.json` holds `{ contentHash, globalsHash, expertHash, days: { "<date>": { k, winRate, stars, par, check } } }`. One file, not one per date (replaces D-225's `seeds/<date>.json`). It stores only the rating; the rest of the day is rebuilt by `daySetupFor(ctx, date, rating)` (packages/ai), which plays no duel.
+  - **Key.** `checkKey(ctx)` (packages/ai) returns the three hashes. The content hash leaves globals out (D-197), so `globalsHash` is needed. The manifest is used only when all three match the running build; otherwise it is ignored as a whole.
+  - **Fallback: on-device.** A date missing from the manifest, or any key mismatch (dev builds, D-176 hot reload, `?set=`, `?date=` beyond the window), runs `prepareDay` in `difficulty.worker.ts` with a progress screen. Its rating is cached in localStorage per date plus the three hashes.
+  - **Generator.** A `sim seeds --from DATE --days N` command writes the manifest with the existing worker pool. It must be byte-identical for any worker count, as `sim full` is. Built later in a small sim round; the web app works without it (every day falls back).
+  - A stale manifest is never an error: the app falls back. The production build prints a warning when the manifest key does not match.
+- Reason: measured cost. A rating attempt takes about 1.6 s on one desktop core, and the sim milestone averaged 8.1 attempts a date (about 13 s), with fallback dates at 21 attempts (about 34 s). A phone is slower still, so first open of the day would block for 30 s to 2 min. Even at the BT-8 target (≤ 15% rejected) a phone would wait several seconds. Precomputing moves that cost to a build machine with all cores. The client stays offline-capable with no server, and every device still gets the same day because the rating is deterministic. The fallback keeps dev hot reload and owner tuning working without a regeneration step.
+
+**D-237 · Web visual direction** (owner choices, 2026-10-15; extends §16 and D-195)
+- Date: 2026-10-15
+- Question: What should the web UI look like around the locked "dark fantasy painted cards"?
+- Decision (owner chose each):
+  - **Direction: gilded auction house.** Black velvet, gold leaf, ivory, brass plaques; cards read as exhibits.
+  - **Type:** an engraved-style serif display face (Cormorant or Cinzel class) for names and headers, a clean sans (Inter class) for rules text and numbers.
+  - **Duel layout: mirrored classic.** Collector header (life, Appraisal countdown, intent, mood) and his traps/monsters on top; round marker across the middle; your monsters/traps, life, fanned hand and End turn at the bottom in thumb reach.
+  - **Board cards: mini cards.** Art, name, Power/Guard, element badge (color + icon) and keyword frame on every board card; tap for full text.
+  - **Input: tap card, tap target.** Tapping a hand card lifts it and makes legal slots/targets glow; tapping one plays it; tapping elsewhere cancels. Face-up/face-down is a small toggle on the lifted card.
+  - **Motion: snappy.** About 150–250 ms per beat, every animation skippable and never blocking input.
+  - **Placeholder art (D-195): silhouette on element glow.** A dark kind silhouette over a radial glow in the element color, under a gilt frame.
+  - **Collector: portrait + speech line.** A small header portrait that changes with mood, and a one-line quip on mood shifts and Appraisals that fades by itself.
+- Reason: owner's choice; the auction-house look fits the Collector, the vault, Appraisal and Relics.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
@@ -2127,7 +2153,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 | D-204 | Is a `castHighValueSpell` entry (or a `trapPreference` id) for a newly added Collector card an owner-only AI param under D-166, or a card list the owner edits freely like `deck`? | Settled 2026-10-14 (owner): both are card lists, edited freely like `deck`. The rule lists, mood rule lists, `reposition` and the other params stay owner-only |
 | D-195 | Keyword and Flaw icon/visual ids; do Flaws get a frame? | Art decision; DESIGN gives no icons and no Flaw visuals. Owner ruled (A): content-author's ids as drafts, Flaws framed |
 | D-218 | Attack rule 2: which of his attackers takes a kill, the strongest that can (D-090 literal, current) or the weakest that is enough? | Ruled 2026-10-15 (owner): the strongest, for v0.1. The weakest-sufficient alternative is A/B-tested in Phase 3 as M-17 |
-| D-229 | Difficulty check rejects ~75% of seeds (BT-8 ≤ 15%); `prepareDay` costs ~6 s, against D-099's 1–2 s | Measured in AI milestone 2. Levers (ε, per-run shuffle, band) change D-094 or globals; decide with Phase 3 sims. On-device vs precomputed seeds to decide before the web daily loop. Sim milestone (60 dates): 88.1% rejected and 2 D-004 fallbacks |
+| D-229 | Difficulty check rejects ~75% of seeds (BT-8 ≤ 15%); `prepareDay` costs ~6 s, against D-099's 1–2 s | Measured in AI milestone 2. Levers (ε, per-run shuffle, band) change D-094 or globals; decide with Phase 3 sims. On-device vs precomputed: decided by D-236 (precomputed manifest, on-device fallback). Sim milestone (60 dates): 88.1% rejected and 2 D-004 fallbacks |
 | D-230 | BT-3b "most games end in rounds 8–12" read as more than half | DESIGN gives no number. Confirm, or give a share to make a `TARGET_*` global |
 | M-01…M-16 | Balance/rule proposals from the paper-sim (section M) | None applied; each needs a Phase 3 sim A/B test and an owner decision. Levers M-01 and M-02 get plumbing in D-183, and M-04 in D-184 |
 | D-152 | Ward saves an Unstable Chimera from expiry: does it keep the +3? | DESIGN is silent and it's reachable with launch cards. Owner ruled (A): Unstable ends and the +3 goes |
