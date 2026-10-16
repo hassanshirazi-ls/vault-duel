@@ -465,6 +465,8 @@ declare(attacker A, target T | direct):
 
 A direct attack emits no `CombatResolved`, just one `Damage` with `source` = the attacker.
 
+**Lanes (D-281…D-284; `FLAGS.LANES`, default off).** The pipeline above is unchanged; lanes only change which `(A, T)` pairs are declarable. `lanes.ts › laneTargets(state, A)` is the one function for it, used by `legal.ts`, `previewCombat` callers and the AI view. Lane = slot index, the same on both sides. With `LANES` on: `C` = `{ lane(A) + o : o ∈ attackReach(A) } ∩ [0, BOARD_SLOTS)` (`attackReach` defaults to `{0}`); `T` = monsters in `C`; a face-up enemy Sentinel within `SENTINEL_REACH` lanes of `lane(A)` replaces `T` with those Sentinels (a face-up Sentinel in `lane(A)` itself leaves `T = {it}`); a non-empty enemy board with `T` empty gives A no attack; direct (`-1`) only when the enemy board is empty. With `LANES` off it returns every enemy monster, filtered by classic Sentinel. Nothing after `declare` knows about lanes.
+
 `engine.previewCombat(state, A, T)` runs the same `resolveCombat` without side effects. The UI, the Collector AI (public information) and the bots use it. It is a method on the `Engine` facade (§8.7, D-209). There is no reveal, no trap and no queued effect. `beforeCombat` hooks run into a sink that discards their effects, so Pierce and Brittle show in the result. For a face-down target it returns `{ known: false }`. An engine property test checks it against `CombatResolved` and `Damage` (§17).
 
 ### 5.5 Destruction batch (`destroy.ts`)
@@ -501,7 +503,7 @@ graftPosition pos          → COMMIT:
      unstable = FLAGS.UNSTABLE && any pair of material elements opposes
      sacrifice board materials and hand materials → owner's discard (emit Sacrificed; no hooks)
      inst.push({ def: family, owner, chimera: { element, kw, ascended: mats.length === 3, materials, grafted: turn } })
-     place in leftmost free slot: { pos, entered: turn, unstableUntil: unstable ? unstableExpiry(turn, g) : -1, … }
+     place in leftmost free slot (FLAGS.LANES: the lane in graftPosition, D-284): { pos, entered: turn, unstableUntil: unstable ? unstableExpiry(turn, g) : -1, … }
           // unstableExpiry: e = turn + UNSTABLE_EXPIRY_TURNS ('endOfNextOwnTurn', DESIGN);
           //                 e + DURATION_NEXT_OWN_TURN − 1 ('startOfOwnTurnAfterNext', lever M-02; D-183)
      played = true; step = 'attack'
@@ -546,15 +548,16 @@ export type Action =
   | { readonly t: 'redraw' }                                         // mulligan only
   | { readonly t: 'keep' }                                           // ends mulligan, starts round 1
   | { readonly t: 'reposition'; readonly m: Iid }                    // atk↔grd; face-down → face-up atk
-  | { readonly t: 'summon'; readonly c: Iid; readonly mode: SummonMode }
-  | { readonly t: 'summonCovetous'; readonly c: Iid; readonly sac: Iid; readonly mode: 'atk' | 'grd' }
+  | { readonly t: 'moveLane'; readonly m: Iid; readonly to: number } // FLAGS.LANES only: step to lane `to`, swap if occupied (D-282)
+  | { readonly t: 'summon'; readonly c: Iid; readonly mode: SummonMode; readonly lane?: number }   // lane: required with FLAGS.LANES, absent = leftmost free (D-284)
+  | { readonly t: 'summonCovetous'; readonly c: Iid; readonly sac: Iid; readonly mode: 'atk' | 'grd'; readonly lane?: number }
   | { readonly t: 'cast'; readonly c: Iid; readonly target: Iid | -1 }  // -1 = untargeted
   | { readonly t: 'setTrap'; readonly c: Iid }
   | { readonly t: 'graftBegin' }
   | { readonly t: 'graftPick'; readonly m: Iid }                     // material 1, 2, or Ascend material
   | { readonly t: 'graftSkipAscend' }
   | { readonly t: 'graftKeywords'; readonly kw: KwMask }             // exactly MAX_INHERITED_KEYWORDS bits
-  | { readonly t: 'graftPosition'; readonly pos: Pos }               // commits the Graft
+  | { readonly t: 'graftPosition'; readonly pos: Pos; readonly lane?: number }  // commits the Graft; lane as for summon (D-284)
   | { readonly t: 'graftCancel' }
   | { readonly t: 'attack'; readonly a: Iid; readonly target: Iid | -1 } // -1 = direct
   | { readonly t: 'endTurn' };
@@ -576,16 +579,22 @@ main (and !played):
    reposition m           for own m with m.entered < turn and m.repositioned !== turn
                           (face-down: only to attack; D-023). No keyword grants a reposition; the
                           *_PER_TURN globals are pinned to 1 (D-190)
-   summon c × mode        for hand monster c, free slot, summonRequirement(c) === 'normal'
-                          (a Chimera card in hand too, all three modes: owner ruling D-189 A)
-   summonCovetous c, sac  for each acquired sac on board or in vault with a free slot after (D-054)
+   moveLane m, to         FLAGS.LANES only: for own m in slot order, to ascending, |to − lane(m)| ≤ LANE_MOVE_RANGE;
+                          m.entered < turn && m.repositioned !== turn; target lane empty, or (FLAGS.LANE_SWAP) holds an own
+                          monster with the same two conditions. Sets repositioned = turn on both (D-282). A switch and
+                          a move share the one stamp, so a monster does either, not both
+   summon c × mode (× lane) for hand monster c, free slot, summonRequirement(c) === 'normal'
+                          (a Chimera card in hand too, all three modes: owner ruling D-189 A); with FLAGS.LANES one
+                          action per empty lane, ascending (D-284)
+   summonCovetous c, sac  for each acquired sac on board or in vault with a free slot after (D-054); × lane as above
    cast c, target         per legal target from the spell's TargetSpec (≥1 needed if targeted; D-067)
    setTrap c              if a trap slot is free
    graftBegin             if canGraft(side) && ≥2 eligible materials && some mat1 candidate (D-057, D-180)
 main or attack:
    attack a, target       for own a: pos=atk, !faceDown, a.attacked !== turn,
                           perm = attackPermission(a) ≠ 'none';
-                          targets = enemy board monsters, filtered by restrictTargets (Sentinel);
+                          targets = laneTargets(a) (§5.4): every enemy monster filtered by restrictTargets (Sentinel)
+                          when !FLAGS.LANES, else the lane rule of D-281/D-283;
                           direct (-1) only if enemy board empty and perm === 'any'
    endTurn                unless some own monster has mustAttack (Vain) and an untaken legal attack (D-052)
 ```
@@ -605,11 +614,14 @@ Graft stage actions:
 ```
 if side === Player && round < FIRST_ATTACK_ROUND_PLAYER: perm = none   // D-015, absolute (D-042); global form per D-142
 else:
-  base   = (m.entered === turn) ? none : any            // universal summoning sickness (D-022)
-  grants = max over hooks.attackPermission(...).grant   // Swift: monstersOnly on entered turn
+  base   = (m.entered !== turn) ? any
+         : (SICKNESS_MODE === 'monstersOnly' ? monstersOnly : none)   // D-022 'classic'; D-280 'monstersOnly'
+  grants = max over hooks.attackPermission(...).grant   // Swift: monstersOnly (classic) | any (monstersOnly mode) on entered turn
   restr  = min over hooks.attackPermission(...).restrict // Slow: none on entered turn (default: any)
   perm   = min(max(base, grants), restr)
 ```
+
+`entered` is set by every path that creates a board record: summon, summonCovetous, Graft, Appraisal, re-summon after Echo/Grave Recall/Restoration (D-280). Lane moves and switches never touch it.
 
 Order-independent by construction, so adding keywords cannot create ordering bugs. `engine.attackRestriction(s, iid)` returns `restr` alone. The AI uses it to find "Slow" by hook (D-212).
 
@@ -852,13 +864,14 @@ export default defineKeyword({
 
 | Keyword/Flaw | Hook(s) | Behavior (decision refs) |
 | --- | --- | --- |
-| Swift | `attackPermission` | `grant: 'monstersOnly'` when `enteredThisTurn(self)`; direct attacks need `'any'` (D-041, D-042) |
-| Sentinel | `restrictTargets` | face-up Sentinels on the defending board become the only legal targets (D-037, D-038) |
+| Swift | `attackPermission` | `grant` when `enteredThisTurn(self)`: `'monstersOnly'` under `SICKNESS_MODE 'classic'`, `'any'` under `'monstersOnly'` (D-041, D-042, D-280) |
+| Sentinel | `restrictTargets` | `!LANES`: face-up Sentinels on the defending board are the only legal targets (D-037, D-038). `LANES`: face-up Sentinels within `SENTINEL_REACH` lanes of the attacker's lane replace the targets; one in the attacker's own lane is the only target; an empty covered lane still targets the Sentinel (D-283) |
+| (reach, no keyword yet) | `attackReach` | query hook, `(self, env) → readonly number[]` lane offsets, default `[0]`, union fold; read by `laneTargets` under `LANES`. Registry slot only; reach keywords are deferred (D-284) |
 | Pierce | `beforeCombat` | if self is attacker and `combat.defPos` is guard: `ctx.setPierce()` → damage `aP − dG` (D-039, D-040, D-124) |
 | Ward | `beforeDestroy` | `'prevent'` once; asked only for its own monster; engine sets `wardUsed` and emits `WardBroken` (D-034, D-035, D-044, D-133, D-134) |
 | Haunt | `onDestroyed` | destroyer gets `modifyStats −HAUNT_PENALTY permanent` if still on board (D-045) |
 | Echo | `onDestroyed` | `returnToHand self` (from discard to owner's hand) (D-046) |
-| Slow | `attackPermission` | `restrict: 'none'` while `ownTurnsSinceEntered(self) < SLOW_TURNS` (1 = DESIGN, the entry turn only; 2 = lever M-01) (D-053, D-183) |
+| Slow | `attackPermission` | `restrict: 'none'` while `ownTurnsSinceEntered(self) < SLOW_TURNS` (1, the entry turn only; meaningful under `SICKNESS_MODE 'monstersOnly'`; the M-01 value 2 is withdrawn, D-280) (D-053, D-183) |
 | Vain | `mustAttack` | `true`; engine blocks `endTurn` while a legal attack remains; AI picks best target (D-052, D-091) |
 | Brittle | `beforeCombat` | if self is defender and `combat.advantage`: `ctx.setBrittleWin()` (D-049, D-050, D-124) |
 | Tethered | `staticPower` | `−TETHERED_PENALTY` when `monsters(side).length === 1` (D-051) |
@@ -1298,7 +1311,11 @@ export const DEFAULT_GLOBALS = deepFreeze({
   ELEMENT_BONUS: 2, STAT_FLOOR: 0,
   // Keywords & Flaws
   MAX_BASE_KEYWORDS: 1, MAX_INHERITED_KEYWORDS: 2, WARD_CHARGES: 1,
-  HAUNT_PENALTY: 2, TETHERED_PENALTY: 2, RELIC_FLAWS: 1, SLOW_TURNS: 1,   // 1 = DESIGN as written; 2 = proposal M-01
+  HAUNT_PENALTY: 2, TETHERED_PENALTY: 2, RELIC_FLAWS: 1, SLOW_TURNS: 1,   // 1 = entry turn only (M-01's 2 withdrawn, D-280)
+  // Rule changes of 2026-10-16 (D-280…D-287); the shipped values are today's rules until the sim A/B
+  SICKNESS_MODE: 'classic',      // 'classic' | 'monstersOnly' (D-280)
+  SENTINEL_REACH: 1,             // lanes each side of a Sentinel; read only with FLAGS.LANES (D-283)
+  LANE_MOVE_RANGE: 1,            // read only with FLAGS.LANES (D-282)
   // Graft
   MIN_GRAFT_MATERIALS: 2, MAX_GRAFT_MATERIALS: 3, ASCEND_POWER: 2, ASCEND_GUARD: 1,
   UNSTABLE_BONUS: 3, UNSTABLE_EXPIRY_TURNS: 2,            // destroyed at end of turn + 2 ("your next turn")
@@ -1340,6 +1357,7 @@ export const DEFAULT_GLOBALS = deepFreeze({
     // Proposal levers (DECISIONS §M): these defaults = DESIGN as written (CHIMERA_TO_HAND: true allows Echo/Grave
     // Recall of Chimeras per D-046/D-068; false = M-12). Changed only for sim A/B until the owner adopts one.
     APPRAISED_ENTERS_GUARD: false, ACE_SET_ASIDE: false, CHIMERA_TO_HAND: true,
+    LANES: false, LANE_SWAP: true,   // D-281, D-282: LANES off = free targeting, as today
   },
   // Content numbers (D-171): referenced only as "$NAME" from data or keyword effects, and as {NAME} in text.
   // Open record: add a line here for a new card number. Names must not repeat a core key.
@@ -1389,11 +1407,11 @@ export const PLANNED_GLOBALS: Readonly<Record<string, PlannedGlobal>> = {
 };
 ```
 
-This listing is the launch snapshot. From the D-166 switch, `globals.ts` itself is canonical. Owner-only (a change needs an owner-approved D-entry): `TARGET_*`, the proposal levers (`FLAGS.APPRAISED_ENTERS_GUARD`, `FLAGS.ACE_SET_ASIDE`, `FLAGS.CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`, `SLOW_TURNS`) and `WARD_CHARGES`. Everything else is tuning (owner, or balance-analyst with a `BALANCE_LOG.md` entry).
+This listing is the launch snapshot. From the D-166 switch, `globals.ts` itself is canonical. Owner-only (a change needs an owner-approved D-entry): `TARGET_*`, the proposal levers (`FLAGS.APPRAISED_ENTERS_GUARD`, `FLAGS.ACE_SET_ASIDE`, `FLAGS.CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`, `SLOW_TURNS`, `SICKNESS_MODE`, `FLAGS.LANES`, `FLAGS.LANE_SWAP`, `SENTINEL_REACH`, `LANE_MOVE_RANGE`) and `WARD_CHARGES`. Everything else is tuning (owner, or balance-analyst with a `BALANCE_LOG.md` entry).
 
 Where things live (D-147): `deepFreeze` is in `packages/engine/src/freeze.ts` and exported from the engine root. It and `canonical.ts › canonicalJson` (sorted keys, D-191) are the engine's two order-insensitive key iterations, each with a documented lint exception. `GlobalsSchema` is in `packages/content/src/schemas/globals.ts`. `DEFAULT_GLOBALS` and `withOverrides` are in `packages/content/src/globals.ts`, exported from the content root. The engine's `packages/engine/test-utils/globals.ts › TEST_GLOBALS` is an engine-owned **fixture**, deliberately independent of `DEFAULT_GLOBALS` (`CONTENT_VERSION: '0.0.0-fixture'`, its own `CONTENT_NUMBERS`). TypeScript checks its shape, and a content test checks that it passes `GlobalsSchema`. Nothing compares its values with the real globals (D-168, superseding D-143).
 
-`Globals` is an engine-side interface (`packages/engine/src/types/globals.ts`, widened types of the object above), so the engine is typed against it without importing content. The widening (D-126) is: numbers → `number` and strings → `string`. Min/max pairs (`TARGET_*`) → `Range = readonly [number, number]`, with the sanity check `min ≤ max`. `DIFFICULTY_STAR_CUTS` → `StarCuts = readonly [number, number]` (descending cuts, not a range). `APPRAISAL_ROUNDS` → `readonly number[]`. `UNSTABLE_EXPIRY` → `'endOfNextOwnTurn' | 'startOfOwnTurnAfterNext'`. `FLAGS` → `Flags`: 13 booleans, DESIGN's 10 plus the 3 proposal levers. `NumericGlobal` (the keys whose type is `number`) plus the keys of `CONTENT_NUMBERS` (`Readonly<Record<string, number>>`) are the names an effect `Num` ref (`"$NAME"`) or a text placeholder (`{NAME}`) may use (D-120, D-171, D-172). A number that TypeScript reads as a property is a core global, and adding one is an engine change. A number referenced only by name is a content number, and adding one is one line. Globals and content are bound into the engine by `createEngine(compiled, globals, policies, options)`. A hash of both is stored in `state.cfg`: `c.hash + ":" + cyrb128(canonicalJson(g))`, which doesn't depend on key order (D-191). It is checked on replay: `replay(seed, actions, { cfg })` throws `EngineError` on a mismatch, and the web session stores `cfg` with its actions.
+`Globals` is an engine-side interface (`packages/engine/src/types/globals.ts`, widened types of the object above), so the engine is typed against it without importing content. The widening (D-126) is: numbers → `number` and strings → `string`. Min/max pairs (`TARGET_*`) → `Range = readonly [number, number]`, with the sanity check `min ≤ max`. `DIFFICULTY_STAR_CUTS` → `StarCuts = readonly [number, number]` (descending cuts, not a range). `APPRAISAL_ROUNDS` → `readonly number[]`. `UNSTABLE_EXPIRY` → `'endOfNextOwnTurn' | 'startOfOwnTurnAfterNext'`. `SICKNESS_MODE` → `'classic' | 'monstersOnly'`. `FLAGS` → `Flags`: 15 booleans, DESIGN's 10, the 3 proposal levers and `LANES`, `LANE_SWAP`. `NumericGlobal` (the keys whose type is `number`) plus the keys of `CONTENT_NUMBERS` (`Readonly<Record<string, number>>`) are the names an effect `Num` ref (`"$NAME"`) or a text placeholder (`{NAME}`) may use (D-120, D-171, D-172). A number that TypeScript reads as a property is a core global, and adding one is an engine change. A number referenced only by name is a content number, and adding one is one line. Globals and content are bound into the engine by `createEngine(compiled, globals, policies, options)`. A hash of both is stored in `state.cfg`: `c.hash + ":" + cyrb128(canonicalJson(g))`, which doesn't depend on key order (D-191). It is checked on replay: `replay(seed, actions, { cfg })` throws `EngineError` on a mismatch, and the web session stores `cfg` with its actions.
 
 DESIGN numbers that are content rather than globals (with reason, D-074): monster/Relic Power/Guard (card JSON), Chimera family stats (recipes.json), weekly-twist values (twists.json). All are overridable from the sim. After the D-166 switch, these files are canonical too.
 
@@ -1559,6 +1577,8 @@ export interface CollectorView {
   "tieBreak": ["leftmostSlot", "cardId", "instanceId"]
 }
 ```
+
+**Lane rewording (D-286), active only with `FLAGS.LANES`.** `ai.params.summonLane` is an ordered list of closed-enum ids, `["sentinelCenter","facingBeatable","facingEmpty","leftmostFree"]`, used by `summonAce`, `summonBeater` and `summonFallback`; the first ids narrow the free lanes, the last tie-break is leftmost. `summonBeater` reads "if a lane is open and he holds a monster that beats the monster it would attack from that lane (the opposite one, or the Sentinel it is redirected to), play the card and lane whose target has the highest Power; ties leftmost lane, then card id". `killWithoutLoss`, `faceDownIfStrong`, `lethal`, `directIfEmpty` and Vain's `bestTarget` choose only among legal `(attacker, target)` pairs, so the attacker is nearly forced by lane (M-17 is then nearly moot). `reposition: "laneAware"` adds lane moves: a move or swap only if the lethal / `killWithoutLoss` / `directIfEmpty` rules take strictly more kills on the redacted copy afterwards (D-217 method), at most one per monster, slot order then lane ascending, empty lanes before swaps. `view.laneTargets(lane)` gives the targets of a hypothetical attacker in a lane. All inputs are public.
 
 `reposition: "toAttackIfUsable"` = a guard monster switches to attack only if that gives it a rule 1, 2 or 4 attack; never attack → guard (D-089). `summonBeater.compare: "previewAttack"` = "beats" means `previewAttack` with post-summon stats and element bonus (D-083); `skipBrittleCountered` is the A/B switch for proposal M-10. Each rule id maps to a function in `ai/collector/rules/<id>.ts`: `(view, params) → ViewChoice | null`. Rule ids, reposition modes and string parameter values are closed zod enums in `content/src/schemas/collector.ts` (§10.2). A test in `packages/ai` asserts that the rule registry equals `AI_PLAY_RULES ∪ AI_ATTACK_RULES`, so a typo fails `content:check` and a missing rule file fails the tests (D-145). The policy walks the mood's list (mood overrides merge over the base) and takes the first non-null choice; if none, `endTurn` (or the forced Vain attack — `holdExceptVain` returns Vain attacks via `bestTarget`, D-091). Rule semantics: D-081…D-093.
 

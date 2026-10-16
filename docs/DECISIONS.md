@@ -2371,6 +2371,170 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: The mode toggles and the error line float over the board. The hint bar is a fixed 54 px with a 3-line clamp, the Collector status line is reserved at 20 px, and the Graft workbench is a fixed `min(52dvh, 360px)`. The short-phone `data-lifted` rule is gone. The header menu button is 32 px with a 44 px hit area, and the Collector name truncates before anything overflows.
 - Reason: about 20 px of board height buys a board that no longer jumps.
 
+**D-271 · The owner's visual picks for the playtest round** (owner, 2026-10-16)
+- Date: 2026-10-16
+- Question: Which of the mocked-up options does the web app build?
+- Decision: Flaw B (cracked frame), wheel A (orrery ring with tracers) on the How to play combat page plus wheel C (in-duel compass), and menu A (auction-catalogue Home). The duel menu sheet and the guide page with a live demo are built as drawn. The mockups came from a design canvas, and the build uses the real components and tokens, in `apps/web` only.
+- Reason: owner's picks.
+
+**D-272 · Flaw B, and a separate look for Unstable**
+- Date: 2026-10-16
+- Question: How is a Flaw shown without the old red X, and how does Unstable stay distinct?
+- Decision: A Flaw is an SVG overlay on the frame only: short fracture lines at the edges and a chip missing from the top-left corner. The art is untouched and the frame stays gilt. Large cards and the Inspect thumbnail add a jagged oxblood plate with the Flaw's name; mini cards show only the cracks. Unstable gets its own pulsing dashed halo in a new cold `--unstable` token with a `spark` glyph tag (opacity animation only), and the Graft preview warning uses the same color.
+- Reason: red cracks for a Flaw and a cold spark for Unstable can't be confused.
+
+**D-273 · Home layout: the menu first, today's details folded**
+- Date: 2026-10-16
+- Question: Where do the day's details go so the menu sits above the fold?
+- Decision: Top to bottom: the title with a date eyebrow; the Daily plate (date, stars, par, and Enter the vault, Resume or Today's result); four engraved plates with italic subtitles (Practice, How to play, Binder, Stats); a folded "Today's lot" holding the signature card, twist, Appraisal rounds, bonuses and deck; then a footer with the feedback link (hidden when `VITE_FEEDBACK_URL` is unset) and "Next duel in Xh Ym" to local midnight, refreshed every 30 seconds. The "?" button stays for the first-open flow.
+- Reason: every menu entry is above the fold at 390×844 and 360×740, and nothing was dropped.
+
+**D-274 · Duel menu sheet: Undo and Restart tiles**
+- Date: 2026-10-16
+- Question: What do the duel menu's tiles show?
+- Decision: The title is "Round N · your turn" (or "his turn") over a 2×2 grid and the last 5 log lines with a "Full log" link; the full log has a small back control and a one-line title. The Undo tile names what it would take back (from `undoLabel`, for example "Summon Ashguard Squire"), or why it is blocked, or "Wait for the Collector" while he acts; Undo stays in the hint bar too. Restart is a disabled "Practice only" tile in the daily duel and tap-twice-to-confirm in Practice.
+- Reason: matches the mockup; the label comes from the log events, so no rule lives in the UI.
+
+**D-275 · How to play: demos and "Try it", all data-driven**
+- Date: 2026-10-16
+- Question: How do the guide's demos and questions survive rule and content changes?
+- Decision: Each of the six pages keeps the swipe strip, dots and first-open behavior, and gains a looping demo, one short summary paragraph and a "Try it" question; the old lines move under an "All the rules" fold. Demos rest in their finished picture and animate in beats, so they are still under reduced motion or with the animations flag off. The combat demo uses the first one-way advantage pair from the matrix and shows the bonus, not a computed damage number. Try it answers come only from globals and `elements.json`, and a test checks each question has exactly one right answer.
+- Reason: step 3's ring change flows through with no edits, and no combat rule is re-implemented in the UI.
+
+**D-276 · Compass placement and wheel layout**
+- Date: 2026-10-16
+- Question: Where does the in-duel compass sit, and how does the wheel arrange the elements?
+- Decision: The compass is a 116 px disc overlaid at the top right of the board area, with `pointer-events: none`, shown while a board or hand monster is selected. It covers the Collector's second trap slot and the top of his right-hand monster, which are not interactive during selection. `wheelLayout` (`apps/web/src/view/wheel.ts`) reads only the compiled elements: a single cycle is laid out in cycle order, so every arrow goes to the clockwise neighbor; anything else keeps content order, with chords for non-neighbors and a double-headed arrow for a two-way pair (today's Lumen ⇄ Umbra). The center shows `+{ELEMENT_BONUS}`.
+- Reason: the board has no free space beside the cards. The compass can hide the corner of his right-hand card; revisit this with the lanes UI (D-281).
+
+**D-280 · Summoning sickness: monsters-only on the summon turn (owner ruling R1, 2026-10-16)**
+- Date: 2026-10-16
+- Question: After playtests, a freshly summoned monster feels useless. What may it do on its summon turn, and what do Swift and Slow mean afterwards?
+- Decision (owner ruling, defaults accepted): from round 2 on, a monster may attack **monsters** the turn it is summoned but not the player's life; it may attack life from its owner's next turn. **Swift** becomes "may also attack life directly the turn it is summoned". **Slow** becomes "cannot attack at all the turn it is summoned". The player still cannot attack on round 1 (D-015, absolute).
+- Decision (judgment, flagged): one global, `SICKNESS_MODE: 'classic' | 'monstersOnly'`, shipped default `'classic'` (today) until the sim A/B. `attackPermission` (ARCHITECTURE §6.2) becomes:
+  - `base = entered !== turn ? 'any' : (SICKNESS_MODE === 'monstersOnly' ? 'monstersOnly' : 'none')`;
+  - Swift grants `'any'` under `monstersOnly` and `'monstersOnly'` under `classic` (so classic Swift is unchanged);
+  - Slow still restricts to `'none'` while `ownTurnsSinceEntered < SLOW_TURNS` (1), so it becomes meaningful with no change of its own;
+  - the fold `min(max(base, grants), restr)` is unchanged, so Slow beats Swift as today.
+- **"Summoned" means any new `Monster` record with `entered = turn`**: a hand summon in any mode; `summonCovetous`; a Graft Chimera (including an Ascended one; it dispatches no `onSummon`, D-065, but is still new); an **Appraised monster** (D-077 resets `entered` to the Collector's turn, so for that turn it can hit monsters but not life, and a Slow one cannot attack); a card that Echo, Grave Recall or Restoration returned to the hand and that is summoned again. It does **not** cover a lane move, an attack/guard switch, a flip, Ward loss or a stat change; none of those touch `entered`.
+- Pierce spillover to life on the summon turn is still dealt: it is combat damage to a monster, not a direct attack (D-039 unchanged). The reposition ban on the summon turn (DESIGN round step 2) stays.
+- Text changes (content-author): Swift "Can also attack life directly the turn it is summoned." Slow "Cannot attack the turn it is summoned." The Swift row must not claim "not life directly" any more.
+- Resolves paper-sim **M-01**: Slow is no longer a no-op, so `SLOW_TURNS = 2` is withdrawn as a lever (the global stays, value 1).
+- Reason: the owner ruled it. A single enum keeps today's behavior as the default-off variant and one switch for the sim.
+- Open owner questions: items 2 and 3 of D-288.
+
+**D-281 · Lanes: each monster faces one enemy monster (owner ruling R2a, R2b, R2e, 2026-10-16)**
+- Date: 2026-10-16
+- Question: How do the three monster slots become lanes, and what is a legal attack?
+- Decision (owner ruling): the 3 slots per side are lanes, mirrored. A monster can attack only the enemy monster in the lane across from it. If that lane is empty it cannot attack life; a direct attack is legal only when the enemy's whole monster board is empty (and R1 permits life, so `attackPermission === 'any'`).
+- Decision (judgment): **lane identity.** Lane `i` is slot index `i` (0 = leftmost as the viewer sees it, `i < BOARD_SLOTS`) on both sides. Player slot `i` faces Collector slot `i`. D-237's layout mirrors the rows vertically (his on top) and never left-to-right, so slot 0 is the left column on both rows; the web must render columns, not a horizontal flip. The engine knows nothing about layout. "Leftmost" everywhere means lowest slot index = lowest lane.
+- Switch: `FLAGS.LANES`, default `false` (all slots are free targets, as today).
+- Target function (`lanes.ts`, pure, O(3)): `laneTargets(state, attackerIid) → Iid[]`. With `LANES` off it returns all enemy monsters filtered by classic Sentinel (D-037, D-038). With `LANES` on:
+  1. `C` = the lanes the attacker reaches = `{ lane(A) + o : o in attackReach(A) } ∩ [0, BOARD_SLOTS)`; `attackReach` defaults to `{0}` (D-284).
+  2. `T` = the monsters in lanes `C` (face-down ones included).
+  3. Sentinel cover (D-283) is applied to `T`.
+  4. If the enemy has no monster at all, the only target is direct (`-1`), subject to permission. A non-empty enemy board with `T` empty gives the attacker **no legal attack**.
+- The `attack` action keeps its shape (`target: Iid | -1`). `previewCombat`, hooks, traps and combat resolution are untouched; lanes change only which attacks exist.
+- Vain (D-052, D-091): "best legal target" is now at most the opposite monster, or the Sentinel choice(s) of D-283. With no legal target, the monster has no obligation and `endTurn` is not blocked.
+- Reason: owner ruling. Slot index as lane needs no new state and no renumbering. Not mirroring left-to-right keeps "leftmost" one idea.
+
+**D-282 · Lane moves (owner ruling R2c, 2026-10-16)**
+- Date: 2026-10-16
+- Question: What does a lane move cost, and where may a monster move?
+- Decision (owner ruling): each turn each monster may make **either one lane move or one attack/guard switch, not both**, and neither on the turn it was summoned.
+- Decision (judgment, from the owner's default): a lane move is a **step of up to `LANE_MOVE_RANGE` (1) lanes** into an empty own lane, or, when `FLAGS.LANE_SWAP` is on (default true), **a swap with the own monster in that lane**. A swap spends the reposition of **both** monsters, so it is legal only when both are eligible (`entered < turn` and `repositioned !== turn`). Both monsters get `repositioned = turn`.
+  - It keeps position and face-down state; it changes only the slot. A face-down monster may move.
+  - A moved monster may still attack that turn, from its new lane (moves belong to the reposition step, which closes at the play or the first attack, D-014, D-155, D-190).
+  - The single `repositioned` stamp already used for the switch is the shared "used your reposition" mark, so "not both" needs no new state.
+- New action `{ t: 'moveLane'; m: Iid; to: number }` (`to` is the target lane). New event `LaneMoved { iid, from, to, swapped: Iid | -1 }`. Enumeration order: after `reposition m`, for each own `m` in slot order, `to` ascending.
+- Switch: only exists under `FLAGS.LANES`; `FLAGS.LANE_SWAP` and `LANE_MOVE_RANGE` are the A/B levers.
+- Reason: a one-step move with swap is a single rule (move to the neighbor lane; if occupied, trade places). A free choice of any empty lane is not needed with 3 lanes: 0 to 2 takes two turns, which is a real cost and is what makes Sentinel placement matter. An "empty only" rule would let a full board never rearrange, so a Sentinel could not be placed and a bad summon lane would be permanent.
+
+**D-283 · Sentinel reach under lanes (owner ruling R2d, 2026-10-16)**
+- Date: 2026-10-16
+- Question: What does "guards its own lane and the adjacent lanes" mean when attacks only go across?
+- Decision (owner direction, owner's suggestion made precise): a face-up Sentinel in lane `s` **covers lanes `s − SENTINEL_REACH … s + SENTINEL_REACH`** (clamped; `SENTINEL_REACH` default 1). For an attacker whose lane is `a` (and whose reach set is `C`, D-281):
+  - if the defender in lane `a` is a face-up Sentinel, its only target is that monster;
+  - else if any face-up enemy Sentinel covers `a`, the attacker's targets are **those Sentinels** (the attack is redirected to them). The attacker chooses when two Sentinels cover `a` (one `attack` action each); the engine needs no tie rule, and the AI breaks the choice by "best legal target" then leftmost (D-091, D-090);
+  - else the target is the monster in lane `a`.
+- **An empty lane `a` covered by a Sentinel gives the attacker that Sentinel as a target** (owner asked for one rule; this is mine). A Sentinel's cover is a statement about which attacks must go to it, so it applies whether or not the attacker's own lane is occupied. This also keeps a board with one Sentinel from freezing the opponent's attackers. The empty-board rule (D-281) never meets a Sentinel, since no Sentinel means an empty board.
+- A face-down monster is never a Sentinel (D-037: face-up only); one in lane `a` can be bypassed by a covering face-up Sentinel. Ward on the Sentinel or the Sentinel being in guard changes nothing here.
+- `SENTINEL_REACH` is read only when `FLAGS.LANES` is on. `0` means Sentinel guards its own lane only: it protects nothing beyond what the lane already does, so Sentinel is then close to a plain wall. It is the A/B variant.
+- The keyword is the `restrictTargets` hook as today; it receives the lane geometry in its environment.
+- Text: "Enemy attacks in its lane and the lanes beside it must target it." (one sentence).
+- Reason: classic Sentinel was "the attacker may choose among Sentinels"; this keeps that, shrinks the cover from the whole board to three lanes, and has no special case for empty lanes.
+
+**D-284 · Lane placement, "leftmost" and every lane-sensitive rule (owner ruling R2f, R2g, 2026-10-16)**
+- Date: 2026-10-16
+- Question: Where do monsters land, which tie-breaks stay, and which cards need new wording?
+- Decision (owner ruling, defaults accepted): the player picks any empty lane for a summon. Reach keywords are DEFERRED until base lanes are simmed.
+- Decision (judgment), under `FLAGS.LANES`; with it off everything keeps "leftmost free slot":
+  - **Summon, summonCovetous, Graft**: `summon` gains `lane`, `summonCovetous` gains `lane`, and `graftPosition` gains `lane` (the stage that commits). Legal lanes are the empty ones (for Covetous and Graft, after the sacrifice frees its lane). One legal action per (card, mode, lane), lane ascending. The Chimera does **not** inherit a material's lane; the player chooses. `lane` is optional in the type and means "leftmost free" when absent (classic). Engine rejects a lane under `LANES` off and requires it under `LANES` on.
+  - **Appraisal** (D-075…D-079): tie-break stays "lowest slot of the player's monsters" (the highest-Power rule is untouched). The stolen monster goes to his **leftmost free lane** (unchanged), else the vault. Reason: no new rule; where he places stolen cards is a Collector detail the AI policy already owns.
+  - **Other leftmost uses stay as they are**: trap slots and trap order (D-071), destruction batch order (slot order), Unstable expiry order, Desperate `allAttack` order, AI tie-breaks (D-090). Lane order = slot order.
+  - **Haunt, Pierce**: unchanged (they act on the combatants).
+  - **Brittle**: unchanged; the defender's lane decides who can hit it, so a Brittle monster is exposed only to the attacker across from it or a Sentinel redirect.
+  - **Spells keep free targeting** (Unmake, Forfeit, Bloodlust, Gilt Frame, Shroud, Restoration, Grave Recall): they target by `TargetSpec`, not by attack. Lanes are why a removal spell matters. No spell or trap text changes. Trap triggers (`onAttackDeclared`, Thornwall's "directly") are unchanged. **Thornwall** now only fires when the player has no monster at all, which is accepted (record for balance).
+  - **Reach hook point (R2g)**: a query hook `attackReach(self, env) → readonly number[]` (lane offsets, default `[0]`, union fold, order-independent) in the registry. No keyword defines it. A test-only keyword proves it. `forEachLegal` and `laneTargets` already call it.
+- Reason: a lane the player selects is the smallest change that keeps summoning a choice. Spells keep the escape from the lane rule. Appraisal keeps its code and its D-077 position rule.
+
+**D-285 · Element ring (owner ruling R3; order A chosen by the owner on 2026-10-16, see D-288)**
+- Date: 2026-10-16
+- Question: Players saw a monster "both strong and weak against one type" (the Lumen⇄Umbra pair). Which single 5-cycle replaces the Ember→Gale→Tide→Ember cycle plus that pair?
+- Decision (owner ruling): one 5-cycle; each element beats exactly one and loses to exactly one. `ELEMENT_BONUS` stays 2 and applies to the attacker only.
+- **OWNER DECISION PENDING: the order.** Options (arrow = beats):
+  - **A (recommended): Ember→Gale→Tide→Lumen→Umbra→Ember.** The illustration the owner has seen, and it is the order of the element rows in DESIGN and elements.json, so "each beats the next one down, Umbra wraps to Ember" is one sentence. Keeps ember>gale, gale>tide, lumen>umbra; drops tide>ember and umbra>lumen; adds tide>lumen and umbra>ember. (The earlier summary said it keeps two; it keeps three.) Themes: Ember burns Gale (aggression outpaces speed); Gale cuts Tide (Swift and Pierce through durability); Tide drowns Lumen (durable and Echo ground down defensive walls); Lumen exposes Umbra (light against tricks); Umbra smothers Ember (Haunt and Pierce punish the high-Power rush). Identity: Tide, "Durable", is now the natural answer to the Sentinel/Ward element; Ember's checker becomes Umbra, which is the Collector's biggest element (4 Relics + ace), so the player's Ember hits harder there. Weakest part: water no longer beats fire.
+  - **B: Ember→Gale→Tide→Umbra→Lumen→Ember.** Keeps ember>gale, gale>tide, umbra>lumen; adds tide>umbra and lumen>ember. Themes: Tide washes out Umbra; Umbra undermines Lumen's defenses; Lumen quells Ember (walls stop rushes). Identity: Lumen finally gets an offense into the aggressive element, Umbra is held down by Tide (Ward and Echo vs Haunt and Pierce). Cost: Lumen, the defensive element, now has its only advantage over Ember, whose Power lead it already cannot match.
+  - **C: Ember→Gale→Umbra→Lumen→Tide→Ember.** Keeps ember>gale, tide>ember, umbra>lumen (water beats fire survives); adds gale>umbra and lumen>tide; drops gale>tide and lumen>umbra. Themes: Gale outruns Umbra's tricks; Umbra beats Lumen; Lumen dries Tide; Tide douses Ember. Identity: Gale (Swift, Pierce) becomes the Umbra answer, which fits the fast/tricky contrast. Cost: it breaks the Ember/Gale/Tide trio players already learned and moves two edges.
+  - Recommendation: **A**, on teachability and because the web wheel (D-271) reads the order straight from the data. B and C are alternates for the sim.
+- Data-only change: `packages/content/elements.json` `beats` arrays (one id each) plus the `identity` strings if the owner wants them to reflect the new matchups. **Checked: nothing in code assumes the old matrix shape.** `compile.ts` builds `beats` and `opposes` from the arrays for any shape; engine and ai tests use their own fixtures (`fx-*`, `fire/air/water`, and content `test-utils/fixture.ts`), so none pins Lumen/Umbra mutual advantage in the real matrix (the "both ways" tests in engine `combat.test.ts` and `stats.test.ts` run on the engine fixture and stay valid as tests of the mechanism); `content/test/guide.test.ts` mentions lumen only as a card element. `validate.ts` checks only that each `beats` id exists. The web wheel and "weak to" list are data-driven (D-271). The DESIGN text ("Lumen and Umbra beat each other both ways", the Beats column) and the howto row are the only edits. Check `packages/content/test` and the content guide for a hard-coded matrix when the change lands.
+- Effect on Unstable: `opposes` is beats in either direction, so a 5-cycle has 5 opposing pairs of 10 (today 4 of 10). Unstable Chimeras become slightly more common; the sim measures it.
+- Reason: owner ruling; the order is a design choice the owner has not made.
+
+**D-286 · Collector AI under lanes (extends D-081…D-093, D-217; 2026-10-16)**
+- Date: 2026-10-16
+- Question: Which §13.2 rules change when attacks go across?
+- Decision (judgment; the AI still sees only public information, ties by leftmost then card id):
+  - **Summon lane** (new data, `collector.json › ai.params.summonLane`, an ordered list; first rule that yields lanes narrows the candidates, final tie leftmost): `sentinelCenter` (a Sentinel takes the middle lane if free, else the free lane covering the most of his occupied lanes); `facingBeatable` (a free lane whose attacker target, per `laneTargets` from that lane, is a face-up monster the card beats by `previewAttack`; the highest Power target wins); `facingEmpty` (a lane across from an empty player lane, so the card cannot be attacked by that lane's occupant); `leftmostFree`. Default list: `["sentinelCenter","facingBeatable","facingEmpty","leftmostFree"]`.
+  - **Play 2 (`summonAce`)**: lane from `summonLane`; the sacrifice frees a lane first.
+  - **Play 3 (`summonBeater`)**, reworded: "If a lane is open and he holds a monster that beats the monster it would attack from that lane (the opposite one, or the Sentinel it is redirected to), play the card and lane whose target has the highest Power; ties leftmost lane, then card id." It replaces "beats your strongest face-up monster", which is not reachable from every lane. Under `classic` sickness the comparison is the threat for next turn; the check is the same `previewAttack`.
+  - **Play 6 (`summonFallback`)**: unchanged text; lane from `summonLane`.
+  - **Attack 1 and 4** (`lethal`, `directIfEmpty`): unchanged text; direct is legal only on an empty board.
+  - **Attack 2 (`killWithoutLoss`)**: "Destroy your highest-Power monster he can beat without losing his attacker" is restricted to currently legal (attacker, target) pairs. Which attacker is nearly forced by lane; attackers only compete for a target when a Sentinel redirects (D-283) or when reach exists (deferred). **M-17 therefore becomes nearly moot**; `strongest` stays the default and `weakestSufficient` only matters for the Sentinel case. The loop recomputes legal attacks after each attack, so killing a Sentinel opens the covered lanes with no extra rule.
+  - **Attack 3 (`faceDownIfStrong`)**: legal pairs only. **Attack 5 / Vain**: best legal target per D-091.
+  - **M-10 (`skipBrittleCountered`)**: counters only count the monster it would face; no other player monster can hit a Brittle one.
+  - **Reposition**: new mode `laneAware`, extending `toAttackIfUsable` (D-089, D-217): a monster makes a lane move or a swap only if, on the redacted copy, the lethal, `killWithoutLoss` and `directIfEmpty` rules then take strictly more kills than before, or a Sentinel is not in the middle lane while moving it there loses no attack; at most one move per monster; candidates in slot order, then target lane ascending, empty lanes before swaps; no attack-to-guard switch (unchanged). The default stays `toAttackIfUsable` until `LANES` ships.
+  - `AI_SEARCH_NODE_BUDGET` (600, D-211): lanes triple the summon branching; ai-dev re-checks that the cap still never binds.
+  - The redacted view (§13.1) gains `laneTargets(lane)` for hypothetical lanes. Nothing hidden is exposed.
+- Reason: rules keep their intent; only the candidate sets shrink to what lanes allow.
+
+**D-287 · Sim A/B switches and rollout (2026-10-16)**
+- Date: 2026-10-16
+- Question: How are the three changes simmed alone and together, and what ships?
+- Decision: all four mechanics ship behind switches with today's behavior as the default; the shipped defaults flip only after the sim and an owner decision.
+  - `SICKNESS_MODE: 'classic' | 'monstersOnly'` (core global, default `'classic'`; owner-only lever).
+  - `FLAGS.LANES: false` (default off), `FLAGS.LANE_SWAP: true` (read only with LANES), `LANE_MOVE_RANGE: 1`, `SENTINEL_REACH: 1` (both read only with LANES). `Flags` goes from 13 to 15 booleans. `SENTINEL_REACH` and `LANE_MOVE_RANGE` are core numbers because the engine reads them as properties.
+  - Ring: alternate `beats` data. `withOverrides` handles globals only, and `sim/world.ts › loadContext` applies nothing to raw content, so the sim needs a small raw-content override: `--set element.<id>.beats=["gale"]` applied before `parseContent`, plus `--ring ember,gale,tide,lumen,umbra` as shorthand for the five sets; the report lists the sets (`overrides`, report.ts). It also needs the documented `card.<id>.<field>` overrides if they are still missing (ARCHITECTURE §11).
+  - Each switch is reachable by `--set`: `--set SICKNESS_MODE=monstersOnly`, `--set FLAGS.LANES=true`, `--set SENTINEL_REACH=0`, `--set FLAGS.LANE_SWAP=false`, `--set LANE_MOVE_RANGE=2`.
+  - Matrix (playtest-runner, `sim quick` 2000 games, expert and novice bots): baseline; R1; R2; R3-A, R3-B, R3-C; R1+R2; R1+R3; R2+R3; R1+R2+R3; then R2 variants (`SENTINEL_REACH=0`, `LANE_SWAP=false`) and R1 with `APPRAISED_ENTERS_GUARD`. `sim full` for the finalists.
+  - The Collector AI under `LANES` needs D-286 first; without it the AI plays lanes badly and the matrix is meaningless. Bots need the same.
+- Consequence for rollout: new globals change `state.cfg` (the hash of content and globals), so in-progress saved sessions fail the replay check once shipped. When defaults flip, bump `CONTENT_VERSION` and have the web start a fresh duel with a notice. Regenerate `seeds.json` (`sim seeds`) because the difficulty ratings depend on the rules.
+- Reason: one change is one edit (§10.4), and the owner wants each change measured on its own.
+
+**D-288 · Owner questions open after D-280…D-287**
+- Date: 2026-10-16
+- Question: Which items are still undecided?
+- Decision: **owner ruling 2026-10-16: every recommended default below is accepted, and the ring order is A.** The ring still flips only after the step-4 sim (D-287), and B and C stay as sim alternates.
+  1. **Ring order** (D-285): A, B or C. Recommended A. **Owner chose A (2026-10-16).**
+  2. **Appraised monsters and sickness** (D-280): treat as summoned (can hit monsters, not life, the turn it is stolen). Recommended: yes, then test `APPRAISED_ENTERS_GUARD` (M-03), since a steal followed by a kill in the same turn is a bigger swing than today.
+  3. **Pierce on the summon turn** (D-280): still deals spillover to life. Recommended: yes, keep.
+  4. **Lane move reach** (D-282): one step with swap. Recommended as written; `LANE_MOVE_RANGE=2` is one sim run.
+  5. **Empty lane next to a Sentinel** (D-283): attacker may hit the Sentinel. Recommended as written.
+  6. **Chimera lane** (D-284): player's choice rather than a material's lane. Recommended as written.
+  7. **Appraisal lane** (D-284): leftmost free. Recommended as written.
+  8. **Thornwall** (D-284): only fires on an empty player board under lanes. Recommended: leave, re-check after the sim.
+- Reason: the owner accepted every default so far; the list exists so none of these is decided silently.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
