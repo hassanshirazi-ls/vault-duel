@@ -1,0 +1,2103 @@
+{
+  "args": {
+    "bots": [
+      "expert",
+      "greedy",
+      "novice"
+    ],
+    "from": "2026-10-16",
+    "games": 2000,
+    "seedDates": 10
+  },
+  "command": "quick",
+  "config": {
+    "contentHash": "4b11cd293e74a58053371d68275c23e1",
+    "contentOverrides": [],
+    "contentVersion": "0.1.0",
+    "expertHash": "15477947e3cdd3db6ea1c4942d5c8b6a",
+    "globals": {
+      "AI_SEARCH_NODE_BUDGET": 600,
+      "APPRAISAL_MIN_POWER": 7,
+      "APPRAISAL_ROUNDS": [
+        3,
+        6,
+        9
+      ],
+      "ASCEND_GUARD": 1,
+      "ASCEND_POWER": 2,
+      "ATTACKS_PER_TURN": 1,
+      "BOARD_SLOTS": 3,
+      "BOT_NOISE_EPSILON": 0.1,
+      "COLLECTOR_DECK_SIZE": 20,
+      "COLLECTOR_LIFE": 25,
+      "CONTENT_NUMBERS": {
+        "AI_FACEDOWN_ATTACK_MIN_POWER": 7,
+        "BLOODLUST_POWER": 3,
+        "COUNTERFEIT_PENALTY": 3,
+        "FORFEIT_MAX_POWER": 4,
+        "GILT_GUARD": 2,
+        "GILT_POWER": 2,
+        "INSURANCE_HEAL": 3,
+        "LAST_RITES_DRAW": 1,
+        "MIRROR_SIGIL_PENALTY": 3,
+        "OBJ_HIGH_LIFE": 15,
+        "OBJ_WIN_BY_ROUND": 8,
+        "PROVENANCE_DRAW": 2,
+        "SCRYING_DRAW": 2,
+        "SIPHON_DRAIN": 3,
+        "SIPHON_GAIN": 3,
+        "UNMAKE_MAX_POWER": 5
+      },
+      "CONTENT_VERSION": "0.1.0",
+      "CURVE_HIGH_MIN_COUNT": 3,
+      "CURVE_HIGH_MIN_POWER": 6,
+      "CURVE_LOW_MAX_POWER": 5,
+      "CURVE_LOW_MIN_COUNT": 4,
+      "DECKGEN_MAX_ATTEMPTS": 1000,
+      "DECK_MIN_ELEMENTS": 3,
+      "DECK_MIN_KINDS": 4,
+      "DECK_MONSTERS": 15,
+      "DECK_SPELLS": 5,
+      "DECK_TRAPS": 4,
+      "DIFFICULTY_STAR_CUTS": [
+        0.5667,
+        0.4333
+      ],
+      "DURATION_NEXT_OWN_TURN": 2,
+      "ELEMENT_BONUS": 2,
+      "FIRST_ATTACK_ROUND_PLAYER": 2,
+      "FLAGS": {
+        "ACE_SET_ASIDE": false,
+        "ANIMATIONS": true,
+        "APPRAISAL": true,
+        "APPRAISED_ENTERS_GUARD": false,
+        "ASCEND": true,
+        "BONUS_OBJECTIVES": true,
+        "CHIMERA_TO_HAND": true,
+        "DEBUG_OVERLAY": false,
+        "INTENTS": true,
+        "LANES": false,
+        "LANE_SWAP": true,
+        "MOODS": true,
+        "REDRAW": true,
+        "UNSTABLE": true,
+        "WEEKLY_TWIST": false
+      },
+      "HAND_SIZE": 5,
+      "HAUNT_PENALTY": 2,
+      "KEYWORD_COST": 1,
+      "LANE_MOVE_RANGE": 1,
+      "MAX_BASE_KEYWORDS": 1,
+      "MAX_COPIES": 2,
+      "MAX_DRAW_PER_TURN": 2,
+      "MAX_GRAFT_MATERIALS": 3,
+      "MAX_INHERITED_KEYWORDS": 2,
+      "MAX_ROUNDS": 12,
+      "MAX_TEXT_SENTENCES": 1,
+      "MAX_TRIGGER_CHAIN": 64,
+      "MIN_GRAFT_MATERIALS": 2,
+      "MOOD_AGITATED_AT": 15,
+      "MOOD_DESPERATE_AT": 7,
+      "OBJECTIVES_PER_DAY": 3,
+      "OBJECTIVE_STARS_MAX": 3,
+      "OPENING_HAND": 5,
+      "OPENING_MIN_MONSTERS": 2,
+      "PERF_DUELS_PER_SEC_PER_CORE": 1000,
+      "PLAYER_LIFE": 20,
+      "PLAYS_PER_TURN": 1,
+      "REDRAWS": 1,
+      "RELIC_FLAWS": 1,
+      "REPOSITIONS_PER_TURN": 1,
+      "RESET_HOUR_LOCAL": 0,
+      "SEED_MAX_REROLLS": 20,
+      "SEED_PREFIX": "vault-duel",
+      "SEED_WINRATE_MAX": 0.7,
+      "SEED_WINRATE_MIN": 0.3,
+      "SENTINEL_REACH": 1,
+      "SHUFFLE_MAX_ATTEMPTS": 1000,
+      "SICKNESS_MODE": "monstersOnly",
+      "SIM_FULL_GAMES": 50000,
+      "SIM_QUICK_GAMES": 2000,
+      "SIM_RUNS_PER_SEED": 500,
+      "SIM_SEED_CHECK_DATES": 60,
+      "SLOW_TURNS": 1,
+      "STAT_BUDGET_MAX": 10,
+      "STAT_BUDGET_MIN": 8,
+      "STAT_FLOOR": 0,
+      "TARGET_APPRAISAL_SUCCESS": [
+        0.3,
+        0.6
+      ],
+      "TARGET_DUEL_MINUTES": [
+        3,
+        5
+      ],
+      "TARGET_EXPERT_WINRATE": [
+        0.45,
+        0.55
+      ],
+      "TARGET_FULL_LENGTH_SHARE": [
+        0.15,
+        0.3
+      ],
+      "TARGET_GRAFTS_PER_WIN": [
+        1.5,
+        3
+      ],
+      "TARGET_MEDIAN_ROUNDS": [
+        9,
+        11
+      ],
+      "TARGET_NOVICE_POINT": 0.25,
+      "TARGET_NOVICE_WINRATE": [
+        0.2,
+        0.3
+      ],
+      "TARGET_RULES_LEARN_SECONDS": 60,
+      "TARGET_SEED_REJECT_MAX": 0.15,
+      "TARGET_TYPICAL_END_ROUNDS": [
+        8,
+        12
+      ],
+      "TARGET_UNPRICED_APPEARS": [
+        0.2,
+        0.4
+      ],
+      "TETHERED_PENALTY": 2,
+      "TRAP_SLOTS": 2,
+      "UNSTABLE_BONUS": 3,
+      "UNSTABLE_EXPIRY": "endOfNextOwnTurn",
+      "UNSTABLE_EXPIRY_TURNS": 2,
+      "WARD_CHARGES": 1
+    },
+    "globalsHash": "06b3e5fe91e6d70b9a1835a651ef5812",
+    "overrides": [
+      "SICKNESS_MODE=monstersOnly"
+    ]
+  },
+  "date": "2026-10-16",
+  "perf": {
+    "anomalies": [
+      "duels/sec/core 126 is below PERF_DUELS_PER_SEC_PER_CORE (1000)"
+    ],
+    "byBot": [
+      {
+        "bot": "expert",
+        "busySeconds": 15.846444999,
+        "duels": 2000,
+        "duelsPerSecondPerCore": 126.21127326199733
+      },
+      {
+        "bot": "greedy",
+        "busySeconds": 7.201649624,
+        "duels": 2000,
+        "duelsPerSecondPerCore": 277.7141494547111
+      },
+      {
+        "bot": "novice",
+        "busySeconds": 2.608593458,
+        "duels": 2000,
+        "duelsPerSecondPerCore": 766.6967015754894
+      }
+    ],
+    "duels": 6000,
+    "duelsPerSecond": 2148.940115407726,
+    "duelsPerSecondPerCore": 233.85715182947897,
+    "metric": {
+      "bot": "expert",
+      "id": "PERF",
+      "name": "Duels per second per core",
+      "note": "duels over summed worker busy time, start-up excluded (§18.10); falls when workers share cores",
+      "target": "at least 1000",
+      "value": 126.21127326199733,
+      "verdict": "fail"
+    },
+    "seedCheck": {
+      "duels": 52000,
+      "duelsPerSecondPerCore": 174.84309774635386,
+      "wallSeconds": 35.44271333200001
+    },
+    "wallSeconds": 2.792074082,
+    "workers": 10
+  },
+  "results": {
+    "anomalies": [
+      "1 dates reached the D-004 fallback (target: never)",
+      "seed rejection 91.3% is above TARGET_SEED_REJECT_MAX (0.15)"
+    ],
+    "bots": [
+      {
+        "actionsPerGame": 33.9125,
+        "appraisalAttempts": 2091,
+        "appraisalSuccessRate": 0.3567670970827355,
+        "bot": "expert",
+        "crashed": 0,
+        "damagePerRound": 6.72940103374886,
+        "damageToCollectorPerRound": 4.397790615181919,
+        "damageToPlayerPerRound": 2.33161041856694,
+        "directDamageShare": 0.6430819741261163,
+        "endings": {
+          "collectorDefeated": 1147,
+          "playerDefeated": 850,
+          "vaultSealed": 3
+        },
+        "finished": 2000,
+        "games": 2000,
+        "graftsPerWin": 2.4411508282476024,
+        "intentAccuracy": 0.7141083521444695,
+        "intentMatrix": {
+          "appraise": {
+            "appraise": 691,
+            "attack": 61,
+            "guard": 52,
+            "scheme": 48
+          },
+          "attack": {
+            "appraise": 34,
+            "attack": 2906,
+            "guard": 475,
+            "scheme": 424
+          },
+          "guard": {
+            "appraise": 14,
+            "attack": 827,
+            "guard": 1435,
+            "scheme": 347
+          },
+          "scheme": {
+            "appraise": 7,
+            "attack": 198,
+            "guard": 46,
+            "scheme": 1295
+          }
+        },
+        "intentSamples": 8860,
+        "meanRounds": 4.9335,
+        "medianRounds": 5,
+        "medianWinRound": 4,
+        "p90Rounds": 7,
+        "roundHistogram": [
+          0,
+          0,
+          24,
+          435,
+          403,
+          520,
+          313,
+          143,
+          91,
+          35,
+          22,
+          8,
+          6,
+          0
+        ],
+        "shareMaxRounds": 0.003,
+        "shareTypicalEnd": 0.081,
+        "stuck": 0,
+        "unpricedRate": 0.152,
+        "unstableGameShare": 0.7175,
+        "unstablePerGame": 1.0015,
+        "vaultSealedShare": 0.0015,
+        "winRate": 0.5735,
+        "winRoundHistogram": [
+          0,
+          0,
+          24,
+          399,
+          194,
+          245,
+          170,
+          46,
+          45,
+          15,
+          3,
+          4,
+          2,
+          0
+        ],
+        "wins": 1147
+      },
+      {
+        "actionsPerGame": 35.272,
+        "appraisalAttempts": 2773,
+        "appraisalSuccessRate": 0.6480346195456185,
+        "bot": "greedy",
+        "crashed": 0,
+        "damagePerRound": 5.996831145314622,
+        "damageToCollectorPerRound": 2.539248528746039,
+        "damageToPlayerPerRound": 3.4575826165685832,
+        "directDamageShare": 0.6641050803955613,
+        "endings": {
+          "collectorDefeated": 421,
+          "playerDefeated": 1569,
+          "vaultSealed": 10
+        },
+        "finished": 2000,
+        "games": 2000,
+        "graftsPerWin": 2.4584323040380047,
+        "intentAccuracy": 0.7233327106295535,
+        "intentMatrix": {
+          "appraise": {
+            "appraise": 816,
+            "attack": 10,
+            "guard": 7,
+            "scheme": 7
+          },
+          "attack": {
+            "appraise": 772,
+            "attack": 3952,
+            "guard": 626,
+            "scheme": 428
+          },
+          "guard": {
+            "appraise": 193,
+            "attack": 413,
+            "guard": 1713,
+            "scheme": 245
+          },
+          "scheme": {
+            "appraise": 16,
+            "attack": 164,
+            "guard": 81,
+            "scheme": 1263
+          }
+        },
+        "intentSamples": 10706,
+        "meanRounds": 5.5225,
+        "medianRounds": 5,
+        "medianWinRound": 5,
+        "p90Rounds": 8,
+        "roundHistogram": [
+          0,
+          0,
+          9,
+          141,
+          406,
+          579,
+          407,
+          222,
+          127,
+          54,
+          31,
+          11,
+          13,
+          0
+        ],
+        "shareMaxRounds": 0.0065,
+        "shareTypicalEnd": 0.118,
+        "stuck": 0,
+        "unpricedRate": 0.312,
+        "unstableGameShare": 0.7515,
+        "unstablePerGame": 1.1005,
+        "vaultSealedShare": 0.005,
+        "winRate": 0.2105,
+        "winRoundHistogram": [
+          0,
+          0,
+          9,
+          92,
+          69,
+          79,
+          86,
+          37,
+          26,
+          15,
+          4,
+          2,
+          2,
+          0
+        ],
+        "wins": 421
+      },
+      {
+        "actionsPerGame": 30.506,
+        "appraisalAttempts": 3074,
+        "appraisalSuccessRate": 0.07579700715679896,
+        "bot": "novice",
+        "crashed": 0,
+        "damagePerRound": 3.723083548664944,
+        "damageToCollectorPerRound": 0.14651162790697675,
+        "damageToPlayerPerRound": 3.576571920757967,
+        "directDamageShare": 0.5996298438403701,
+        "endings": {
+          "collectorDefeated": 1,
+          "playerDefeated": 1708,
+          "vaultSealed": 291
+        },
+        "finished": 2000,
+        "games": 2000,
+        "graftsPerWin": 0,
+        "intentAccuracy": 0.6455882352941177,
+        "intentMatrix": {
+          "appraise": {
+            "appraise": 72,
+            "attack": 1,
+            "guard": 4,
+            "scheme": 2
+          },
+          "attack": {
+            "appraise": 82,
+            "attack": 3742,
+            "guard": 240,
+            "scheme": 187
+          },
+          "guard": {
+            "appraise": 69,
+            "attack": 2208,
+            "guard": 2569,
+            "scheme": 371
+          },
+          "scheme": {
+            "appraise": 10,
+            "attack": 753,
+            "guard": 170,
+            "scheme": 1080
+          }
+        },
+        "intentSamples": 11560,
+        "meanRounds": 5.805,
+        "medianRounds": 4,
+        "medianWinRound": 8,
+        "p90Rounds": 12,
+        "roundHistogram": [
+          0,
+          0,
+          49,
+          510,
+          517,
+          235,
+          125,
+          70,
+          48,
+          42,
+          36,
+          39,
+          329,
+          0
+        ],
+        "shareMaxRounds": 0.1645,
+        "shareTypicalEnd": 0.247,
+        "stuck": 0,
+        "unpricedRate": 0.0435,
+        "unstableGameShare": 0.067,
+        "unstablePerGame": 0.069,
+        "vaultSealedShare": 0.1455,
+        "winRate": 0.0005,
+        "winRoundHistogram": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wins": 1
+      }
+    ],
+    "cards": {
+      "expert": [
+        {
+          "deck": 943,
+          "delta": -0.2980235783633842,
+          "id": "ashguard-squire",
+          "playRate": 0.10922587486744433,
+          "played": 103,
+          "winRateWhenHeldUnplayed": 0.5892857142857143,
+          "winRateWhenPlayed": 0.2912621359223301
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "bastion-warden",
+          "playRate": null,
+          "played": 5,
+          "winRateWhenHeldUnplayed": 0.4,
+          "winRateWhenPlayed": 0.4
+        },
+        {
+          "deck": 1245,
+          "delta": -0.026950278085671964,
+          "id": "bloodlust",
+          "playRate": 0.15582329317269075,
+          "played": 194,
+          "winRateWhenHeldUnplayed": 0.5784966698382493,
+          "winRateWhenPlayed": 0.5515463917525774
+        },
+        {
+          "deck": 938,
+          "delta": -0.22912047302291205,
+          "id": "brazier-golem",
+          "playRate": 0.08208955223880597,
+          "played": 77,
+          "winRateWhenHeldUnplayed": 0.5667828106852497,
+          "winRateWhenPlayed": 0.33766233766233766
+        },
+        {
+          "deck": 937,
+          "delta": -0.3469683710463808,
+          "id": "brine-lurker",
+          "playRate": 0.10138740661686232,
+          "played": 95,
+          "winRateWhenHeldUnplayed": 0.5890736342042755,
+          "winRateWhenPlayed": 0.24210526315789474
+        },
+        {
+          "deck": 913,
+          "delta": -0.21433236574746012,
+          "id": "candle-templar",
+          "playRate": 0.07119386637458927,
+          "played": 65,
+          "winRateWhenHeldUnplayed": 0.6297169811320755,
+          "winRateWhenPlayed": 0.4153846153846154
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "choir-of-ash",
+          "playRate": null,
+          "played": 49,
+          "winRateWhenHeldUnplayed": 0.30612244897959184,
+          "winRateWhenPlayed": 0.30612244897959184
+        },
+        {
+          "deck": 1003,
+          "delta": -0.1738304503116465,
+          "id": "cinderjaw-hound",
+          "playRate": 0.13060817547357925,
+          "played": 131,
+          "winRateWhenHeldUnplayed": 0.6089449541284404,
+          "winRateWhenPlayed": 0.4351145038167939
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "clockwork-wyrm",
+          "playRate": null,
+          "played": 7,
+          "winRateWhenHeldUnplayed": 0.8571428571428571,
+          "winRateWhenPlayed": 0.8571428571428571
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "colossus-of-seams",
+          "playRate": null,
+          "played": 2,
+          "winRateWhenHeldUnplayed": 0.5,
+          "winRateWhenPlayed": 0.5
+        },
+        {
+          "deck": 910,
+          "delta": -0.2888271046165783,
+          "id": "coral-bastion",
+          "playRate": 0.08131868131868132,
+          "played": 74,
+          "winRateWhenHeldUnplayed": 0.5861244019138756,
+          "winRateWhenPlayed": 0.2972972972972973
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "dragoon-abomination",
+          "playRate": null,
+          "played": 1,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 934,
+          "delta": -0.15789889415481828,
+          "id": "drowned-oathkeeper",
+          "playRate": 0.09635974304068523,
+          "played": 90,
+          "winRateWhenHeldUnplayed": 0.5912322274881516,
+          "winRateWhenPlayed": 0.43333333333333335
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "feral-specter",
+          "playRate": null,
+          "played": 101,
+          "winRateWhenHeldUnplayed": 0.6732673267326733,
+          "winRateWhenPlayed": 0.6732673267326733
+        },
+        {
+          "deck": 1039,
+          "delta": -0.2336409483750811,
+          "id": "gale-serpent",
+          "playRate": 0.09817131857555342,
+          "played": 102,
+          "winRateWhenHeldUnplayed": 0.6061899679829242,
+          "winRateWhenPlayed": 0.37254901960784315
+        },
+        {
+          "deck": 1041,
+          "delta": -0.3082911405071144,
+          "id": "gilded-wyrmling",
+          "playRate": 0.10278578290105668,
+          "played": 107,
+          "winRateWhenHeldUnplayed": 0.6167023554603854,
+          "winRateWhenPlayed": 0.308411214953271
+        },
+        {
+          "deck": 1030,
+          "delta": -0.10813006312369117,
+          "id": "gloam-stalker",
+          "playRate": 0.14854368932038836,
+          "played": 153,
+          "winRateWhenHeldUnplayed": 0.5917901938426454,
+          "winRateWhenPlayed": 0.48366013071895425
+        },
+        {
+          "deck": 882,
+          "delta": -0.3418091697645601,
+          "id": "grave-effigy",
+          "playRate": 0.08503401360544217,
+          "played": 75,
+          "winRateWhenHeldUnplayed": 0.5551425030978935,
+          "winRateWhenPlayed": 0.21333333333333335
+        },
+        {
+          "deck": 1282,
+          "delta": null,
+          "id": "grave-recall",
+          "playRate": 0,
+          "played": 0,
+          "winRateWhenHeldUnplayed": 0.5655226209048362,
+          "winRateWhenPlayed": null
+        },
+        {
+          "deck": 920,
+          "delta": -0.40773809523809523,
+          "id": "halo-stag",
+          "playRate": 0.08695652173913043,
+          "played": 80,
+          "winRateWhenHeldUnplayed": 0.5952380952380952,
+          "winRateWhenPlayed": 0.1875
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "haunted-engine",
+          "playRate": null,
+          "played": 95,
+          "winRateWhenHeldUnplayed": 0.4105263157894737,
+          "winRateWhenPlayed": 0.4105263157894737
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "ironhide-chimera",
+          "playRate": null,
+          "played": 21,
+          "winRateWhenHeldUnplayed": 0.9047619047619048,
+          "winRateWhenPlayed": 0.9047619047619048
+        },
+        {
+          "deck": 1032,
+          "delta": -0.2051571010759613,
+          "id": "kiln-whelp",
+          "playRate": 0.11918604651162791,
+          "played": 123,
+          "winRateWhenHeldUnplayed": 0.6116611661166117,
+          "winRateWhenPlayed": 0.4065040650406504
+        },
+        {
+          "deck": 1471,
+          "delta": -0.3845520792302065,
+          "id": "last-rites",
+          "playRate": 0.07070020394289599,
+          "played": 104,
+          "winRateWhenHeldUnplayed": 0.6057059253840527,
+          "winRateWhenPlayed": 0.22115384615384615
+        },
+        {
+          "deck": 1468,
+          "delta": -0.3236119087451206,
+          "id": "mirror-sigil",
+          "playRate": 0.05926430517711172,
+          "played": 87,
+          "winRateWhenHeldUnplayed": 0.5879797248370746,
+          "winRateWhenPlayed": 0.26436781609195403
+        },
+        {
+          "deck": 935,
+          "delta": -0.3355263157894737,
+          "id": "mourning-vassal",
+          "playRate": 0.0855614973262032,
+          "played": 80,
+          "winRateWhenHeldUnplayed": 0.6105263157894737,
+          "winRateWhenPlayed": 0.275
+        },
+        {
+          "deck": 1025,
+          "delta": -0.27864864864864863,
+          "id": "nightglass-wyrm",
+          "playRate": 0.0975609756097561,
+          "played": 100,
+          "winRateWhenHeldUnplayed": 0.6086486486486486,
+          "winRateWhenPlayed": 0.33
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "phantom-wyrm",
+          "playRate": null,
+          "played": 184,
+          "winRateWhenHeldUnplayed": 0.8097826086956522,
+          "winRateWhenPlayed": 0.8097826086956522
+        },
+        {
+          "deck": 897,
+          "delta": -0.26922711434906554,
+          "id": "pyre-wisp",
+          "playRate": 0.0858416945373467,
+          "played": 77,
+          "winRateWhenHeldUnplayed": 0.5939024390243902,
+          "winRateWhenPlayed": 0.3246753246753247
+        },
+        {
+          "deck": 909,
+          "delta": -0.24840784215784217,
+          "id": "reliquary-sentinel",
+          "playRate": 0.0847084708470847,
+          "played": 77,
+          "winRateWhenHeldUnplayed": 0.5600961538461539,
+          "winRateWhenPlayed": 0.3116883116883117
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "revenant-lord",
+          "playRate": null,
+          "played": 128,
+          "winRateWhenHeldUnplayed": 0.6953125,
+          "winRateWhenPlayed": 0.6953125
+        },
+        {
+          "deck": 1260,
+          "delta": 0.4638737097753491,
+          "id": "scrying-bones",
+          "playRate": 0.12857142857142856,
+          "played": 162,
+          "winRateWhenHeldUnplayed": 0.4990892531876138,
+          "winRateWhenPlayed": 0.9629629629629629
+        },
+        {
+          "deck": 1228,
+          "delta": 0.35566780567523393,
+          "id": "shroud",
+          "playRate": 0.17263843648208468,
+          "played": 212,
+          "winRateWhenHeldUnplayed": 0.5452755905511811,
+          "winRateWhenPlayed": 0.9009433962264151
+        },
+        {
+          "deck": 1259,
+          "delta": -0.0912136836986911,
+          "id": "siphon",
+          "playRate": 0.47021445591739475,
+          "played": 592,
+          "winRateWhenHeldUnplayed": 0.6266866566716641,
+          "winRateWhenPlayed": 0.535472972972973
+        },
+        {
+          "deck": 1419,
+          "delta": -0.36560044471821995,
+          "id": "snare",
+          "playRate": 0.0711768851303735,
+          "played": 101,
+          "winRateWhenHeldUnplayed": 0.5933232169954477,
+          "winRateWhenPlayed": 0.22772277227722773
+        },
+        {
+          "deck": 884,
+          "delta": -0.20005794582065767,
+          "id": "stormcrow",
+          "playRate": 0.1323529411764706,
+          "played": 117,
+          "winRateWhenHeldUnplayed": 0.5932203389830508,
+          "winRateWhenPlayed": 0.39316239316239315
+        },
+        {
+          "deck": 1441,
+          "delta": -0.34923601547642474,
+          "id": "thornwall",
+          "playRate": 0.0798056904927134,
+          "played": 115,
+          "winRateWhenHeldUnplayed": 0.610105580693816,
+          "winRateWhenPlayed": 0.2608695652173913
+        },
+        {
+          "deck": 893,
+          "delta": -0.36795885838019904,
+          "id": "tidebound-wraith",
+          "playRate": 0.09182530795072788,
+          "played": 82,
+          "winRateWhenHeldUnplayed": 0.6362515413070283,
+          "winRateWhenPlayed": 0.2682926829268293
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "twin-throat-hydra",
+          "playRate": null,
+          "played": 13,
+          "winRateWhenHeldUnplayed": 0.9230769230769231,
+          "winRateWhenPlayed": 0.9230769230769231
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "twinblade-paladin",
+          "playRate": null,
+          "played": 12,
+          "winRateWhenHeldUnplayed": 1,
+          "winRateWhenPlayed": 1
+        },
+        {
+          "deck": 1064,
+          "delta": -0.2641859450021825,
+          "id": "undertow-wyrm",
+          "playRate": 0.10902255639097744,
+          "played": 116,
+          "winRateWhenHeldUnplayed": 0.5917721518987342,
+          "winRateWhenPlayed": 0.3275862068965517
+        },
+        {
+          "deck": 1251,
+          "delta": -0.011935365405802423,
+          "id": "unmake",
+          "playRate": 0.0671462829736211,
+          "played": 84,
+          "winRateWhenHeldUnplayed": 0.5595544130248501,
+          "winRateWhenPlayed": 0.5476190476190477
+        },
+        {
+          "deck": 928,
+          "delta": -0.3056638153565825,
+          "id": "veil-shade",
+          "playRate": 0.07435344827586207,
+          "played": 69,
+          "winRateWhenHeldUnplayed": 0.610011641443539,
+          "winRateWhenPlayed": 0.30434782608695654
+        },
+        {
+          "deck": 909,
+          "delta": -0.30533271098923537,
+          "id": "votive-spirit",
+          "playRate": 0.09130913091309131,
+          "played": 83,
+          "winRateWhenHeldUnplayed": 0.6065375302663438,
+          "winRateWhenPlayed": 0.30120481927710846
+        },
+        {
+          "deck": 929,
+          "delta": -0.26236783320923307,
+          "id": "weathervane-sentry",
+          "playRate": 0.08503767491926803,
+          "played": 79,
+          "winRateWhenHeldUnplayed": 0.5788235294117647,
+          "winRateWhenPlayed": 0.31645569620253167
+        },
+        {
+          "deck": 940,
+          "delta": -0.4622093023255814,
+          "id": "whispering-draft",
+          "playRate": 0.0851063829787234,
+          "played": 80,
+          "winRateWhenHeldUnplayed": 0.6372093023255814,
+          "winRateWhenPlayed": 0.175
+        },
+        {
+          "deck": 892,
+          "delta": -0.4017514017514017,
+          "id": "windward-lancer",
+          "playRate": 0.08744394618834081,
+          "played": 78,
+          "winRateWhenHeldUnplayed": 0.6068796068796068,
+          "winRateWhenPlayed": 0.20512820512820512
+        }
+      ],
+      "greedy": [
+        {
+          "deck": 943,
+          "delta": -0.18357473928157592,
+          "id": "ashguard-squire",
+          "playRate": 0.08483563096500531,
+          "played": 80,
+          "winRateWhenHeldUnplayed": 0.2085747392815759,
+          "winRateWhenPlayed": 0.025
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "bastion-warden",
+          "playRate": null,
+          "played": 17,
+          "winRateWhenHeldUnplayed": 0.058823529411764705,
+          "winRateWhenPlayed": 0.058823529411764705
+        },
+        {
+          "deck": 1245,
+          "delta": -0.07241499361726819,
+          "id": "bloodlust",
+          "playRate": 0.011244979919678716,
+          "played": 14,
+          "winRateWhenHeldUnplayed": 0.21527213647441104,
+          "winRateWhenPlayed": 0.14285714285714285
+        },
+        {
+          "deck": 938,
+          "delta": -0.19521618336516755,
+          "id": "brazier-golem",
+          "playRate": 0.05543710021321962,
+          "played": 52,
+          "winRateWhenHeldUnplayed": 0.2144469525959368,
+          "winRateWhenPlayed": 0.019230769230769232
+        },
+        {
+          "deck": 937,
+          "delta": -0.2091576131019945,
+          "id": "brine-lurker",
+          "playRate": 0.05976520811099253,
+          "played": 56,
+          "winRateWhenHeldUnplayed": 0.22701475595913734,
+          "winRateWhenPlayed": 0.017857142857142856
+        },
+        {
+          "deck": 913,
+          "delta": -0.2105119187182493,
+          "id": "candle-templar",
+          "playRate": 0.06571741511500548,
+          "played": 60,
+          "winRateWhenHeldUnplayed": 0.24384525205158264,
+          "winRateWhenPlayed": 0.03333333333333333
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "centaur-revenant",
+          "playRate": null,
+          "played": 16,
+          "winRateWhenHeldUnplayed": 0.1875,
+          "winRateWhenPlayed": 0.1875
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "choir-of-ash",
+          "playRate": null,
+          "played": 91,
+          "winRateWhenHeldUnplayed": 0.13186813186813187,
+          "winRateWhenPlayed": 0.13186813186813187
+        },
+        {
+          "deck": 1003,
+          "delta": -0.16503974167908594,
+          "id": "cinderjaw-hound",
+          "playRate": 0.08773678963110668,
+          "played": 88,
+          "winRateWhenHeldUnplayed": 0.22185792349726777,
+          "winRateWhenPlayed": 0.056818181818181816
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "clockwork-wyrm",
+          "playRate": null,
+          "played": 15,
+          "winRateWhenHeldUnplayed": 0.26666666666666666,
+          "winRateWhenPlayed": 0.26666666666666666
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "colossus-of-seams",
+          "playRate": null,
+          "played": 5,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 910,
+          "delta": -0.16533758639021798,
+          "id": "coral-bastion",
+          "playRate": 0.06043956043956044,
+          "played": 55,
+          "winRateWhenHeldUnplayed": 0.2198830409356725,
+          "winRateWhenPlayed": 0.05454545454545454
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "dragoon-abomination",
+          "playRate": null,
+          "played": 12,
+          "winRateWhenHeldUnplayed": 0.16666666666666666,
+          "winRateWhenPlayed": 0.16666666666666666
+        },
+        {
+          "deck": 934,
+          "delta": -0.24149659863945577,
+          "id": "drowned-oathkeeper",
+          "playRate": 0.055674518201284794,
+          "played": 52,
+          "winRateWhenHeldUnplayed": 0.24149659863945577,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "feral-specter",
+          "playRate": null,
+          "played": 143,
+          "winRateWhenHeldUnplayed": 0.1888111888111888,
+          "winRateWhenPlayed": 0.1888111888111888
+        },
+        {
+          "deck": 1039,
+          "delta": -0.178073745221359,
+          "id": "gale-serpent",
+          "playRate": 0.08180943214629452,
+          "played": 85,
+          "winRateWhenHeldUnplayed": 0.23689727463312368,
+          "winRateWhenPlayed": 0.058823529411764705
+        },
+        {
+          "deck": 1041,
+          "delta": -0.2211908090162502,
+          "id": "gilded-wyrmling",
+          "playRate": 0.09317963496637849,
+          "played": 97,
+          "winRateWhenHeldUnplayed": 0.2521186440677966,
+          "winRateWhenPlayed": 0.030927835051546393
+        },
+        {
+          "deck": 1030,
+          "delta": -0.09355983772819473,
+          "id": "gloam-stalker",
+          "playRate": 0.09902912621359224,
+          "played": 102,
+          "winRateWhenHeldUnplayed": 0.21120689655172414,
+          "winRateWhenPlayed": 0.11764705882352941
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "gorefang-drake",
+          "playRate": null,
+          "played": 27,
+          "winRateWhenHeldUnplayed": 0.37037037037037035,
+          "winRateWhenPlayed": 0.37037037037037035
+        },
+        {
+          "deck": 882,
+          "delta": -0.2384428223844282,
+          "id": "grave-effigy",
+          "playRate": 0.06802721088435375,
+          "played": 60,
+          "winRateWhenHeldUnplayed": 0.2384428223844282,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1282,
+          "delta": -0.21328125,
+          "id": "grave-recall",
+          "playRate": 0.0015600624024961,
+          "played": 2,
+          "winRateWhenHeldUnplayed": 0.21328125,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 920,
+          "delta": -0.18949454538719415,
+          "id": "halo-stag",
+          "playRate": 0.06847826086956521,
+          "played": 63,
+          "winRateWhenHeldUnplayed": 0.20536756126021002,
+          "winRateWhenPlayed": 0.015873015873015872
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "haunted-engine",
+          "playRate": null,
+          "played": 118,
+          "winRateWhenHeldUnplayed": 0.1864406779661017,
+          "winRateWhenPlayed": 0.1864406779661017
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "ironhide-chimera",
+          "playRate": null,
+          "played": 12,
+          "winRateWhenHeldUnplayed": 0.5,
+          "winRateWhenPlayed": 0.5
+        },
+        {
+          "deck": 1032,
+          "delta": -0.19338790858450794,
+          "id": "kiln-whelp",
+          "playRate": 0.08817829457364341,
+          "played": 91,
+          "winRateWhenHeldUnplayed": 0.2263549415515409,
+          "winRateWhenPlayed": 0.03296703296703297
+        },
+        {
+          "deck": 1471,
+          "delta": -0.21941902443119807,
+          "id": "last-rites",
+          "playRate": 0.05846363018354861,
+          "played": 86,
+          "winRateWhenHeldUnplayed": 0.23104693140794225,
+          "winRateWhenPlayed": 0.011627906976744186
+        },
+        {
+          "deck": 1468,
+          "delta": -0.16983423080984056,
+          "id": "mirror-sigil",
+          "playRate": 0.055858310626702996,
+          "played": 82,
+          "winRateWhenHeldUnplayed": 0.21861471861471862,
+          "winRateWhenPlayed": 0.04878048780487805
+        },
+        {
+          "deck": 935,
+          "delta": -0.2090069284064665,
+          "id": "mourning-vassal",
+          "playRate": 0.07379679144385026,
+          "played": 69,
+          "winRateWhenHeldUnplayed": 0.2090069284064665,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1025,
+          "delta": -0.17109712020519996,
+          "id": "nightglass-wyrm",
+          "playRate": 0.0702439024390244,
+          "played": 72,
+          "winRateWhenHeldUnplayed": 0.2266526757607555,
+          "winRateWhenPlayed": 0.05555555555555555
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "packmaw",
+          "playRate": null,
+          "played": 3,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "phantom-wyrm",
+          "playRate": null,
+          "played": 129,
+          "winRateWhenHeldUnplayed": 0.2713178294573643,
+          "winRateWhenPlayed": 0.2713178294573643
+        },
+        {
+          "deck": 897,
+          "delta": -0.19568201427562945,
+          "id": "pyre-wisp",
+          "playRate": 0.06800445930880714,
+          "played": 61,
+          "winRateWhenHeldUnplayed": 0.2284688995215311,
+          "winRateWhenPlayed": 0.03278688524590164
+        },
+        {
+          "deck": 909,
+          "delta": -0.1639664303024863,
+          "id": "reliquary-sentinel",
+          "playRate": 0.05720572057205721,
+          "played": 52,
+          "winRateWhenHeldUnplayed": 0.18319719953325556,
+          "winRateWhenPlayed": 0.019230769230769232
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "revenant-lord",
+          "playRate": null,
+          "played": 121,
+          "winRateWhenHeldUnplayed": 0.24793388429752067,
+          "winRateWhenPlayed": 0.24793388429752067
+        },
+        {
+          "deck": 1260,
+          "delta": null,
+          "id": "scrying-bones",
+          "playRate": 0,
+          "played": 0,
+          "winRateWhenHeldUnplayed": 0.21428571428571427,
+          "winRateWhenPlayed": null
+        },
+        {
+          "deck": 1228,
+          "delta": null,
+          "id": "shroud",
+          "playRate": 0,
+          "played": 0,
+          "winRateWhenHeldUnplayed": 0.21091205211726385,
+          "winRateWhenPlayed": null
+        },
+        {
+          "deck": 1259,
+          "delta": -0.08505595424674861,
+          "id": "siphon",
+          "playRate": 0.3566322478157268,
+          "played": 449,
+          "winRateWhenHeldUnplayed": 0.254320987654321,
+          "winRateWhenPlayed": 0.16926503340757237
+        },
+        {
+          "deck": 1419,
+          "delta": -0.2030134139429435,
+          "id": "snare",
+          "playRate": 0.05567300916138125,
+          "played": 79,
+          "winRateWhenHeldUnplayed": 0.21567164179104478,
+          "winRateWhenPlayed": 0.012658227848101266
+        },
+        {
+          "deck": 884,
+          "delta": -0.2143727161997564,
+          "id": "stormcrow",
+          "playRate": 0.07126696832579185,
+          "played": 63,
+          "winRateWhenHeldUnplayed": 0.2143727161997564,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1441,
+          "delta": -0.21951219512195122,
+          "id": "thornwall",
+          "playRate": 0.061068702290076333,
+          "played": 88,
+          "winRateWhenHeldUnplayed": 0.21951219512195122,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 893,
+          "delta": -0.2246757125789384,
+          "id": "tidebound-wraith",
+          "playRate": 0.06270996640537514,
+          "played": 56,
+          "winRateWhenHeldUnplayed": 0.24253285543608125,
+          "winRateWhenPlayed": 0.017857142857142856
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "twin-throat-hydra",
+          "playRate": null,
+          "played": 6,
+          "winRateWhenHeldUnplayed": 0.3333333333333333,
+          "winRateWhenPlayed": 0.3333333333333333
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "twinblade-paladin",
+          "playRate": null,
+          "played": 8,
+          "winRateWhenHeldUnplayed": 0.75,
+          "winRateWhenPlayed": 0.75
+        },
+        {
+          "deck": 1064,
+          "delta": -0.20476190476190476,
+          "id": "undertow-wyrm",
+          "playRate": 0.07894736842105263,
+          "played": 84,
+          "winRateWhenHeldUnplayed": 0.22857142857142856,
+          "winRateWhenPlayed": 0.023809523809523808
+        },
+        {
+          "deck": 1251,
+          "delta": -0.06679343950558594,
+          "id": "unmake",
+          "playRate": 0.03916866506794564,
+          "played": 49,
+          "winRateWhenHeldUnplayed": 0.2096505823627288,
+          "winRateWhenPlayed": 0.14285714285714285
+        },
+        {
+          "deck": 928,
+          "delta": -0.21889400921658986,
+          "id": "veil-shade",
+          "playRate": 0.06465517241379311,
+          "played": 60,
+          "winRateWhenHeldUnplayed": 0.21889400921658986,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 909,
+          "delta": -0.2275943396226415,
+          "id": "votive-spirit",
+          "playRate": 0.0671067106710671,
+          "played": 61,
+          "winRateWhenHeldUnplayed": 0.2275943396226415,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 929,
+          "delta": -0.21142857142857144,
+          "id": "weathervane-sentry",
+          "playRate": 0.0581270182992465,
+          "played": 54,
+          "winRateWhenHeldUnplayed": 0.21142857142857144,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 940,
+          "delta": -0.21760612743840935,
+          "id": "whispering-draft",
+          "playRate": 0.07127659574468086,
+          "played": 67,
+          "winRateWhenHeldUnplayed": 0.2325315005727377,
+          "winRateWhenPlayed": 0.014925373134328358
+        },
+        {
+          "deck": 892,
+          "delta": -0.24611708482676226,
+          "id": "windward-lancer",
+          "playRate": 0.061659192825112105,
+          "played": 55,
+          "winRateWhenHeldUnplayed": 0.24611708482676226,
+          "winRateWhenPlayed": 0
+        }
+      ],
+      "novice": [
+        {
+          "deck": 943,
+          "delta": 0,
+          "id": "ashguard-squire",
+          "playRate": 0.29056203605514314,
+          "played": 274,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1245,
+          "delta": 0,
+          "id": "bloodlust",
+          "playRate": 0.12530120481927712,
+          "played": 156,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 938,
+          "delta": 0,
+          "id": "brazier-golem",
+          "playRate": 0.2953091684434968,
+          "played": 277,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 937,
+          "delta": 0,
+          "id": "brine-lurker",
+          "playRate": 0.3052294557097118,
+          "played": 286,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 913,
+          "delta": 0,
+          "id": "candle-templar",
+          "playRate": 0.3198247535596933,
+          "played": 292,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "choir-of-ash",
+          "playRate": null,
+          "played": 2,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1003,
+          "delta": 0.003472222222222222,
+          "id": "cinderjaw-hound",
+          "playRate": 0.28713858424725824,
+          "played": 288,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0.003472222222222222
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "clockwork-wyrm",
+          "playRate": null,
+          "played": 1,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 910,
+          "delta": -0.0015432098765432098,
+          "id": "coral-bastion",
+          "playRate": 0.2879120879120879,
+          "played": 262,
+          "winRateWhenHeldUnplayed": 0.0015432098765432098,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 934,
+          "delta": 0,
+          "id": "drowned-oathkeeper",
+          "playRate": 0.27194860813704497,
+          "played": 254,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "feral-specter",
+          "playRate": null,
+          "played": 3,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1039,
+          "delta": 0.0035087719298245615,
+          "id": "gale-serpent",
+          "playRate": 0.2743022136669875,
+          "played": 285,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0.0035087719298245615
+        },
+        {
+          "deck": 1041,
+          "delta": 0.0032679738562091504,
+          "id": "gilded-wyrmling",
+          "playRate": 0.29394812680115273,
+          "played": 306,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0.0032679738562091504
+        },
+        {
+          "deck": 1030,
+          "delta": -0.0013717421124828531,
+          "id": "gloam-stalker",
+          "playRate": 0.2922330097087379,
+          "played": 301,
+          "winRateWhenHeldUnplayed": 0.0013717421124828531,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "gorefang-drake",
+          "playRate": null,
+          "played": 1,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 882,
+          "delta": -0.0015455950540958269,
+          "id": "grave-effigy",
+          "playRate": 0.26643990929705214,
+          "played": 235,
+          "winRateWhenHeldUnplayed": 0.0015455950540958269,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1282,
+          "delta": 0,
+          "id": "grave-recall",
+          "playRate": 0.21918876755070202,
+          "played": 281,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 920,
+          "delta": 0.0038461538461538464,
+          "id": "halo-stag",
+          "playRate": 0.2826086956521739,
+          "played": 260,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0.0038461538461538464
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "haunted-engine",
+          "playRate": null,
+          "played": 3,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1032,
+          "delta": 0.0035460992907801418,
+          "id": "kiln-whelp",
+          "playRate": 0.27325581395348836,
+          "played": 282,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0.0035460992907801418
+        },
+        {
+          "deck": 1471,
+          "delta": -0.0008417508417508417,
+          "id": "last-rites",
+          "playRate": 0.19238613188307274,
+          "played": 283,
+          "winRateWhenHeldUnplayed": 0.0008417508417508417,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1468,
+          "delta": -0.0008361204013377926,
+          "id": "mirror-sigil",
+          "playRate": 0.18528610354223432,
+          "played": 272,
+          "winRateWhenHeldUnplayed": 0.0008361204013377926,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 935,
+          "delta": -0.0015432098765432098,
+          "id": "mourning-vassal",
+          "playRate": 0.306951871657754,
+          "played": 287,
+          "winRateWhenHeldUnplayed": 0.0015432098765432098,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1025,
+          "delta": -0.0013605442176870747,
+          "id": "nightglass-wyrm",
+          "playRate": 0.28292682926829266,
+          "played": 290,
+          "winRateWhenHeldUnplayed": 0.0013605442176870747,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "phantom-wyrm",
+          "playRate": null,
+          "played": 2,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 897,
+          "delta": -0.001557632398753894,
+          "id": "pyre-wisp",
+          "playRate": 0.2842809364548495,
+          "played": 255,
+          "winRateWhenHeldUnplayed": 0.001557632398753894,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 909,
+          "delta": 0,
+          "id": "reliquary-sentinel",
+          "playRate": 0.2761276127612761,
+          "played": 251,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 0,
+          "delta": 0,
+          "id": "revenant-lord",
+          "playRate": null,
+          "played": 3,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1260,
+          "delta": -0.000975609756097561,
+          "id": "scrying-bones",
+          "playRate": 0.1865079365079365,
+          "played": 235,
+          "winRateWhenHeldUnplayed": 0.000975609756097561,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1228,
+          "delta": -0.0009276437847866419,
+          "id": "shroud",
+          "playRate": 0.12214983713355049,
+          "played": 150,
+          "winRateWhenHeldUnplayed": 0.0009276437847866419,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1259,
+          "delta": 0.004524886877828055,
+          "id": "siphon",
+          "playRate": 0.1755361397934869,
+          "played": 221,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0.004524886877828055
+        },
+        {
+          "deck": 1419,
+          "delta": 0.004132231404958678,
+          "id": "snare",
+          "playRate": 0.17054263565891473,
+          "played": 242,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0.004132231404958678
+        },
+        {
+          "deck": 884,
+          "delta": -0.001557632398753894,
+          "id": "stormcrow",
+          "playRate": 0.2737556561085973,
+          "played": 242,
+          "winRateWhenHeldUnplayed": 0.001557632398753894,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1441,
+          "delta": 0,
+          "id": "thornwall",
+          "playRate": 0.18806384455239417,
+          "played": 271,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 893,
+          "delta": 0,
+          "id": "tidebound-wraith",
+          "playRate": 0.284434490481523,
+          "played": 254,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1064,
+          "delta": -0.001321003963011889,
+          "id": "undertow-wyrm",
+          "playRate": 0.28853383458646614,
+          "played": 307,
+          "winRateWhenHeldUnplayed": 0.001321003963011889,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 1251,
+          "delta": -0.0008368200836820083,
+          "id": "unmake",
+          "playRate": 0.04476418864908074,
+          "played": 56,
+          "winRateWhenHeldUnplayed": 0.0008368200836820083,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 928,
+          "delta": -0.0015923566878980893,
+          "id": "veil-shade",
+          "playRate": 0.3232758620689655,
+          "played": 300,
+          "winRateWhenHeldUnplayed": 0.0015923566878980893,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 909,
+          "delta": 0,
+          "id": "votive-spirit",
+          "playRate": 0.30363036303630364,
+          "played": 276,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 929,
+          "delta": 0,
+          "id": "weathervane-sentry",
+          "playRate": 0.2766415500538213,
+          "played": 257,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 940,
+          "delta": 0,
+          "id": "whispering-draft",
+          "playRate": 0.2968085106382979,
+          "played": 279,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        },
+        {
+          "deck": 892,
+          "delta": 0,
+          "id": "windward-lancer",
+          "playRate": 0.28699551569506726,
+          "played": 256,
+          "winRateWhenHeldUnplayed": 0,
+          "winRateWhenPlayed": 0
+        }
+      ]
+    },
+    "keywords": {
+      "expert": [
+        {
+          "games": 767,
+          "id": "echo",
+          "summons": 1519,
+          "winRateWhenSummoned": 0.5423728813559322
+        },
+        {
+          "games": 370,
+          "id": "haunt",
+          "summons": 495,
+          "winRateWhenSummoned": 0.4783783783783784
+        },
+        {
+          "games": 325,
+          "id": "pierce",
+          "summons": 418,
+          "winRateWhenSummoned": 0.40923076923076923
+        },
+        {
+          "games": 483,
+          "id": "sentinel",
+          "summons": 698,
+          "winRateWhenSummoned": 0.36853002070393376
+        },
+        {
+          "games": 438,
+          "id": "swift",
+          "summons": 538,
+          "winRateWhenSummoned": 0.4840182648401826
+        },
+        {
+          "games": 169,
+          "id": "ward",
+          "summons": 192,
+          "winRateWhenSummoned": 0.4556213017751479
+        }
+      ],
+      "greedy": [
+        {
+          "games": 802,
+          "id": "echo",
+          "summons": 1430,
+          "winRateWhenSummoned": 0.18453865336658354
+        },
+        {
+          "games": 328,
+          "id": "haunt",
+          "summons": 439,
+          "winRateWhenSummoned": 0.12804878048780488
+        },
+        {
+          "games": 339,
+          "id": "pierce",
+          "summons": 445,
+          "winRateWhenSummoned": 0.11504424778761062
+        },
+        {
+          "games": 415,
+          "id": "sentinel",
+          "summons": 560,
+          "winRateWhenSummoned": 0.08674698795180723
+        },
+        {
+          "games": 331,
+          "id": "swift",
+          "summons": 398,
+          "winRateWhenSummoned": 0.11782477341389729
+        },
+        {
+          "games": 139,
+          "id": "ward",
+          "summons": 159,
+          "winRateWhenSummoned": 0.04316546762589928
+        }
+      ],
+      "novice": [
+        {
+          "games": 729,
+          "id": "echo",
+          "summons": 1295,
+          "winRateWhenSummoned": 0
+        },
+        {
+          "games": 719,
+          "id": "haunt",
+          "summons": 893,
+          "winRateWhenSummoned": 0
+        },
+        {
+          "games": 753,
+          "id": "pierce",
+          "summons": 923,
+          "winRateWhenSummoned": 0.0013280212483399733
+        },
+        {
+          "games": 989,
+          "id": "sentinel",
+          "summons": 1368,
+          "winRateWhenSummoned": 0
+        },
+        {
+          "games": 715,
+          "id": "swift",
+          "summons": 896,
+          "winRateWhenSummoned": 0.0013986013986013986
+        },
+        {
+          "games": 512,
+          "id": "ward",
+          "summons": 588,
+          "winRateWhenSummoned": 0
+        }
+      ]
+    },
+    "notMeasured": [
+      "Per-keyword trigger counts: the engine run for the sim has events off, and no event names a keyword trigger. The report gives keyword exposure instead (summons of a monster carrying the keyword, and the win rate of those games).",
+      "Per-card play counts cover Summon, Summon (Covetous), Cast and Set Trap. A Graft Chimera appears as its family, not as a played card.",
+      "TARGET_DUEL_MINUTES and TARGET_RULES_LEARN_SECONDS: human-playtest figures, no simulation can measure them."
+    ],
+    "seedCheck": {
+      "rows": [
+        {
+          "check": "accepted",
+          "date": "2026-10-16",
+          "k": 16,
+          "par": 5,
+          "stars": 1,
+          "tried": 17,
+          "winRate": 0.696
+        },
+        {
+          "check": "accepted",
+          "date": "2026-10-17",
+          "k": 2,
+          "par": 3,
+          "stars": 1,
+          "tried": 3,
+          "winRate": 0.598
+        },
+        {
+          "check": "fallback",
+          "date": "2026-10-18",
+          "k": 13,
+          "par": 5,
+          "stars": 3,
+          "tried": 21,
+          "winRate": 0.23
+        },
+        {
+          "check": "accepted",
+          "date": "2026-10-19",
+          "k": 10,
+          "par": 8,
+          "stars": 1,
+          "tried": 11,
+          "winRate": 0.644
+        },
+        {
+          "check": "accepted",
+          "date": "2026-10-20",
+          "k": 3,
+          "par": 7,
+          "stars": 1,
+          "tried": 4,
+          "winRate": 0.698
+        },
+        {
+          "check": "accepted",
+          "date": "2026-10-21",
+          "k": 3,
+          "par": 5,
+          "stars": 3,
+          "tried": 4,
+          "winRate": 0.37
+        },
+        {
+          "check": "accepted",
+          "date": "2026-10-22",
+          "k": 16,
+          "par": 7,
+          "stars": 1,
+          "tried": 17,
+          "winRate": 0.686
+        },
+        {
+          "check": "accepted",
+          "date": "2026-10-23",
+          "k": 10,
+          "par": 6,
+          "stars": 3,
+          "tried": 11,
+          "winRate": 0.406
+        },
+        {
+          "check": "accepted",
+          "date": "2026-10-24",
+          "k": 14,
+          "par": 5,
+          "stars": 2,
+          "tried": 15,
+          "winRate": 0.538
+        },
+        {
+          "check": "accepted",
+          "date": "2026-10-25",
+          "k": 0,
+          "par": 5,
+          "stars": 3,
+          "tried": 1,
+          "winRate": 0.334
+        }
+      ],
+      "summary": {
+        "candidates": 104,
+        "dates": 10,
+        "datesNeedingReroll": 9,
+        "fallbacks": 1,
+        "meanRerolls": 9.5,
+        "rejected": 95,
+        "rejectionRate": 0.9134615384615384,
+        "winRateHistogram": [
+          38,
+          7,
+          2,
+          2,
+          1,
+          2,
+          4,
+          7,
+          16,
+          25
+        ]
+      }
+    },
+    "targets": [
+      {
+        "bot": "expert",
+        "id": "BT-1",
+        "name": "Win rate",
+        "note": "noise-free expert vs the Collector",
+        "target": "0.45 to 0.55",
+        "value": 0.5735,
+        "verdict": "fail"
+      },
+      {
+        "bot": "expert",
+        "id": "BT-3",
+        "name": "Median rounds per game",
+        "note": "median of the round histogram, all finished games",
+        "target": "9 to 11",
+        "value": 5,
+        "verdict": "fail"
+      },
+      {
+        "bot": "expert",
+        "id": "BT-3b",
+        "name": "Share ending in rounds 8 to 12",
+        "note": "\"most\" read as a majority (D-230)",
+        "target": "more than half (rounds 8 to 12)",
+        "value": 0.081,
+        "verdict": "fail"
+      },
+      {
+        "bot": "expert",
+        "id": "BT-4",
+        "name": "Share ending in round 12",
+        "note": "includes games ended by the sealed Vault",
+        "target": "0.15 to 0.3",
+        "value": 0.003,
+        "verdict": "fail"
+      },
+      {
+        "bot": "expert",
+        "id": "BT-5",
+        "name": "Grafts per winning game",
+        "note": "track.grafts over wins",
+        "target": "1.5 to 3",
+        "value": 2.4411508282476024,
+        "verdict": "pass"
+      },
+      {
+        "bot": "expert",
+        "id": "BT-6",
+        "name": "Appraisal success rate",
+        "note": "successes over attempts (2091 attempts); an attempt with no target fails",
+        "target": "0.3 to 0.6",
+        "value": 0.3567670970827355,
+        "verdict": "pass"
+      },
+      {
+        "bot": "expert",
+        "id": "BT-7",
+        "name": "Unpriced appearance rate",
+        "note": "share of games in which the Collector summoned his ace (track.unpriced)",
+        "target": "0.2 to 0.4",
+        "value": 0.152,
+        "verdict": "fail"
+      },
+      {
+        "bot": "novice",
+        "id": "BT-2",
+        "name": "Win rate",
+        "note": "uniform random legal action (D-117), 24.9 points from the 0.25 point",
+        "target": "0.2 to 0.3",
+        "value": 0.0005,
+        "verdict": "fail"
+      },
+      {
+        "bot": "expert-noisy",
+        "id": "BT-8",
+        "name": "Seed rejection rate",
+        "note": "95 of 104 candidate seeds rejected over 10 dates; 1 fallbacks (D-004 target: never)",
+        "target": "at most 0.15",
+        "value": 0.9134615384615384,
+        "verdict": "fail"
+      },
+      {
+        "bot": "-",
+        "id": "DUEL-MIN",
+        "name": "Duel length in minutes",
+        "note": "needs human playtests, not a simulation",
+        "target": "3 to 5",
+        "value": null,
+        "verdict": "not measured"
+      },
+      {
+        "bot": "-",
+        "id": "LEARN-SEC",
+        "name": "Seconds to learn the rules",
+        "note": "needs human playtests, not a simulation",
+        "target": "at most 60",
+        "value": null,
+        "verdict": "not measured"
+      }
+    ]
+  }
+}

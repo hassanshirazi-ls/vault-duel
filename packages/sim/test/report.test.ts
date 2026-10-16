@@ -6,7 +6,7 @@ import type { Globals } from '@vault-duel/engine';
 import { bump, bumpBin, child } from '../src/aggregate';
 import type { Aggregate } from '../src/aggregate';
 import { summarise } from '../src/difficulty-batch';
-import { buildReport, deterministicPart, renderMarkdown } from '../src/report';
+import { buildReport, deterministicPart, renderMarkdown, summariseBot } from '../src/report';
 import type { PerfInfo, ReportInput } from '../src/report';
 
 const TARGETS: Globals = {
@@ -168,5 +168,25 @@ describe('output', () => {
     const md = renderMarkdown(a);
     for (const id of ['BT-1', 'BT-2', 'BT-3', 'BT-4', 'BT-5', 'BT-6', 'BT-7', 'BT-8', 'PERF']) expect(md).toContain(`| ${id} |`);
     expect(md).toContain('Not measured');
+  });
+});
+
+describe('damage, Unstable and vault metrics', () => {
+  it('derives the shares and per-round figures from the counters', () => {
+    const a = bot({ 4: 6, 12: 4 }, 5, { roundSum: 80, dmgToCollector: 30, dmgToPlayer: 50, directDmg: 20, unstableGrafts: 7, gamesWithUnstable: 5 });
+    bump(child(a, 'reasons'), 'vaultSealed', 4);
+    const b = summariseBot('expert', a, TARGETS);
+    expect(b.damagePerRound).toBe(1);
+    expect(b.damageToCollectorPerRound).toBe(30 / 80);
+    expect(b.directDamageShare).toBe(0.25);
+    expect(b.unstablePerGame).toBe(0.7);
+    expect(b.unstableGameShare).toBe(0.5);
+    expect(b.vaultSealedShare).toBe(0.4);
+  });
+  it('is null, not NaN, when nothing was counted', () => {
+    const b = summariseBot('expert', {}, TARGETS);
+    expect(b.damagePerRound).toBeNull();
+    expect(b.unstablePerGame).toBeNull();
+    expect(b.vaultSealedShare).toBeNull();
   });
 });

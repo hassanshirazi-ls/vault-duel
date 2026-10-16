@@ -34,6 +34,13 @@ function actualCategory(appraised: boolean, attacked: boolean, schemed: boolean)
   return schemed ? 'scheme' : 'guard';
 }
 
+/** How many of the player's monsters are Unstable Chimeras that entered this turn (a Graft just made one). */
+function unstableChimeras(s: GameState): number {
+  let n = 0;
+  for (const m of s.sides[0].board) if (m !== null && m.unstableUntil >= 0 && m.entered === s.turn) n++;
+  return n;
+}
+
 export interface DuelPlayer {
   /** Plays the job's duel and adds its result to `into`. */
   play(job: SimJob, into: Aggregate): void;
@@ -64,6 +71,10 @@ export function createDuelPlayer(ctx: SimContext): DuelPlayer {
         let attacked = false;
         let schemed = false;
         let actions = 0;
+        let unstableGrafts = 0;
+        let dmgToCollector = 0;
+        let dmgToPlayer = 0;
+        let directDmg = 0;
 
         while (s.result === null) {
           if (actions >= ACTION_CAP) break;
@@ -93,8 +104,16 @@ export function createDuelPlayer(ctx: SimContext): DuelPlayer {
             if (a.t === 'attack') attacked = true;
             else if (a.t === 'cast' || a.t === 'setTrap') schemed = true;
           }
+          const lifeBefore = [s.sides[0].life, s.sides[1].life] as const;
+          const unstableBefore = a.t === 'graftPosition' ? unstableChimeras(s) : 0;
           s = engine.applyAction(s, a).state;
           actions++;
+          if (a.t === 'graftPosition' && unstableChimeras(s) > unstableBefore) unstableGrafts++;
+          const lostPlayer = Math.max(0, lifeBefore[0] - s.sides[0].life);
+          const lostCollector = Math.max(0, lifeBefore[1] - s.sides[1].life);
+          dmgToPlayer += lostPlayer;
+          dmgToCollector += lostCollector;
+          if (a.t === 'attack' && a.target === -1) directDmg += lostPlayer + lostCollector;
           if (!mine && predicted !== null && (a.t === 'endTurn' || s.result !== null)) {
             tally.intents.push({ predicted, actual: actualCategory(s.appraisal.successes > successesBefore, attacked, schemed) });
             predicted = null;
@@ -109,6 +128,12 @@ export function createDuelPlayer(ctx: SimContext): DuelPlayer {
         const won = s.result.winner === 0;
         const round = Math.min(s.result.round, bins - 1);
         bumpBin(agg, 'rounds', bins, round);
+        bump(agg, 'roundSum', round);
+        bump(agg, 'unstableGrafts', unstableGrafts);
+        if (unstableGrafts > 0) bump(agg, 'gamesWithUnstable');
+        bump(agg, 'dmgToCollector', dmgToCollector);
+        bump(agg, 'dmgToPlayer', dmgToPlayer);
+        bump(agg, 'directDmg', directDmg);
         bump(child(agg, 'reasons'), s.result.reason);
         if (won) {
           bump(agg, 'wins');

@@ -2601,6 +2601,36 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: No. At 600 and at 100,000, greedy and expert gave identical outcomes under lanes plus monsters-only plus `laneAware`, so the cap never binds. The expert runs about 2.4× slower under lanes (372 → 152 duels/sec single-process); trimming its plan limits (`maxPlans` 400 → 200, `finalists` 30 → 15) is an untested proposal.
 - Reason: measured, not assumed.
 
+**D-300 · Content overrides in the sim** (playtest-runner, 2026-10-16)
+- Date: 2026-10-16
+- Question: D-287 planned `--set element.<id>.beats`. What does the sim actually accept?
+- Decision: `--ring A|B|C|a,b,c,d,e` rewrites the `elements.json` `beats` arrays into one cycle on a clone of the raw content, before parse and compile (`packages/sim/src/overrides.ts`); it rejects anything that is not a permutation of the element ids. `--collector ai.<path>=<json>` (repeatable) sets fields of `collector.json › ai`, still validated by the schema; `--collector-reposition MODE` is shorthand. Workers receive the same override strings. The report header lists every override, and the content hash reflects them. The `card.<id>.<field>` overrides from ARCHITECTURE §11 are not built yet.
+- Reason: the matrix needed only the ring and the Collector `ai` block.
+
+**D-301 · `sim quick --seed-check`** (playtest-runner, 2026-10-16)
+- Date: 2026-10-16
+- Question: How does a quick cell report seed rejection without a 60-date full run?
+- Decision: `sim quick --seed-check` runs the difficulty check over the quick run's own `--seed-dates`.
+- Reason: per-cell seed rejection at low cost; the 60-date full runs remain the reference.
+
+**D-302 · New per-bot sim metrics** (playtest-runner, 2026-10-16)
+- Date: 2026-10-16
+- Question: How are the new metrics defined?
+- Decision: Damage is the life change across each action, divided by rounds played in finished games, split into damage to the Collector and to the player. Direct share is damage from attacks with target -1. Unstable counts Grafts whose Chimera enters Unstable (`unstablePerGame`, `unstableGameShare`). Vault-sealed share is `vaultSealed` endings over finished games. Also `medianWinRound`. Existing metric definitions are unchanged.
+- Reason: measures the owner's burst-damage concern and the ring's Unstable effect.
+
+**D-303 · Finalist rule for the A/B matrix** (playtest-runner, 2026-10-16)
+- Date: 2026-10-16
+- Question: Which matrix cells get full runs?
+- Decision: Distance to target is the sum of per-target shortfalls, each divided by its band width (the rounds 8–12 term uses the 50% threshold). The three closest cells plus 123L (the full owner package) got `sim full`.
+- Reason: 123L is always wanted; the top three show the alternatives.
+
+**D-304 · Pass/fail marks in the matrix** (playtest-runner, 2026-10-16)
+- Date: 2026-10-16
+- Question: Which matrix columns get pass/fail marks?
+- Decision: Only columns with a DESIGN target. Greedy win rate, vault-sealed share, Unstable rate and damage per round are information only.
+- Reason: no invented targets.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

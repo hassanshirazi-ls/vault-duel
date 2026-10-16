@@ -24,7 +24,7 @@ function send(message: WorkerResponse): void {
 port.on('message', (request: WorkerRequest) => {
   try {
     if (request.t === 'init') {
-      const ctx = loadContext(request.sets);
+      const ctx = loadContext(request.sets, request.content);
       player = createDuelPlayer(ctx);
       runner = expertRunner(ctx);
       send({ t: 'ready' });

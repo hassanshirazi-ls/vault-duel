@@ -9,6 +9,7 @@ import type { DuelJob, DuelOutcome } from '@vault-duel/ai';
 import { mergeAll } from './aggregate';
 import type { Aggregate } from './aggregate';
 import { BATCH_SIZE } from './jobs';
+import type { ContentOverrides } from './overrides';
 import type { SimJob, WorkerRequest, WorkerResponse } from './jobs';
 
 export function defaultWorkers(): number {
@@ -41,7 +42,7 @@ export class Pool {
   private constructor(readonly size: number) {}
 
   /** Starts `size` workers and waits until each has loaded the content. */
-  static async create(size: number, sets: readonly string[]): Promise<Pool> {
+  static async create(size: number, sets: readonly string[], content: ContentOverrides = {}): Promise<Pool> {
     const pool = new Pool(size);
     const url = new URL('./worker.ts', import.meta.url);
     const options = workerOptions();
@@ -56,7 +57,7 @@ export class Pool {
             if (message.t === 'ready') resolve();
             else reject(new Error(message.t === 'error' ? message.message : 'worker did not start'));
           });
-          worker.postMessage({ t: 'init', sets } satisfies WorkerRequest);
+          worker.postMessage({ t: 'init', sets, content } satisfies WorkerRequest);
         });
       }),
     );

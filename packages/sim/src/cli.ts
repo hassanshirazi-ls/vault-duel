@@ -5,6 +5,8 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkKey, expertHash } from '@vault-duel/ai';
 import { OverridesError } from '@vault-duel/content';
+import { ContentOverrideError } from './overrides';
+import type { ContentOverrides } from './overrides';
 import { addDays, dateRange, parseArgs, UsageError, USAGE } from './args';
 import type { CliOptions } from './args';
 import { mergeAll } from './aggregate';
@@ -90,12 +92,17 @@ async function main(argv: readonly string[]): Promise<number> {
     process.stderr.write('sim full --ab: not implemented (proposal A/B runs are Phase 3)\n');
     return 2;
   }
+  const content: ContentOverrides = { ring: opts.ring, collector: opts.collector };
   let ctx: SimContext;
   try {
-    ctx = loadContext(opts.sets);
+    ctx = loadContext(opts.sets, content);
   } catch (error) {
     if (error instanceof OverridesError) {
       process.stderr.write(`sim: bad --set\n${error.message}\n`);
+      return 2;
+    }
+    if (error instanceof ContentOverrideError) {
+      process.stderr.write(`sim: ${error.message}\n`);
       return 2;
     }
     throw error;
@@ -116,7 +123,7 @@ async function main(argv: readonly string[]): Promise<number> {
   const workers = opts.workers ?? defaultWorkers();
   const from = opts.from ?? today();
   const outDir = opts.out ?? REPORTS_DIR;
-  const pool = await Pool.create(workers, opts.sets);
+  const pool = await Pool.create(workers, opts.sets, content);
   try {
     if (opts.command === 'seeds') {
       const dates = dateRange(opts.from as string, opts.days as number);
@@ -161,7 +168,7 @@ async function main(argv: readonly string[]): Promise<number> {
     const balance = await balanceRun(opts, ctx, pool, games, dates);
     let check: SeedCheck | null = null;
     let perf: PerfInfo = { ...balance.perf, seedCheck: null };
-    if (opts.command === 'full') {
+    if (opts.command === 'full' || opts.seedCheck) {
       log(`difficulty check: ${dateCount} dates, ${g.SIM_RUNS_PER_SEED} duels per candidate`);
       check = await checkDates(pool, ctx, dates, (p) => log(`  round ${p.round}: ${p.waiting} candidates (${p.waiting * g.SIM_RUNS_PER_SEED} duels)`));
       perf = { ...perf, seedCheck: { duels: check.duels, wallSeconds: check.stats.wallMs / 1000, duelsPerSecondPerCore: check.duels / (check.stats.busyMs / 1000) } };
@@ -172,6 +179,8 @@ async function main(argv: readonly string[]): Promise<number> {
       args: { games, seedDates: dateCount, from, bots: opts.bots },
       globals: g,
       sets: opts.sets,
+      contentOverrides: ctx.contentOverrides,
+      globalsHash: checkKey(ctx).globalsHash,
       contentHash: ctx.content.hash,
       contentVersion: ctx.content.version,
       expertHash: expertHash(),

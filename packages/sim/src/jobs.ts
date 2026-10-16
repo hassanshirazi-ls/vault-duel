@@ -2,6 +2,7 @@
 // worker ran it or in what order.
 import type { DuelJob, DuelOutcome } from '@vault-duel/ai';
 import type { Aggregate } from './aggregate';
+import type { ContentOverrides } from './overrides';
 
 /** The player bots the simulator can field. `expert-noisy` is the difficulty check's reference bot (D-094). */
 export const BOT_IDS = ['novice', 'greedy', 'expert', 'expert-noisy'] as const;
@@ -24,7 +25,7 @@ export interface SimJob {
 export const BATCH_SIZE = 250;
 
 export type WorkerRequest =
-  | { readonly t: 'init'; readonly sets: readonly string[] }
+  | { readonly t: 'init'; readonly sets: readonly string[]; readonly content?: ContentOverrides }
   | { readonly t: 'duels'; readonly id: number; readonly jobs: readonly SimJob[] }
   | { readonly t: 'rate'; readonly id: number; readonly jobs: readonly DuelJob[] };
 

@@ -45,6 +45,19 @@ export interface BotSummary {
   readonly endings: Aggregate;
   readonly crashed: number;
   readonly stuck: number;
+  /** share of finished games that ended by the sealed Vault */
+  readonly vaultSealedShare: number | null;
+  /** median round of the games this bot won */
+  readonly medianWinRound: number | null;
+  /** Unstable Chimeras the player made, per finished game, and the share of games with at least one */
+  readonly unstablePerGame: number | null;
+  readonly unstableGameShare: number | null;
+  /** life points lost by both sides per round played, in finished games */
+  readonly damagePerRound: number | null;
+  readonly damageToCollectorPerRound: number | null;
+  readonly damageToPlayerPerRound: number | null;
+  /** share of that damage dealt by direct attacks (the rest is spillover and effects) */
+  readonly directDamageShare: number | null;
 }
 
 export interface CardRow {
@@ -81,6 +94,10 @@ export interface ReportInput {
   readonly args: Record<string, unknown>;
   readonly globals: Globals;
   readonly sets: readonly string[];
+  /** `--ring` and `--collector` overrides, as lines */
+  readonly contentOverrides?: readonly string[];
+  /** hash of the globals the run used (the cfg hash is derived from it and the content hash) */
+  readonly globalsHash?: string;
   readonly contentHash: string;
   readonly contentVersion: string;
   readonly expertHash: string;
@@ -107,6 +124,8 @@ export interface Report {
   readonly args: Record<string, unknown>;
   readonly config: {
     readonly overrides: readonly string[];
+    readonly contentOverrides: readonly string[];
+    readonly globalsHash: string;
     readonly contentHash: string;
     readonly contentVersion: string;
     readonly expertHash: string;
@@ -169,6 +188,14 @@ export function summariseBot(bot: string, a: Aggregate, g: Globals): BotSummary 
     endings: sub(a, 'reasons'),
     crashed,
     stuck,
+    vaultSealedShare: ratio(num(sub(a, 'reasons'), 'vaultSealed'), finished),
+    medianWinRound: finite(median(hist(a, 'winRounds'))),
+    unstablePerGame: ratio(num(a, 'unstableGrafts'), finished),
+    unstableGameShare: ratio(num(a, 'gamesWithUnstable'), finished),
+    damagePerRound: ratio(num(a, 'dmgToCollector') + num(a, 'dmgToPlayer'), num(a, 'roundSum')),
+    damageToCollectorPerRound: ratio(num(a, 'dmgToCollector'), num(a, 'roundSum')),
+    damageToPlayerPerRound: ratio(num(a, 'dmgToPlayer'), num(a, 'roundSum')),
+    directDamageShare: ratio(num(a, 'directDmg'), num(a, 'dmgToCollector') + num(a, 'dmgToPlayer')),
   };
 }
 
@@ -306,7 +333,7 @@ export function buildReport(input: ReportInput): Report {
     command: input.command,
     date: input.date,
     args: input.args,
-    config: { overrides: input.sets, contentHash: input.contentHash, contentVersion: input.contentVersion, expertHash: input.expertHash, globals: g },
+    config: { overrides: input.sets, contentOverrides: input.contentOverrides ?? [], globalsHash: input.globalsHash ?? '', contentHash: input.contentHash, contentVersion: input.contentVersion, expertHash: input.expertHash, globals: g },
     results: {
       bots: botSummaries,
       cards,
@@ -334,7 +361,9 @@ export function renderMarkdown(r: Report): string {
   L.push(`# Simulator report: ${r.command}, ${r.date}`, '');
   L.push(`- content: version ${r.config.contentVersion}, hash \`${r.config.contentHash}\``);
   L.push(`- expertHash: \`${r.config.expertHash}\``);
-  L.push(`- overrides: ${r.config.overrides.length === 0 ? 'none' : r.config.overrides.map((s) => `\`${s}\``).join(' ')}`);
+  L.push(`- globals hash: \`${r.config.globalsHash}\``);
+  L.push(`- overrides (--set): ${r.config.overrides.length === 0 ? 'none' : r.config.overrides.map((s) => `\`${s}\``).join(' ')}`);
+  L.push(`- content overrides (--ring, --collector): ${r.config.contentOverrides.length === 0 ? 'none' : r.config.contentOverrides.map((s) => `\`${s}\``).join(' ')}`);
   L.push(`- arguments: \`${JSON.stringify(r.args)}\``);
   L.push('- the complete globals used are in the JSON file next to this report', '');
 
@@ -369,6 +398,11 @@ export function renderMarkdown(r: Report): string {
   L.push('## Per-bot detail', '', '| Bot | Grafts per win | Appraisal success | Appraisal attempts | Unpriced appears | Intent accuracy | Intent samples | Crashed | Stuck |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
   for (const b of r.results.bots) {
     L.push(`| ${b.bot} | ${dec(b.graftsPerWin)} | ${pct(b.appraisalSuccessRate)} | ${b.appraisalAttempts} | ${pct(b.unpricedRate)} | ${pct(b.intentAccuracy)} | ${b.intentSamples} | ${b.crashed} | ${b.stuck} |`);
+  }
+  L.push('');
+  L.push('## Damage, Unstable Chimeras, vault', '', '| Bot | Vault sealed | Median winning round | Unstable per game | Games with Unstable | Damage per round | To Collector | To player | Direct share |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+  for (const b of r.results.bots) {
+    L.push(`| ${b.bot} | ${pct(b.vaultSealedShare)} | ${dec(b.medianWinRound, 1)} | ${dec(b.unstablePerGame)} | ${pct(b.unstableGameShare)} | ${dec(b.damagePerRound)} | ${dec(b.damageToCollectorPerRound)} | ${dec(b.damageToPlayerPerRound)} | ${pct(b.directDamageShare)} |`);
   }
   L.push('');
   for (const b of r.results.bots) {

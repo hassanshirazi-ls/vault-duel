@@ -11,5 +11,7 @@ export { defaultWorkers, Pool } from './pool';
 export { buildReport, deterministicPart, evaluatePerf, evaluateTargets, renderMarkdown, writeReport } from './report';
 export type { Metric, Report } from './report';
 export { loadContext } from './world';
+export { applyContentOverrides, ContentOverrideError, describeOverrides, NAMED_RINGS, parseCollectorSet, parseRing } from './overrides';
+export type { ContentOverrides } from './overrides';
 export { buildManifest, inspectManifest, parseManifestText, serializeManifest } from './seeds';
 export type { Manifest, ManifestInspection, ManifestRating } from './seeds';
