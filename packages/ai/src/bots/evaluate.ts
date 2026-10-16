@@ -17,6 +17,13 @@ export interface EvalWeights {
   readonly handCard: number;
   readonly trap: number;
   readonly win: number;
+  /**
+   * Lanes only (FLAGS.LANES, D-281): per lane where both sides have a face-up monster, plus when mine beats the monster across
+   * and minus when it beats mine. Absent means 0.
+   */
+  readonly laneFace?: number;
+  /** Lanes only: per own occupied lane a face-up own Sentinel covers (D-283). Absent means 0. */
+  readonly sentinelCover?: number;
 }
 
 /** The expert's extra terms (ARCHITECTURE.md §14). Each is optional in `evaluate`; the expert's weights file has all of them. */
@@ -80,5 +87,33 @@ export function evaluate(v: PlayerView, w: EvalWeights & Partial<ExpertTerms> = 
     }
   }
   if (w.sentinel !== undefined) for (const f of v.foeBoard) if (f !== null && !f.faceDown && f.keywords.includes(SENTINEL)) score -= w.sentinel;
+  if (v.lanes) score += laneTerms(v, w);
+  return score;
+}
+
+/** Stat a monster shows to an attacker: its Power in attack position, its Guard in guard. */
+const shown = (m: { power: number; guard: number; pos: 'atk' | 'grd' }): number => (m.pos === 'atk' ? m.power : m.guard);
+
+/** The lane terms (D-281, D-283): who wins each face-to-face pair, and how much of his board his Sentinels cover. */
+function laneTerms(v: PlayerView, w: EvalWeights): number {
+  let score = 0;
+  const face = w.laneFace ?? 0;
+  const cover = w.sentinelCover ?? 0;
+  for (let lane = 0; lane < v.board.length; lane++) {
+    const m = v.board[lane];
+    if (m === null || m === undefined) continue;
+    const f = v.foeBoard[lane];
+    if (face !== 0 && !m.faceDown && f !== null && f !== undefined && !f.faceDown) {
+      const mine = m.power + (v.beats(m.card.element, f.element) ? v.elementBonus : 0);
+      const his = f.power + (v.beats(f.element, m.card.element) ? v.elementBonus : 0);
+      if (mine > shown(f)) score += face;
+      if (his > shown(m)) score -= face;
+    }
+    if (cover !== 0 && !m.faceDown && m.card.keywords.includes(SENTINEL)) {
+      for (let l = Math.max(0, lane - v.sentinelReach); l <= Math.min(v.board.length - 1, lane + v.sentinelReach); l++) {
+        if (l !== lane && v.board[l] != null) score += cover;
+      }
+    }
+  }
   return score;
 }

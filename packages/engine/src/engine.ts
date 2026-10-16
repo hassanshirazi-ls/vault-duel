@@ -11,6 +11,7 @@ import type { GraftPreview } from './graft';
 import { createEnv } from './hooks/registry';
 import type { Env } from './hooks/registry';
 import { countLegal, forEachLegal, getLegalActions, isLegal } from './legal';
+import { attackReach, laneTargets, targetsFromLane } from './lanes';
 import type { IntentPolicy, Services } from './pipeline';
 import { Run } from './pipeline';
 import { applyAction, beginDuel, NO_EVENTS } from './reducer';
@@ -27,7 +28,7 @@ import type { CompiledContent, ElemIdx, KindIdx, KwMask } from './types/content'
 import type { GameEvent } from './types/events';
 import type { Globals } from './types/globals';
 import type { AttackPerm } from './types/hooks';
-import type { GameState, Iid } from './types/state';
+import type { GameState, Iid, Monster } from './types/state';
 
 export interface EnginePolicies {
   /** Required when FLAGS.INTENTS is on (D-150). Pure, read-only, keeps no references into the state. */
@@ -81,6 +82,12 @@ export interface Engine {
   previewCombat(s: GameState, attacker: Iid, target: Iid | -1): CombatPreview;
   /** §5.6. Allocates. */
   previewGraft(s: GameState): GraftPreview | null;
+  /** D-281: the enemy monsters the monster `iid` may declare an attack on (lanes and Sentinel cover; classic with LANES off). Empty off the board. Ignores permission and state; a wholly empty enemy board is the direct attack, not listed. */
+  laneTargets(s: GameState, iid: Iid): Iid[];
+  /** The same for the monster `iid` as if it stood in `lane` of its own side (under LANES off: the classic targets). Empty off the board. */
+  targetsFromLane(s: GameState, iid: Iid, lane: number): Iid[];
+  /** D-284: lane offsets the monster `iid` reaches (`[0]` by default). */
+  attackReach(s: GameState, iid: Iid): readonly number[];
 }
 
 /** Internal view for modules and test helpers that need the Env (not part of the public surface). */
@@ -145,6 +152,20 @@ export function createEngineInternals(
     mustAttack: (s, iid) => mustAttack(env, s, iid),
     previewCombat: (s, attacker, target) => previewCombat(s, env, attacker, target),
     previewGraft: (s) => previewGraft(s, env),
+    laneTargets: (s, iid) => laneTargets(env, s, iid),
+    targetsFromLane(s, iid, lane) {
+      const loc = stats.locate(s, iid);
+      if (loc < 0) return [];
+      if (!env.g.FLAGS.LANES) return laneTargets(env, s, iid);
+      const side = stats.locSide(loc);
+      return targetsFromLane(env, s, s.sides[side].board[stats.locSlot(loc)] as Monster, side, lane);
+    },
+    attackReach(s, iid) {
+      const loc = stats.locate(s, iid);
+      if (loc < 0) return [0];
+      const side = stats.locSide(loc);
+      return attackReach(env, s, s.sides[side].board[stats.locSlot(loc)] as Monster, side);
+    },
   };
   return self;
 }

@@ -11,9 +11,12 @@ import type { Bot, PlayerView } from './player-view';
 /** Longest Graft is begin + 3 materials + keywords + position; the cap only guards a loop. */
 const MAX_GRAFT_STEPS = 12;
 
+/** A lane move that changes nothing the evaluation sees must lose to ending the turn (it would otherwise come first). */
+const MOVE_COST = 1e-6;
+
 function scoreAfter(v: PlayerView, index: number, w: EvalWeights): number {
   const next = v.after(index);
-  return evaluate(next ?? v, w);
+  return evaluate(next ?? v, w) - (v.legal[index]?.t === 'moveLane' ? MOVE_COST : 0);
 }
 
 /** Index of the best action in `v`, the first of equals; `graftCancel` only when nothing else is legal. */

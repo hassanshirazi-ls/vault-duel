@@ -24,7 +24,8 @@
         "gilt-frame": { "when": "contestedAttack" }
       },
       "summonBeater": { "compare": "previewAttack", "skipBrittleCountered": false },
-      "utility": { "order": ["castDrawSpell", "setTrap", "pass"] }
+      "utility": { "order": ["castDrawSpell", "setTrap", "pass"] },
+      "summonLane": ["sentinelCenter", "facingBeatable", "facingEmpty", "leftmostFree"]
     },
     "moods": {
       "composed": {

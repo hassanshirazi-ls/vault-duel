@@ -3,7 +3,7 @@
 // lists and `reposition` replace, `params` merge per rule and then per key, and `castHighValueSpell` merges per
 // spell id (D-204). The three moods are merged once, when the policy is built.
 import type { Mood } from '@vault-duel/engine';
-import type { AiConfig, AttackRuleId, CastEntry, PlayRuleId, Reposition, TieKey } from './config';
+import type { AiConfig, AttackRuleId, CastEntry, PlayRuleId, Reposition, SummonLaneId, TieKey } from './config';
 
 /** Mood index (engine `Mood`: 0, 1, 2) to its key in `collector.json › ai.moods`. */
 export const MOOD_NAMES = ['composed', 'agitated', 'desperate'] as const;
@@ -19,6 +19,8 @@ export interface EffectiveAi {
   readonly allowFaceDown: boolean;
   readonly trapPreference: readonly string[];
   readonly tieBreak: readonly TieKey[];
+  /** D-286: the summon-lane rules in order; read only with FLAGS.LANES */
+  readonly summonLane: readonly SummonLaneId[] | undefined;
   readonly params: {
     readonly setTrapWhenBehind: Merged<'setTrapWhenBehind'>;
     readonly summonFallback: Merged<'summonFallback'>;
@@ -42,6 +44,7 @@ export function effectiveAi(ai: AiConfig, mood: Mood): EffectiveAi {
     allowFaceDown: ai.allowFaceDown,
     trapPreference: ai.trapPreference,
     tieBreak: ai.tieBreak,
+    summonLane: mp?.summonLane ?? ai.params.summonLane,
     params: {
       setTrapWhenBehind: { ...ai.params.setTrapWhenBehind, ...mp?.setTrapWhenBehind },
       summonFallback: { ...ai.params.summonFallback, ...mp?.summonFallback },

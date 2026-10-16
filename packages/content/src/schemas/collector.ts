@@ -23,7 +23,7 @@ export const AI_ATTACK_RULES = z.enum([
   'attackAnything',
 ]);
 
-export const AI_REPOSITION = z.enum(['toAttackIfUsable', 'allAttack']);
+export const AI_REPOSITION = z.enum(['toAttackIfUsable', 'allAttack', 'laneAware']);
 
 const AI_COMPARE_TRAP = z.enum(['fewer', 'fewerOrEqual']);
 const AI_COMPARE_BEATER = z.enum(['previewAttack']);
@@ -32,6 +32,8 @@ const AI_SLOW_POSITION = z.enum(['attack', 'guard']);
 const AI_SLOW_PICK = z.enum(['highestGuard']);
 const AI_PICK = z.enum(['highestPower']);
 const AI_WHEN = z.enum(['contestedAttack']);
+/** D-286: the summon-lane rules, in the order they narrow the free lanes (read only with FLAGS.LANES). */
+export const AI_SUMMON_LANES = z.enum(['sentinelCenter', 'facingBeatable', 'facingEmpty', 'leftmostFree']);
 const AI_UTILITY_STEP = z.enum(['castDrawSpell', 'setTrap', 'pass']);
 export const AI_TIE_BREAK = z.enum(['leftmostSlot', 'cardId', 'instanceId']);
 
@@ -57,6 +59,7 @@ const AiParams = z
     castHighValueSpell: z.record(Id, CastWhen),
     summonBeater: z.object({ compare: AI_COMPARE_BEATER, skipBrittleCountered: z.boolean() }).strict(),
     utility: z.object({ order: z.array(AI_UTILITY_STEP) }).strict(),
+    summonLane: z.array(AI_SUMMON_LANES),
   })
   .strict()
   .partial();

@@ -14,6 +14,8 @@
   "matchup": 0.5,
   "sentinel": 2,
   "foeFaceDown": 3,
+  "laneFace": 2,
+  "sentinelCover": 1.5,
   "attackMargin": 0,
   "trapCaution": 0.5,
   "unknownAttack": 0.5,

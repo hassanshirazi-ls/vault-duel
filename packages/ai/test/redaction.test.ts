@@ -11,6 +11,16 @@ import { botAction, createGreedy, createNovice, playerView } from '../src';
 import type { CollectorView, FoeMonster, PlayerView } from '../src';
 import { createCollector } from '../src';
 import { CONTENT, GLOBALS, SEED } from './helpers';
+import type { Globals } from '@vault-duel/engine';
+import type { GameContent } from '@vault-duel/content';
+
+// The same checks run under the classic rules and under lanes + monsters-only sickness with the lane-aware reposition (D-286).
+const LANE_GLOBALS: Globals = { ...GLOBALS, FLAGS: { ...GLOBALS.FLAGS, LANES: true }, SICKNESS_MODE: 'monstersOnly' };
+const LANE_CONTENT: GameContent = { ...CONTENT, collector: { ...CONTENT.collector, ai: { ...CONTENT.collector.ai, reposition: 'laneAware' } } };
+const CONFIGS: readonly (readonly [string, Globals, GameContent])[] = [
+  ['classic rules', GLOBALS, CONTENT],
+  ['lanes and monsters-only sickness', LANE_GLOBALS, LANE_CONTENT],
+];
 
 // ---- layer 1: the types -----------------------------------------------------------------------------------------
 
@@ -27,12 +37,13 @@ const PLAYER_VIEW_FIELDS: Record<keyof PlayerView, true> = {
   hand: true, board: true, traps: true, discard: true, deckCount: true,
   foeHandCount: true, foeDeckCount: true, foeBoard: true, foeTrapCount: true, foeDiscard: true, foeVault: true,
   pendingGraft: true, winner: true, appraisalTarget: true, legal: true, after: true, previewCombat: true, previewGraft: true, beats: true,
+  lanes: true, sentinelReach: true, elementBonus: true,
 };
 
 describe('the view types', () => {
   it('list their fields explicitly', () => {
     expect(Object.keys(COLLECTOR_VIEW_FIELDS).length).toBe(23);
-    expect(Object.keys(PLAYER_VIEW_FIELDS).length).toBe(25);
+    expect(Object.keys(PLAYER_VIEW_FIELDS).length).toBe(28);
   });
 
   it('have no field for hidden information', () => {
@@ -147,10 +158,12 @@ function snapshot(v: CollectorView): string {
     for (let f = 0; f < v.foeBoard.length; f++) out.push(v.previewAttack(slot, f));
   }
   for (const c of v.hand) {
-    const pv = v.previewSummon(c);
-    if (pv === null) continue;
-    out.push(pv.power, pv.guard, pv.slow);
-    for (let f = 0; f < v.foeBoard.length; f++) out.push(pv.asAttacker(f), pv.asDefender(f));
+    for (const lane of [undefined, ...v.foeBoard.keys()]) {
+      const pv = v.previewSummon(c, lane);
+      if (pv === null) continue;
+      out.push(pv.power, pv.guard, pv.slow, pv.targets);
+      for (let f = 0; f < v.foeBoard.length; f++) out.push(pv.asAttacker(f), pv.asDefender(f));
+    }
   }
   out.push(v.winningAttacks().map((c) => c.index));
   // Look-ahead (D-209): every play's winsAfter, and the view after every choice (null when refused).
@@ -163,72 +176,76 @@ function snapshot(v: CollectorView): string {
 }
 
 describe('equal views from states that differ only in hidden information', () => {
-  it('Collector: views, decisions and intents agree over many duel states', () => {
-    const collector = createCollector({ content: CONTENT, globals: GLOBALS });
-    const engine = createEngine(CONTENT, GLOBALS, { intent: collector.intentPolicy });
-    const counts: Counts = { faceDown: 0, playerTraps: 0, collectorTraps: 0, states: 0 };
-    for (let i = 0; i < 40; i++) {
-      const bot = i % 2 === 0 ? createNovice(`r${i}`) : createGreedy();
-      const rng = Sfc32.from(`perturb/${i}`);
-      let s = engine.newGame(SEED(i)).state;
-      let n = 0;
-      while (s.result === null && n++ < 400) {
-        if ((s.turn & 1) === 1 && s.step !== 'mulligan') {
-          const t = perturb(s, rng, counts, 'collector');
-          expect(snapshot(collector.view(t))).toBe(snapshot(collector.view(s)));
-          expect(collector.act(t)).toEqual(collector.act(s));
-          counts.states++;
-        }
-        if (s.step !== 'mulligan') expect(collector.intentPolicy(perturb(s, rng, counts, 'collector'))).toBe(collector.intentPolicy(s));
-        const a = (s.turn & 1) === 0 || s.step === 'mulligan' ? botAction(bot, collector.brain, s) : collector.act(s);
-        s = engine.applyAction(s, a).state;
-      }
-    }
-    // The perturbations really exercised hidden information.
-    expect(counts.states).toBeGreaterThan(100);
-    expect(counts.faceDown).toBeGreaterThan(0);
-    expect(counts.playerTraps).toBeGreaterThan(0);
-  });
-
-  it('Collector: look-aheads (previewSummon, winningAttacks, winsAfter, after, intent) agree under the perturbation', () => {
-    // Same walk as above, restricted to the look-ahead answers, with the perturbation applied to every Collector turn state
-    // twice (two independent perturbations), so a leak through any hidden zone would show.
-    const collector = createCollector({ content: CONTENT, globals: GLOBALS });
-    const engine = createEngine(CONTENT, GLOBALS, { intent: collector.intentPolicy });
-    const counts: Counts = { faceDown: 0, playerTraps: 0, collectorTraps: 0, states: 0 };
-    let summons = 0;
-    for (let i = 0; i < 24; i++) {
-      const bot = createGreedy();
-      const rng = Sfc32.from(`perturb-la/${i}`);
-      let s = engine.newGame(SEED(i + 100)).state;
-      let n = 0;
-      while (s.result === null && n++ < 400) {
-        if ((s.turn & 1) === 1 && s.step !== 'mulligan') {
-          const base = collector.view(s);
-          for (let k = 0; k < 2; k++) {
-            const v = collector.view(perturb(s, rng, counts, 'collector'));
-            for (const c of base.hand) {
-              const a = base.previewSummon(c);
-              const b = v.previewSummon(c);
-              expect(b === null ? null : [b.power, b.guard, b.slow]).toEqual(a === null ? null : [a.power, a.guard, a.slow]);
-              if (a !== null) summons++;
-            }
-            expect(v.winningAttacks().map((c) => c.index)).toEqual(base.winningAttacks().map((c) => c.index));
-            expect(v.choices.map((c) => v.winsAfter(c))).toEqual(base.choices.map((c) => base.winsAfter(c)));
+  for (const [label, globals, content] of CONFIGS) {
+    it(`Collector: views, decisions and intents agree over many duel states (${label})`, () => {
+      const collector = createCollector({ content, globals });
+      const engine = createEngine(content, globals, { intent: collector.intentPolicy });
+      const counts: Counts = { faceDown: 0, playerTraps: 0, collectorTraps: 0, states: 0 };
+      for (let i = 0; i < 40; i++) {
+        const bot = i % 2 === 0 ? createNovice(`r${i}`) : createGreedy();
+        const rng = Sfc32.from(`perturb/${i}`);
+        let s = engine.newGame(SEED(i)).state;
+        let n = 0;
+        while (s.result === null && n++ < 400) {
+          if ((s.turn & 1) === 1 && s.step !== 'mulligan') {
+            const t = perturb(s, rng, counts, 'collector');
+            expect(snapshot(collector.view(t))).toBe(snapshot(collector.view(s)));
+            expect(collector.act(t)).toEqual(collector.act(s));
+            counts.states++;
           }
-          counts.states++;
+          if (s.step !== 'mulligan') expect(collector.intentPolicy(perturb(s, rng, counts, 'collector'))).toBe(collector.intentPolicy(s));
+          const a = (s.turn & 1) === 0 || s.step === 'mulligan' ? botAction(bot, collector.brain, s) : collector.act(s);
+          s = engine.applyAction(s, a).state;
         }
-        if (s.step !== 'mulligan') {
-          const intent = collector.intentPolicy(s);
-          expect(collector.intentPolicy(perturb(s, rng, counts, 'collector'))).toBe(intent);
-        }
-        const a = (s.turn & 1) === 0 || s.step === 'mulligan' ? botAction(bot, collector.brain, s) : collector.act(s);
-        s = engine.applyAction(s, a).state;
       }
-    }
-    expect(counts.states).toBeGreaterThan(50);
-    expect(summons).toBeGreaterThan(20);
-  });
+      // The perturbations really exercised hidden information.
+      expect(counts.states).toBeGreaterThan(100);
+      expect(counts.faceDown).toBeGreaterThan(0);
+      expect(counts.playerTraps).toBeGreaterThan(0);
+    });
+
+    it(`Collector: look-aheads (previewSummon, winningAttacks, winsAfter, after, intent) agree under the perturbation (${label})`, () => {
+      // Same walk as above, restricted to the look-ahead answers, with the perturbation applied to every Collector turn state
+      // twice (two independent perturbations), so a leak through any hidden zone would show.
+      const collector = createCollector({ content, globals });
+      const engine = createEngine(content, globals, { intent: collector.intentPolicy });
+      const counts: Counts = { faceDown: 0, playerTraps: 0, collectorTraps: 0, states: 0 };
+      let summons = 0;
+      for (let i = 0; i < 24; i++) {
+        const bot = createGreedy();
+        const rng = Sfc32.from(`perturb-la/${i}`);
+        let s = engine.newGame(SEED(i + 100)).state;
+        let n = 0;
+        while (s.result === null && n++ < 400) {
+          if ((s.turn & 1) === 1 && s.step !== 'mulligan') {
+            const base = collector.view(s);
+            for (let k = 0; k < 2; k++) {
+              const v = collector.view(perturb(s, rng, counts, 'collector'));
+              for (const c of base.hand) {
+                for (const lane of [undefined, 0, 1, 2]) {
+                  const a = base.previewSummon(c, lane);
+                  const b = v.previewSummon(c, lane);
+                  expect(b === null ? null : [b.power, b.guard, b.slow, b.targets]).toEqual(a === null ? null : [a.power, a.guard, a.slow, a.targets]);
+                  if (a !== null) summons++;
+                }
+              }
+              expect(v.winningAttacks().map((c) => c.index)).toEqual(base.winningAttacks().map((c) => c.index));
+              expect(v.choices.map((c) => v.winsAfter(c))).toEqual(base.choices.map((c) => base.winsAfter(c)));
+            }
+            counts.states++;
+          }
+          if (s.step !== 'mulligan') {
+            const intent = collector.intentPolicy(s);
+            expect(collector.intentPolicy(perturb(s, rng, counts, 'collector'))).toBe(intent);
+          }
+          const a = (s.turn & 1) === 0 || s.step === 'mulligan' ? botAction(bot, collector.brain, s) : collector.act(s);
+          s = engine.applyAction(s, a).state;
+        }
+      }
+      expect(counts.states).toBeGreaterThan(50);
+      expect(summons).toBeGreaterThan(20);
+    });
+  }
 
   it('player bots: the view and every look-ahead agree when only the Collector hidden information changes', () => {
     const collector = createCollector({ content: CONTENT, globals: GLOBALS });

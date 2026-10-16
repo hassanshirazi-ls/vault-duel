@@ -111,6 +111,7 @@ export const BASE_AI: AiConfig = CollectorAi.parse({
     },
     summonBeater: { compare: 'previewAttack', skipBrittleCountered: false },
     utility: { order: ['castDrawSpell', 'setTrap', 'pass'] },
+    summonLane: ['sentinelCenter', 'facingBeatable', 'facingEmpty', 'leftmostFree'],
   },
   moods: {
     composed: {
@@ -244,10 +245,12 @@ export class Scene {
     switch (a.t) {
       case 'reposition':
         return `repos ${n(a.m)}`;
+      case 'moveLane':
+        return `move ${n(a.m)} > ${a.to}`;
       case 'summon':
-        return `summon ${n(a.c)} ${a.mode}`;
+        return `summon ${n(a.c)} ${a.mode}${a.lane === undefined ? '' : ` @${a.lane}`}`;
       case 'summonCovetous':
-        return `covetous ${n(a.c)} sac ${n(a.sac)} ${a.mode}`;
+        return `covetous ${n(a.c)} sac ${n(a.sac)} ${a.mode}${a.lane === undefined ? '' : ` @${a.lane}`}`;
       case 'cast':
         return `cast ${n(a.c)} > ${n(a.target)}`;
       case 'setTrap':

@@ -52,6 +52,12 @@ export interface PlayerView {
   previewCombat(attacker: number, target: number): CombatPreview;
   /** The Chimera the pending Graft's choices so far would create (null with fewer than two materials). */
   previewGraft(): GraftPreview | null;
+  /** FLAGS.LANES: monsters face the enemy monster in the same slot (D-281). The lane terms of `evaluate` read only these. */
+  readonly lanes: boolean;
+  /** SENTINEL_REACH (D-283), meaningful with `lanes` */
+  readonly sentinelReach: number;
+  /** ELEMENT_BONUS, for the lane terms' quick arithmetic */
+  readonly elementBonus: number;
   /** Does an attacker of element `attacker` have the advantage over a defender of element `defender`? (content's element table) */
   beats(attacker: string | null, defender: string | null): boolean;
 }
@@ -158,6 +164,9 @@ export function playerView(b: Brain, s: GameState): PlayerView {
       const next = ahead.after(a);
       return next === null ? null : playerView(b, next);
     },
+    lanes: b.globals.FLAGS.LANES,
+    sentinelReach: b.globals.SENTINEL_REACH,
+    elementBonus: b.globals.ELEMENT_BONUS,
     previewCombat: (attacker, target) => b.engine.previewCombat(redacted(), attacker, target),
     previewGraft: () => b.engine.previewGraft(s),
     beats(attacker, defender) {

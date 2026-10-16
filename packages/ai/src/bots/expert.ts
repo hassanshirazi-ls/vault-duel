@@ -69,10 +69,12 @@ function sameAction(a: Action, b: Action): boolean {
   switch (a.t) {
     case 'reposition':
       return b.t === 'reposition' && a.m === b.m;
+    case 'moveLane':
+      return b.t === 'moveLane' && a.m === b.m && a.to === b.to;
     case 'summon':
-      return b.t === 'summon' && a.c === b.c && a.mode === b.mode;
+      return b.t === 'summon' && a.c === b.c && a.mode === b.mode && a.lane === b.lane;
     case 'summonCovetous':
-      return b.t === 'summonCovetous' && a.c === b.c && a.sac === b.sac && a.mode === b.mode;
+      return b.t === 'summonCovetous' && a.c === b.c && a.sac === b.sac && a.mode === b.mode && a.lane === b.lane;
     case 'cast':
       return b.t === 'cast' && a.c === b.c && a.target === b.target;
     case 'setTrap':
@@ -82,7 +84,7 @@ function sameAction(a: Action, b: Action): boolean {
     case 'graftKeywords':
       return b.t === 'graftKeywords' && a.kw === b.kw;
     case 'graftPosition':
-      return b.t === 'graftPosition' && a.pos === b.pos;
+      return b.t === 'graftPosition' && a.pos === b.pos && a.lane === b.lane;
     case 'attack':
       return b.t === 'attack' && a.a === b.a && a.target === b.target;
     default:
@@ -266,8 +268,20 @@ export function createExpert(options: ExpertOptions = {}): ExpertBot {
     }
     const live = nodes.filter((n): n is Line => n !== null).slice(0, Math.max(1, w.maxPlans));
 
+    // Lane moves (FLAGS.LANES, D-282): one extra node per single move from the turn's start. A move can free a lane for the
+    // play, so each such node ranks its own plays. A swap is listed once (by its leftmost monster).
+    const moveNodes: Line[] = [];
+    for (const a of v0.legal) {
+      if (a.t !== 'moveLane') continue;
+      const from = v0.board.findIndex((m) => m !== null && m.card.iid === a.m);
+      const partner = v0.board[a.to];
+      if (partner !== null && partner !== undefined && partner.slot < from) continue;
+      const view = step(v0, a);
+      if (view !== null) moveNodes.push({ actions: [a], view, bonus: 0 });
+    }
+
     // Plays: ranked at the first node, the best (maxPlans / nodes) of them are tried at every node.
-    const perNode = Math.max(1, Math.floor(w.maxPlans / live.length));
+    const perNode = Math.max(1, Math.floor(w.maxPlans / (live.length + moveNodes.length)));
     const base = rank(playLines(live[0] as Line)).slice(0, perNode);
     const plans: Line[] = [...base];
     for (let n = 1; n < live.length; n++) {
@@ -279,6 +293,7 @@ export function createExpert(options: ExpertOptions = {}): ExpertBot {
         if (view !== null) plans.push({ actions: [...node.actions, ...tail], view, bonus: p.bonus });
       }
     }
+    for (const node of moveNodes) plans.push(...rank(playLines(node)).slice(0, perNode));
     stats.planned++;
     stats.lastPlans = plans.length;
     stats.totalPlans += plans.length;

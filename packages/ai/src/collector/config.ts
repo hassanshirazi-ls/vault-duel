@@ -20,3 +20,4 @@ export type BeaterCompare = Field<'summonBeater', 'compare'>;
 export type SummonPosition = Field<'summonFallback', 'position'>;
 export type SlowPosition = Field<'summonFallback', 'slowPosition'>;
 export type SlowPick = Field<'summonFallback', 'slowPick'>;
+export type SummonLaneId = NonNullable<AiConfig['params']['summonLane']>[number];

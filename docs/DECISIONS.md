@@ -2565,6 +2565,42 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: `moveLane` entries follow all `reposition` entries. Summon nests card, then mode, then lane. Covetous nests card, sacrifice, mode, then lane; its lanes are the empty ones plus the board sacrifice's lane. Graft's position stage nests position, then lane; its lanes are the empty ones plus the board materials' lanes.
 - Reason: a fixed order keeps bots and replays deterministic.
 
+**D-294 · The redacted view answers lane questions per card** (ai-dev, 2026-10-16)
+- Date: 2026-10-16
+- Question: D-286 assumed a `view.laneTargets(lane)` query. What does the Collector's redacted view expose?
+- Decision: `previewSummon(card, lane?, sacrifice?)` returns `targets`, the foe slots from the engine's `laneTargets` on the redacted copy; that is the only hypothetical-lane question the rules ask. A bare-lane query would need a stub attacker, so there is none. The engine facade gains `laneTargets`, `targetsFromLane` and `attackReach` as thin wrappers over `lanes.ts`.
+- Reason: answers exactly what the rules need without inventing an attacker.
+
+**D-295 · Covetous lane preview** (ai-dev, 2026-10-16)
+- Date: 2026-10-16
+- Question: Which lanes may a Covetous summon consider?
+- Decision: It is previewed as a Covetous apply over its sacrifice, so a board sacrifice's lane counts as free for `facingBeatable`.
+- Reason: matches the engine, where the sacrifice frees its lane (D-293).
+
+**D-296 · `laneAware` reposition: kill score and the Sentinel clause** (ai-dev, 2026-10-16)
+- Date: 2026-10-16
+- Question: When does the Collector move a lane under `reposition: laneAware`?
+- Decision: After the `toAttackIfUsable` switch, lane moves are considered in slot order, then destination ascending, empty lanes before swaps. A move is taken if it strictly raises the kill score (distinct targets taken by `lethal`, `killWithoutLoss` and `directIfEmpty`, plus 100 when a lethal attack exists), or if it puts a face-up Sentinel in the middle lane without lowering the score or losing that Sentinel's usable attack. The default reposition stays `toAttackIfUsable`; whether `laneAware` becomes the default is a sim question.
+- Reason: deterministic, cheap, and it only moves when the move helps.
+
+**D-297 · `summonBeater` under lanes** (ai-dev, 2026-10-16)
+- Date: 2026-10-16
+- Question: D-286's "beats your strongest face-up monster" has no meaning when a summon only faces one lane.
+- Decision: Under `LANES`, each (card, lane) pair is previewed against the monster across or the covering Sentinel. The pair whose beaten target has the highest Power wins; ties go to the leftmost lane, then card id. It no longer requires beating the player's strongest monster.
+- Reason: a lane summon can only threaten what it faces.
+
+**D-298 · Bot lane heuristics** (ai-dev, 2026-10-16)
+- Date: 2026-10-16
+- Question: How do the greedy and expert bots value lanes?
+- Decision: `evaluate` gains two terms read only under `LANES`, in the bot weight files (D-222; untuned): `laneFace` (plus per lane where my face-up monster beats the one across, minus where theirs beats mine) and `sentinelCover` (plus per own lane covered by my Sentinel). Greedy penalizes a no-op `moveLane` by 1e-6 so ties favor ending the turn. The expert adds one plan node per single lane move. The novice stays uniform over legal actions.
+- Reason: gives the bots a lane sense without changing anything when lanes are off.
+
+**D-299 · No search-budget change for lanes** (ai-dev, 2026-10-16)
+- Date: 2026-10-16
+- Question: Lanes roughly triple summon branching. Does `AI_SEARCH_NODE_BUDGET` (600) need to rise?
+- Decision: No. At 600 and at 100,000, greedy and expert gave identical outcomes under lanes plus monsters-only plus `laneAware`, so the cap never binds. The expert runs about 2.4× slower under lanes (372 → 152 duels/sec single-process); trimming its plan limits (`maxPlans` 400 → 200, `finalists` 30 → 15) is an untested proposal.
+- Reason: measured, not assumed.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

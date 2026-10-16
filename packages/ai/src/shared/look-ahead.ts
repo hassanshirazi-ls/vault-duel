@@ -18,6 +18,12 @@ export interface SummonLook {
   readonly guard: number;
   /** an active keyword restricts its attack permission to `none` on the entry turn (Slow, D-212) */
   readonly slow: boolean;
+  /**
+   * The foe slots the summoned monster could declare an attack on from where it stands (the engine's `laneTargets`: the lane
+   * across, or the Sentinels covering it, D-281, D-283; with LANES off every foe monster, narrowed to Sentinels). Face-down
+   * ones are listed (their slot is public). An empty foe board has no targets; the attack is then direct.
+   */
+  readonly targets: readonly number[];
   /** the summoned monster attacking the foe monster at `foeSlot` */
   asAttacker(foeSlot: number): CombatPreview;
   /** the foe monster at `foeSlot` attacking the summoned monster */
@@ -27,8 +33,12 @@ export interface SummonLook {
 export interface LookAhead {
   /** The state after `action` on the redacted copy, or null if the action is refused (it targets a face-down foe monster). */
   after(action: Action): GameState | null;
-  /** The summon in attack position applied to the copy and queried; null without a free slot or if refused. */
-  previewSummon(iid: Iid): SummonLook | null;
+  /**
+   * The summon in attack position applied to the copy and queried; null without a free slot or if refused. Under
+   * FLAGS.LANES it lands in `lane` (D-284; null when that lane is not empty), by default the leftmost free one. With
+   * `sacrifice` it is the Covetous summon over that sacrifice (whose lane is then free).
+   */
+  previewSummon(iid: Iid, lane?: number, sacrifice?: Iid): SummonLook | null;
   /** His attacks that start a sequence finishing the opponent this turn (D-082), strongest attacker first. */
   winningAttacks(): readonly AttackAction[];
   /** After `play`, does an attack sequence finish the opponent (D-220)? */
@@ -55,7 +65,7 @@ export function lookAhead(b: Brain, s: GameState, viewer: Side): LookAhead {
   const e = b.engine;
   let copy: GameState | null = null;
   const base = (): GameState => (copy ??= redactState(s, viewer));
-  const summons = new Map<Iid, SummonLook | null>();
+  const summons = new Map<string, SummonLook | null>();
   let wins: readonly AttackAction[] | null = null;
 
   const apply = (from: GameState, a: Action): GameState | null => (refuses(from, viewer, a) ? null : e.applyAction(from, a).state);
@@ -107,18 +117,24 @@ export function lookAhead(b: Brain, s: GameState, viewer: Side): LookAhead {
     return false;
   };
 
-  const summonLook = (iid: Iid): SummonLook | null => {
+  const summonLook = (iid: Iid, wanted: number | undefined, sac: Iid | undefined): SummonLook | null => {
     const from = base();
     if (!from.sides[viewer].board.includes(null)) return null;
-    // Under FLAGS.LANES a summon names its lane (D-284); the leftmost free one keeps this hypothetical what it was.
-    const lane = b.globals.FLAGS.LANES ? { lane: from.sides[viewer].board.indexOf(null) } : {};
-    const hyp = apply(from, { t: 'summon', c: iid, mode: 'atk', ...lane });
+    // Under FLAGS.LANES a summon names its lane (D-284): the one asked for, else the leftmost free.
+    let lane = {};
+    if (b.globals.FLAGS.LANES) {
+      const at = wanted ?? from.sides[viewer].board.indexOf(null);
+      if (from.sides[viewer].board[at] !== null && from.sides[viewer].board[at]?.iid !== sac) return null;
+      lane = { lane: at };
+    }
+    const hyp = apply(from, sac === undefined ? { t: 'summon', c: iid, mode: 'atk', ...lane } : { t: 'summonCovetous', c: iid, sac, mode: 'atk', ...lane });
     if (hyp === null) return null;
     const foeIid = (slot: number): Iid => {
       const t = hyp.sides[foe].board[slot];
       return t === null || t === undefined || t.faceDown || slotIn(hyp, viewer, iid) < 0 ? -2 : t.iid;
     };
     return {
+      targets: e.laneTargets(hyp, iid).map((t) => slotIn(hyp, foe, t)),
       power: e.effectivePower(hyp, iid),
       guard: e.effectiveGuard(hyp, iid),
       slow: e.attackRestriction(hyp, iid) === 'none',
@@ -136,9 +152,10 @@ export function lookAhead(b: Brain, s: GameState, viewer: Side): LookAhead {
   return {
     after: (action) => apply(base(), action),
 
-    previewSummon(iid) {
-      if (!summons.has(iid)) summons.set(iid, summonLook(iid));
-      return summons.get(iid) ?? null;
+    previewSummon(iid, lane, sacrifice) {
+      const key = `${iid}/${lane ?? ''}/${sacrifice ?? ''}`;
+      if (!summons.has(key)) summons.set(key, summonLook(iid, lane, sacrifice));
+      return summons.get(key) ?? null;
     },
 
     winningAttacks() {

@@ -38,13 +38,17 @@ export type SummonMode = 'atk' | 'grd' | 'down';
 /** A legal action in view form. `index` is its position in `CollectorView.choices` (and in the engine's list). */
 export type ViewChoice =
   | { readonly t: 'reposition'; readonly index: number; readonly slot: number }
-  | { readonly t: 'summon'; readonly index: number; readonly card: OwnCard; readonly mode: SummonMode }
+  /** a lane move or swap (D-282): `slot` is the monster's lane now, `to` the lane it goes to */
+  | { readonly t: 'moveLane'; readonly index: number; readonly slot: number; readonly to: number }
+  /** `lane` is present only under FLAGS.LANES (D-284) */
+  | { readonly t: 'summon'; readonly index: number; readonly card: OwnCard; readonly mode: SummonMode; readonly lane?: number }
   | {
       readonly t: 'summonCovetous';
       readonly index: number;
       readonly card: OwnCard;
       readonly sac: Sacrifice;
       readonly mode: 'atk' | 'grd';
+      readonly lane?: number;
     }
   | { readonly t: 'cast'; readonly index: number; readonly card: OwnCard; readonly target: ChoiceTarget }
   | { readonly t: 'setTrap'; readonly index: number; readonly card: OwnCard }
@@ -61,6 +65,11 @@ export interface SummonPreview {
   readonly guard: number;
   /** a keyword holds it back from attacking on its entry turn beyond summoning sickness (Slow) */
   readonly slow: boolean;
+  /**
+   * The foe slots it could declare an attack on from its lane (lane across, or covering Sentinels, D-281, D-283; every foe
+   * monster with LANES off). Empty when the foe has no monster: the attack is then direct.
+   */
+  readonly targets: readonly number[];
   /** if it attacked the foe monster at `foeSlot` from attack position */
   asAttacker(foeSlot: number): CombatEstimate;
   /** if the foe monster at `foeSlot` attacked it in attack position */
@@ -90,8 +99,12 @@ export interface CollectorView {
   readonly choices: readonly ViewChoice[];
   /** What attacking would do, from public information (the engine's `previewCombat`). */
   previewAttack(attackerSlot: number, foe: number | 'direct'): CombatEstimate;
-  /** A hand monster as it would be right after a summon into a free slot, in attack position (D-209). */
-  previewSummon(card: OwnCard): SummonPreview | null;
+  /**
+   * A hand monster as it would be right after a summon into a free slot, in attack position (D-209). Under LANES it stands in
+   * `lane` (null if that lane is not free), by default the leftmost free lane. With a `sacrifice` it is the Covetous summon
+   * over it, whose lane is free.
+   */
+  previewSummon(card: OwnCard, lane?: number, sacrifice?: Sacrifice): SummonPreview | null;
   /** The view after taking `choice` (on a copy without hidden information). Null if it targets a face-down foe monster. */
   after(choice: ViewChoice): CollectorView | null;
   /** His attacks that start a sequence he can finish with the opponent's life at 0, strongest attacker first. */
@@ -154,13 +167,15 @@ export function buildView(b: Brain, s: GameState): { readonly view: CollectorVie
     switch (a.t) {
       case 'reposition':
         return { t: 'reposition', index, slot: slotOfMine(a.m) };
+      case 'moveLane':
+        return { t: 'moveLane', index, slot: slotOfMine(a.m), to: a.to };
       case 'summon':
-        return { t: 'summon', index, card: handBy.get(a.c) as OwnCard, mode: a.mode };
+        return { t: 'summon', index, card: handBy.get(a.c) as OwnCard, mode: a.mode, ...(a.lane === undefined ? {} : { lane: a.lane }) };
       case 'summonCovetous': {
         const bs = slotOfMine(a.sac);
         const vc = vaultBy.get(a.sac);
         const sac: Sacrifice = bs >= 0 ? { zone: 'board', slot: bs } : vc !== undefined ? { zone: 'vault', card: vc } : { zone: 'other' };
-        return { t: 'summonCovetous', index, card: handBy.get(a.c) as OwnCard, sac, mode: a.mode };
+        return { t: 'summonCovetous', index, card: handBy.get(a.c) as OwnCard, sac, mode: a.mode, ...(a.lane === undefined ? {} : { lane: a.lane }) };
       }
       case 'cast':
         return { t: 'cast', index, card: handBy.get(a.c) as OwnCard, target: targetOf(a.target) };
@@ -207,10 +222,12 @@ export function buildView(b: Brain, s: GameState): { readonly view: CollectorVie
       return estimateOf(b.engine.previewCombat(s, a.iid, t.iid));
     },
 
-    previewSummon(card) {
-      const look = ahead.previewSummon(card.iid);
+    previewSummon(card, lane, sacrifice) {
+      const sac = sacrifice === undefined ? undefined : sacrifice.zone === 'board' ? mine.board[sacrifice.slot]?.iid : sacrifice.zone === 'vault' ? sacrifice.card.iid : undefined;
+      const look = ahead.previewSummon(card.iid, lane, sac);
       if (look === null) return null;
       return {
+        targets: look.targets,
         power: look.power,
         guard: look.guard,
         slow: look.slow,

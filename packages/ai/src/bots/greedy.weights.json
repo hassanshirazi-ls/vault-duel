@@ -6,5 +6,7 @@
   "attackPos": 0.5,
   "handCard": 0.7,
   "trap": 1,
-  "win": 1000000
+  "win": 1000000,
+  "laneFace": 1.5,
+  "sentinelCover": 1
 }

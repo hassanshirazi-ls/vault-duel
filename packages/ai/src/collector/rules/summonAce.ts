@@ -5,12 +5,24 @@
 // (board: leftmost slot; vault: card id, then instance id).
 import { tieCompare } from './context';
 import type { PlayRule } from './context';
-import type { ChoiceOf, ViewChoice } from '../view';
+import { chooseLane } from './summonLane';
+import type { ChoiceOf, Sacrifice, ViewChoice } from '../view';
 
-export const summonAce: PlayRule = ({ view, ai, aceId }) => {
+const sameSac = (a: Sacrifice, b: Sacrifice): boolean =>
+  a.zone === b.zone && (a.zone === 'board' ? a.slot === (b as typeof a).slot : a.zone === 'vault' ? a.card.iid === (b as typeof a).card.iid : true);
+
+export const summonAce: PlayRule = (ctx) => {
+  const { view, ai, aceId } = ctx;
+  const lanes = ctx.globals.FLAGS.LANES;
   const normal = view.choices.filter((c): c is ChoiceOf<'summon'> => c.t === 'summon' && c.mode === 'atk' && c.card.id === aceId);
   const first = normal.sort((a, b) => a.card.iid - b.card.iid)[0];
-  if (first !== undefined) return first;
+  if (first !== undefined) {
+    if (!lanes) return first;
+    // D-286: the lane comes from summonLane.
+    const same = normal.filter((c) => c.card.iid === first.card.iid && c.lane !== undefined);
+    const lane = chooseLane(ctx, first.card, same.map((c) => c.lane as number));
+    return same.find((c) => c.lane === lane) ?? first;
+  }
 
   const sacPower = (c: ChoiceOf<'summonCovetous'>): number =>
     c.sac.zone === 'board' ? (view.board[c.sac.slot]?.power ?? 0) : c.sac.zone === 'vault' ? c.sac.card.power : 0;
@@ -28,5 +40,9 @@ export const summonAce: PlayRule = ({ view, ai, aceId }) => {
     .filter((c): c is ChoiceOf<'summonCovetous'> => c.t === 'summonCovetous' && c.mode === 'atk' && c.card.id === aceId)
     .sort((a, b) => a.card.iid - b.card.iid || zoneRank(a) - zoneRank(b) || sacPower(a) - sacPower(b) || tieCompare(ai.tieBreak, sacKey(a), sacKey(b)));
   const pick: ViewChoice | undefined = covetous[0];
-  return pick ?? null;
+  if (!lanes || pick === undefined || pick.t !== 'summonCovetous') return pick ?? null;
+  // D-286: the sacrifice is settled; the lane comes from summonLane (the sacrifice's own lane is free once it is paid).
+  const same = covetous.filter((c) => c.card.iid === pick.card.iid && sameSac(c.sac, pick.sac) && c.lane !== undefined);
+  const lane = chooseLane(ctx, pick.card, same.map((c) => c.lane as number), (l) => view.previewSummon(pick.card, l, pick.sac));
+  return same.find((c) => c.lane === lane) ?? pick;
 };

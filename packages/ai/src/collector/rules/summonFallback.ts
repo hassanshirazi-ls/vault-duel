@@ -6,6 +6,7 @@
 import { tieCompare } from './context';
 import type { PlayRule } from './context';
 import { strongestFoe } from './summonBeater';
+import { chooseLane } from './summonLane';
 import type { SlowPick, SlowPosition, SummonPosition } from '../config';
 import type { ChoiceOf, OwnCard, SummonMode, SummonPreview } from '../view';
 
@@ -29,7 +30,8 @@ export const SLOW_PICKS: Readonly<Record<SlowPick, (a: Candidate, b: Candidate) 
   highestGuard: (a, b) => b.pv.guard - a.pv.guard,
 };
 
-export const summonFallback: PlayRule = ({ view, ai }) => {
+export const summonFallback: PlayRule = (ctx) => {
+  const { view, ai } = ctx;
   const params = ai.params.summonFallback;
   const seen = new Set<number>();
   const cands: Candidate[] = [];
@@ -57,5 +59,9 @@ export const summonFallback: PlayRule = ({ view, ai }) => {
   }
   const mode: SummonMode = position === 'attack' ? 'atk' : ai.allowFaceDown ? 'down' : 'grd';
   const choice = view.choices.find((c): c is ChoiceOf<'summon'> => c.t === 'summon' && c.card.iid === pick.card.iid && c.mode === mode);
-  return choice ?? null;
+  if (choice === undefined || choice.lane === undefined || !ctx.globals.FLAGS.LANES) return choice ?? null;
+  // D-286: the lane comes from summonLane.
+  const same = view.choices.filter((c): c is ChoiceOf<'summon'> => c.t === 'summon' && c.card.iid === pick.card.iid && c.mode === mode && c.lane !== undefined);
+  const lane = chooseLane(ctx, pick.card, same.map((c) => c.lane as number));
+  return same.find((c) => c.lane === lane) ?? choice;
 };
