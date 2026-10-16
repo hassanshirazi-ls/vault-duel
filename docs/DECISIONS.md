@@ -2314,6 +2314,23 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - `.gitignore` gains `*.local` (for `apps/web/.env.local`) and `.vercel/` (the CLI's local project link).
 - Reason: checked with a fresh clone (`pnpm install --frozen-lockfile` and `pnpm build` succeed, `seeds:check` passes, the commit SHA is stamped) and with the rewrite pattern tested against path-to-regexp 6.1.0.
 
+**D-264 · GitHub repo, Vercel account and v0.1 merge** (owner, 2026-10-15; applies D-257)
+- Date: 2026-10-15
+- Question: Where does the code live, which Vercel account deploys it, and which branch is production?
+- Decision:
+  - Repo: private `hassanshirazi-ls/vault-duel` on the owner's company GitHub account. `origin` points there.
+  - Vercel: the owner's business account, because the game may earn income (the free Hobby plan is for
+    non-commercial use).
+  - Commit author: every earlier commit uses the owner's personal gmail, which isn't on `hassanshirazi-ls`.
+    Vercel blocks a deploy whose commit author isn't on the account, so this clone sets
+    `user.email = hassan.shirazi@leonisstudios.com` locally. Only the deployed commit's author is checked, so
+    the history isn't rewritten.
+  - Branch: the whole of Phase 1 is v0.1, so `phase-1` is merged into `main` (fast-forward), and Vercel
+    production deploys from `main`.
+  - The root `README.md` holds the Vercel import steps and the env variables (`ENABLE_EXPERIMENTAL_COREPACK=1`
+    required, `VITE_FEEDBACK_URL` optional).
+- Reason: owner's call. It replaces the personal-account plan discussed earlier the same day.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

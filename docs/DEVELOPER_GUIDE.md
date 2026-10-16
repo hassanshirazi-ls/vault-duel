@@ -329,12 +329,13 @@ content loads, validates and plays.
 
 ## 11. Deploy
 
-This section describes the planned setup from D-257. The owner creates the GitHub repository and connects
-Vercel; until then nothing is deployed.
+The setup from D-257, as built (D-264). The code lives in the private GitHub repository
+`hassanshirazi-ls/vault-duel`, and the owner's business Vercel account deploys it. Step-by-step import
+instructions and the env variables are in the root `README.md`.
 
 ```mermaid
 flowchart LR
-  dev["phase-1 branch"] -->|"PR, owner approves"| main["main"]
+  dev["phase-1 branch"] -->|"merge, owner approves"| main["main"]
   main -->|"push"| vercel["Vercel build<br/>pnpm build"]
   vercel --> dist["apps/web/dist<br/>static site"]
   env["VITE_FEEDBACK_URL<br/>(Vercel env)"] --> vercel
@@ -354,7 +355,11 @@ flowchart LR
 - **How to play.** Five or six illustrated, swipeable pages in the gothic catalogue style (D-240): goal,
   playing cards, combat and elements, Graft, Appraisal, winning. They show on first open and again from the
   "?" on Home. Numbers such as the Appraisal rounds and starting life are read from globals, never typed in.
-- **Merging.** `phase-1` merges into `main` only when the owner says so. Nobody pushes to `main` otherwise.
+- **Merging.** The owner merged `phase-1` into `main` for v0.1 (D-264), so production deploys from `main`.
+  Merge into `main` only when the owner says so. Nobody pushes to `main` otherwise.
+- **Commit author.** Vercel blocks a deploy when the deployed commit's author isn't on the Vercel account or
+  team. Commit with an email on the `hassanshirazi-ls` GitHub account (set per clone with
+  `git config user.email`).
 - **The daily date** stays device-local (`localDate`), so no server clock is involved and there is no backend.
 - **Before sharing a link:** run `pnpm test`, `pnpm lint`, `pnpm typecheck` and `pnpm build`; make sure
   `pnpm seeds:check` prints no warning; and check that the manifest window covers the playtest period.
