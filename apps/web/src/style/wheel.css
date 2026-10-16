@@ -1,0 +1,128 @@
+/* The element wheel and the in-duel compass (D-271, D-272). Colors come from the tokens; element colors from --el-<id>.
+   Tracer motion is timed in beats, so it stops when the animations flag is off or the OS asks for reduced motion
+   (both set --beat to 0); the static state is a faint solid line. */
+.wheel {
+  display: block;
+  width: 100%;
+  max-width: 340px;
+  height: auto;
+  font-family: var(--font-display);
+}
+.wheel-orbit {
+  fill: none;
+  stroke: var(--gold-lo);
+  stroke-width: 1;
+  stroke-dasharray: 2 6;
+}
+.wheel-hub {
+  fill: var(--soot-2);
+  stroke: var(--gold);
+  stroke-width: 1.5;
+}
+.wheel-arrow {
+  fill: none;
+}
+.wheel-arrow.gold {
+  stroke: var(--gold);
+  stroke-width: 2.4;
+}
+.wheel-arrow.foe {
+  stroke: var(--flaw);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+.wheel-arrow.dim {
+  stroke: var(--iron-hi);
+  stroke-width: 1.4;
+}
+.wheel-tracer {
+  fill: none;
+  stroke: var(--bone);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-opacity: 0.4;
+  animation: wheel-trace calc(var(--beat) * 14) linear calc(var(--beat) * -14 * var(--k, 0)) infinite;
+}
+.wheel-tracer.tint {
+  stroke: color-mix(in srgb, var(--el) 45%, white);
+}
+@keyframes wheel-trace {
+  from {
+    stroke-dasharray: 0.12 1;
+    stroke-dashoffset: 0.12;
+    stroke-opacity: 1;
+  }
+  to {
+    stroke-dasharray: 0.12 1;
+    stroke-dashoffset: -1;
+    stroke-opacity: 1;
+  }
+}
+.wheel-node circle {
+  stroke: var(--gold-hi);
+  stroke-width: 2;
+}
+.wheel-node text {
+  fill: var(--bone);
+  font-size: 15px;
+  font-weight: 700;
+}
+.wheel-node[data-state='dim'] {
+  opacity: 0.5;
+}
+.wheel-node[data-state='lit'] circle {
+  stroke: var(--bone);
+  stroke-width: 3;
+}
+.wheel-node[data-state='foe'] circle {
+  stroke: var(--flaw);
+  stroke-width: 2.5;
+}
+.wheel-cap {
+  fill: var(--bone-dim);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.wheel-big {
+  fill: var(--gold-hi);
+  font-size: 34px;
+  font-weight: 700;
+}
+
+/* the compass: a small disc beside the picked card; it overlays the board and never takes a tap (D-270) */
+.wheel.compass {
+  width: 100%;
+  max-width: none;
+}
+.compass-box {
+  position: absolute;
+  z-index: 6;
+  top: 2px;
+  right: 6px;
+  width: 116px;
+  height: 116px;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(13 10 11 / 0.92) 0 62%, rgb(13 10 11 / 0.6) 100%);
+  box-shadow: 0 0 0 1.5px var(--gold-lo), 0 6px 14px rgb(0 0 0 / 0.7);
+}
+.wheel.compass .wheel-tracer {
+  stroke: #fff6cf;
+  stroke-width: 3.2;
+  stroke-opacity: 0.5;
+  animation-duration: calc(var(--beat) * 8);
+  animation-delay: calc(var(--beat) * -8 * var(--k, 0));
+}
+.wheel.compass .wheel-arrow.gold {
+  stroke-width: 2.8;
+}
+.wheel-bonus {
+  fill: var(--good);
+  font-size: 11px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: var(--soot);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}

@@ -149,7 +149,7 @@ export function GraftSheet({ onInspect }: { readonly onInspect: (iid: Iid) => vo
               )}
               {preview.unstable && (
                 <p className="unstable">
-                  <Glyph id="brittle" size={18} /> {ctx.render(UNSTABLE_WARNING)}
+                  <Glyph id="spark" size={18} /> {ctx.render(UNSTABLE_WARNING)}
                 </p>
               )}
               {pending.stage === 'ascend' && <p className="muted">{ctx.render(ASCEND_HINT)}</p>}

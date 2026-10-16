@@ -110,3 +110,19 @@ describe('How to play and feedback render', () => {
     expect(html(booted)).not.toContain('role="dialog"');
   });
 });
+
+describe('menu A, the wheel and Try it (D-273, D-275)', () => {
+  it('draws Home with the plates and the countdown, and the guide with the wheel, bonus and Try it', async () => {
+    const booted = makeStore('2026-10-14');
+    await booted.store.getState().boot();
+    const guide = html(booted);
+    expect(guide).toContain('Element wheel:');
+    expect(guide).toContain('+2');
+    expect(guide).toContain('Try it');
+    booted.store.getState().closeHowTo();
+    const home = html(booted);
+    expect(home).toContain("Opens after today&#x27;s duel");
+    expect(home).toContain('Today&#x27;s lot');
+    expect(home).toContain('Next duel in');
+  });
+});

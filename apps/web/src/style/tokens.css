@@ -30,6 +30,8 @@
   --good: #8fd09a;
   --bad: #ff8a80;
   --blood: #7d0f17;
+  /* Unstable (D-271): a cold spark, nothing like the red of a Flaw */
+  --unstable: #9fe8ff;
 
   /* element gems (D-238 jewel tones, set in metal by D-240), keyed by element id */
   --el-ember: #c8323a;

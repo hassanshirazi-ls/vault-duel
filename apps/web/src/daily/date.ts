@@ -19,3 +19,16 @@ export function resolveDate(search: string, now: Date): string {
   const override = new URLSearchParams(search).get('date');
   return override !== null && isValidDate(override) ? override : localDate(now);
 }
+
+/** Whole minutes from `now` until the next local midnight, when the next daily duel opens (never less than 1). */
+export function minutesToNextDuel(now: Date): number {
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return Math.max(1, Math.ceil((midnight.getTime() - now.getTime()) / 60000));
+}
+
+/** "14h 12m", or "42m" under an hour. */
+export function formatCountdown(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}

@@ -11,7 +11,7 @@ import { roundOfState } from '../duel/turn';
 import { cardView } from '../view/cards';
 import { monsterSlotKeys } from '../view/keys';
 import { groupLegal } from '../view/legal';
-import { duelLog } from '../view/log';
+import { duelLog, undoLabel } from '../view/log';
 import { boardActionable, planFor, summonMode } from '../view/selection';
 import type { Plan, Selection } from '../view/selection';
 import { INTENT_LABEL, appraisalCountdown, moodName } from '../view/status';
@@ -24,6 +24,8 @@ import { SidePanel } from './SidePanel';
 import { useStepFx } from './useStepFx';
 import { useGame } from './context';
 import { DuelMenu } from './DuelMenu';
+import type { UndoTile } from './DuelMenu';
+import { ElementWheel } from './ElementWheel';
 import { GraftSheet } from './GraftSheet';
 import { useWide } from './hooks';
 import { Inspect } from './Inspect';
@@ -266,10 +268,17 @@ export function Duel() {
     return plan.direct !== null || plan.targets.size > 0 ? 'Tap a glowing target to attack.' : 'No attack available.';
   })();
 
+  // the element compass (D-272): for the picked monster, an attacker on the board or one to summon from the hand
+  const compassId = pending === null && !blocked && selView !== null && selView.element !== null && selView.power !== null ? selView.element.id : null;
   const maxLife = g.PLAYER_LIFE;
   const myDamage = cues.find((c) => c.kind === 'damage' && c.side === 0);
   const moodLabel = moodName(g, S);
   const canUndo = !blocked && undoNow.ok;
+  const undoTile: UndoTile = blocked
+    ? { enabled: false, sub: 'Wait for the Collector' }
+    : undoNow.ok
+      ? { enabled: true, sub: undoLabel(ctx, state, trail.slice(undoNow.to)) }
+      : { enabled: false, sub: UNDO_WHY[undoNow.why] };
   const undoWhy = !blocked && !undoNow.ok && undoNow.why !== 'nothing' ? UNDO_WHY[undoNow.why] : null;
 
   return (
@@ -303,6 +312,11 @@ export function Duel() {
       />
 
       <div className="board-area">
+        {compassId !== null && (
+          <div className="compass-box">
+            <ElementWheel variant="compass" focus={compassId} />
+          </div>
+        )}
         {trapRow(1)}
         {monsterRow(1)}
         <RoundTrack globals={g} round={roundOfState(S)} />
@@ -429,7 +443,7 @@ export function Duel() {
 
       {wide && <SidePanel shown={inspected ?? hovered} pinned={inspected !== null} onUnpin={() => setInspected(null)} log={log} />}
       {!wide && inspected !== null && <Inspect iid={inspected} onClose={() => setInspected(null)} />}
-      {menu && <DuelMenu log={log} onClose={() => setMenu(false)} />}
+      {menu && <DuelMenu log={log} undo={undoTile} onClose={() => setMenu(false)} />}
     </main>
   );
 }

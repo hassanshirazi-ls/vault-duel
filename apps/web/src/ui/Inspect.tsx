@@ -9,6 +9,7 @@ import { Glyph } from '../visual/glyphs';
 import { Art } from './Art';
 import { useGame } from './context';
 import { Gem } from './Gem';
+import { FlawMark } from './MiniCard';
 import { Sheet } from './Sheet';
 import { elementStyle } from '../visual/elements';
 
@@ -25,6 +26,7 @@ export function InspectCard({ iid, onClose }: { readonly iid: Iid; readonly onCl
 export function CardDetail({ c, onClose, extra }: { readonly c: CardView; readonly onClose?: (() => void) | undefined; readonly extra?: ReactNode }) {
   const ctx = useGame((s) => s.ctx);
   if (ctx === null) return null;
+  const flaw = c.keywords.find((k) => k.flaw);
   const matchups = c.element === null ? null : elementMatchups(ctx, c.element.id);
   return (
       <div className="inspect">
@@ -34,6 +36,7 @@ export function CardDetail({ c, onClose, extra }: { readonly c: CardView; readon
             <span className="mini-clip">
               <Art cardId={c.id} silhouette={c.silhouette} elementId={c.element?.id ?? null} />
             </span>
+            {flaw !== undefined && <FlawMark flaw={flaw} />}
           </div>
           <div className="inspect-title">
             <h2>{c.name}</h2>

@@ -1,19 +1,37 @@
-// Home as an auction catalogue (D-238): "Lot of <date>", difficulty stars, the day's signature card on a velvet plinth,
-// brass lines for the weekly twist, the Appraisal rounds and the bonus objectives, a deck list that folds open, and
-// the main menu beneath it (D-265): Daily duel (Play, Resume or Today's result), Practice (after today's duel), How to
-// play, Binder and Stats.
+// Home as an auction catalogue (D-238, D-273 menu A): the title and the lot's date, the big Daily duel plate (date,
+// difficulty stars, Enter the vault / Resume / Today's result), then engraved plates with a one-line italic subtitle:
+// Practice (after today's duel), How to play, Binder, Stats (D-265). Everything about the day sits below them in a
+// folding "Today's lot": the signature card on its plinth, the weekly twist, the Appraisal rounds, the bonus objectives
+// and the deck list. The footer has the feedback link and the countdown to the next duel (local midnight).
 import { deckLine, definitionView } from '../view/cards';
 import { Glyph } from '../visual/glyphs';
 import { useGame } from './context';
 import { FeedbackLink } from './Feedback';
 import { Gem } from './Gem';
 import { MiniCard } from './MiniCard';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { formatCountdown, minutesToNextDuel } from '../daily/date';
 
 function lotDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   if (y === undefined || m === undefined || d === undefined) return iso;
   return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function shortDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (y === undefined || m === undefined || d === undefined) return iso;
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+/** "Next duel in 14h 12m": local midnight, checked every 30 seconds. */
+function NextDuel() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 30000);
+    return () => window.clearInterval(id);
+  }, []);
+  return <span className="next-duel">Next duel in {formatCountdown(minutesToNextDuel(now))}</span>;
 }
 
 export function Home() {
@@ -39,115 +57,134 @@ export function Home() {
   const dailyMoves = mode === 'daily' ? actions.length : (daily?.actions.length ?? 0);
   const dailyLabel = dailyState?.result != null ? "Today's result" : dailyState !== null && dailyMoves > 0 ? 'Resume' : 'Enter the vault';
   const g = ctx.globals;
+  const stars = g.DIFFICULTY_STAR_CUTS.length + 1;
   const twist = setup.twist >= 0 ? ctx.twistText[setup.twist] : undefined;
   const sig = definitionView(ctx, setup.signature);
+  const plate = (icon: string, title: string, sub: string, onClick: () => void, opts: { disabled?: boolean } = {}) => (
+    <button type="button" className="plate" disabled={opts.disabled} onClick={onClick}>
+      <Glyph id={icon} size={22} />
+      <span className="plate-text">
+        <span className="plate-title">{title}</span>
+        <span className="plate-sub">{sub}</span>
+      </span>
+    </button>
+  );
   return (
     <main className="home">
       <header className="lot-head">
         <button type="button" className="btn ghost help" onClick={openHowTo} aria-label="How to play" title="How to play">
           <span aria-hidden="true">?</span>
         </button>
-        <p className="eyebrow">Vault Duel · Auction catalogue</p>
-        <h1>Lot of {lotDate(setup.date)}</h1>
-        <p className="stars" role="img" aria-label={`Difficulty ${difficulty.stars} of ${g.DIFFICULTY_STAR_CUTS.length + 1} stars`}>
-          {Array.from({ length: g.DIFFICULTY_STAR_CUTS.length + 1 }, (_, i) => (
-            <span key={i} data-on={i < difficulty.stars ? '' : undefined}>
-              <Glyph id="star" size={24} filled={i < difficulty.stars} />
-            </span>
-          ))}
-          <span className="par">Par round {difficulty.par}</span>
-        </p>
+        <p className="eyebrow">Lot of {lotDate(setup.date)}</p>
+        <h1>Vault Duel</h1>
       </header>
 
-      {sig !== null && (
-        <section className="plinth" aria-label="Signature card of the day">
-          <p className="eyebrow">Today's signature</p>
-          <div className="plinth-card">
-            <MiniCard view={sig} side="me" large onTap={() => setInspect((v) => !v)} onLong={() => setInspect((v) => !v)} />
-          </div>
-          <div className="plinth-base" />
-          <p className="plinth-name">
-            <Gem element={sig.element} /> {sig.name}
-          </p>
-          {inspect && sig.text !== null && <p className="muted">{sig.text}</p>}
-        </section>
-      )}
+      <button type="button" className="daily-plate" onClick={enterDaily}>
+        <span className="daily-row">
+          <span className="daily-title">Daily duel</span>
+          <span className="daily-date">{shortDate(setup.date)}</span>
+        </span>
+        <span className="daily-row stars-row">
+          <span className="stars" role="img" aria-label={`Difficulty ${difficulty.stars} of ${stars} stars`}>
+            {Array.from({ length: stars }, (_, i) => (
+              <span key={i} data-on={i < difficulty.stars ? '' : undefined}>
+                <Glyph id="star" size={20} filled={i < difficulty.stars} />
+              </span>
+            ))}
+          </span>
+          <span className="par">Par round {difficulty.par}</span>
+        </span>
+        <span className="daily-go">
+          <Glyph id="vault" size={22} /> {dailyLabel}
+        </span>
+      </button>
 
-      <ul className="brass-lines">
-        {twist !== undefined && (
-          <li>
-            <Glyph id="scroll" size={18} />
-            <span>
-              <b>Weekly twist</b> {ctx.render(twist)}
-            </span>
-          </li>
+      <nav className="plates" aria-label="Main menu">
+        {plate(
+          dailyDone ? 'sword' : 'lock',
+          'Practice',
+          !dailyDone ? "Opens after today's duel" : practiceSaved ? 'Resume your unrecorded duel' : "Replay today's vault, unrecorded",
+          practiceSaved ? continuePractice : startPractice,
+          { disabled: !dailyDone },
         )}
-        {g.FLAGS.APPRAISAL && (
-          <li>
-            <Glyph id="gavel" size={18} />
-            <span>
-              <b>Appraisal rounds</b> {g.APPRAISAL_ROUNDS.join(' · ')}
-            </span>
-          </li>
-        )}
-        {setup.objectives.map((id) => (
-          <li key={id}>
-            <Glyph id="star" size={18} />
-            <span>
-              <b>Bonus</b> {ctx.render(ctx.objectives.get(id)?.text ?? id)}
-            </span>
-          </li>
-        ))}
-      </ul>
+        {plate('scroll', 'How to play', 'Rules, elements and a demo duel', openHowTo)}
+        {plate('deck', 'Binder', "Every card and Chimera you've met", () => openScreen('binder'))}
+        {plate('scales', 'Stats', 'Streak, wins, best rounds', () => openScreen('stats'))}
+      </nav>
 
-      <details className="deck">
+      <details className="lot">
         <summary>
-          <Glyph id="scroll" size={18} /> Your deck ({setup.deckList.length})
+          <Glyph id="gavel" size={20} />
+          <span className="plate-text">
+            <span className="plate-title">Today's lot</span>
+            <span className="plate-sub">Signature card, bonuses and your deck</span>
+          </span>
         </summary>
-        <ol>
-          {setup.deckList.map((id, i) => {
-            const c = deckLine(ctx, id);
-            return (
-              <li key={i}>
-                {c.element !== null ? <Gem element={c.element} /> : <Glyph id={c.type === 'trap' ? 'trap' : 'spell'} size={16} />}
-                <span className="deck-name">{c.name}</span>
-                <span className="deck-type">{c.type}</span>
-                {c.text !== null && <span className="deck-text">{c.text}</span>}
-              </li>
-            );
-          })}
-        </ol>
+        {sig !== null && (
+          <section className="plinth" aria-label="Signature card of the day">
+            <p className="eyebrow">Today's signature</p>
+            <div className="plinth-card">
+              <MiniCard view={sig} side="me" large onTap={() => setInspect((v) => !v)} onLong={() => setInspect((v) => !v)} />
+            </div>
+            <div className="plinth-base" />
+            <p className="plinth-name">
+              <Gem element={sig.element} /> {sig.name}
+            </p>
+            {inspect && sig.text !== null && <p className="muted">{sig.text}</p>}
+          </section>
+        )}
+
+        <ul className="brass-lines">
+          {twist !== undefined && (
+            <li>
+              <Glyph id="scroll" size={18} />
+              <span>
+                <b>Weekly twist</b> {ctx.render(twist)}
+              </span>
+            </li>
+          )}
+          {g.FLAGS.APPRAISAL && (
+            <li>
+              <Glyph id="gavel" size={18} />
+              <span>
+                <b>Appraisal rounds</b> {g.APPRAISAL_ROUNDS.join(' · ')}
+              </span>
+            </li>
+          )}
+          {setup.objectives.map((id) => (
+            <li key={id}>
+              <Glyph id="star" size={18} />
+              <span>
+                <b>Bonus</b> {ctx.render(ctx.objectives.get(id)?.text ?? id)}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <details className="deck">
+          <summary>
+            <Glyph id="scroll" size={18} /> Your deck ({setup.deckList.length})
+          </summary>
+          <ol>
+            {setup.deckList.map((id, i) => {
+              const c = deckLine(ctx, id);
+              return (
+                <li key={i}>
+                  {c.element !== null ? <Gem element={c.element} /> : <Glyph id={c.type === 'trap' ? 'trap' : 'spell'} size={16} />}
+                  <span className="deck-name">{c.name}</span>
+                  <span className="deck-type">{c.type}</span>
+                  {c.text !== null && <span className="deck-text">{c.text}</span>}
+                </li>
+              );
+            })}
+          </ol>
+        </details>
       </details>
 
-      <nav className="home-links menu" aria-label="Main menu">
-        <button type="button" className="btn primary large" onClick={enterDaily}>
-          <Glyph id="vault" size={24} />
-          <span className="entry">
-            Daily duel
-            <span className="soon">{dailyLabel}</span>
-          </span>
-        </button>
-        <button type="button" className="btn" disabled={!dailyDone} onClick={practiceSaved ? continuePractice : startPractice}>
-          <Glyph id={dailyDone ? 'sword' : 'lock'} size={18} />
-          <span className="entry">
-            Practice
-            <span className="soon">{!dailyDone ? 'After today' : practiceSaved ? 'Resume' : 'Unrecorded'}</span>
-          </span>
-        </button>
-        <button type="button" className="btn" onClick={openHowTo}>
-          <Glyph id="scroll" size={18} />
-          <span className="entry">How to play</span>
-        </button>
-        <button type="button" className="btn" onClick={() => openScreen('binder')}>
-          <Glyph id="deck" size={18} />
-          <span className="entry">Binder</span>
-        </button>
-        <button type="button" className="btn" onClick={() => openScreen('stats')}>
-          <Glyph id="scales" size={18} />
-          <span className="entry">Stats</span>
-        </button>
-      </nav>
-      <FeedbackLink />
+      <footer className="home-foot">
+        <FeedbackLink plain />
+        <NextDuel />
+      </footer>
       {g.FLAGS.DEBUG_OVERLAY && source !== null && <p className="muted">Setup source: {source}</p>}
     </main>
   );

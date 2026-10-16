@@ -86,17 +86,18 @@
 .home {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px 16px calc(24px + var(--safe-bottom));
+  gap: 14px;
+  min-height: 100dvh;
+  padding: 16px 16px calc(20px + var(--safe-bottom));
 }
 .lot-head {
   text-align: center;
 }
 .lot-head h1 {
-  font-size: 26px;
-  line-height: 1.1;
+  font-size: 36px;
+  line-height: 1.05;
   color: var(--gold-hi);
-  margin: 6px 0 8px;
+  margin: 4px 0 4px;
   text-shadow: 0 2px 0 #000, 0 0 14px rgb(156 124 60 / 0.35);
 }
 .stars {
@@ -226,16 +227,146 @@
   flex-basis: 100%;
   color: var(--bone-dim);
 }
-.home-links {
+
+/* the Daily duel plate (D-273): the one big call to action */
+.daily-plate {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
+  padding: 16px 18px;
+  text-align: left;
+  color: var(--bone);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  background: var(--iron-plate);
+  box-shadow: inset 0 0 0 3px var(--iron-2), inset 0 0 0 4px var(--gold-lo), 0 10px 24px rgb(0 0 0 / 0.6);
 }
-.home-links .btn {
-  flex-direction: column;
-  gap: 0;
-  padding: 4px 6px;
-  font-size: 14px;
+.daily-plate:active {
+  filter: brightness(1.12);
+}
+.daily-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.daily-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--gold-hi);
+}
+.daily-date {
+  font-size: 15px;
+  color: var(--bone-dim);
+}
+.stars-row {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+}
+.daily-go {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  margin-top: 2px;
+  border-radius: 3px;
+  background: var(--brass-plate);
+  color: var(--paper-ink);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.3);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45), inset 0 -2px 0 rgb(0 0 0 / 0.35);
+}
+.par {
+  margin-left: 0;
+}
+
+/* engraved plates: icon, title and a one-line italic subtitle */
+.plates {
+  display: grid;
+  gap: 10px;
+}
+.plate,
+.lot > summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 60px;
+  padding: 0 16px;
+  text-align: left;
+  color: var(--gold-hi);
+  background: var(--soot-2);
+  border: 1px solid var(--gold-lo);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 1px #000;
+}
+.plate:disabled {
+  color: var(--bone-dim);
+  border-color: var(--iron-hi);
+  opacity: 0.75;
+}
+.plate:not(:disabled):active,
+.lot > summary:active {
+  filter: brightness(1.2);
+}
+.plate svg,
+.lot > summary svg {
+  flex: none;
+}
+.plate-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.plate-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--bone);
+}
+.plate:disabled .plate-title {
+  color: var(--bone-dim);
+}
+.plate-sub {
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.15;
+  color: var(--bone-dim);
+}
+.lot {
+  display: grid;
+  gap: 12px;
+}
+.lot > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.lot > summary::-webkit-details-marker {
+  display: none;
+}
+.lot[open] > summary {
+  margin-bottom: 0;
+  border-color: var(--gold);
+}
+.home-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 4px;
+  font-size: 15px;
+  color: var(--bone-dim);
+}
+.feedback-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  color: var(--gold-hi);
 }
 
 /* ---------- duel ---------- */
@@ -259,6 +390,7 @@
   --w: var(--cw);
 }
 .board-area {
+  position: relative;
   flex: 1;
   min-height: 0;
   container-type: size;
@@ -1143,9 +1275,9 @@ button.life[data-glow='target']::after {
   gap: 8px;
   padding: 6px 8px;
   border-radius: 2px;
-  background: #3b1513;
-  border: 2px solid var(--flaw);
-  color: #ffc2bc;
+  background: #0f2630;
+  border: 2px dashed var(--unstable);
+  color: #d6f4ff;
   font-size: 15px;
   font-weight: 700;
 }
@@ -1618,25 +1750,6 @@ button.life[data-glow='target']::after {
 .slot {
   position: relative;
 }
-.home-links.menu {
-  grid-template-columns: 1fr;
-}
-.home-links.menu .btn {
-  flex-direction: row;
-  justify-content: flex-start;
-  gap: 12px;
-  padding: 4px 16px;
-  font-size: 16px;
-}
-.home-links.menu .btn.large {
-  min-height: 60px;
-  font-size: 20px;
-}
-.home-links.menu .entry {
-  display: grid;
-  text-align: left;
-  line-height: 1.15;
-}
 .result-actions .menu-return {
   grid-column: 1 / -1;
   flex-direction: row;
@@ -1645,31 +1758,139 @@ button.life[data-glow='target']::after {
 .duel-menu .menu-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   min-height: 0;
-  padding: 0 16px 14px;
+  padding: 0 18px 16px;
 }
-.duel-menu .menu-list h2 {
-  font-size: 18px;
-  color: var(--gold-hi);
-}
-.duel-menu .menu-list .btn {
-  justify-content: flex-start;
-  width: 100%;
-}
-.duel-menu .btn[data-confirm] {
-  background: var(--brass-plate);
-  color: #1a1206;
-}
-.log-head {
+.sheet-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: var(--tap);
+}
+.sheet-head h2 {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 18px;
+  line-height: 1.2;
+  color: var(--gold-hi);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sheet-x {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--tap);
+  height: var(--tap);
+  padding: 0;
+  color: var(--bone-dim);
+  background: none;
+  border: 0;
+}
+.sheet-head .sheet-x:first-child {
+  margin-left: -10px;
+}
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 64px;
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--bone);
+  background: var(--soot);
+  border: 1px solid var(--gold-lo);
+  border-radius: var(--radius);
+}
+.tile:not(:disabled) {
+  border-color: var(--gold);
+}
+.tile:disabled {
+  color: var(--bone-dim);
+  border-color: var(--iron-hi);
+  opacity: 0.7;
+}
+.tile:not(:disabled):active {
+  filter: brightness(1.25);
+}
+.tile[data-confirm] {
+  background: var(--brass-plate);
+  color: var(--paper-ink);
+}
+.tile[data-confirm] .tile-sub {
+  color: var(--paper-ink);
+}
+.tile-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+}
+.tile-sub {
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1.15;
+  color: var(--bone-dim);
+}
+.log-peek {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--soot);
+  border: 1px solid var(--iron-hi);
+  border-radius: var(--radius);
+}
+.log-peek header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.log-peek h3 {
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+}
+.log-peek .log {
+  margin-top: 0;
+  gap: 5px;
+  overflow: visible;
+}
+.log-peek .log li {
+  border-bottom: 0;
+  padding-bottom: 0;
+  font-size: 15px;
+}
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  margin: -8px -4px;
+  padding: 0 4px;
+  color: var(--gold-hi);
+  background: none;
+  border: 0;
+  font-size: 15px;
+  text-decoration: underline;
+}
+.duel-menu .note {
+  text-align: center;
+  font-size: 14px;
+  font-style: italic;
 }
 .log-sheet .log {
   flex: 1 1 auto;
   margin-top: 0;
-  max-height: 40dvh;
+  max-height: 55dvh;
 }
 /* the header row now also holds the menu button: if a narrow phone runs out of room the name gives way, nothing overflows */
 .collector-name {

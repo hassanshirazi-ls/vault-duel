@@ -3,13 +3,13 @@
 // page dots and the arrow keys move the same strip. Skip and Done close it and remember that it was seen.
 // Illustrations are the game's own components (MiniCard, Gem, RoundTrack, Seal) plus CSS; nothing here is raster art.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent } from 'react';
+import type { CSSProperties, KeyboardEvent } from 'react';
 import type { GameCtx } from '../content/load';
-import { howToPages, howToSamples } from '../view/howto';
-import type { HowToArtId, HowToPage, HowToSamples } from '../view/howto';
+import { howToPages, howToQuiz, howToSamples } from '../view/howto';
+import type { HowToArtId, HowToPage, HowToSamples, Quiz } from '../view/howto';
 import { Glyph } from '../visual/glyphs';
 import { useGame } from './context';
-import { Gem } from './Gem';
+import { ElementWheel } from './ElementWheel';
 import { MiniCard } from './MiniCard';
 import { RoundTrack } from './RoundTrack';
 import { Seal } from './Seal';
@@ -25,29 +25,40 @@ function Exhibit({ view }: { readonly view: HowToSamples['monsters'][number] }) 
   );
 }
 
+/** A looping demo built from the game's own views (D-275). Its resting state is the finished picture, so with animations off it is a still. */
 function Illustration({ id, ctx, samples }: { readonly id: HowToArtId; readonly ctx: GameCtx; readonly samples: HowToSamples }) {
   const g = ctx.globals;
   switch (id) {
-    case 'goal':
+    case 'goal': {
+      const hero = samples.monsters[0];
       return (
-        <>
-          <div className="ht-lives">
-            <span className="ht-life">
-              <Glyph id="heart" size={22} filled /> <b>{g.PLAYER_LIFE}</b>
-              <small>You</small>
-            </span>
-            <Glyph id="sword" size={22} />
+        <div className="demo demo-goal">
+          <div className="demo-foe">
             <span className="ht-life foe">
               <Glyph id="heart" size={22} filled /> <b>{g.COLLECTOR_LIFE}</b>
               <small>The Collector</small>
             </span>
+            {hero?.power != null && (
+              <span className="demo-float" aria-hidden="true">
+                &minus;{hero.power}
+              </span>
+            )}
           </div>
-          <RoundTrack globals={g} round={0} />
-        </>
+          {hero !== undefined && (
+            <div className="demo-hero">
+              <Exhibit view={hero} />
+            </div>
+          )}
+          <span className="ht-life me">
+            <Glyph id="heart" size={22} filled /> <b>{g.PLAYER_LIFE}</b>
+            <small>You</small>
+          </span>
+        </div>
       );
+    }
     case 'cards':
       return (
-        <div className="ht-board">
+        <div className="ht-board demo-cards">
           <div className="ht-row">
             {Array.from({ length: g.BOARD_SLOTS }, (_, i) => {
               const v = samples.monsters[i % Math.max(1, samples.monsters.length)];
@@ -69,55 +80,71 @@ function Illustration({ id, ctx, samples }: { readonly id: HowToArtId; readonly 
       );
     case 'combat':
       return (
-        <ul className="ht-beats">
-          {[...ctx.elements.values()].map((e) => (
-            <li key={e.id}>
-              <span className="ht-el">
-                <Gem element={e} /> {e.name}
+        <>
+          {samples.duel !== null && (
+            <div className="demo demo-combat">
+              <div className="demo-def">
+                <Exhibit view={samples.duel.defender} />
+              </div>
+              <span className="demo-float bonus" aria-hidden="true">
+                {ctx.render('+{ELEMENT_BONUS}')}
               </span>
-              <Glyph id="next" size={16} />
-              <span className="ht-targets">
-                {e.beats.map((id) => {
-                  const t = ctx.elements.get(id);
-                  return t === undefined ? null : (
-                    <span key={id} className="ht-el">
-                      <Gem element={t} /> {t.name}
-                    </span>
-                  );
-                })}
-              </span>
-            </li>
-          ))}
-        </ul>
+              <div className="demo-atk">
+                <Exhibit view={samples.duel.attacker} />
+                <span className="demo-bonus" aria-hidden="true">
+                  {ctx.render('+{ELEMENT_BONUS}')}
+                </span>
+              </div>
+            </div>
+          )}
+          <ElementWheel />
+        </>
       );
     case 'graft':
       return samples.graft === null ? (
         <Glyph id="swap" size={40} />
       ) : (
-        <div className="ht-graft">
-          <Exhibit view={samples.graft.a} />
+        <div className="ht-graft demo-graft">
+          <span className="g-a">
+            <Exhibit view={samples.graft.a} />
+          </span>
           <b className="ht-plus" aria-hidden="true">+</b>
-          <Exhibit view={samples.graft.b} />
+          <span className="g-b">
+            <Exhibit view={samples.graft.b} />
+          </span>
           <Glyph id="next" size={24} />
-          <Exhibit view={samples.graft.result} />
+          <span className="g-r">
+            <Exhibit view={samples.graft.result} />
+          </span>
         </div>
       );
     case 'appraisal':
       return (
-        <>
+        <div className="demo demo-appraisal">
           <RoundTrack globals={g} round={g.APPRAISAL_ROUNDS[0] ?? 0} />
-          <div className="ht-gavel">
-            <Glyph id="gavel" size={44} />
+          <div className="demo-take">
+            {samples.monsters[0] !== undefined && (
+              <span className="taken">
+                <Exhibit view={samples.monsters[0]} />
+              </span>
+            )}
+            <span className="ht-gavel gavel">
+              <Glyph id="gavel" size={44} />
+            </span>
           </div>
-        </>
+        </div>
       );
     case 'winning':
       return (
-        <div className="ht-win">
-          <Seal />
+        <div className="ht-win demo-win">
+          <span className="stamp">
+            <Seal />
+          </span>
           <p className="ht-stars" aria-hidden="true">
             {Array.from({ length: g.OBJECTIVES_PER_DAY }, (_, i) => (
-              <Glyph key={i} id="star" size={26} filled />
+              <span key={i} style={{ '--i': i } as CSSProperties}>
+                <Glyph id="star" size={26} filled />
+              </span>
             ))}
           </p>
         </div>
@@ -125,11 +152,45 @@ function Illustration({ id, ctx, samples }: { readonly id: HowToArtId; readonly 
   }
 }
 
+/** "Try it": tap an answer, learn at once whether it is right and why (D-275). */
+function TryIt({ quiz }: { readonly quiz: Quiz }) {
+  const [picked, setPicked] = useState<number | null>(null);
+  const chosen = picked === null ? null : quiz.answers[picked];
+  return (
+    <div className="try">
+      <h4>Try it</h4>
+      <p className="try-q">{quiz.question}</p>
+      <div className="try-answers">
+        {quiz.answers.map((a, i) => (
+          <button
+            key={a.label}
+            type="button"
+            className="try-a"
+            data-state={picked === i ? (a.right ? 'right' : 'wrong') : undefined}
+            aria-pressed={picked === i}
+            onClick={() => setPicked(i)}
+          >
+            {picked === i && <Glyph id={a.right ? 'check' : 'cross'} size={18} />} {a.label}
+          </button>
+        ))}
+      </div>
+      <p className="try-result" role="status" aria-live="polite" data-state={chosen === undefined || chosen === null ? undefined : chosen.right ? 'right' : 'wrong'}>
+        {chosen !== undefined && chosen !== null && (
+          <>
+            <Glyph id={chosen.right ? 'check' : 'cross'} size={18} /> <b>{chosen.right ? 'Right.' : 'Not quite.'}</b> {quiz.why}
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
 export function HowToPlay() {
   const ctx = useGame((s) => s.ctx);
   const close = useGame((s) => s.closeHowTo);
   const pages: readonly HowToPage[] = useMemo(() => (ctx === null ? [] : howToPages(ctx)), [ctx]);
-  const samples = useMemo(() => (ctx === null ? { monsters: [], graft: null } : howToSamples(ctx)), [ctx]);
+  const samples = useMemo(() => (ctx === null ? { monsters: [], graft: null, duel: null } : howToSamples(ctx)), [ctx]);
+  const quizzes = useMemo(() => (ctx === null ? [] : pages.map((p) => howToQuiz(ctx, p.id))), [ctx, pages]);
   const [index, setIndex] = useState(0);
   const dialog = useRef<HTMLDivElement>(null);
   const strip = useRef<HTMLDivElement>(null);
@@ -228,11 +289,16 @@ export function HowToPlay() {
               <div className="ht-art">
                 <Illustration id={p.id} ctx={ctx} samples={samples} />
               </div>
-              <ul className="ht-lines">
-                {p.lines.map((line, j) => (
-                  <li key={j}>{line}</li>
-                ))}
-              </ul>
+              <p className="ht-summary">{p.summary}</p>
+              {quizzes[i] !== null && quizzes[i] !== undefined && <TryIt quiz={quizzes[i] as Quiz} />}
+              <details className="ht-more">
+                <summary>All the rules</summary>
+                <ul className="ht-lines">
+                  {p.lines.map((line, j) => (
+                    <li key={j}>{line}</li>
+                  ))}
+                </ul>
+              </details>
             </section>
           ))}
         </div>

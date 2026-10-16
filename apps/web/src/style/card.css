@@ -220,10 +220,6 @@
   min-width: 0;
   padding: 0;
 }
-.tag[data-warn] {
-  color: var(--flaw);
-  border-color: var(--flaw);
-}
 .mini[data-down] .art {
   filter: saturate(0.4) brightness(0.65);
 }
@@ -329,17 +325,76 @@
   mask-image: linear-gradient(90deg, transparent, #000);
 }
 
-/* Flaws and Unstable: a cracked oxblood frame with red cracks over the art */
-.mini[data-flaw] {
-  --frame: linear-gradient(135deg, #8c2b33, #32090d 50%, #8c2b33);
-}
-.mini[data-flaw] .fx-b,
-.mini[data-unstable] .fx-b {
-  inset: 0;
+/* Flaw B (D-271): the gilt frame cracks and a chip is missing from one corner; the art stays whole. The plate with the
+   Flaw's name hangs on the bottom edge of large cards and Inspect only. Unstable is a different thing (a cold, pulsing
+   dashed halo around the card), so the two are never confused. */
+.mini .flaw-crack {
+  inset: -3px;
+  width: calc(100% + 6px);
+  height: calc(100% + 6px);
   z-index: 2;
-  background: linear-gradient(115deg, transparent 47%, var(--flaw) 47.5% 49%, transparent 49.5%),
-    linear-gradient(60deg, transparent 63%, var(--flaw) 63.5% 64.5%, transparent 65%);
-  opacity: 0.45;
+  overflow: visible;
+  fill: none;
+  stroke: var(--flaw);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.mini .flaw-crack * {
+  vector-effect: non-scaling-stroke;
+}
+.mini .flaw-crack .chip {
+  fill: var(--soot);
+  stroke: none;
+}
+.flaw-plate {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  z-index: 3;
+  translate: -50% 0;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 10px 2px 8px;
+  background: var(--oxblood-lo);
+  color: var(--bad);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  clip-path: polygon(0 50%, 7% 0, 93% 6%, 100% 46%, 95% 100%, 5% 94%);
+  box-shadow: inset 0 0 0 1px var(--flaw);
+}
+.mini.large .flaw-plate,
+.inspect-art .flaw-plate {
+  display: inline-flex;
+}
+.inspect-art:has(.flaw-plate) {
+  margin-bottom: 10px;
+}
+.mini[data-unstable] .fx-b {
+  inset: -5px;
+  border: 2px dashed var(--unstable);
+  border-radius: 6px;
+  box-shadow: 0 0 10px 2px color-mix(in srgb, var(--unstable) 55%, transparent), inset 0 0 8px 1px color-mix(in srgb, var(--unstable) 35%, transparent);
+  animation: unstable-pulse calc(var(--beat) * 6) ease-in-out infinite alternate;
+}
+@keyframes unstable-pulse {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.tag[data-unstable] {
+  color: var(--unstable);
+  border-color: var(--unstable);
 }
 
 /* ---- states ---- */

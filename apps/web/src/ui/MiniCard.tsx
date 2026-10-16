@@ -3,13 +3,32 @@
 // hovering over it only reports `onHover` (a preview), never an action.
 import type { CSSProperties } from 'react';
 import type { Monster } from '@vault-duel/engine';
-import type { CardView } from '../view/cards';
+import type { CardView, KeywordView } from '../view/cards';
 import { elementStyle } from '../visual/elements';
 import { Glyph } from '../visual/glyphs';
 import { frameFor } from '../visual/keywordFrame';
 import { Art } from './Art';
 import { Gem } from './Gem';
 import { useLongPress } from './hooks';
+
+/**
+ * How a Flaw shows on a card (D-271, Flaw B): fracture lines through the gilt frame and a chip missing from the top-left
+ * corner; the art is untouched. On large cards and Inspect a jagged oxblood plate with the Flaw's name hangs on the
+ * bottom edge (CSS shows it only there). The card must be `position: relative` (`.mini` is).
+ */
+export function FlawMark({ flaw }: { readonly flaw: KeywordView }) {
+  return (
+    <>
+      <svg className="fx flaw-crack" viewBox="0 0 100 125" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+        <polygon className="chip" points="-1,-1 17,-1 12,6 15,10 8,12 9,18 -1,22" />
+        <path d="M17 0 12 6 15 10 8 12 9 18 0 22M63 -1 60 4 64 7 62 12M101 46 96 50 98 55 94 60M26 126 30 120 26 116M-1 84 4 87 2 92" />
+      </svg>
+      <span className="flaw-plate">
+        <Glyph id={flaw.icon} size={11} /> {flaw.name}
+      </span>
+    </>
+  );
+}
 
 export type Glow = 'target' | null;
 
@@ -36,6 +55,7 @@ export interface MiniCardProps {
 export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, mark, style, label, onHover }: MiniCardProps) {
   const press = useLongPress(onTap, onLong);
   const frame = frameFor(view.keywords);
+  const flaw = view.keywords.find((k) => k.flaw);
   const faceDown = monster?.faceDown === true;
   const unstable = monster !== undefined && monster.unstableUntil >= 0;
   const cueStyle = cue === undefined ? undefined : ({ '--b': cue.beat } as CSSProperties);
@@ -68,6 +88,7 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
     >
       <span className="fx fx-a" />
       <span className="fx fx-b" />
+      {flaw !== undefined && <FlawMark flaw={flaw} />}
       <span className="mini-clip">
         <Art cardId={view.id} silhouette={view.silhouette} elementId={view.element?.id ?? null} />
         <span className="mini-shade" />
@@ -90,8 +111,8 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
           </span>
         )}
         {unstable && (
-          <span className="tag" data-warn="" title="Unstable">
-            <Glyph id="brittle" size={12} />
+          <span className="tag" data-unstable="" title="Unstable">
+            <Glyph id="spark" size={12} />
           </span>
         )}
       </span>

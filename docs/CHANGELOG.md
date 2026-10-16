@@ -3,6 +3,12 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-16
+
+### Changed
+
+- The web app drew the owner's picked visuals: cracked-frame Flaws, an element wheel and in-duel compass read from `elements.json`, the auction-catalogue Home, the duel menu sheet and a How to play with demos and "Try it" questions. No content file changed (D-271 to D-276).
+
 ## 2026-10-14
 
 ### Added

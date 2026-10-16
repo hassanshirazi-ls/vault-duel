@@ -1,6 +1,6 @@
 // Duel log lines from engine events (D-240, D-265). Presentation only: events in, short sentences out. Names come
 // from compiled content, numbers from the events themselves, so no rule or value is written here.
-import type { GameEvent, GameState, Iid, Side } from '@vault-duel/engine';
+import type { Action, GameEvent, GameState, Iid, Side } from '@vault-duel/engine';
 import { MOOD_NAMES } from '@vault-duel/ai';
 import type { GameCtx } from '../content/load';
 
@@ -87,4 +87,31 @@ export function logLines(ctx: GameCtx, state: GameState, events: readonly GameEv
  */
 export function duelLog(ctx: GameCtx, state: GameState, trail: readonly { readonly events: readonly GameEvent[] }[]): LogLine[] {
   return trail.flatMap((r) => logLines(ctx, state, r.events));
+}
+
+/** The last `n` lines of the log, oldest first (the duel menu shows five). */
+export const recentLog = (log: readonly LogLine[], n: number): LogLine[] => log.slice(Math.max(0, log.length - n));
+
+/**
+ * What Undo would take back, for the menu tile ("Summon Ashguard Squire"): the first thing that happened in the actions
+ * from `to` on. Names come from content; an unnamed card (set face-down) stays unnamed.
+ */
+export function undoLabel(ctx: GameCtx, state: GameState, records: readonly { readonly action: Action; readonly events: readonly GameEvent[] }[]): string {
+  const name = (iid: Iid): string => {
+    const inst = state.inst[iid];
+    const id = inst === undefined ? undefined : ctx.content.ids[inst.def];
+    return (id === undefined ? undefined : ctx.cards.get(id)?.name) ?? 'a card';
+  };
+  for (const r of records) {
+    if (r.action.t === 'reposition') return `Reposition ${name(r.action.m)}`;
+    for (const e of r.events) {
+      if (e.e === 'Summoned') return e.faceDown ? 'Set a card face-down' : `Summon ${name(e.iid)}`;
+      if (e.e === 'Grafted') return `Graft ${name(e.iid)}`;
+      if (e.e === 'SpellCast') return `Cast ${name(e.iid)}`;
+      if (e.e === 'TrapSet') return 'Set a trap';
+      if (e.e === 'AttackDeclared') return `Attack with ${name(e.attacker)}`;
+    }
+    if (r.action.t.startsWith('graft')) return 'Graft in progress';
+  }
+  return 'Your last action';
 }

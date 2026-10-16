@@ -59,11 +59,6 @@
   }
 }
 
-/* ---------- home links ---------- */
-.home-links .btn {
-  gap: 2px;
-}
-
 /* ---------- ledger (Stats) ---------- */
 .ledger {
   position: relative;
