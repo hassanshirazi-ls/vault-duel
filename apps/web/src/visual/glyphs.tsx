@@ -84,6 +84,8 @@ const STROKE: Readonly<Record<string, ReactNode>> = {
   back: <path d="m15 5-7 7 7 7" />,
   next: <path d="m9 5 7 7-7 7" />,
   lock: <path d="M6 11h12v9H6zM8 11V8a4 4 0 0 1 8 0v3" />,
+  menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  undo: <path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 8h-3" />,
   tomb: <path d="M7 21V10a5 5 0 0 1 10 0v11zM12 10v6M9.5 12.5h5M4 21h16" />,
 };
 

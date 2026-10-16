@@ -4,9 +4,9 @@ import type { Iid } from '@vault-duel/engine';
 import { Glyph } from '../visual/glyphs';
 import { useGame } from './context';
 import { InspectCard } from './Inspect';
-import type { LogEntry } from './useStepFx';
+import type { LogLine } from '../view/log';
 
-export function SidePanel({ shown, pinned, onUnpin, log }: { readonly shown: Iid | null; readonly pinned: boolean; readonly onUnpin: () => void; readonly log: readonly LogEntry[] }) {
+export function SidePanel({ shown, pinned, onUnpin, log }: { readonly shown: Iid | null; readonly pinned: boolean; readonly onUnpin: () => void; readonly log: readonly LogLine[] }) {
   const state = useGame((s) => s.state);
   if (state === null) return null;
   const [me, them] = state.sides;
@@ -47,8 +47,8 @@ export function SidePanel({ shown, pinned, onUnpin, log }: { readonly shown: Iid
           <p className="muted">The auction has not begun.</p>
         ) : (
           <ol className="log">
-            {[...log].reverse().map((l) => (
-              <li key={l.n} data-side={l.side ?? undefined}>
+            {log.map((l, i) => ({ l, i })).reverse().map(({ l, i }) => (
+              <li key={i} data-side={l.side ?? undefined}>
                 <Glyph id={l.icon} size={15} />
                 <span>{l.text}</span>
               </li>

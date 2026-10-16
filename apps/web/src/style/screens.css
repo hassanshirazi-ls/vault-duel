@@ -64,8 +64,8 @@
 }
 .cue-float {
   animation-name: float-up;
-  animation-delay: calc(var(--beat) * var(--b, 0));
-  animation-duration: calc(var(--beat) * 4);
+  animation-delay: calc(var(--cue) * var(--b, 0));
+  animation-duration: calc(var(--cue) * 2.5);
   animation-fill-mode: both;
 }
 @keyframes float-up {
@@ -240,6 +240,7 @@
 
 /* ---------- duel ---------- */
 .duel {
+  position: relative;
   /* fixed rows inside the board area (two trap rows, the track, niches, gaps); card size comes from the area's own width and height */
   --fixed: 158px;
   --cw: clamp(44px, min(27cqw, calc((100cqh - var(--fixed)) / 2 * 0.8)), 150px);
@@ -320,18 +321,8 @@
   overflow: visible;
 }
 
-/* a lifted card on a short phone: the Collector's set-trap row steps aside so the board keeps its size */
-@media (max-height: 700px) {
-  .duel[data-lifted] .row.traps[data-side='them'] {
-    display: none;
-  }
-  .duel[data-lifted] {
-    --fixed: 128px;
-  }
-  .duel[data-lifted] .appraisal {
-    display: none;
-  }
-}
+/* Nothing below changes the board's size when a selection changes (D-265): the mode toggles and the error line float over
+   the board, the hint bar and the status line have fixed heights, and the Graft workbench has a fixed height. */
 
 /* Collector header: portrait in a gilt frame, name, mood, life seal, intent plaque, Appraisal countdown, quip */
 .collector {
@@ -500,7 +491,7 @@ button.life[data-glow='target']::after {
   z-index: 3;
   opacity: 0;
   filter: drop-shadow(0 0 3px #000);
-  animation: splash calc(var(--beat) * 3) ease-out calc(var(--beat) * var(--b, 0)) both;
+  animation: splash calc(var(--cue) * 2.5) ease-out calc(var(--cue) * var(--b, 0)) both;
 }
 @keyframes splash {
   0% {
@@ -561,7 +552,7 @@ button.life[data-glow='target']::after {
   pointer-events: none;
   transform-origin: 80% 90%;
   animation-name: gavel-strike;
-  animation-duration: calc(var(--beat) * 3);
+  animation-duration: calc(var(--cue) * 3);
 }
 @keyframes gavel-strike {
   0% {
@@ -671,7 +662,7 @@ button.life[data-glow='target']::after {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 44px;
+  height: 54px;
   padding: 2px 16px;
   font-size: 15px;
 }
@@ -679,6 +670,10 @@ button.life[data-glow='target']::after {
   flex: 1;
   min-width: 0;
   line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .hintbar.mulligan p {
   font-family: var(--font-display);
@@ -701,7 +696,12 @@ button.life[data-glow='target']::after {
   width: var(--tap);
 }
 .error-bar {
-  margin: 0 10px;
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 8px;
+  z-index: 35;
+  pointer-events: none;
   padding: 6px 10px;
   border-radius: 2px;
   background: #3b1513;
@@ -744,10 +744,19 @@ button.life[data-glow='target']::after {
   }
 }
 .mode-toggles {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  z-index: 31;
   display: flex;
   justify-content: center;
   gap: 8px;
   padding: 2px 0;
+  pointer-events: none;
+}
+.mode-toggles .toggle {
+  pointer-events: auto;
 }
 .hand-slot .mini-stats {
   justify-content: flex-start;
@@ -984,7 +993,8 @@ button.life[data-glow='target']::after {
 .workbench {
   display: flex;
   flex-direction: column;
-  max-height: 54dvh;
+  height: min(52dvh, 360px);
+  max-height: 52dvh;
   border-radius: 6px 6px 0 0;
 }
 .bench {
@@ -1557,4 +1567,117 @@ button.life[data-glow='target']::after {
   .workbench {
     max-height: 46dvh;
   }
+}
+
+/* ---------- menu, telegraph, undo (D-265, D-266) ---------- */
+.statusline {
+  min-height: 20px;
+}
+.telegraph {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--gold-hi);
+  animation: fade-in var(--beat) both;
+}
+.telegraph svg {
+  flex: none;
+}
+.menu-btn {
+  flex: none;
+  min-height: 32px;
+  min-width: 32px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+.menu-btn::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+@media (max-width: 400px) {
+  .collector-name {
+    font-size: 12px;
+  }
+  .mood {
+    padding: 1px 5px;
+    gap: 4px;
+    font-size: 14px;
+  }
+}
+.slot-take {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  color: var(--bone-dim);
+}
+.slot {
+  position: relative;
+}
+.home-links.menu {
+  grid-template-columns: 1fr;
+}
+.home-links.menu .btn {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 4px 16px;
+  font-size: 16px;
+}
+.home-links.menu .btn.large {
+  min-height: 60px;
+  font-size: 20px;
+}
+.home-links.menu .entry {
+  display: grid;
+  text-align: left;
+  line-height: 1.15;
+}
+.result-actions .menu-return {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  gap: 8px;
+}
+.duel-menu .menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 0 16px 14px;
+}
+.duel-menu .menu-list h2 {
+  font-size: 18px;
+  color: var(--gold-hi);
+}
+.duel-menu .menu-list .btn {
+  justify-content: flex-start;
+  width: 100%;
+}
+.duel-menu .btn[data-confirm] {
+  background: var(--brass-plate);
+  color: #1a1206;
+}
+.log-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.log-sheet .log {
+  flex: 1 1 auto;
+  margin-top: 0;
+  max-height: 40dvh;
+}
+/* the header row now also holds the menu button: if a narrow phone runs out of room the name gives way, nothing overflows */
+.collector-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.mood {
+  flex: none;
 }

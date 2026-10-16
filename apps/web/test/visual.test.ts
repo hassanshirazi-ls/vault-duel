@@ -6,7 +6,8 @@ import type { KeywordView } from '../src/view/cards';
 import { objectiveMet } from '../src/view/objectives';
 import { planFor } from '../src/view/selection';
 import { elementColorVar, elementInkVar } from '../src/visual/elements';
-import { cuesFromEvents, MAX_BEATS, quipMood } from '../src/visual/cues';
+import { readFileSync } from 'node:fs';
+import { cueDurationMs, cuesFromEvents, quipMood, TIMING } from '../src/visual/cues';
 import { frameFor } from '../src/visual/keywordFrame';
 import { logLines } from '../src/view/log';
 import { roundTrack } from '../src/visual/roundTrack';
@@ -71,7 +72,7 @@ describe('round track from content', () => {
 });
 
 describe('cues from events', () => {
-  it('maps events to beats and caps the delay', () => {
+  it('maps events to beats, one after the other, with no cap', () => {
     const cues = cuesFromEvents([
       { e: 'Summoned', side: 0, iid: 3, slot: 0, pos: 0, faceDown: false },
       { e: 'AttackDeclared', attacker: 3, target: 9 },
@@ -80,7 +81,19 @@ describe('cues from events', () => {
     expect(cues.map((c) => c.kind)).toEqual(['enter', 'lunge', 'damage']);
     expect(cues.map((c) => c.beat)).toEqual([0, 1, 2]);
     const many = cuesFromEvents(Array.from({ length: 20 }, (_, i) => ({ e: 'Summoned' as const, side: 1 as const, iid: i, slot: 0, pos: 0 as const, faceDown: false })));
-    expect(Math.max(...many.map((c) => c.beat))).toBe(MAX_BEATS);
+    expect(many.map((c) => c.beat)).toEqual(Array.from({ length: 20 }, (_, i) => i));
+    expect(cueDurationMs(many)).toBe(20 * TIMING.BEAT_MS + TIMING.TAIL_MS);
+  });
+  it('keeps CSS and JS on the same beat (tokens.css --cue)', () => {
+    const css = readFileSync(new URL('../src/style/tokens.css', import.meta.url), 'utf8');
+    expect(css).toContain(`--cue: ${TIMING.BEAT_MS}ms;`);
+  });
+  it('gives the slow animations room before the next beat', () => {
+    const cues = cuesFromEvents([
+      { e: 'Destroyed', iid: 4, side: 1, cause: 'combat', by: 2 },
+      { e: 'Summoned', side: 0, iid: 3, slot: 0, pos: 0, faceDown: false },
+    ]);
+    expect(cues.map((c) => c.beat)).toEqual([0, 2]);
   });
   it('burns destroyed cards and has a shadow hand take appraised ones', () => {
     const cues = cuesFromEvents([

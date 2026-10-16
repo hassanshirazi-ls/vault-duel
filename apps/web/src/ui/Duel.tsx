@@ -1,23 +1,29 @@
 // The duel screen (D-237 mirrored layout): the Collector's header, traps and monsters on top, the round track across
 // the middle, your monsters, traps, fanned hand and End turn at the bottom. Interaction is "tap card, tap target":
 // everything offered comes from `getLegalActions` through view/legal.ts and view/selection.ts, and every change goes
-// through the store's `act`. Animations are cues from engine events (visual/cues.ts), dropped by any tap.
-import { useState } from 'react';
+// through the store's `act`. A step plays stage by stage (visual/playback.ts): your action, then the Collector's moves
+// one at a time, each behind a telegraph. Any tap skips to the end of it. Tapping a chosen card again deselects it.
+import { useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { Action, Iid, Monster, Side } from '@vault-duel/engine';
 import { MOOD_NAMES } from '@vault-duel/ai';
 import { roundOfState } from '../duel/turn';
 import { cardView } from '../view/cards';
-import { INTENT_LABEL } from '../view/status';
-import { appraisalCountdown, moodName } from '../view/status';
+import { monsterSlotKeys } from '../view/keys';
+import { groupLegal } from '../view/legal';
+import { duelLog } from '../view/log';
 import { boardActionable, planFor, summonMode } from '../view/selection';
 import type { Plan, Selection } from '../view/selection';
+import { INTENT_LABEL, appraisalCountdown, moodName } from '../view/status';
+import { telegraphLine } from '../view/telegraph';
+import { UNDO_WHY, undoStatus } from '../view/undo';
 import { Glyph } from '../visual/glyphs';
 import { CollectorHeader, LifeSeal } from './Collector';
 import { GhostCard } from './Ghost';
 import { SidePanel } from './SidePanel';
 import { useStepFx } from './useStepFx';
 import { useGame } from './context';
+import { DuelMenu } from './DuelMenu';
 import { GraftSheet } from './GraftSheet';
 import { useWide } from './hooks';
 import { Inspect } from './Inspect';
@@ -25,49 +31,78 @@ import { CardBack, MiniCard } from './MiniCard';
 import { RoundTrack } from './RoundTrack';
 
 const CARD_CUES = new Set(['enter', 'graft', 'lunge', 'hit', 'ward', 'flash']);
+/** while the Collector's moves play, nothing is offered */
+const NO_GROUPS = groupLegal([]);
 
 export function Duel() {
   const ctx = useGame((s) => s.ctx);
   const rt = useGame((s) => s.rt);
   const state = useGame((s) => s.state);
-  const groups = useGame((s) => s.groups);
+  const liveGroups = useGame((s) => s.groups);
   const events = useGame((s) => s.events);
+  const frames = useGame((s) => s.frames);
+  const trail = useGame((s) => s.trail);
   const error = useGame((s) => s.error);
   const mode = useGame((s) => s.mode);
   const act = useGame((s) => s.act);
+  const undo = useGame((s) => s.undo);
+  const unpick = useGame((s) => s.graftUnpick);
   const [sel, setSel] = useState<Selection | null>(null);
   const [inspected, setInspected] = useState<Iid | null>(null);
   const [hovered, setHovered] = useState<Iid | null>(null);
+  const [menu, setMenu] = useState(false);
   const wide = useWide();
-  const { cues, ghosts, quip, log } = useStepFx(ctx, rt, state, events);
+  const { shown, cues, ghosts, telegraph, blocked, quip } = useStepFx(ctx, rt, state, events, frames);
+  const undoNow = useMemo(() => undoStatus(trail), [trail]);
+  const log = useMemo(() => (ctx === null || state === null ? [] : duelLog(ctx, state, trail)), [ctx, state, trail]);
 
-  if (ctx === null || rt === null || state === null || groups === null) return null;
+  if (ctx === null || rt === null || state === null || shown === null || liveGroups === null) return null;
+  const groups = blocked ? NO_GROUPS : liveGroups;
   const g = ctx.globals;
-  const me = state.sides[0];
-  const them = state.sides[1];
-  const pending = state.pending;
-  const mulligan = state.step === 'mulligan';
+  const S = shown;
+  const me = S.sides[0];
+  const them = S.sides[1];
+  const pending = S.pending;
+  const mulligan = S.step === 'mulligan';
   const plan: Plan = planFor(groups, pending === null ? sel : null);
   const targets: ReadonlyMap<Iid, Action> = pending !== null ? groups.graftPicks : plan.targets;
-  const view = (iid: Iid) => cardView(ctx, rt.engine, state, iid);
+  const view = (iid: Iid) => cardView(ctx, rt.engine, S, iid);
   const doAct = (a: Action): void => {
     setSel(null);
     act(a);
   };
   const cueFor = (iid: Iid): { kind: string; beat: number } | undefined => cues.find((c) => c.iid === iid && CARD_CUES.has(c.kind));
-  const intent = state.collector.intent;
-  const appraisal = appraisalCountdown(g, state);
-  const mood = state.collector.mood;
+  const intent = S.collector.intent;
+  const appraisal = appraisalCountdown(g, S);
+  const mood = S.collector.mood;
   const combatHint = (attacker: Iid, target: Iid | -1): string | undefined => {
-    const p = rt.engine.previewCombat(state, attacker, target);
+    const p = rt.engine.previewCombat(S, attacker, target);
     if (!p.known) return undefined;
     return p.outcome.destroyDefender ? (p.outcome.destroyAttacker ? 'Trade' : 'Destroys') : p.outcome.destroyAttacker ? 'Lost' : 'Holds';
   };
   const hintFor = (iid: Iid): string | undefined => (sel?.t === 'board' && pending === null ? combatHint(sel.iid, iid) : undefined);
 
+  // The Collector's telegraph: never name a face-down card of his before it is turned up.
+  const nameOf = (iid: Iid): string => {
+    const hidden = S.sides[1].board.some((m) => m !== null && m.iid === iid && m.faceDown);
+    return hidden ? 'A face-down card' : view(iid).name;
+  };
+  const tgLine = telegraph === null ? null : telegraphLine(telegraph, nameOf);
+  const markOf = (iid: Iid): { icon: string; label: string } | undefined => {
+    if (telegraph === null) return undefined;
+    if (telegraph.actor === iid) return { icon: telegraph.kind === 'reposition' ? 'swap' : 'sword', label: 'Acts' };
+    if (telegraph.target === iid) return { icon: 'pos', label: 'Target' };
+    return undefined;
+  };
+  const slotMarked = (side: Side, kind: 'monster' | 'trap', i: number): boolean =>
+    telegraph?.slot !== undefined && telegraph.slot.side === side && telegraph.slot.kind === kind && telegraph.slot.index === i;
+
+  const picked = (iid: Iid): boolean => pending !== null && pending.mats.includes(iid);
+
   const tapBoard = (m: Monster, mine: boolean): void => {
     const hit = targets.get(m.iid);
     if (hit !== undefined) return doAct(hit);
+    if (picked(m.iid)) return unpick(m.iid);
     if (pending !== null) return setInspected(m.iid);
     if (mine && boardActionable(groups, m.iid)) return setSel(sel?.t === 'board' && sel.iid === m.iid ? null : { t: 'board', iid: m.iid });
     setSel(null);
@@ -75,22 +110,31 @@ export function Duel() {
   };
 
   const monsterRow = (side: Side) => {
-    const s = state.sides[side];
+    const s = S.sides[side];
     const mine = side === 0;
+    const ghostSlots = new Set(ghosts.filter((gh) => gh.side === side).map((gh) => gh.slot));
+    const keys = monsterSlotKeys(s.board, ghostSlots);
     return (
       <div className="row monsters" data-side={mine ? 'me' : 'them'}>
         {s.board.map((m, i) => {
-          const niche = (key: string | number, child: ReactNode) => (
+          const key = keys[i] as string;
+          const niche = (child: ReactNode) => (
             <div key={key} className="niche">
               {child}
             </div>
           );
           if (m === null) {
             const ghost = ghosts.find((gh) => gh.side === side && gh.slot === i);
-            if (ghost !== undefined) return niche(`g${i}`, <GhostCard ghost={ghost} />);
+            if (ghost !== undefined) return niche(<GhostCard ghost={ghost} />);
             const open = mine && plan.summon !== null;
+            if (slotMarked(side, 'monster', i)) {
+              return niche(
+                <div className="empty-slot" data-glow="slot" aria-label="Empty monster slot, the Collector plays here">
+                  <Glyph id="pos" size={22} />
+                </div>,
+              );
+            }
             return niche(
-              i,
               open ? (
                 <button type="button" className="empty-slot" data-glow="slot" aria-label="Empty monster slot, summon here" onClick={() => doAct(plan.summon as Action)}>
                   <Glyph id="pos" size={22} />
@@ -100,23 +144,35 @@ export function Duel() {
               ),
             );
           }
-          const glow = targets.has(m.iid) ? 'target' : null;
+          const mark = markOf(m.iid);
+          const lit = telegraph?.actor === m.iid;
+          const glow = targets.has(m.iid) || telegraph?.target === m.iid ? 'target' : null;
           if (m.faceDown && !mine) {
-            return niche(m.iid, <CardBack icon="facedown" label="Face-down monster" glow={glow} onTap={glow === null ? undefined : () => tapBoard(m, false)} />);
+            return niche(
+              <CardBack
+                icon="facedown"
+                label="Face-down monster"
+                glow={glow}
+                selected={lit}
+                mark={mark}
+                onTap={telegraph === null && glow !== null ? () => tapBoard(m, false) : undefined}
+              />,
+            );
           }
           const c = view(m.iid);
-          const dim = (sel !== null || pending !== null) && glow === null && !(sel?.t === 'board' && sel.iid === m.iid);
+          const isSel = (sel?.t === 'board' && sel.iid === m.iid) || picked(m.iid) || lit;
+          const dim = (sel !== null || pending !== null) && glow === null && !isSel;
           return niche(
-            m.iid,
             <MiniCard
               view={c}
               monster={m}
               side={mine ? 'me' : 'them'}
               glow={glow}
-              selected={sel?.t === 'board' && sel.iid === m.iid}
+              selected={isSel}
               dim={dim}
               cue={cueFor(m.iid)}
-              preview={glow === null ? undefined : hintFor(m.iid)}
+              preview={glow === null || telegraph !== null ? undefined : hintFor(m.iid)}
+              mark={mark}
               onTap={() => tapBoard(m, mine)}
               onLong={() => setInspected(m.iid)}
               onHover={(on) => setHovered(on ? m.iid : null)}
@@ -128,33 +184,41 @@ export function Duel() {
   };
 
   const trapRow = (side: Side) => {
-    const s = state.sides[side];
+    const s = S.sides[side];
     const mine = side === 0;
     return (
       <div className="row traps" data-side={mine ? 'me' : 'them'}>
         {s.traps.map((t, i) => {
+          const key = `trap-${i}`;
           if (t === null) {
             const open = mine && plan.setTrap !== null;
+            if (slotMarked(side, 'trap', i)) {
+              return (
+                <div key={key} className="trap-slot empty" data-glow="slot" aria-label="Empty trap slot, the Collector sets a trap here">
+                  <Glyph id="trap" size={18} />
+                </div>
+              );
+            }
             return open ? (
-              <button key={i} type="button" className="trap-slot open" data-glow="slot" aria-label="Empty trap slot, set trap here" onClick={() => doAct(plan.setTrap as Action)}>
+              <button key={key} type="button" className="trap-slot open" data-glow="slot" aria-label="Empty trap slot, set trap here" onClick={() => doAct(plan.setTrap as Action)}>
                 <Glyph id="trap" size={18} /> Set here
               </button>
             ) : (
-              <div key={i} className="trap-slot empty" aria-label="Empty trap slot">
+              <div key={key} className="trap-slot empty" aria-label="Empty trap slot">
                 <Glyph id="trap" size={18} />
               </div>
             );
           }
           if (!mine) {
             return (
-              <div key={i} className="trap-slot set" aria-label="Set trap">
+              <div key={key} className="trap-slot set" aria-label="Set trap">
                 <Glyph id="trap" size={18} /> Set trap
               </div>
             );
           }
           const c = view(t.iid);
           return (
-            <button key={i} type="button" className="trap-slot set" onClick={() => setInspected(t.iid)}>
+            <button key={key} type="button" className="trap-slot set" onClick={() => setInspected(t.iid)}>
               <Glyph id="trap" size={18} /> {c.name}
             </button>
           );
@@ -173,7 +237,7 @@ export function Duel() {
     const mid = (n - 1) / 2;
     const style = { '--rot': `${(i - mid) * 4}deg`, '--drop': `${Math.abs(i - mid) ** 2 * 3}px`, zIndex: selected ? 20 : i } as CSSProperties;
     return (
-      <div key={iid} className="hand-slot" data-selected={selected ? '' : undefined} style={style}>
+      <div key={`h-${iid}`} className="hand-slot" data-selected={selected ? '' : undefined} style={style}>
         <MiniCard
           view={view(iid)}
           side="me"
@@ -204,10 +268,12 @@ export function Duel() {
 
   const maxLife = g.PLAYER_LIFE;
   const myDamage = cues.find((c) => c.kind === 'damage' && c.side === 0);
-  const moodLabel = moodName(g, state);
+  const moodLabel = moodName(g, S);
+  const canUndo = !blocked && undoNow.ok;
+  const undoWhy = !blocked && !undoNow.ok && undoNow.why !== 'nothing' ? UNDO_WHY[undoNow.why] : null;
 
   return (
-    <main className="duel" data-graft={pending !== null ? '' : undefined} data-lifted={sel !== null ? '' : undefined} onClick={() => setSel(null)}>
+    <main className="duel" data-graft={pending !== null ? '' : undefined} onClick={() => setSel(null)}>
       {mode === 'practice' && (
         <p className="ribbon" role="status">
           <Glyph id="scroll" size={14} /> Practice · Unrecorded
@@ -228,16 +294,18 @@ export function Duel() {
               : `Appraisal in round ${appraisal.round} · ${appraisal.roundsAway} away`
         }
         quip={quip}
+        telegraph={tgLine}
         cues={cues}
         directGlow={plan.direct !== null}
         onDirect={() => doAct(plan.direct as Action)}
         previewDirect={sel?.t === 'board' && plan.direct !== null ? combatHint(sel.iid, -1) : undefined}
+        onMenu={() => setMenu(true)}
       />
 
       <div className="board-area">
         {trapRow(1)}
         {monsterRow(1)}
-        <RoundTrack globals={g} round={roundOfState(state)} />
+        <RoundTrack globals={g} round={roundOfState(S)} />
         {monsterRow(0)}
         {trapRow(0)}
       </div>
@@ -248,11 +316,17 @@ export function Duel() {
         </p>
       )}
 
-      {pending !== null ? (
+      {pending !== null && !blocked ? (
         <GraftSheet onInspect={setInspected} />
       ) : (
         <footer className="bottom" onClick={(e) => e.stopPropagation()}>
-          {mulligan ? (
+          {blocked ? (
+            <div className="hintbar" aria-live="polite">
+              <p className="muted">
+                <Glyph id="eye" size={16} /> The Collector is acting. Tap to skip.
+              </p>
+            </div>
+          ) : mulligan ? (
             <div className="hintbar mulligan">
               <p>Keep this hand?</p>
               <div className="hint-buttons">
@@ -271,7 +345,14 @@ export function Duel() {
           ) : (
             <div className="hintbar" aria-live="polite">
               {selView === null ? (
-                <p className="muted">Tap a card, then tap where to play it. Hold a card to inspect.</p>
+                <>
+                  <p className="muted">{undoWhy ?? 'Tap a card, then tap where to play it. Tap it again to put it back. Hold a card to inspect.'}</p>
+                  <div className="hint-buttons">
+                    <button type="button" className="btn ghost" disabled={!canUndo} onClick={() => undo()} title={undoWhy ?? undefined}>
+                      <Glyph id="undo" size={18} /> Undo
+                    </button>
+                  </div>
+                </>
               ) : (
                 <>
                   <p>
@@ -348,6 +429,7 @@ export function Duel() {
 
       {wide && <SidePanel shown={inspected ?? hovered} pinned={inspected !== null} onUnpin={() => setInspected(null)} log={log} />}
       {!wide && inspected !== null && <Inspect iid={inspected} onClose={() => setInspected(null)} />}
+      {menu && <DuelMenu log={log} onClose={() => setMenu(false)} />}
     </main>
   );
 }

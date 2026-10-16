@@ -35,6 +35,7 @@ export function Result() {
   const binder = useGame((s) => s.binder);
   const startPractice = useGame((s) => s.startPractice);
   const leavePractice = useGame((s) => s.leavePractice);
+  const openMenu = useGame((s) => s.openMenu);
   const openScreen = useGame((s) => s.openScreen);
   const [outcome, setOutcome] = useState<ShareOutcome | 'idle'>('idle');
   useEffect(() => {
@@ -136,10 +137,17 @@ export function Result() {
       {practice ? (
         <div className="result-actions two">
           <button type="button" className="btn primary" onClick={startPractice}>
-            <Glyph id="sword" size={18} /> Practice again
+            <Glyph id="swap" size={18} /> Replay
           </button>
-          <button type="button" className="btn" onClick={leavePractice}>
-            <Glyph id="back" size={18} /> Today's lot
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              leavePractice();
+              openMenu();
+            }}
+          >
+            <Glyph id="vault" size={18} /> Main menu
           </button>
         </div>
       ) : (
@@ -158,6 +166,9 @@ export function Result() {
           </button>
           <button type="button" className="btn" onClick={() => openScreen('stats')}>
             <Glyph id="scales" size={18} /> Stats
+          </button>
+          <button type="button" className="btn menu-return" onClick={openMenu}>
+            <Glyph id="vault" size={18} /> Main menu
           </button>
         </div>
       )}

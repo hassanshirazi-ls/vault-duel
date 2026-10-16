@@ -25,13 +25,15 @@ export interface MiniCardProps {
   readonly cue?: { readonly kind: string; readonly beat: number } | undefined;
   readonly large?: boolean;
   readonly preview?: string | undefined;
+  /** a labelled marker with an icon, for the Collector's telegraph (D-266) */
+  readonly mark?: { readonly icon: string; readonly label: string } | undefined;
   readonly style?: CSSProperties;
   readonly label?: string;
   /** a mouse entered or left the card; touch and pen never call this */
   readonly onHover?: ((on: boolean) => void) | undefined;
 }
 
-export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, style, label, onHover }: MiniCardProps) {
+export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, mark, style, label, onHover }: MiniCardProps) {
   const press = useLongPress(onTap, onLong);
   const frame = frameFor(view.keywords);
   const faceDown = monster?.faceDown === true;
@@ -131,18 +133,28 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
         </>
       )}
       {preview !== undefined && <span className="preview-badge">{preview}</span>}
+      {mark !== undefined && (
+        <span className="preview-badge">
+          <Glyph id={mark.icon} size={13} /> {mark.label}
+        </span>
+      )}
     </button>
   );
 }
 
 /** The back of a card the player cannot see (the Collector's traps and face-down monsters). */
-export function CardBack({ icon, label, onTap, glow = null }: { readonly icon: string; readonly label: string; readonly onTap?: (() => void) | undefined; readonly glow?: Glow }) {
+export function CardBack({ icon, label, onTap, glow = null, selected = false, mark }: { readonly icon: string; readonly label: string; readonly onTap?: (() => void) | undefined; readonly glow?: Glow; readonly selected?: boolean; readonly mark?: { readonly icon: string; readonly label: string } | undefined }) {
   return (
-    <button type="button" className="mini back" aria-label={label} data-glow={glow ?? undefined} onClick={onTap} disabled={onTap === undefined}>
+    <button type="button" className="mini back" aria-label={label} data-glow={glow ?? undefined} data-selected={selected ? '' : undefined} onClick={onTap} disabled={onTap === undefined}>
       <span className="mini-clip" />
       <span className="back-icon">
         <Glyph id={icon} size={28} />
       </span>
+      {mark !== undefined && (
+        <span className="preview-badge">
+          <Glyph id={mark.icon} size={13} /> {mark.label}
+        </span>
+      )}
     </button>
   );
 }

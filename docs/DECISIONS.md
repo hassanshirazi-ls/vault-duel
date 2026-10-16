@@ -2331,6 +2331,46 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
     required, `VITE_FEEDBACK_URL` optional).
 - Reason: owner's call. It replaces the personal-account plan discussed earlier the same day.
 
+**D-265 · Menus, Undo and the duel log** (owner feedback, 2026-10-16)
+- Date: 2026-10-16
+- Question: How do players move between the daily duel, Practice and the menus, take back a mistake without learning hidden information, and trace a game on a phone?
+- Decision:
+  - Home is the main menu: Daily duel (Enter the vault / Resume / Today's result), Practice (locked until the daily duel is over; Resume once one is saved), How to play, Binder, Stats. Both Result screens have a Main menu button; the Practice Result's "Practice again" is now "Replay".
+  - A menu button in the duel header opens a sheet: How to play (over the board), Duel log, Restart (Practice only, confirmed with a second tap) and Main menu. The daily duel and Practice stay saved when you leave.
+  - Undo removes the last player action of the current turn, in the daily duel and in Practice. It never goes past the start of the turn, and a Graft counts as one action. It is blocked at a checkpoint: an action whose events include Revealed, TrapTriggered, AttackCancelled, CardDrawn, Redrawn or HandDealt; an attack, summon, cast or graft finish made while the Collector had a set trap; the mulligan; and endTurn. One pure function holds the rules (`apps/web/src/view/undo.ts`), and the disabled button says why.
+  - The duel log is built from the action trail. It covers the whole duel, survives a reload and drops undone lines. Phones open it from the duel menu.
+- Reason: owner feedback after the v0.1 launch. The engine is deterministic from seed plus log, so undo is a truncation plus a replay. The checkpoints stop undo from leaking hidden information.
+
+**D-266 · Animation pacing and the Collector telegraph** (owner feedback, 2026-10-16; supersedes D-237's "snappy motion")
+- Date: 2026-10-16
+- Question: Players could not tell what had just happened. How fast should animations run?
+- Decision: Cue animations run about 2.2× slower: `TIMING` in `apps/web/src/visual/cues.ts` sets BEAT_MS 420, TAIL_MS 800, TELEGRAPH_MS 600 and SETTLE_MS 500, and the `--cue` token in tokens.css must equal BEAT_MS (a test checks it). The beat-merging cap is gone, so each beat finishes before the next. The Collector's turn plays one move at a time; before each move a telegraph lights his card or attacker, marks the target or slot, and names the move in a reserved status line (a face-down card is never named). Interface transitions keep the 190 ms `--beat`. One tap skips to the end of the sequence. The animations flag and reduced motion still turn it all off.
+- Reason: readability over speed; the sequence is skippable. The telegraph comes from the step's frames only, so engine results are unchanged.
+
+**D-267 · Graft un-pick rewrites the log**
+- Date: 2026-10-16
+- Question: Tapping a picked Graft material takes it out, but the engine has no un-pick action. How?
+- Decision: The store rewrites the log back to the current `graftBegin` and re-adds the kept picks, each taken from `getLegalActions`. It appends no graftCancel. The result is one state change with no animation and no log lines. If a kept pick would be illegal as the new first pick, the Graft stays unchanged and an error shows.
+- Reason: the log stays clean for replay and Undo, and a reload gives exactly the state shown.
+
+**D-268 · The tap that skips the Collector's turn is swallowed**
+- Date: 2026-10-16
+- Question: Should the tap that skips the Collector's sequence also press whatever is under it?
+- Decision: No. While his moves are still to play, the skipping tap is swallowed. Taps during cues that block nothing pass through, as before.
+- Reason: prevents an accidental End turn or card tap while the board changes under the finger.
+
+**D-269 · Unique, prefixed React keys** (bug: extra summoning zones and stray monsters)
+- Date: 2026-10-16
+- Question: What caused the extra summoning zones and monsters in the wrong slots?
+- Decision: Empty slots were keyed by slot index and monsters by instance id, and player instance ids start at 0, so keys collided and React reused the wrong elements. Keys are now `slot-${i}`, `g-${i}`, `m-${iid}`, `trap-${i}` and `h-${iid}`, built in `apps/web/src/view/keys.ts`. `test/keys.test.ts` runs the keys over every board state of four real duels; it failed with the old keys.
+- Reason: instance ids and slot indices overlap.
+
+**D-270 · The layout stays put when a selection changes**
+- Date: 2026-10-16
+- Question: How do selections avoid moving the board?
+- Decision: The mode toggles and the error line float over the board. The hint bar is a fixed 54 px with a 3-line clamp, the Collector status line is reserved at 20 px, and the Graft workbench is a fixed `min(52dvh, 360px)`. The short-phone `data-lifted` rule is gone. The header menu button is 32 px with a 44 px hit area, and the Collector name truncates before anything overflows.
+- Reason: about 20 px of board height buys a board that no longer jumps.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

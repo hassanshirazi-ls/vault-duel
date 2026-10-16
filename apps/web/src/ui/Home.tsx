@@ -1,6 +1,7 @@
 // Home as an auction catalogue (D-238): "Lot of <date>", difficulty stars, the day's signature card on a velvet plinth,
 // brass lines for the weekly twist, the Appraisal rounds and the bonus objectives, a deck list that folds open, and
-// one large "Enter the vault" button, with Practice (after today's duel), Binder and Stats beneath it.
+// the main menu beneath it (D-265): Daily duel (Play, Resume or Today's result), Practice (after today's duel), How to
+// play, Binder and Stats.
 import { deckLine, definitionView } from '../view/cards';
 import { Glyph } from '../visual/glyphs';
 import { useGame } from './context';
@@ -19,14 +20,24 @@ export function Home() {
   const ctx = useGame((s) => s.ctx);
   const setup = useGame((s) => s.setup);
   const source = useGame((s) => s.source);
-  const start = useGame((s) => s.start);
+  const enterDaily = useGame((s) => s.enterDaily);
   const dailyDone = useGame((s) => s.dailyDone);
   const startPractice = useGame((s) => s.startPractice);
+  const continuePractice = useGame((s) => s.continuePractice);
+  const practiceSaved = useGame((s) => s.practiceSaved);
+  const mode = useGame((s) => s.mode);
+  const state = useGame((s) => s.state);
+  const actions = useGame((s) => s.actions);
+  const daily = useGame((s) => s.daily);
   const openScreen = useGame((s) => s.openScreen);
   const openHowTo = useGame((s) => s.openHowTo);
   const [inspect, setInspect] = useState(false);
   if (ctx === null || setup === null) return null;
   const { difficulty } = setup;
+  // while Practice is the running duel the daily one waits in `daily`
+  const dailyState = mode === 'daily' ? state : (daily?.state ?? null);
+  const dailyMoves = mode === 'daily' ? actions.length : (daily?.actions.length ?? 0);
+  const dailyLabel = dailyState?.result != null ? "Today's result" : dailyState !== null && dailyMoves > 0 ? 'Resume' : 'Enter the vault';
   const g = ctx.globals;
   const twist = setup.twist >= 0 ? ctx.twistText[setup.twist] : undefined;
   const sig = definitionView(ctx, setup.signature);
@@ -108,22 +119,32 @@ export function Home() {
         </ol>
       </details>
 
-      <button type="button" className="btn primary large" onClick={start}>
-        <Glyph id="vault" size={24} /> Enter the vault
-      </button>
-      <nav className="home-links" aria-label="More">
-        <button type="button" className="btn ghost" disabled={!dailyDone} onClick={startPractice}>
+      <nav className="home-links menu" aria-label="Main menu">
+        <button type="button" className="btn primary large" onClick={enterDaily}>
+          <Glyph id="vault" size={24} />
+          <span className="entry">
+            Daily duel
+            <span className="soon">{dailyLabel}</span>
+          </span>
+        </button>
+        <button type="button" className="btn" disabled={!dailyDone} onClick={practiceSaved ? continuePractice : startPractice}>
           <Glyph id={dailyDone ? 'sword' : 'lock'} size={18} />
-          Practice
-          {!dailyDone && <span className="soon">After today</span>}
+          <span className="entry">
+            Practice
+            <span className="soon">{!dailyDone ? 'After today' : practiceSaved ? 'Resume' : 'Unrecorded'}</span>
+          </span>
         </button>
-        <button type="button" className="btn ghost" onClick={() => openScreen('binder')}>
+        <button type="button" className="btn" onClick={openHowTo}>
+          <Glyph id="scroll" size={18} />
+          <span className="entry">How to play</span>
+        </button>
+        <button type="button" className="btn" onClick={() => openScreen('binder')}>
           <Glyph id="deck" size={18} />
-          Binder
+          <span className="entry">Binder</span>
         </button>
-        <button type="button" className="btn ghost" onClick={() => openScreen('stats')}>
+        <button type="button" className="btn" onClick={() => openScreen('stats')}>
           <Glyph id="scales" size={18} />
-          Stats
+          <span className="entry">Stats</span>
         </button>
       </nav>
       <FeedbackLink />

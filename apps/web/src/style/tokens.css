@@ -66,8 +66,10 @@
   --iron-plate: linear-gradient(#3a322f 0%, #251f1d 48%, #1a1514 100%);
   --brass-plate: linear-gradient(#d9bb72 0%, #b08f4a 42%, #7b5f28 100%);
 
-  /* motion: one beat is about 190 ms (D-237); zero turns every animation off */
+  /* motion: --beat times interface transitions (about 190 ms, D-237); --cue times the event animations, which D-266 slowed
+     so a player can follow them. --cue equals TIMING.BEAT_MS in visual/cues.ts (a test checks it). Zero turns all off. */
   --beat: 190ms;
+  --cue: 420ms;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* sizes: corners stay small and square-ish; nothing is a pill */
@@ -79,9 +81,11 @@
 /* the animations flag (FLAGS.ANIMATIONS) and the OS reduced-motion setting both end motion */
 [data-anim='off'] {
   --beat: 0ms;
+  --cue: 0ms;
 }
 @media (prefers-reduced-motion: reduce) {
   :root {
     --beat: 0ms;
+    --cue: 0ms;
   }
 }

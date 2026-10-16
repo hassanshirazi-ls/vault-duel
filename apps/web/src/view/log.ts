@@ -1,4 +1,4 @@
-// Duel log lines from engine events (D-240, wide screens). Presentation only: events in, short sentences out. Names come
+// Duel log lines from engine events (D-240, D-265). Presentation only: events in, short sentences out. Names come
 // from compiled content, numbers from the events themselves, so no rule or value is written here.
 import type { GameEvent, GameState, Iid, Side } from '@vault-duel/engine';
 import { MOOD_NAMES } from '@vault-duel/ai';
@@ -79,4 +79,12 @@ export function logLines(ctx: GameCtx, state: GameState, events: readonly GameEv
     }
   }
   return out;
+}
+
+/**
+ * The whole duel's log, oldest first, from the action trail (not capped, so a full duel fits). Built from the trail
+ * instead of kept as it grows, so it is complete after a reload and an undone action leaves no line behind.
+ */
+export function duelLog(ctx: GameCtx, state: GameState, trail: readonly { readonly events: readonly GameEvent[] }[]): LogLine[] {
+  return trail.flatMap((r) => logLines(ctx, state, r.events));
 }

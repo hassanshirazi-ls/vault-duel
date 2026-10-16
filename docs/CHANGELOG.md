@@ -38,3 +38,9 @@ Each item names the decision (D-number) that made the change, and a line that ch
 ### Added
 
 - The simulator runs: `pnpm sim quick`, `pnpm sim full` and `pnpm sim seed <date>`. The game and date counts come from `SIM_QUICK_GAMES`, `SIM_FULL_GAMES` and `SIM_SEED_CHECK_DATES`, and `--set NAME=value` overrides any global. Each run writes `docs/reports/<command>-<date>.md` and `.json` with every balance metric against its `TARGET_*` global. The globals `SIM_*`, `TARGET_*` and `PERF_DUELS_PER_SEC_PER_CORE` are now read, so the `not yet read` line drops from 21 globals to 5 (D-205).
+
+## 2026-10-16
+
+### Changed
+
+- Web app, no content change: a bug fix for extra summoning zones, a main menu, a duel menu with the log, Undo to the start of your turn, tap-again to take a Graft material out, slower animations with a telegraph before each Collector move, and a steadier layout (D-265 to D-270).

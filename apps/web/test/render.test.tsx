@@ -71,6 +71,33 @@ describe('screens render (server-side smoke)', () => {
   });
 });
 
+describe('the main menu and the duel menu button (D-265)', () => {
+  it('lists the menu entries on Home, a Menu button and Undo in the duel, and Main menu on the Result', async () => {
+    const booted = makeStore('2026-10-14');
+    await booted.store.getState().boot();
+    booted.store.getState().closeHowTo();
+    const home = html(booted);
+    for (const entry of ['Daily duel', 'Enter the vault', 'Practice', 'How to play', 'Binder', 'Stats']) expect(home).toContain(entry);
+
+    const h = await started('2026-10-14');
+    h.store.getState().act(h.store.getState().groups?.keep as Action);
+    const duel = html(h);
+    expect(duel).toContain('aria-label="Menu"');
+    expect(duel).toContain('Undo');
+    h.store.getState().openMenu();
+    expect(html(h)).toContain('Resume');
+
+    const done = await started('2026-10-14');
+    for (let i = 0; i < 600 && done.store.getState().state?.result === null; i++) done.store.getState().act(simplePick(done.store.getState().legal));
+    expect(html(done)).toContain('Main menu');
+    done.store.getState().startPractice();
+    for (let i = 0; i < 600 && done.store.getState().state?.result === null; i++) done.store.getState().act(simplePick(done.store.getState().legal));
+    const practice = html(done);
+    expect(practice).toContain('Replay');
+    expect(practice).toContain('Main menu');
+  });
+});
+
 describe('How to play and feedback render', () => {
   it('shows the pages on first Home with the dialog markup, and the "?" button', async () => {
     const booted = makeStore('2026-10-14');

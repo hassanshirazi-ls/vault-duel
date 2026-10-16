@@ -1,6 +1,7 @@
 // Collector header (D-237, D-238): portrait that changes with mood, life, the intent plaque, the Appraisal countdown,
 // the mood indicator and a one-line quip that fades by itself. The 1-12 round track lives in RoundTrack.
 import type { CSSProperties } from 'react';
+import type { TelegraphLine } from '../view/telegraph';
 import type { Cue } from '../visual/cues';
 import { Glyph, InkSplash } from '../visual/glyphs';
 
@@ -91,10 +92,13 @@ export interface CollectorHeaderProps {
   readonly intent: { readonly icon: string; readonly label: string } | null;
   readonly appraisal: string | null;
   readonly quip: { readonly key: number; readonly text: string } | null;
+  /** the Collector's next move, announced before it happens (D-266); replaces the quip while it shows */
+  readonly telegraph: TelegraphLine | null;
   readonly cues: readonly Cue[];
   readonly directGlow: boolean;
   readonly onDirect: () => void;
   readonly previewDirect: string | undefined;
+  readonly onMenu: () => void;
 }
 
 export function CollectorHeader(p: CollectorHeaderProps) {
@@ -124,6 +128,9 @@ export function CollectorHeader(p: CollectorHeaderProps) {
               {MOOD_LABEL[p.moodName] ?? p.moodName}
             </span>
           )}
+          <button type="button" className="btn ghost menu-btn" aria-label="Menu" onClick={p.onMenu}>
+            <Glyph id="menu" size={20} />
+          </button>
         </div>
         <div className="collector-row">
           <button
@@ -153,11 +160,19 @@ export function CollectorHeader(p: CollectorHeaderProps) {
             <Glyph id="gavel" size={16} /> {p.appraisal}
           </p>
         )}
-        {p.quip !== null && (
-          <p key={p.quip.key} className="quip" role="status">
-            “{p.quip.text}”
-          </p>
-        )}
+        <div className="statusline">
+          {p.telegraph !== null ? (
+            <p className="telegraph" role="status">
+              <Glyph id={p.telegraph.icon} size={16} /> {p.telegraph.text}
+            </p>
+          ) : (
+            p.quip !== null && (
+              <p key={p.quip.key} className="quip" role="status">
+                “{p.quip.text}”
+              </p>
+            )
+          )}
+        </div>
       </div>
     </header>
   );
