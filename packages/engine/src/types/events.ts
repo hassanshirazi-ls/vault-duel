@@ -16,6 +16,7 @@ export type GameEvent =
   | { e: 'Appraised'; iid: Iid; fromSlot: number; to: 'board' | 'vault'; toSlot: number }
   | { e: 'AppraisalFailed'; round: number; reason: 'noTarget' }
   | { e: 'Repositioned'; iid: Iid; pos: Pos }
+  | { e: 'LaneMoved'; iid: Iid; from: number; to: number; swapped: Iid | -1 }
   | { e: 'Revealed'; iid: Iid; side: Side }
   | { e: 'Summoned'; side: Side; iid: Iid; slot: number; pos: Pos; faceDown: boolean }
   | { e: 'CovetousSummoned'; iid: Iid; sacrificed: Iid; slot: number }

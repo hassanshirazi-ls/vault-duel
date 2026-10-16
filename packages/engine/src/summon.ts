@@ -18,6 +18,33 @@ export function freeBoardSlot(s: GameState, side: Side): number {
   return -1;
 }
 
+/** Empty monster lanes (slot indexes), ascending (D-284). */
+export function freeLanes(s: GameState, side: Side): number[] {
+  const board = s.sides[side].board;
+  const out: number[] = [];
+  for (let i = 0; i < board.length; i++) if (board[i] === null) out.push(i);
+  return out;
+}
+
+/**
+ * The slot a new monster enters: the leftmost free one, or the chosen lane under FLAGS.LANES (D-284). The engine
+ * requires a lane with LANES on and rejects one with LANES off.
+ */
+export function entrySlot(run: Run, side: Side, lane: number | undefined): number {
+  const { tx, env } = run;
+  if (!env.g.FLAGS.LANES) {
+    if (lane !== undefined) throw new EngineError('lane given but FLAGS.LANES is off');
+    const slot = freeBoardSlot(tx.state, side);
+    if (slot < 0) throw new EngineError('summon: no free monster slot');
+    return slot;
+  }
+  if (lane === undefined) throw new EngineError('FLAGS.LANES is on: a lane is required');
+  if (!Number.isInteger(lane) || lane < 0 || lane >= tx.state.sides[side].board.length || tx.state.sides[side].board[lane] !== null) {
+    throw new EngineError(`lane ${lane} is not an empty lane`);
+  }
+  return lane;
+}
+
 /** Leftmost empty trap slot, or -1 (D-021). */
 export function freeTrapSlot(s: GameState, side: Side): number {
   const traps = s.sides[side].traps;
@@ -61,11 +88,10 @@ export function playUsed(run: Run): void {
   run.tx.set('step', 'attack');
 }
 
-/** Put a monster on the leftmost free slot (summon, Covetous). Returns the slot. */
-function enter(run: Run, side: Side, iid: Iid, mode: SummonMode): number {
+/** Put a monster on the leftmost free slot, or the chosen lane (summon, Covetous). Returns the slot. */
+function enter(run: Run, side: Side, iid: Iid, mode: SummonMode, lane: number | undefined): number {
   const { tx } = run;
-  const slot = freeBoardSlot(tx.state, side);
-  if (slot < 0) throw new EngineError('summon: no free monster slot');
+  const slot = entrySlot(run, side, lane);
   tx.setSlot(side, slot, makeMonster(iid, { pos: POS_OF_MODE[mode], faceDown: mode === 'down', entered: tx.state.turn }));
   run.emit({ e: 'Summoned', side, iid, slot, pos: POS_OF_MODE[mode], faceDown: mode === 'down' });
   return slot;
@@ -76,10 +102,10 @@ function takeFromHand(run: Run, side: Side, c: Iid): void {
 }
 
 /** `summon` action: hand -> leftmost free slot in the chosen mode, then onSummon (§5; D-122). */
-export function summon(run: Run, c: Iid, mode: SummonMode): number {
+export function summon(run: Run, c: Iid, mode: SummonMode, lane?: number): number {
   const side = activeSide(run.state);
   takeFromHand(run, side, c);
-  const slot = enter(run, side, c, mode);
+  const slot = enter(run, side, c, mode, lane);
   playUsed(run);
   run.dispatcher().onSummon({ iid: c, side, slot, covetous: false });
   run.flush();
@@ -91,7 +117,7 @@ export function summon(run: Run, c: Iid, mode: SummonMode): number {
  * destruction: no Ward, Echo, Haunt or trap hooks, D-058), it goes to its owner's discard (D-047),
  * then the card enters face-up and onSummon fires with `covetous: true`.
  */
-export function summonCovetous(run: Run, c: Iid, sac: Iid, mode: 'atk' | 'grd'): number {
+export function summonCovetous(run: Run, c: Iid, sac: Iid, mode: 'atk' | 'grd', lane?: number): number {
   const { tx, env } = run;
   const side = activeSide(tx.state);
   takeFromHand(run, side, c);
@@ -106,7 +132,7 @@ export function summonCovetous(run: Run, c: Iid, sac: Iid, mode: 'atk' | 'grd'):
     throw new EngineError(`covetous: ${sac} is neither on the board nor in the vault`);
   }
   tx.zonePush(tx.state.inst[sac]?.owner ?? side, 'discard', sac);
-  const slot = enter(run, side, c, mode);
+  const slot = enter(run, side, c, mode, lane);
   run.emit({ e: 'CovetousSummoned', iid: c, sacrificed: sac, slot });
   if (tx.state.inst[c]?.def === env.c.collector.ace && !tx.state.track.unpriced) {
     tx.set('track', { ...tx.state.track, unpriced: true });

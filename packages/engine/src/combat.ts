@@ -6,7 +6,8 @@
 //   monster: reveal a face-down target, snapshot, beforeCombat (flags OR-folded), queued effects
 //            (a vanished combatant fizzles the attack), resolve from the snapshot, CombatResolved,
 //            destroyBatch, then damage ("keywords and traps resolve before damage", D-032).
-import { attackTargets, Dispatcher } from './hooks/dispatch';
+import { Dispatcher } from './hooks/dispatch';
+import { laneTargets } from './lanes';
 import type { Env } from './hooks/registry';
 import { EngineError } from './errors';
 import { dealDamage } from './pipeline';
@@ -87,10 +88,13 @@ export function attackOptions(s: GameState, env: Env, attacker: Iid): Iid[] {
   if (m === null || m.pos !== 0 || m.faceDown || m.attacked === s.turn) return [];
   const perm = attackPermission(s, env, attacker);
   if (perm === 'none') return [];
-  const defSide = (1 - locSide(locate(s, attacker))) as Side;
-  const targets = attackTargets(env, s, attacker, defSide);
+  const targets = laneTargets(env, s, attacker);
   if (targets.length > 0) return targets;
-  return perm === 'any' ? [-1] : [];
+  if (perm !== 'any') return [];
+  // direct only against a wholly empty monster board (D-281); a lane with nothing across is not a direct attack
+  const enemy = s.sides[1 - locSide(locate(s, attacker)) as Side].board;
+  for (let i = 0; i < enemy.length; i++) if (enemy[i] !== null) return [];
+  return [-1];
 }
 
 /**

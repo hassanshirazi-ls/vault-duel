@@ -13,6 +13,10 @@ export interface Flags {
   readonly APPRAISED_ENTERS_GUARD: boolean;
   readonly ACE_SET_ASIDE: boolean;
   readonly CHIMERA_TO_HAND: boolean;
+  /** D-281: monsters attack only across their lane; default off = free targeting */
+  readonly LANES: boolean;
+  /** D-282: a lane move onto an own monster swaps places; read only with LANES */
+  readonly LANE_SWAP: boolean;
 }
 
 export type Range = readonly [number, number];
@@ -56,6 +60,13 @@ export interface Globals {
   readonly TETHERED_PENALTY: number;
   readonly RELIC_FLAWS: number;
   readonly SLOW_TURNS: number;
+  // Rule changes of 2026-10-16 (D-280..D-287)
+  /** D-280: 'classic' = no attack on the summon turn (Swift: monsters only); 'monstersOnly' = monsters yes, life no (Swift: any) */
+  readonly SICKNESS_MODE: 'classic' | 'monstersOnly';
+  /** D-283: lanes each side of a Sentinel that it covers; read only with FLAGS.LANES */
+  readonly SENTINEL_REACH: number;
+  /** D-282: lanes a lane move may travel; read only with FLAGS.LANES */
+  readonly LANE_MOVE_RANGE: number;
   // Graft
   readonly MIN_GRAFT_MATERIALS: number;
   readonly MAX_GRAFT_MATERIALS: number;

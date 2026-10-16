@@ -2,7 +2,7 @@
 // only ever choose from, or check against, this enumeration. Order is fixed and part of determinism:
 //
 //   over -> nothing | pending Graft -> stage actions + graftCancel | mulligan -> keep, redraw
-//   main and not yet played: reposition, summon, summonCovetous, cast, setTrap, graftBegin
+//   main and not yet played: reposition, moveLane (LANES), summon, summonCovetous, cast, setTrap, graftBegin
 //   main or attack: attack, endTurn
 //
 // Query hooks (Sentinel, Swift, Vain, Slow, Covetous) are consulted through stats.ts / dispatch.ts /
@@ -12,13 +12,14 @@ import { targetCandidates } from './effects/targets';
 import { forEachGraftAction, graftAllowed } from './graft';
 import { mustAttack } from './hooks/dispatch';
 import type { Env } from './hooks/registry';
-import { activeSide, isMonsterCard } from './stats';
-import { freeBoardSlot, freeTrapSlot, requirementOf, sacrificeCandidates } from './summon';
+import { activeSide, isMonsterCard, locate, locSlot } from './stats';
+import { freeBoardSlot, freeLanes, freeTrapSlot, requirementOf, sacrificeCandidates } from './summon';
 import type { Action, ActionVisitor, SummonMode } from './types/actions';
 import type { GameState, Iid, Side } from './types/state';
 
 const SUMMON_MODES: readonly SummonMode[] = ['atk', 'grd', 'down'];
 const COVETOUS_MODES = ['atk', 'grd'] as const;
+const NO_LANES: readonly number[] = [];
 
 /** Reposition step and the play: reposition, summon, summonCovetous, cast, setTrap, graftBegin. */
 function forEachPlay(env: Env, s: GameState, side: Side, visit: ActionVisitor): boolean {
@@ -31,20 +32,57 @@ function forEachPlay(env: Env, s: GameState, side: Side, visit: ActionVisitor): 
       if (visit({ t: 'reposition', m: m.iid })) return true; // a face-down monster has the one option (D-023)
     }
   }
+  const lanes = env.g.FLAGS.LANES;
+  if (lanes) {
+    // lane move or swap: after the repositions, own monsters in slot order, lanes ascending (D-282)
+    const range = env.g.LANE_MOVE_RANGE;
+    for (let i = 0; i < sd.board.length; i++) {
+      const m = sd.board[i];
+      if (m === null || m === undefined || m.entered >= s.turn || m.repositioned === s.turn) continue;
+      for (let to = Math.max(0, i - range); to <= i + range && to < sd.board.length; to++) {
+        if (to === i) continue;
+        const other = sd.board[to];
+        if (other !== null && other !== undefined) {
+          if (!env.g.FLAGS.LANE_SWAP || other.entered >= s.turn || other.repositioned === s.turn) continue;
+        }
+        if (visit({ t: 'moveLane', m: m.iid, to })) return true;
+      }
+    }
+  }
   const hand = sd.hand;
   const slotFree = freeBoardSlot(s, side) >= 0;
+  const free = lanes && slotFree ? freeLanes(s, side) : NO_LANES;
   for (let i = 0; i < hand.length; i++) {
     const c = hand[i] as Iid;
     // Judgment call: a Chimera card in hand (Echo, Grave Recall) is a monster and may be summoned in any of the three modes.
     if (!isMonsterCard(s, env, c) || !slotFree) continue;
     if (requirementOf(s, env, side, c).kind !== 'normal') continue;
-    for (const mode of SUMMON_MODES) if (visit({ t: 'summon', c, mode })) return true;
+    for (const mode of SUMMON_MODES) {
+      if (!lanes) {
+        if (visit({ t: 'summon', c, mode })) return true;
+        continue;
+      }
+      for (let k = 0; k < free.length; k++) if (visit({ t: 'summon', c, mode, lane: free[k] as number })) return true;
+    }
   }
   for (let i = 0; i < hand.length; i++) {
     const c = hand[i] as Iid;
     if (!isMonsterCard(s, env, c)) continue;
     for (const sac of sacrificeCandidates(s, env, side, c)) {
-      for (const mode of COVETOUS_MODES) if (visit({ t: 'summonCovetous', c, sac, mode })) return true;
+      // the sacrifice frees its own lane when it stands on the board (D-284)
+      const sacLoc = lanes ? locate(s, sac) : -1;
+      const sacLane = sacLoc >= 0 ? locSlot(sacLoc) : -1;
+      for (const mode of COVETOUS_MODES) {
+        if (!lanes) {
+          if (visit({ t: 'summonCovetous', c, sac, mode })) return true;
+          continue;
+        }
+        const board = sd.board;
+        for (let lane = 0; lane < board.length; lane++) {
+          if (board[lane] !== null && lane !== sacLane) continue;
+          if (visit({ t: 'summonCovetous', c, sac, mode, lane })) return true;
+        }
+      }
     }
   }
   for (let i = 0; i < hand.length; i++) {
@@ -131,10 +169,12 @@ export function sameAction(a: Action, b: Action): boolean {
       return a.t === b.t;
     case 'reposition':
       return b.t === 'reposition' && a.m === b.m;
+    case 'moveLane':
+      return b.t === 'moveLane' && a.m === b.m && a.to === b.to;
     case 'summon':
-      return b.t === 'summon' && a.c === b.c && a.mode === b.mode;
+      return b.t === 'summon' && a.c === b.c && a.mode === b.mode && a.lane === b.lane;
     case 'summonCovetous':
-      return b.t === 'summonCovetous' && a.c === b.c && a.sac === b.sac && a.mode === b.mode;
+      return b.t === 'summonCovetous' && a.c === b.c && a.sac === b.sac && a.mode === b.mode && a.lane === b.lane;
     case 'cast':
       return b.t === 'cast' && a.c === b.c && a.target === b.target;
     case 'setTrap':
@@ -144,7 +184,7 @@ export function sameAction(a: Action, b: Action): boolean {
     case 'graftKeywords':
       return b.t === 'graftKeywords' && a.kw === b.kw;
     case 'graftPosition':
-      return b.t === 'graftPosition' && a.pos === b.pos;
+      return b.t === 'graftPosition' && a.pos === b.pos && a.lane === b.lane;
     case 'attack':
       return b.t === 'attack' && a.a === b.a && a.target === b.target;
   }

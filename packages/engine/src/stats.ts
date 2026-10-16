@@ -185,8 +185,9 @@ export function attackPermission(s: GameState, env: Env, iid: Iid): AttackPerm {
   const side = locSide(loc);
   const m = s.sides[side].board[locSlot(loc)] as Monster;
   if (side === 0 && roundOf(s) < env.g.FIRST_ATTACK_ROUND_PLAYER) return 'none';
-  // universal summoning sickness (D-022)
-  const f = foldPerm(s, env, m, side, m.entered === s.turn ? PERM_RANK.none : PERM_RANK.any);
+  // summoning sickness: 'classic' none on the summon turn (D-022), 'monstersOnly' monsters but not life (D-280)
+  const sick = env.g.SICKNESS_MODE === 'monstersOnly' ? PERM_RANK.monstersOnly : PERM_RANK.none;
+  const f = foldPerm(s, env, m, side, m.entered === s.turn ? sick : PERM_RANK.any);
   return PERM_BY_RANK[Math.min(f >> 2, f & 3)] as AttackPerm;
 }
 

@@ -95,6 +95,8 @@ const Flags = z
     APPRAISED_ENTERS_GUARD: z.boolean(),
     ACE_SET_ASIDE: pinnedFlag(false), // D-184: pinned until the set-aside zone is wired
     CHIMERA_TO_HAND: z.boolean(),
+    LANES: z.boolean(),
+    LANE_SWAP: z.boolean(),
   })
   .strict();
 
@@ -138,6 +140,9 @@ const GlobalsShape = z
     TETHERED_PENALTY: Int,
     RELIC_FLAWS: pinned(1), // D-202: a Relic has exactly one Flaw (flaw is one id); keep 1
     SLOW_TURNS: Int,
+    SICKNESS_MODE: z.enum(['classic', 'monstersOnly']),
+    SENTINEL_REACH: Int,
+    LANE_MOVE_RANGE: Int,
     // Graft
     MIN_GRAFT_MATERIALS: pinned(2), // D-170, D-199: a graft takes exactly two materials; keep 2
     MAX_GRAFT_MATERIALS: Int.refine((value) => value >= 2 && value <= 3, GRAFT_RANGE), // D-170, D-199: 2 to 3

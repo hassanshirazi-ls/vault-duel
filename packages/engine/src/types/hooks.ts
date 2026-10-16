@@ -15,6 +15,7 @@ export const HOOK_NAMES = [
   'onTurnEnd',
   'onGraft',
   'attackPermission',
+  'attackReach',
   'restrictTargets',
   'mustAttack',
   'summonRequirement',
@@ -105,6 +106,12 @@ export interface QueryCtx {
 /** restrictTargets query context. §8.1 names it without defining it; carries the attacker being checked. */
 export interface TargetQueryCtx extends QueryCtx {
   readonly attacker: Iid;
+  /** Lane geometry (D-283): the attacker's lane (slot index), or -1 when unknown. */
+  readonly attackerLane: number;
+  /** FLAGS.LANES, so a hook can tell which geometry applies. */
+  readonly lanes: boolean;
+  /** SENTINEL_REACH (meaningful only when `lanes`). */
+  readonly reach: number;
 }
 
 export interface HookCtx<E> extends QueryCtx {
@@ -157,6 +164,8 @@ export interface Hooks {
   onTurnEnd?(ctx: HookCtx<TurnEvt>): void;
   onGraft?(ctx: HookCtx<GraftEvt>): void;
   attackPermission?(q: QueryCtx): { readonly grant?: AttackPerm; readonly restrict?: AttackPerm };
+  /** Lane offsets this monster reaches (D-284); default [0], union fold. A query hook; no keyword defines it yet. */
+  attackReach?(q: QueryCtx): readonly number[];
   restrictTargets?(q: TargetQueryCtx): boolean;
   mustAttack?(q: QueryCtx): boolean;
   summonRequirement?(q: QueryCtx): SummonReq;

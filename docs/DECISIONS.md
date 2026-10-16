@@ -2535,6 +2535,36 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   8. **Thornwall** (D-284): only fires on an empty player board under lanes. Recommended: leave, re-check after the sim.
 - Reason: the owner accepted every default so far; the list exists so none of these is decided silently.
 
+**D-289 · Sentinel geometry lives in `lanes.ts`, not in the keyword** (engine-dev, 2026-10-16)
+- Date: 2026-10-16
+- Question: ARCHITECTURE §8.5 calls Sentinel's `restrictTargets` cover-aware. Where does the lane geometry go?
+- Decision: `restrictTargets` stays a boolean ("I am a mandatory target for this attacker") and `keywords/sentinel.ts` is unchanged. `lanes.ts` applies D-283: own lane first, then Sentinels within `SENTINEL_REACH` of the attacker's lane. `TargetQueryCtx` gains `attackerLane`, `lanes` and `reach`, so a future keyword can read the geometry.
+- Reason: the one tie rule stays in one place. Moving the geometry into the hook later is a small change in `lanes.ts` and `sentinel.ts`.
+
+**D-290 · Swift's hook is mode-aware** (engine-dev, 2026-10-16)
+- Date: 2026-10-16
+- Question: D-280 changes what Swift grants, and its hook lives in a content keyword file.
+- Decision: Only the `attackPermission` line of `packages/content/keywords/swift.ts` changed. Under `classic` it grants `'monstersOnly'` (as before); under `monstersOnly` it grants `'any'`. The card text and examples are unchanged until the defaults flip.
+- Reason: there is no other place for the hook, and the examples still pass under the defaults.
+
+**D-291 · AI look-ahead names a lane under `LANES`** (engine-dev, 2026-10-16)
+- Date: 2026-10-16
+- Question: `packages/ai/src/shared/look-ahead.ts` builds a hypothetical summon with no lane, which the engine rejects when `FLAGS.LANES` is on, so every lanes duel crashed.
+- Decision: The smallest fix: add the leftmost free lane when `LANES` is on. Behavior is identical with it off. Real lane play (D-286) stays with ai-dev, who also checks for other hand-built actions.
+- Reason: keeps the sim runnable under lanes before the AI round.
+
+**D-292 · Cover is read from the attacker's own lane** (engine-dev, 2026-10-16)
+- Date: 2026-10-16
+- Question: How does `attackReach` combine with Sentinel cover?
+- Decision: The Sentinel check uses the attacker's own lane. A covering Sentinel replaces all reach targets, and a Sentinel in the attacker's lane is the only target, even when `attackReach` excludes offset 0.
+- Reason: follows D-283's wording; reach keywords (D-284) can't be used to dodge a Sentinel.
+
+**D-293 · Legal-action enumeration order with lanes** (engine-dev, 2026-10-16)
+- Date: 2026-10-16
+- Question: The spec put `moveLane` after `reposition` but left the nesting of lane expansions open.
+- Decision: `moveLane` entries follow all `reposition` entries. Summon nests card, then mode, then lane. Covetous nests card, sacrifice, mode, then lane; its lanes are the empty ones plus the board sacrifice's lane. Graft's position stage nests position, then lane; its lanes are the empty ones plus the board materials' lanes.
+- Reason: a fixed order keeps bots and replays deterministic.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

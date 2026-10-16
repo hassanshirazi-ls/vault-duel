@@ -127,14 +127,19 @@ export class QueryContext implements QueryCtx {
 }
 
 export class TargetQueryContext extends QueryContext implements TargetQueryCtx {
+  readonly lanes: boolean;
+  readonly reach: number;
   constructor(
     env: Env,
     s: StateRef,
     self: Iid,
     side: Side,
     readonly attacker: Iid,
+    readonly attackerLane: number = -1,
   ) {
     super(env, s, self, side, attacker);
+    this.lanes = env.g.FLAGS.LANES;
+    this.reach = env.g.SENTINEL_REACH;
   }
 }
 

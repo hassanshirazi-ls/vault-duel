@@ -18,6 +18,7 @@ import type { Env } from './hooks/registry';
 import { isLegal } from './legal';
 import { Run } from './pipeline';
 import type { Services } from './pipeline';
+import { moveLane } from './lane-move';
 import { reposition } from './reposition';
 import { setTrap, summon, summonCovetous } from './summon';
 import { Tx } from './tx';
@@ -69,11 +70,13 @@ function dispatch(run: Run, a: Action): void {
       return beginDuel(run);
     case 'reposition':
       return reposition(run, a.m);
+    case 'moveLane':
+      return moveLane(run, a.m, a.to);
     case 'summon':
-      summon(run, a.c, a.mode);
+      summon(run, a.c, a.mode, a.lane);
       return;
     case 'summonCovetous':
-      summonCovetous(run, a.c, a.sac, a.mode);
+      summonCovetous(run, a.c, a.sac, a.mode, a.lane);
       return;
     case 'cast':
       return castSpell(run, a.c, a.target);
@@ -89,7 +92,7 @@ function dispatch(run: Run, a: Action): void {
     case 'graftKeywords':
       return graftKeywords(run, a.kw);
     case 'graftPosition':
-      graftPosition(run, a.pos);
+      graftPosition(run, a.pos, a.lane);
       return;
     case 'graftCancel':
       return graftCancel(run);

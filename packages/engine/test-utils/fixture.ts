@@ -37,7 +37,8 @@ export const FX_KEYWORDS: readonly KeywordDef[] = [
   }),
   k('fx-sentinel', 'keyword', { restrictTargets: () => true }),
   k('fx-swift', 'keyword', {
-    attackPermission: (q) => (q.enteredThisTurn(q.self) ? { grant: 'monstersOnly' } : {}),
+    attackPermission: (q) =>
+      q.enteredThisTurn(q.self) ? { grant: q.g.SICKNESS_MODE === 'monstersOnly' ? 'any' : 'monstersOnly' } : {},
   }),
   k('fx-ward', 'keyword', { beforeDestroy: () => 'prevent' }),
   k('fx-covetous', 'flaw', {

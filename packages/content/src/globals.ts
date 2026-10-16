@@ -21,6 +21,9 @@ const FLAGS = {
   APPRAISED_ENTERS_GUARD: false,
   ACE_SET_ASIDE: false,
   CHIMERA_TO_HAND: true,
+  // D-281, D-282: LANES off = free targeting, as today; LANE_SWAP is read only with LANES
+  LANES: false,
+  LANE_SWAP: true,
 } as const satisfies Flags;
 
 const GLOBAL_VALUES = {
@@ -61,6 +64,10 @@ const GLOBAL_VALUES = {
   TETHERED_PENALTY: 2,
   RELIC_FLAWS: 1,
   SLOW_TURNS: 1, // 1 = DESIGN as written; 2 = proposal M-01
+  // Rule changes of 2026-10-16 (D-280..D-287); the shipped values are today's rules until the sim A/B
+  SICKNESS_MODE: 'classic', // 'classic' | 'monstersOnly' (D-280)
+  SENTINEL_REACH: 1, // read only with FLAGS.LANES (D-283)
+  LANE_MOVE_RANGE: 1, // read only with FLAGS.LANES (D-282)
   // Graft
   MIN_GRAFT_MATERIALS: 2,
   MAX_GRAFT_MATERIALS: 3,

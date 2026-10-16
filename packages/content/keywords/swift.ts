@@ -11,7 +11,9 @@ export default defineKeyword({
   visual: 'motion-streaks',
   text: 'Can attack monsters the turn it is summoned, but not life directly.',
   hooks: {
-    attackPermission: (q) => (q.enteredThisTurn(q.self) ? { grant: 'monstersOnly' } : {}),
+    // 'classic': monsters but not life (D-041); 'monstersOnly' sickness already allows monsters, so Swift adds life (D-280)
+    attackPermission: (q) =>
+      q.enteredThisTurn(q.self) ? { grant: q.g.SICKNESS_MODE === 'monstersOnly' ? 'any' : 'monstersOnly' } : {},
   },
   examples: [
     `

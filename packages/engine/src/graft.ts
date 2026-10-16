@@ -9,7 +9,7 @@ import type { Env } from './hooks/registry';
 import { makeMonster } from './monster';
 import type { Run } from './pipeline';
 import { activeSide, elementOf, kindOf, locate, locSlot, printedKw } from './stats';
-import { freeBoardSlot, playUsed } from './summon';
+import { entrySlot, playUsed } from './summon';
 import { markRound } from './track';
 import type { Action, ActionVisitor } from './types/actions';
 import { DefType } from './types/content';
@@ -223,7 +223,7 @@ export function unstableExpiry(turn: number, g: Globals): number {
 }
 
 /** `graftPosition`: commit (§5.6). Materials are sacrificed, not destroyed: no hooks, owner's discard (D-058). */
-export function graftPosition(run: Run, pos: Pos): number {
+export function graftPosition(run: Run, pos: Pos, lane?: number): number {
   const { tx, env } = run;
   const p = pendingOf(tx.state, 'position');
   const side = activeSide(tx.state);
@@ -254,8 +254,7 @@ export function graftPosition(run: Run, pos: Pos): number {
     owner: side,
     chimera: { element, kw: p.kw, ascended, materials: mats, grafted: turn },
   });
-  const slot = freeBoardSlot(tx.state, side);
-  if (slot < 0) throw new EngineError('graft: no free monster slot after the sacrifice');
+  const slot = entrySlot(run, side, lane); // after the sacrifice, so a material's lane is free again (D-284)
   tx.setSlot(
     side,
     slot,
@@ -356,7 +355,19 @@ export function forEachGraftAction(s: GameState, env: Env, visit: ActionVisitor)
       }
       break;
     case 'position':
-      for (const pos of [0, 1] as const) if (visit({ t: 'graftPosition', pos })) return true;
+      if (!env.g.FLAGS.LANES) {
+        for (const pos of [0, 1] as const) if (visit({ t: 'graftPosition', pos })) return true;
+        break;
+      }
+      // one action per (position, lane); the lanes of board materials are free once they are sacrificed (D-284)
+      for (const pos of [0, 1] as const) {
+        const board = s.sides[side].board;
+        for (let lane = 0; lane < board.length; lane++) {
+          const occupant = board[lane];
+          if (occupant !== null && occupant !== undefined && !p.mats.includes(occupant.iid)) continue;
+          if (visit({ t: 'graftPosition', pos, lane })) return true;
+        }
+      }
       break;
   }
   const cancel: Action = { t: 'graftCancel' };

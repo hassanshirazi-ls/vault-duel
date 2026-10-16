@@ -110,7 +110,9 @@ export function lookAhead(b: Brain, s: GameState, viewer: Side): LookAhead {
   const summonLook = (iid: Iid): SummonLook | null => {
     const from = base();
     if (!from.sides[viewer].board.includes(null)) return null;
-    const hyp = apply(from, { t: 'summon', c: iid, mode: 'atk' });
+    // Under FLAGS.LANES a summon names its lane (D-284); the leftmost free one keeps this hypothetical what it was.
+    const lane = b.globals.FLAGS.LANES ? { lane: from.sides[viewer].board.indexOf(null) } : {};
+    const hyp = apply(from, { t: 'summon', c: iid, mode: 'atk', ...lane });
     if (hyp === null) return null;
     const foeIid = (slot: number): Iid => {
       const t = hyp.sides[foe].board[slot];

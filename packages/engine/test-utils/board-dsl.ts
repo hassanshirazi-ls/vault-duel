@@ -19,9 +19,10 @@
 //                P|C vault [<id> flags...] ...
 //   monster flags new moved done ward-used appraised p+2 g-1 p+3@7 g+1@7 unstable@T shroud@T
 //                chimera(<family>,<element>,<kw>,<kw>[,asc][,grafted@T])
-//   actions      do end | keep | redraw | summon <card> A|G|D | covetous <card> sac <ref> A|G | set <card>
-//                | reposition P0 | cast <card> [> <ref>] | attack P0 > C1|face
-//                | graft <ref> <ref> [| ascend <ref>] [| kw a,b] | pos A|G
+//   actions      do end | keep | redraw | summon <card> A|G|D [lane N] | covetous <card> sac <ref> A|G [lane N] | set <card>
+//                | reposition P0 | move P0 > N (lane move, FLAGS.LANES) | cast <card> [> <ref>] | attack P0 > C1|face
+//                | graft <ref> <ref> [| ascend <ref>] [| kw a,b] [| lane N] | pos A|G
+//   lanes        a board line `[a A] [-] [b G]` places by lane (slot index); the Globals under test come from the caller
 //   expectations expect legal|illegal <action> | expect P|C life N | expect <slot> empty|power N|guard N|pos X|card <id>|has <kw>
 //                | expect P|C hand|deck|discard|vault N | expect P|C hand|discard|vault has <id>
 //                | expect event <Name> [<slot>] | expect no event <Name> [<slot>] | expect winner P|C
@@ -455,6 +456,15 @@ class Runner {
     throw new ScenarioError(line, `position A|G|D, got '${tok ?? ''}'`);
   }
 
+  /** An optional trailing `lane N` in an action's words, as a spreadable fragment. */
+  private lane(line: number, words: readonly string[]): { lane?: number } {
+    const i = words.indexOf('lane');
+    if (i < 0) return {};
+    const n = Number(words[i + 1]);
+    if (!Number.isInteger(n)) throw new ScenarioError(line, `lane <number>, got '${words[i + 1] ?? ''}'`);
+    return { lane: n };
+  }
+
   /** One non-graft action from words (shared by `do`, `expect legal` and `expect illegal`). */
   action(line: number, words: readonly string[]): Action {
     const [verb, ...a] = words;
@@ -466,11 +476,15 @@ class Runner {
       case 'graftbegin': return { t: 'graftBegin' };
       case 'reposition': return { t: 'reposition', m: this.ref(line, a[0] ?? '') as Iid };
       case 'set': return { t: 'setTrap', c: this.ref(line, a[0] ?? '') as Iid };
-      case 'summon': return { t: 'summon', c: this.ref(line, a[0] ?? '') as Iid, mode: this.pos(line, a[1]) };
+      case 'move': {
+        if (a[1] !== '>') throw new ScenarioError(line, 'move <slot> > <lane>');
+        return { t: 'moveLane', m: this.ref(line, a[0] ?? '') as Iid, to: Number(a[2]) };
+      }
+      case 'summon': return { t: 'summon', c: this.ref(line, a[0] ?? '') as Iid, mode: this.pos(line, a[1]), ...this.lane(line, a) };
       case 'covetous': {
         const mode = this.pos(line, a[3]);
         if (a[1] !== 'sac' || mode === 'down') throw new ScenarioError(line, 'covetous <card> sac <ref> A|G');
-        return { t: 'summonCovetous', c: this.ref(line, a[0] ?? '') as Iid, sac: this.ref(line, a[2] ?? '') as Iid, mode };
+        return { t: 'summonCovetous', c: this.ref(line, a[0] ?? '') as Iid, sac: this.ref(line, a[2] ?? '') as Iid, mode, ...this.lane(line, a) };
       }
       case 'cast': {
         const gt = a.indexOf('>');
@@ -503,11 +517,13 @@ class Runner {
     let ascend: string | null = null;
     let kw: string[] | null = null;
     let pos: 'A' | 'G' = 'A';
+    let lane: { lane?: number } = {};
     for (const sec of sections.slice(1)) {
       const w = sec.split(/\s+/);
       if (w[0] === 'ascend') ascend = w[1] ?? '';
       else if (w[0] === 'kw') kw = (w[1] ?? '').split(',').filter((k) => k !== '');
       else if (w[0] === 'pos') pos = w[1] === 'G' ? 'G' : 'A';
+      else if (w[0] === 'lane') lane = this.lane(line, w);
       else throw new ScenarioError(line, `unknown graft section '${sec}'`);
     }
     this.apply(line, { t: 'graftBegin' });
@@ -527,7 +543,7 @@ class Runner {
       }
       this.apply(line, { t: 'graftKeywords', kw: mask >>> 0 });
     } else if (kw !== null) throw new ScenarioError(line, 'no keyword choice is needed');
-    this.apply(line, { t: 'graftPosition', pos: pos === 'A' ? 0 : 1 });
+    this.apply(line, { t: 'graftPosition', pos: pos === 'A' ? 0 : 1, ...lane });
   }
 
   private fail(line: number, msg: string): never {
