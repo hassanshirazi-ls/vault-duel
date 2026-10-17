@@ -10,7 +10,7 @@ const noop = (): void => undefined;
 export function GhostCard({ ghost }: { readonly ghost: GhostData }) {
   return (
     <div className="ghost-card" data-kind={ghost.kind} style={{ '--b': ghost.beat } as CSSProperties} inert aria-hidden="true">
-      <MiniCard view={ghost.view} monster={ghost.monster} side={ghost.side === 0 ? 'me' : 'them'} onTap={noop} onLong={noop} />
+      <MiniCard view={ghost.view} monster={ghost.monster} side={ghost.side === 0 ? 'me' : 'them'} symbiote={ghost.symbiote} onTap={noop} onLong={noop} />
       {ghost.kind === 'burn' ? (
         <>
           <span className="char" />

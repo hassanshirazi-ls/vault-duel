@@ -2841,6 +2841,15 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 **D-326 · The "best option" ranking** (ai-dev, 2026-10-16)
 - Decision: `rankBondOptions(preview, ctx?, weights?)` in `packages/ai/src/bots/rank-bonds.ts` scores each `bondOptions` entry with the expert weights and returns `{ best, scores[i] = { index, id, kind, score, reason }, order }`. `best` is -1 unless an option scores above 0.5 (better than doing nothing). Reasons are short phrases such as "dodges Appraisal", "fills a lane", "+2 Guard and Ward", "puts 2 cards under Appraisal". `bondRankContext(engine, content, state)` builds the optional context.
 
+**D-327 · Bond UI in the web app** (ui-dev, 2026-10-16; current style, owner pre-approved no new mockups)
+- Decision: with `FLAGS.BOND_ACTION`, "Play" and "Bond" pips show what is left this turn (open, used, closed by an attack), and selecting an attacker while the bond is unused warns "Attacking closes your bond." Split is a button on a selected Chimera and in its inspect sheet, with a preview of the parts and their lanes before the confirm. A hand monster gets an Attach button, then lit hosts with a "+Guard" badge; an attached card shows as a tab under its host and in full in inspect. `Split`, `Bonded`, `SymbioteEmerged` and `Appraised.sym` are logged and animated; the Appraisal ghost carries the tab. With all bond flags off, none of this renders.
+
+**D-328 · The Bond options sheet** (ui-dev, 2026-10-16)
+- Decision: a Bonds button beside Undo opens a sheet fed by `engine.bondOptions`, grouped Graft / Split / Symbiosis. Each row shows the result, keywords, lane or hand, Appraisal exposure ("safe" / "exposed in round N") and board deltas. Graft options fold into result families ("N ways to make it"). Tapping a row replays its steps through `performBond`, which checks each step against the legal list; a Graft opens the existing workbench at its position step. "Best" (badge, gold reason line, and a "Best: …" box that performs it) comes from ai `rankBondOptions` (D-326) and is a hint only.
+
+**D-329 · Bond copy lives in `view/howto.ts`** (ui-dev + content-author, 2026-10-16)
+- Decision: the Split and Symbiosis How to play pages appear only with their flags. The play, Graft, quiz and Appraisal lines follow `docs/reports/bond-flip-content-draft.md`, one constant per sentence, numbers rendered from globals. A `rules-text.json` content file is the long-term home (a schema change), not done now.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

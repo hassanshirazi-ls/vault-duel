@@ -27,13 +27,34 @@ import { useGame } from './context';
 import { DuelMenu } from './DuelMenu';
 import type { UndoTile } from './DuelMenu';
 import { ElementStrip } from './ElementStrip';
+import { BondSheet } from './BondSheet';
+import type { BondMode } from './BondSheet';
 import { GraftSheet } from './GraftSheet';
 import { useWide } from './hooks';
 import { Inspect } from './Inspect';
 import { CardBack, MiniCard } from './MiniCard';
 import { RoundTrack } from './RoundTrack';
 
-const CARD_CUES = new Set(['enter', 'graft', 'lunge', 'hit', 'ward', 'flash']);
+/** The turn's budget under BOND_ACTION (D-306): one card play and one bond action, each shown with an icon and a mark. */
+function Budget({ played, bond }: { readonly played: boolean; readonly bond: 0 | 1 | 2 }) {
+  const playState = played ? 'used' : 'open';
+  const bondState = bond === 0 ? 'open' : bond === 1 ? 'used' : 'closed';
+  const word = { open: 'available', used: 'used', closed: 'closed by your attack' } as const;
+  return (
+    <div className="budget" role="group" aria-label="This turn">
+      <span className="pip" data-state={playState} aria-label={`Card play: ${word[playState]}`}>
+        <span className="mark">{played ? <Glyph id="check" size={11} /> : null}</span>
+        <Glyph id="deck" size={14} /> Play
+      </span>
+      <span className="pip" data-state={bondState} aria-label={`Bond action: ${word[bondState]}`}>
+        <span className="mark">{bondState === 'used' ? <Glyph id="check" size={11} /> : bondState === 'closed' ? <Glyph id="cross" size={11} /> : null}</span>
+        <Glyph id="link" size={14} /> Bond
+      </span>
+    </div>
+  );
+}
+
+const CARD_CUES = new Set(['enter', 'graft', 'split', 'bond', 'lunge', 'hit', 'ward', 'flash']);
 /** while the Collector's moves play, nothing is offered */
 const NO_GROUPS = groupLegal([]);
 
@@ -54,6 +75,7 @@ export function Duel() {
   const [inspected, setInspected] = useState<Iid | null>(null);
   const [hovered, setHovered] = useState<Iid | null>(null);
   const [menu, setMenu] = useState(false);
+  const [bondSheet, setBondSheet] = useState<BondMode | null>(null);
   const wide = useWide();
   const { shown, cues, ghosts, telegraph, blocked, quip } = useStepFx(ctx, rt, state, events, frames);
   const undoNow = useMemo(() => undoStatus(trail), [trail]);
@@ -191,8 +213,9 @@ export function Duel() {
           const lit = telegraph?.actor === m.iid;
           const moveHere = mine && sel?.t === 'board' && sel.iid !== m.iid && plan.moves.has(i);
           const sac = mine && plan.sacs.has(m.iid);
+          const attachHere = mine && sel?.t === 'hand' && sel.attach === true && targets.has(m.iid);
           const glow = targets.has(m.iid) || telegraph?.target === m.iid || moveHere || sac ? 'target' : null;
-          const note = moveHere ? 'Swap' : sac ? (sel?.t === 'hand' && sel.sac === m.iid ? 'Here' : 'Sacrifice') : undefined;
+          const note = moveHere ? 'Swap' : attachHere ? `+${g.SYMBIOSIS_GUARD_BONUS} Guard` : sac ? (sel?.t === 'hand' && sel.sac === m.iid ? 'Here' : 'Sacrifice') : undefined;
           if (m.faceDown && !mine) {
             return niche(
               <CardBack
@@ -221,6 +244,7 @@ export function Duel() {
               mark={mark}
               monstersOnly={monstersOnly(g, rt.engine, S, m)}
               moved={movedThisTurn(g, S, m)}
+              symbiote={m.sym >= 0 ? view(m.sym) : null}
               onTap={() => tapBoard(m, mine)}
               onLong={() => setInspected(m.iid)}
               onHover={(on) => setHovered(on ? m.iid : null)}
@@ -279,7 +303,7 @@ export function Duel() {
   const hand = me.hand;
   const n = hand.length;
   const playable = (iid: Iid): boolean =>
-    groups.summons.has(iid) || groups.summonCovetous.has(iid) || groups.casts.has(iid) || groups.setTraps.has(iid);
+    groups.summons.has(iid) || groups.summonCovetous.has(iid) || groups.casts.has(iid) || groups.setTraps.has(iid) || groups.symbioses.has(iid);
   const handCard = (iid: Iid, i: number) => {
     const selected = sel?.t === 'hand' && sel.iid === iid;
     const mid = (n - 1) / 2;
@@ -301,10 +325,18 @@ export function Duel() {
   };
 
   const selView = sel === null ? null : view(sel.iid);
-  const hint = (() => {
+  // bond rules (D-305..D-320): display only. What may be done is whatever `groups` offers.
+  const F = g.FLAGS;
+  const bondsOn = F.SPLIT || F.SYMBIOSIS || F.BOND_ACTION;
+  const bondAvailable = groups.graftBegin !== null || groups.splits.size > 0 || groups.symbioses.size > 0;
+  const budgetShown = F.BOND_ACTION && !blocked && !mulligan && S.result === null;
+  const forfeitsBond = F.BOND_ACTION && S.bond === 0 && bondAvailable && sel?.t === 'board' && (plan.direct !== null || plan.targets.size > 0);
+  // `lead` is the first thing to do; `rest` is the small print. The bond warning sits between them so it is never cut off.
+  const hint = ((): { readonly lead: string; readonly rest: string } | null => {
     if (selView === null) return null;
     if (sel?.t === 'hand') {
-      if (!plan.anything) return 'This cannot be played right now.';
+      if (!plan.anything) return { lead: 'This cannot be played right now.', rest: '' };
+      if (sel.attach === true) return { lead: 'Tap a glowing host to attach it under.', rest: '' };
       const bits: string[] = [];
       const how = summonMode(sel) === 'down' ? 'face-down' : summonMode(sel) === 'grd' ? 'in Guard' : 'in Attack';
       if (plan.summon !== null) bits.push(`Tap an empty slot to summon it ${how}.`);
@@ -312,16 +344,19 @@ export function Duel() {
       else if (plan.sacs.size > 0) bits.push('Tap a glowing card to sacrifice, then a lane.');
       if (plan.targets.size > 0) bits.push('Tap a glowing target.');
       if (plan.setTrap !== null) bits.push('Tap an empty trap slot.');
-      return bits.join(' ');
+      if (plan.canAttach) bits.push('Or Attach it under a monster.');
+      return { lead: bits.join(' '), rest: '' };
     }
     const bits: string[] = [];
+    if (plan.split !== null) bits.push('Split it back into its parts.');
     if (L && plan.direct !== null) bits.push('His board is empty: tap his life to attack it.');
     else if (plan.direct !== null || plan.targets.size > 0) bits.push('Tap a glowing target to attack.');
     else if (noLifeLane !== null) bits.push('Empty lane: it cannot hit his life while he has monsters.');
     else if (plan.moves.size === 0) bits.push('No attack available.');
-    if (plan.moves.size > 0) bits.push('A lane move or a switch: once per turn.');
-    if (selMonster !== null && monstersOnly(g, rt.engine, S, selMonster)) bits.push('Summoned this turn: it can hit monsters, not life.');
-    return bits.join(' ');
+    const rest: string[] = [];
+    if (plan.moves.size > 0) rest.push('A lane move or a switch: once per turn.');
+    if (selMonster !== null && monstersOnly(g, rt.engine, S, selMonster)) rest.push('Summoned this turn: it can hit monsters, not life.');
+    return { lead: bits.join(' '), rest: rest.join(' ') };
   })();
 
   // the element compass (D-272), now a strip over the round track so it never covers a lane: for the picked monster,
@@ -333,6 +368,10 @@ export function Duel() {
       {compassId !== null && <ElementStrip focus={compassId} />}
     </div>
   );
+  const openSplit = (m: Iid): void => {
+    setInspected(null);
+    setBondSheet({ t: 'split', m });
+  };
   const maxLife = g.PLAYER_LIFE;
   const myDamage = cues.find((c) => c.kind === 'damage' && c.side === 0);
   const moodLabel = moodName(g, S);
@@ -345,7 +384,7 @@ export function Duel() {
   const undoWhy = !blocked && !undoNow.ok && undoNow.why !== 'nothing' ? UNDO_WHY[undoNow.why] : null;
 
   return (
-    <main className="duel" data-graft={pending !== null ? '' : undefined} onClick={() => setSel(null)}>
+    <main className="duel" data-graft={pending !== null ? '' : undefined} data-budget={budgetShown ? '' : undefined} onClick={() => setSel(null)}>
       {mode === 'practice' && (
         <p className="ribbon" role="status">
           <Glyph id="scroll" size={14} /> Practice · Unrecorded
@@ -414,6 +453,7 @@ export function Duel() {
         <GraftSheet onInspect={setInspected} />
       ) : (
         <footer className="bottom" onClick={(e) => e.stopPropagation()}>
+          {budgetShown && <Budget played={S.played} bond={S.bond} />}
           {blocked ? (
             <div className="hintbar" aria-live="polite">
               <p className="muted">
@@ -440,8 +480,15 @@ export function Duel() {
             <div className="hintbar" aria-live="polite">
               {selView === null ? (
                 <>
-                  <p className="muted">{undoWhy ?? 'Tap a card, then tap where to play it. Tap it again to put it back. Hold a card to inspect.'}</p>
+                  <p className="muted">
+                    {undoWhy ?? (bondsOn ? 'Tap a card, then tap where to play it.' : 'Tap a card, then tap where to play it. Tap it again to put it back. Hold a card to inspect.')}
+                  </p>
                   <div className="hint-buttons">
+                    {bondsOn && (
+                      <button type="button" className="btn bonds-btn" data-hot={bondAvailable ? '' : undefined} disabled={!bondAvailable} onClick={() => setBondSheet({ t: 'options' })}>
+                        <Glyph id="link" size={18} /> Bonds
+                      </button>
+                    )}
                     <button type="button" className="btn ghost" disabled={!canUndo} onClick={() => undo()} title={undoWhy ?? undefined}>
                       <Glyph id="undo" size={18} /> Undo
                     </button>
@@ -451,12 +498,29 @@ export function Duel() {
                 <>
                   <p>
                     {!(L && sel?.t === 'board') && <b>{selView.name} </b>}
-                    {hint}
+                    {hint?.lead}
+                    {forfeitsBond && (
+                      <span className="hint-warn">
+                        {' '}
+                        <Glyph id="lock" size={14} /> Attacking closes your bond.
+                      </span>
+                    )}
+                    {hint !== null && hint.rest !== '' && ` ${hint.rest}`}
                   </p>
                   <div className="hint-buttons">
                     {plan.cast !== null && (
                       <button type="button" className="btn primary" onClick={() => doAct(plan.cast as Action)}>
                         <Glyph id="spell" size={18} /> Cast
+                      </button>
+                    )}
+                    {sel?.t === 'hand' && plan.canAttach && (
+                      <button type="button" className="btn" aria-pressed={sel.attach === true} onClick={() => setSel({ ...sel, attach: sel.attach !== true })}>
+                        <Glyph id="link" size={18} /> Attach
+                      </button>
+                    )}
+                    {sel?.t === 'board' && plan.split !== null && (
+                      <button type="button" className="btn" onClick={() => setBondSheet({ t: 'split', m: sel.iid })}>
+                        <Glyph id="split" size={18} /> Split
                       </button>
                     )}
                     {plan.reposition !== null &&
@@ -533,8 +597,9 @@ export function Duel() {
         </footer>
       )}
 
-      {wide && <SidePanel shown={inspected ?? hovered} pinned={inspected !== null} onUnpin={() => setInspected(null)} log={log} />}
-      {!wide && inspected !== null && <Inspect iid={inspected} onClose={() => setInspected(null)} />}
+      {wide && <SidePanel shown={inspected ?? hovered} pinned={inspected !== null} onUnpin={() => setInspected(null)} log={log} onSplit={openSplit} />}
+      {!wide && inspected !== null && <Inspect iid={inspected} onClose={() => setInspected(null)} onSplit={openSplit} />}
+      {bondSheet !== null && <BondSheet mode={bondSheet} onClose={() => setBondSheet(null)} />}
       {menu && <DuelMenu log={log} undo={undoTile} onClose={() => setMenu(false)} />}
     </main>
   );

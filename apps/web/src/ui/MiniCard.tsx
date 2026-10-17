@@ -52,11 +52,13 @@ export interface MiniCardProps {
   readonly monstersOnly?: boolean;
   /** already used this turn's reposition: a position switch or a lane move (D-282) */
   readonly moved?: boolean;
+  /** the card attached under this monster (FLAGS.SYMBIOSIS, D-308): drawn as a small tab under the card */
+  readonly symbiote?: CardView | null | undefined;
   /** a mouse entered or left the card; touch and pen never call this */
   readonly onHover?: ((on: boolean) => void) | undefined;
 }
 
-export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, mark, style, label, onHover, monstersOnly = false, moved = false }: MiniCardProps) {
+export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, mark, style, label, onHover, monstersOnly = false, moved = false, symbiote = null }: MiniCardProps) {
   const press = useLongPress(onTap, onLong);
   const frame = frameFor(view.keywords);
   const flaw = view.keywords.find((k) => k.flaw);
@@ -65,7 +67,7 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
   const cueStyle = cue === undefined ? undefined : ({ '--b': cue.beat } as CSSProperties);
   const classes = ['mini', large ? 'large' : '', cue === undefined ? '' : `cue cue-${cue.kind}`].filter(Boolean).join(' ');
   const stat = (base: number | null): string => (base === null ? '' : String(base));
-  const status = [monster === undefined ? '' : monster.pos === 0 ? 'Attack position' : 'Guard position', view.ascended ? 'Ascended' : '', unstable ? 'Unstable' : '', monstersOnly ? 'Can attack monsters, not life, this turn' : '', moved ? 'Already moved this turn' : ''].filter(Boolean);
+  const status = [monster === undefined ? '' : monster.pos === 0 ? 'Attack position' : 'Guard position', view.ascended ? 'Ascended' : '', unstable ? 'Unstable' : '', monstersOnly ? 'Can attack monsters, not life, this turn' : '', moved ? 'Already moved this turn' : '', symbiote === null ? '' : `${symbiote.name} attached`].filter(Boolean);
   return (
     <button
       type="button"
@@ -79,6 +81,7 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
       data-down={faceDown ? '' : undefined}
       data-unstable={unstable ? '' : undefined}
       data-pos={monster?.pos}
+      data-sym={symbiote === null ? undefined : ''}
       style={{ ...elementStyle(view.element?.id), ...cueStyle, ...style }}
       aria-label={label ?? `${view.name}${view.power !== null ? `, Power ${stat(view.power)}, Guard ${stat(view.guard)}` : ''}${status.length > 0 ? `, ${status.join(', ')}` : ''}`}
       {...press}
@@ -170,6 +173,13 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
             <path pathLength="1" d="M2 62 14 74 26 52 38 74 50 52 62 74 74 52 86 74 98 60" />
           </svg>
         </>
+      )}
+      {symbiote !== null && (
+        <span className="sym-tab" title={`${symbiote.name}, attached`}>
+          <Glyph id="link" size={11} />
+          <Gem element={symbiote.element} />
+          <span className="sym-name">{symbiote.name}</span>
+        </span>
       )}
       {preview !== undefined && <span className="preview-badge">{preview}</span>}
       {mark !== undefined && (

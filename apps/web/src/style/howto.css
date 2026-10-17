@@ -673,3 +673,6 @@
 .try-result svg {
   vertical-align: -3px;
 }
+.sym-host {
+  padding-bottom: 14px;
+}

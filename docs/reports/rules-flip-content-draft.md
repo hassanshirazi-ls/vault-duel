@@ -137,3 +137,48 @@ Plain language for a new player. Each paragraph reads in well under 60 seconds. 
 6. **Ring identities.** No identity string is changed in this draft, because none names a matchup. Confirm, or ask for a flavor change (for example on Tide, now the answer to Lumen).
 7. **Unchanged keywords with a new meaning.** Vain ("best legal target"), Brittle ("any attack") and Pierce keep their text. Confirm the owner is happy that these read correctly under lanes without a change.
 8. **Collector text.** The Collector's own rules text in `collector.json` is not reviewed here, because the ai-dev agent is editing that file. A separate pass is needed when lanes flip.
+
+---
+
+## 6. Owner answers (2026-10-16)
+
+The owner is asleep and accepted the recommended default for each question in section 5. Nothing here changes live content yet.
+
+1. **Text follows its switch.** Yes. Swift, Sentinel and the rules text each flip in the same commit as their switch (`SICKNESS_MODE`, `FLAGS.LANES`, ring data). The current text stays until then.
+2. **Placeholder and plural.** Yes. Use `{SENTINEL_REACH|lane|lanes}`. The renderer picks singular or plural by value, so reach 0 reads "0 lanes" in the A/B variant, which is accepted.
+3. **Face-up.** No "face-up" in the Sentinel text. The rules page (section 4) says it.
+4. **Slow.** No text change. The sentence stays as it is.
+5. **Thornwall.** Unchanged (D-288 #8).
+6. **Ring identities.** Unchanged. No identity string names a matchup.
+7. **Vain, Brittle, Pierce.** Unchanged, as section 1 says.
+8. **Collector text pass.** Done now, see section 7.
+
+---
+
+## 7. Collector text pass (lanes, monsters-only sickness, ring A)
+
+Scope: every text field in `packages/content/collector.json`. The only player-facing text there is `dialogue` (three moods, four lines each). The `ai` block holds rule ids and parameter names; they are not shown to the player, but they are listed at the end of this section so nobody renames them by accident.
+
+**Result: no dialogue line becomes false.** No replacement is proposed.
+
+| Mood | Line | Still true under lanes, monsters-only sickness and ring A? |
+| --- | --- | --- |
+| composed | Every piece in my collection has a provenance. Yours will have one too. | Yes. Nothing about lanes or sickness. |
+| composed | Patience is the first virtue of any true collector. | Yes. |
+| composed | Set your monsters down gently. I will take them in good time. | Yes. Appraisal is by Power, not by lane. |
+| composed | What fine work. It would look splendid in my vault. | Yes. |
+| agitated | You are clumsier than I expected. Give me that one. | Yes. |
+| agitated | Every one of your monsters has a price, and I am running out of patience. | Yes. |
+| agitated | Your hounds are at my gate. Let them come. | Yes. Describes his stance, not an attack rule. |
+| agitated | I will have your strongest, and you will watch me take it. | Yes. "Strongest" is the highest Power, which lanes do not change. |
+| desperate | Very well, take your stand. I only want what is mine. | Yes. |
+| desperate | No more pretense. Everything you own is mine to appraise. | Yes, with a note. "Everything" was already an exaggeration: Appraisal takes only face-up monsters with Power 7 or more. Lanes and sickness do not change this, so it is not a flip item. Owner may tidy it at any time. |
+| desperate | Your vault is empty and so is your hand. Let us finish this. | Yes. |
+| desperate | Even ruin makes a fine display case. | Yes. |
+
+**AI names (not player text, checked for meaning under lanes):**
+
+- `attack: directIfEmpty`. The rule means "direct only when the whole foe board is empty" (`packages/ai/test/rules-attack.test.ts`). Under lanes, a direct hit is legal only when the player has no monsters at all (D-284), so the name still matches. Keep it.
+- `attack: lethal, killWithoutLoss, faceDownIfStrong, holdExceptVain` choose among legal (attacker, target) pairs. No name is false.
+- `summonLane: sentinelCenter, facingBeatable, facingEmpty, leftmostFree`. These are lane ids from D-286. They are correct.
+- `reposition: toAttackIfUsable`. Owner decision, not a text fix. It names only the position change. Under lanes the Collector may also move (`laneAware`, the lane rewording in ARCHITECTURE, D-286). If the owner wants him to move lanes, he needs `laneAware`. Changing `ai` rule lists is owner-only (D-166), so this is a question, not an edit.

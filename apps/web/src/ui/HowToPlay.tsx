@@ -17,10 +17,10 @@ import { Seal } from './Seal';
 const noop = (): void => undefined;
 
 /** A card drawn for display only: no tap, no focus (inert), hidden from assistive tech. */
-function Exhibit({ view }: { readonly view: HowToSamples['monsters'][number] }) {
+function Exhibit({ view, symbiote }: { readonly view: HowToSamples['monsters'][number]; readonly symbiote?: HowToSamples['monsters'][number] | undefined }) {
   return (
     <div className="ht-card" inert aria-hidden="true">
-      <MiniCard view={view} side="me" onTap={noop} onLong={noop} />
+      <MiniCard view={view} side="me" symbiote={symbiote ?? null} onTap={noop} onLong={noop} />
     </div>
   );
 }
@@ -115,6 +115,37 @@ function Illustration({ id, ctx, samples }: { readonly id: HowToArtId; readonly 
           <Glyph id="next" size={24} />
           <span className="g-r">
             <Exhibit view={samples.graft.result} />
+          </span>
+        </div>
+      );
+    case 'split':
+      return samples.graft === null ? (
+        <Glyph id="split" size={40} />
+      ) : (
+        <div className="ht-graft demo-split">
+          <span className="g-r">
+            <Exhibit view={samples.graft.result} />
+          </span>
+          <Glyph id="split" size={26} />
+          <span className="g-a">
+            <Exhibit view={samples.graft.a} />
+          </span>
+          <span className="g-b">
+            <Exhibit view={samples.graft.b} />
+          </span>
+        </div>
+      );
+    case 'symbiosis':
+      return samples.graft === null ? (
+        <Glyph id="link" size={40} />
+      ) : (
+        <div className="ht-graft demo-symbiosis">
+          <span className="g-b">
+            <Exhibit view={samples.graft.b} />
+          </span>
+          <Glyph id="link" size={26} />
+          <span className="g-a sym-host">
+            <Exhibit view={samples.graft.a} symbiote={samples.graft.b} />
           </span>
         </div>
       );

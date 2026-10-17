@@ -23,6 +23,8 @@ export interface Ghost {
   readonly beat: number;
   readonly view: CardView;
   readonly monster: Monster;
+  /** the card attached under it, which goes with it (D-308) */
+  readonly symbiote: CardView | null;
 }
 
 function ghostsFor(ctx: GameCtx, rt: Runtime, before: GameState, cues: readonly Cue[]): Ghost[] {
@@ -33,7 +35,7 @@ function ghostsFor(ctx: GameCtx, rt: Runtime, before: GameState, cues: readonly 
       const slot = before.sides[side].board.findIndex((m) => m !== null && m.iid === c.iid);
       const monster = before.sides[side].board[slot];
       if (slot < 0 || monster === null || monster === undefined) continue;
-      out.push({ iid: c.iid, kind: c.kind, side, slot, beat: c.beat, view: cardView(ctx, rt.engine, before, c.iid), monster });
+      out.push({ iid: c.iid, kind: c.kind, side, slot, beat: c.beat, view: cardView(ctx, rt.engine, before, c.iid), monster, symbiote: monster.sym >= 0 ? cardView(ctx, rt.engine, before, monster.sym) : null });
     }
   }
   return out;

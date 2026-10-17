@@ -6,7 +6,7 @@ import { definitionView } from './cards';
 import type { ElementInfo, GameCtx } from '../content/load';
 import { wheelLayout } from './wheel';
 
-export type HowToArtId = 'goal' | 'cards' | 'combat' | 'graft' | 'appraisal' | 'winning';
+export type HowToArtId = 'goal' | 'cards' | 'combat' | 'graft' | 'split' | 'symbiosis' | 'appraisal' | 'winning';
 
 export interface HowToPage {
   readonly id: HowToArtId;
@@ -23,12 +23,28 @@ export function joinList(items: readonly (string | number)[]): string {
   return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }
 
+/** "Graft, Split or Symbiosis" */
+const orList = (items: readonly string[]): string => (items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`);
+
+/**
+ * The bond actions that exist under the current switches (D-305, D-306): Graft always, Split and Symbiosis when their flag
+ * is on. `BOND_ACTION` takes them out of the card play, so the play sentence stops naming them and a bond line appears.
+ */
+function bondNames(g: GameCtx['globals']): string[] {
+  return ['Graft', ...(g.FLAGS.SPLIT ? ['Split'] : []), ...(g.FLAGS.SYMBIOSIS ? ['Symbiosis'] : [])];
+}
+
 export function howToPages(ctx: GameCtx): HowToPage[] {
   const g = ctx.globals;
   const f = g.FLAGS;
   const r = ctx.render;
   const deckSize = g.DECK_MONSTERS + g.DECK_SPELLS + g.DECK_TRAPS;
   const when = <T,>(on: boolean, ...lines: T[]): T[] => (on ? lines : []);
+  const bonds = bondNames(g);
+  const bondTurn = f.BOND_ACTION;
+  // the play sentence by switch state (docs/reports/bond-flip-content-draft.md 3a): with the bond action on, Graft is no longer a play
+  const playTail = bondTurn ? '' : bonds.length === 1 ? ', or Graft' : `, or use ${orList(bonds)}`;
+  const playSummaryTail = bondTurn ? '' : bonds.length === 1 ? ' or Graft' : ` or use ${orList(bonds)}`;
   const pages: HowToPage[] = [
     {
       id: 'goal',
@@ -44,12 +60,17 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
     {
       id: 'cards',
       title: 'Playing cards',
-      summary: r('Each turn you draw back up to {HAND_SIZE} cards, then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell, set a trap or Graft. Tap a card, then tap where it goes. Hold any card to read it.'),
+      summary: bondTurn
+        ? r('Each turn you draw back up to {HAND_SIZE} cards, then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell or set a trap. Tap a card, then tap where it goes. Hold any card to read it.')
+        : r(`Each turn you draw back up to {HAND_SIZE} cards, then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell, set a trap${playSummaryTail}. Tap a card, then tap where it goes. Hold any card to read it.`),
       lines: [
         r('You begin with {OPENING_HAND} cards.'),
         ...when(f.REDRAW, r('Before round 1 you may send your hand back for a fresh one ({REDRAWS|redraw|redraws}).')),
         r('Each turn you draw back up to {HAND_SIZE} cards, at most {MAX_DRAW_PER_TURN|card|cards} a turn.'),
-        r('Then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell, set a trap, or Graft.'),
+        bondTurn
+          ? r('Then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell or set a trap.')
+          : r(`Then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell, set a trap${playTail}.`),
+        ...when(bondTurn, r(`Before your first attack you may also make {BONDS_PER_TURN|bond action|bond actions}: ${orList(bonds)}, in either order. Your first attack ends the bond for the turn.`)),
         r('Your board has {BOARD_SLOTS} monster slots and {TRAP_SLOTS} trap slots.'),
         ...when(f.LANES, r('The {BOARD_SLOTS} monster slots are lanes: each of your monsters faces the Collector\'s slot straight across. You pick the lane when you summon.')),
         r('A monster stands in attack or guard. You may switch it {REPOSITIONS_PER_TURN|time|times} a turn, but not on the turn it was summoned.'),
@@ -77,7 +98,9 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
       title: 'Graft',
       summary: r('Graft joins {MIN_GRAFT_MATERIALS} monsters into one Chimera. The first material sets its element, and a preview shows the result before you confirm.') + (f.ASCEND ? r(' Add one more ({MAX_GRAFT_MATERIALS} in all) to Ascend it.') : ''),
       lines: [
-        r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is your card play for the turn, and board materials are sacrificed.'),
+        bondTurn
+          ? r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is a bond action, so it does not use up your card play, and board materials are sacrificed.')
+          : r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is your card play for the turn, and board materials are sacrificed.'),
         'The two kinds set the family and its Power and Guard. The first material sets the element, so the order matters.',
         r('A Chimera inherits up to {MAX_INHERITED_KEYWORDS|keyword|keywords}. If more are available, you choose.'),
         ...when(f.ASCEND, r('Ascend: add one more monster ({MAX_GRAFT_MATERIALS} in all) for +{ASCEND_POWER} Power and +{ASCEND_GUARD} Guard.')),
@@ -86,13 +109,41 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
       ],
     },
     ...when<HowToPage>(
+      f.SPLIT,
+      {
+        id: 'split',
+        title: 'Split',
+        summary: 'Split unbinds a face-up Chimera of yours into the monsters it was grafted from.',
+        lines: [
+          'Split unbinds a face-up Chimera of yours into the monsters it was grafted from.',
+          'The first part keeps its slot; the rest take the nearest free slots, or go to your hand if there is no room.',
+          'Parts cannot attack or move that turn. Their materials must still be in your discard, and a Chimera that arrived this turn cannot split.',
+          'Splitting is not destruction, so Echo, Haunt, Last Rites and Insurance Claim do not trigger.',
+        ],
+      },
+    ),
+    ...when<HowToPage>(
+      f.SYMBIOSIS,
+      {
+        id: 'symbiosis',
+        title: 'Symbiosis',
+        summary: 'Symbiosis attaches a base monster from your hand under one of your face-up monsters.',
+        lines: [
+          'Symbiosis attaches a base monster from your hand under one of your face-up monsters.',
+          r("The host gains +{SYMBIOSIS_GUARD_BONUS} Guard and, if it has room, the attached monster's keyword."),
+          'The attached monster uses no slot. If the host is destroyed, it comes out in its slot as if newly summoned; if the host is Appraised, the Collector takes both.',
+          r('A host carries {SYMBIOTES_PER_HOST|attached monster|attached monsters} at most.'),
+        ],
+      },
+    ),
+    ...when<HowToPage>(
       f.APPRAISAL,
       {
         id: 'appraisal',
         title: 'Appraisal',
       summary: `At the start of his turn in rounds ${joinList(g.APPRAISAL_ROUNDS)} the Collector takes your highest-Power face-up monster, if its Power is ` + r('{APPRAISAL_MIN_POWER} or more. A countdown on screen always shows the next one.'),
         lines: [
-          `At the start of his turn in rounds ${joinList(g.APPRAISAL_ROUNDS)}, the Collector takes your highest-Power face-up monster.`,
+          `At the start of his turn in rounds ${joinList(g.APPRAISAL_ROUNDS)}, the Collector takes your highest-Power face-up monster${f.SYMBIOSIS ? ', and any monster attached under it' : ''}.`,
           r('Only a monster with Power {APPRAISAL_MIN_POWER} or more can be taken. Face-down monsters are safe.'),
           'A countdown on screen always shows the next Appraisal.',
           ...when(f.INTENTS, 'An icon beside his portrait shows what kind of turn he plans: attack, appraise, guard or scheme. It never shows which card.'),
@@ -197,8 +248,14 @@ export function howToQuiz(ctx: GameCtx, id: HowToArtId): Quiz | null {
         why: r('You start with {PLAYER_LIFE} life and the Collector with {COLLECTOR_LIFE}.'),
       };
     }
-    case 'cards':
-      return { question: 'How many cards can you play in one turn?', answers: numberAnswers(g.PLAYS_PER_TURN), why: r('You play {PLAYS_PER_TURN|card|cards} a turn: a summon, a spell, a trap or a Graft each use one.') };
+    case 'cards': {
+      const f = g.FLAGS;
+      const names = bondNames(g);
+      const uses = f.BOND_ACTION
+        ? r(`You play {PLAYS_PER_TURN|card|cards} a turn: a summon, a spell or a trap uses it. ${orList(names)} ${names.length === 1 ? 'is a bond action' : 'are bond actions'}, and you may make {BONDS_PER_TURN|bond action|bond actions} before your first attack.`)
+        : r(`You play {PLAYS_PER_TURN|card|cards} a turn: a summon, a spell, a trap or ${names.length === 1 ? 'a Graft' : `one of ${orList(names)}`} ${names.length === 1 ? 'each use' : 'each uses'} one.`);
+      return { question: 'How many cards can you play in one turn?', answers: numberAnswers(g.PLAYS_PER_TURN), why: uses };
+    }
     case 'combat': {
       const pair = advantagePair(ctx);
       if (pair === null) return null;
@@ -218,6 +275,22 @@ export function howToQuiz(ctx: GameCtx, id: HowToArtId): Quiz | null {
     }
     case 'graft':
       return { question: 'How many monsters does a plain Graft join?', answers: numberAnswers(g.MIN_GRAFT_MATERIALS), why: r('Graft joins {MIN_GRAFT_MATERIALS} monsters into one Chimera.') };
+    case 'split':
+      return {
+        question: 'Your board is full when you Split. Where does a part with no free slot go?',
+        answers: [
+          { label: 'It is lost', right: false },
+          { label: 'To your hand', right: true },
+          { label: "It stays in the Chimera's slot", right: false },
+        ],
+        why: 'A part with no room goes to your hand, so no card is lost.',
+      };
+    case 'symbiosis':
+      return {
+        question: 'How much Guard does a host gain from the monster attached under it?',
+        answers: numberAnswers(g.SYMBIOSIS_GUARD_BONUS),
+        why: r('The host gains +{SYMBIOSIS_GUARD_BONUS} Guard. Its Power does not change.'),
+      };
     case 'appraisal': {
       const first = g.APPRAISAL_ROUNDS[0];
       if (first === undefined) return null;

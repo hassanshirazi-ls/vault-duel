@@ -64,6 +64,14 @@ const STROKE: Readonly<Record<string, ReactNode>> = {
   heart: <path d="M12 20s-8-5-8-11a4.5 4.5 0 0 1 8-2.5A4.5 4.5 0 0 1 20 9c0 6-8 11-8 11z" />,
   swap: <path d="m7 4-4 4 4 4M3 8h14M17 20l4-4-4-4M21 16H7" />,
   check: <path d="m5 12 5 5 9-10" />,
+  // bond actions: split is one stem forking in two, link is two chain rings
+  split: <path d="M12 21v-8M12 13 5 5M12 13l7-8M5 5v5M5 5h5M19 5v5M19 5h-5" />,
+  link: (
+    <>
+      <rect x="2.5" y="8" width="12" height="8" rx="4" />
+      <rect x="9.5" y="8" width="12" height="8" rx="4" />
+    </>
+  ),
   cross: <path d="m6 6 12 12M18 6 6 18" />,
   info: (
     <>

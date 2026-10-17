@@ -14,6 +14,9 @@ export interface LogLine {
 const who = (side: Side): string => (side === 0 ? 'You' : 'The Collector');
 const sideOf = (side: Side): 'me' | 'them' => (side === 0 ? 'me' : 'them');
 
+const joinNames = (names: readonly string[]): string =>
+  names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+
 /** Lines for one step's events. `state` is the state after the step; instances persist there, so destroyed cards resolve. */
 export function logLines(ctx: GameCtx, state: GameState, events: readonly GameEvent[]): LogLine[] {
   const name = (iid: Iid): string => {
@@ -32,6 +35,21 @@ export function logLines(ctx: GameCtx, state: GameState, events: readonly GameEv
         break;
       case 'Grafted':
         out.push({ text: `${who(e.side)} grafted ${name(e.iid)}${e.ascended ? ' (Ascended)' : ''}`, icon: 'swap', side: sideOf(e.side) });
+        break;
+      case 'Split': {
+        const home = e.slots.filter((x) => x < 0).length;
+        out.push({
+          text: `${who(e.side)} split ${name(e.iid)} into ${joinNames(e.parts.map(name))}${home > 0 ? ` (${home} to hand)` : ''}`,
+          icon: 'split',
+          side: sideOf(e.side),
+        });
+        break;
+      }
+      case 'Bonded':
+        out.push({ text: `${who(e.side)} attached ${name(e.symbiote)} under ${name(e.host)}`, icon: 'link', side: sideOf(e.side) });
+        break;
+      case 'SymbioteEmerged':
+        out.push({ text: `${name(e.iid)} came out where ${name(e.host)} stood`, icon: 'link', side: sideOf(e.side) });
         break;
       case 'SpellCast':
         out.push({ text: `${who(e.side)} cast ${name(e.iid)}`, icon: 'spell', side: sideOf(e.side) });
@@ -64,7 +82,7 @@ export function logLines(ctx: GameCtx, state: GameState, events: readonly GameEv
         out.push({ text: 'The Collector appraises', icon: 'gavel', side: 'them' });
         break;
       case 'Appraised':
-        out.push({ text: `${name(e.iid)} was taken`, icon: 'gavel', side: 'them' });
+        out.push({ text: e.sym !== undefined && e.sym >= 0 ? `${name(e.iid)} and ${name(e.sym)} were taken` : `${name(e.iid)} was taken`, icon: 'gavel', side: 'them' });
         break;
       case 'AppraisalFailed':
         out.push({ text: 'The appraisal found nothing', icon: 'gavel', side: 'them' });
@@ -107,6 +125,8 @@ export function undoLabel(ctx: GameCtx, state: GameState, records: readonly { re
   };
   for (const r of records) {
     if (r.action.t === 'reposition') return `Reposition ${name(r.action.m)}`;
+    if (r.action.t === 'split') return `Split ${name(r.action.m)}`;
+    if (r.action.t === 'symbiose') return `Attach ${name(r.action.c)} under ${name(r.action.host)}`;
     if (r.action.t === 'moveLane') return `Move ${name(r.action.m)} to lane ${r.action.to + 1}`;
     for (const e of r.events) {
       if (e.e === 'Summoned') return e.faceDown ? 'Set a card face-down' : `Summon ${name(e.iid)}`;

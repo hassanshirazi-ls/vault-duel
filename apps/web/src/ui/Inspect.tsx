@@ -14,12 +14,59 @@ import { Sheet } from './Sheet';
 import { elementStyle } from '../visual/elements';
 
 /** The card details, without a container: the sheet and the wide-screen ledger panel both draw this. */
-export function InspectCard({ iid, onClose }: { readonly iid: Iid; readonly onClose?: (() => void) | undefined }) {
+export function InspectCard({ iid, onClose, onSplit }: { readonly iid: Iid; readonly onClose?: (() => void) | undefined; readonly onSplit?: ((iid: Iid) => void) | undefined }) {
   const ctx = useGame((s) => s.ctx);
   const rt = useGame((s) => s.rt);
   const state = useGame((s) => s.state);
+  const groups = useGame((s) => s.groups);
   if (ctx === null || rt === null || state === null) return null;
-  return <CardDetail c={cardView(ctx, rt.engine, state, iid)} onClose={onClose} />;
+  const host = state.sides.flatMap((side) => side.board).find((m) => m !== null && m.iid === iid);
+  const attached = host !== undefined && host !== null && host.sym >= 0 ? cardView(ctx, rt.engine, state, host.sym) : null;
+  const canSplit = onSplit !== undefined && groups?.splits.has(iid) === true;
+  const extra =
+    attached === null && !canSplit ? undefined : (
+      <>
+        {attached !== null && <Attached c={attached} />}
+        {canSplit && (
+          <button type="button" className="btn" onClick={() => onSplit?.(iid)}>
+            <Glyph id="split" size={18} /> Split
+          </button>
+        )}
+      </>
+    );
+  return <CardDetail c={cardView(ctx, rt.engine, state, iid)} onClose={onClose} extra={extra} />;
+}
+
+/** The card attached under a host (D-308): shown in full, since attaching it is a public act. */
+function Attached({ c }: { readonly c: CardView }) {
+  const ctx = useGame((s) => s.ctx);
+  if (ctx === null) return null;
+  return (
+    <section className="attached" aria-label={`Attached: ${c.name}`}>
+      <h3>
+        <Glyph id="link" size={16} /> Attached under it
+      </h3>
+      <p className="attached-name">
+        <Gem element={c.element} /> <b>{c.name}</b>
+        {c.kind !== null && <span className="dot"> · {c.kind}</span>}
+      </p>
+      <p className="muted">{ctx.render('The host gains +{SYMBIOSIS_GUARD_BONUS} Guard and, if it has room, this card\'s keyword. If the host leaves the board, this card comes out in its slot.')}</p>
+      <ul className="inspect-kw">
+        {c.keywords.map((k) => (
+          <li key={k.id} data-flaw={k.flaw ? '' : undefined}>
+            <span className="kw-glyph" data-flaw={k.flaw ? '' : undefined}>
+              <Glyph id={k.icon} size={16} cracked={k.flaw} />
+            </span>
+            <span>
+              <b>{k.name}</b>
+              <br />
+              {k.text}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 /** The detail layout for any card view; the Binder draws it from a definition (no duel instance). `extra` goes under the rule text. */
@@ -119,7 +166,7 @@ export function CardDetail({ c, onClose, extra }: { readonly c: CardView; readon
   );
 }
 
-export function Inspect({ iid, onClose }: { readonly iid: Iid; readonly onClose: () => void }) {
+export function Inspect({ iid, onClose, onSplit }: { readonly iid: Iid; readonly onClose: () => void; readonly onSplit?: ((iid: Iid) => void) | undefined }) {
   const ctx = useGame((s) => s.ctx);
   const rt = useGame((s) => s.rt);
   const state = useGame((s) => s.state);
@@ -127,7 +174,7 @@ export function Inspect({ iid, onClose }: { readonly iid: Iid; readonly onClose:
   const c = cardView(ctx, rt.engine, state, iid);
   return (
     <Sheet modal onClose={onClose} label={`Card: ${c.name}`}>
-      <InspectCard iid={iid} onClose={onClose} />
+      <InspectCard iid={iid} onClose={onClose} onSplit={onSplit} />
     </Sheet>
   );
 }

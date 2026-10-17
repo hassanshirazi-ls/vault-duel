@@ -507,6 +507,29 @@
 .cue-ward {
   animation-name: cue-ward;
 }
+.cue-split {
+  animation-name: cue-split;
+}
+.cue-bond {
+  animation-name: cue-bond;
+}
+/* Split: the parts break away from where the Chimera stood and settle with a flash; Symbiosis: the host takes a gilt pulse */
+@keyframes cue-split {
+  from {
+    transform: scale(1.25) rotate(-3deg);
+    filter: brightness(2.2);
+    opacity: 0;
+  }
+  50% {
+    filter: brightness(1.6);
+  }
+}
+@keyframes cue-bond {
+  30% {
+    transform: translateY(-5px) scale(1.05);
+    filter: brightness(1.8) sepia(0.6) saturate(2);
+  }
+}
 @keyframes cue-enter {
   from {
     transform: scale(0.6) translateY(-10px);
@@ -822,5 +845,81 @@
 @container (max-width: 56px) {
   .mini-status .tag[data-moved] {
     display: none;
+  }
+}
+
+/* ---- Symbiosis (D-308): the attached card hangs under its host as a small gilt tab, with a link glyph, its gem and its
+   name. It is part of the host's button, so a tap or a hold on it is a tap or a hold on the host. ---- */
+.sym-tab {
+  position: absolute;
+  left: 50%;
+  top: calc(100% - 3px);
+  translate: -50% 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  width: calc(100% + 4px);
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 0 0 4px 4px;
+  border: 1px solid var(--gold);
+  border-top-width: 2px;
+  background: var(--iron-plate);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.8);
+  color: var(--gold-hi);
+  pointer-events: none;
+}
+.sym-tab .gem {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+.sym-tab .gem svg {
+  width: 8px;
+  height: 8px;
+}
+.sym-tab > svg {
+  flex: none;
+}
+.sym-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* Inspect: the card attached under a host */
+.attached {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 3px;
+  border: 1px solid var(--gold-lo);
+  background: linear-gradient(#0f0a0a, #170f10);
+  box-shadow: inset 0 3px 8px #000;
+}
+.attached h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--gold-hi);
+}
+.attached-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+@container (max-width: 80px) {
+  .sym-tab > svg {
+    display: none;
+  }
+  .sym-name {
+    font-size: 10px;
   }
 }

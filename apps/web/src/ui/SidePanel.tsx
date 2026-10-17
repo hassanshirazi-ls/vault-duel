@@ -6,7 +6,7 @@ import { useGame } from './context';
 import { InspectCard } from './Inspect';
 import type { LogLine } from '../view/log';
 
-export function SidePanel({ shown, pinned, onUnpin, log }: { readonly shown: Iid | null; readonly pinned: boolean; readonly onUnpin: () => void; readonly log: readonly LogLine[] }) {
+export function SidePanel({ shown, pinned, onUnpin, log, onSplit }: { readonly shown: Iid | null; readonly pinned: boolean; readonly onUnpin: () => void; readonly log: readonly LogLine[]; readonly onSplit?: ((iid: Iid) => void) | undefined }) {
   const state = useGame((s) => s.state);
   if (state === null) return null;
   const [me, them] = state.sides;
@@ -37,7 +37,7 @@ export function SidePanel({ shown, pinned, onUnpin, log }: { readonly shown: Iid
           <p className="muted">Hover a card, or hold one, to examine it here.</p>
         ) : (
           <div className="panel-scroll">
-            <InspectCard iid={shown} onClose={pinned ? onUnpin : undefined} />
+            <InspectCard iid={shown} onClose={pinned ? onUnpin : undefined} onSplit={onSplit} />
           </div>
         )}
       </section>

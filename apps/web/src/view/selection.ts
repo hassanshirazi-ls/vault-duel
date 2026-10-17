@@ -4,7 +4,7 @@ import type { Action, Iid, SummonMode } from '@vault-duel/engine';
 import type { LegalGroups } from './legal';
 
 export type Selection =
-  | { readonly t: 'hand'; readonly iid: Iid; readonly faceDown: boolean; readonly guard: boolean; readonly sac?: Iid }
+  | { readonly t: 'hand'; readonly iid: Iid; readonly faceDown: boolean; readonly guard: boolean; readonly sac?: Iid; readonly attach?: boolean }
   | { readonly t: 'board'; readonly iid: Iid };
 
 export interface Plan {
@@ -27,6 +27,10 @@ export interface Plan {
   readonly reposition: Action | null;
   /** the summon modes this card may use, for the toggles */
   readonly modes: ReadonlySet<SummonMode>;
+  /** the selected hand monster can attach under a host (FLAGS.SYMBIOSIS): offers the Attach button */
+  readonly canAttach: boolean;
+  /** the selected Chimera can split (FLAGS.SPLIT): offers the Split button */
+  readonly split: Action | null;
   readonly anything: boolean;
 }
 
@@ -43,7 +47,14 @@ export function planFor(groups: LegalGroups, sel: Selection | null): Plan {
   let setTrap: Action | null = null;
   let cast: Action | null = null;
   let reposition: Action | null = null;
-  if (sel?.t === 'hand') {
+  let split: Action | null = null;
+  let canAttach = false;
+  if (sel?.t === 'hand' && sel.attach === true) {
+    // attach mode: only the hosts light up, each one a legal `symbiose`
+    for (const a of groups.symbioses.get(sel.iid) ?? []) targets.set(a.host, a);
+    canAttach = true;
+  } else if (sel?.t === 'hand') {
+    canAttach = (groups.symbioses.get(sel.iid)?.length ?? 0) > 0;
     const want = summonMode(sel);
     for (const a of groups.summons.get(sel.iid) ?? []) {
       modes.add(a.mode);
@@ -71,13 +82,14 @@ export function planFor(groups: LegalGroups, sel: Selection | null): Plan {
       else direct = a;
     }
     reposition = groups.repositions.get(sel.iid) ?? null;
+    split = groups.splits.get(sel.iid) ?? null;
     for (const a of groups.moveLanes.get(sel.iid) ?? []) moves.set(a.to, a);
   }
-  const anything = summon !== null || lanes.size > 0 || sacs.size > 0 || moves.size > 0 || targets.size > 0 || direct !== null || setTrap !== null || cast !== null || reposition !== null;
-  return { summon, lanes, sacs, moves, targets, direct, setTrap, cast, reposition, modes, anything };
+  const anything = summon !== null || lanes.size > 0 || sacs.size > 0 || moves.size > 0 || targets.size > 0 || direct !== null || setTrap !== null || cast !== null || reposition !== null || split !== null || canAttach;
+  return { summon, lanes, sacs, moves, targets, direct, setTrap, cast, reposition, modes, canAttach, split, anything };
 }
 
 /** Does a board monster have anything to do (so tapping it selects it instead of inspecting)? */
 export function boardActionable(groups: LegalGroups, iid: Iid): boolean {
-  return (groups.attacks.get(iid)?.length ?? 0) > 0 || groups.repositions.has(iid) || (groups.moveLanes.get(iid)?.length ?? 0) > 0;
+  return (groups.attacks.get(iid)?.length ?? 0) > 0 || groups.repositions.has(iid) || groups.splits.has(iid) || (groups.moveLanes.get(iid)?.length ?? 0) > 0;
 }

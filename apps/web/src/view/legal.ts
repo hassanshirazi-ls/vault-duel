@@ -19,6 +19,10 @@ export interface LegalGroups {
   /** board monster -> its lane moves, one per destination lane (FLAGS.LANES only, D-282) */
   readonly moveLanes: ReadonlyMap<Iid, readonly Extract<Action, { t: 'moveLane' }>[]>;
   readonly attacks: ReadonlyMap<Iid, readonly Extract<Action, { t: 'attack' }>[]>;
+  /** own Chimera -> its split (FLAGS.SPLIT, D-307) */
+  readonly splits: ReadonlyMap<Iid, Extract<Action, { t: 'split' }>>;
+  /** hand monster -> one symbiosis per legal host (FLAGS.SYMBIOSIS, D-308) */
+  readonly symbioses: ReadonlyMap<Iid, readonly Extract<Action, { t: 'symbiose' }>[]>;
   readonly graftPicks: ReadonlyMap<Iid, Action>;
   readonly graftKeywords: readonly Extract<Action, { t: 'graftKeywords' }>[];
   readonly graftPositions: readonly Extract<Action, { t: 'graftPosition' }>[];
@@ -44,6 +48,8 @@ export function groupLegal(legal: readonly Action[]): LegalGroups {
   const repositions = new Map<Iid, Action>();
   const moveLanes = new Map<Iid, Extract<Action, { t: 'moveLane' }>[]>();
   const attacks = new Map<Iid, Extract<Action, { t: 'attack' }>[]>();
+  const splits = new Map<Iid, Extract<Action, { t: 'split' }>>();
+  const symbioses = new Map<Iid, Extract<Action, { t: 'symbiose' }>[]>();
   const graftPicks = new Map<Iid, Action>();
   const graftKeywords: Extract<Action, { t: 'graftKeywords' }>[] = [];
   const graftPositions: Extract<Action, { t: 'graftPosition' }>[] = [];
@@ -62,6 +68,8 @@ export function groupLegal(legal: readonly Action[]): LegalGroups {
       case 'reposition': repositions.set(a.m, a); break;
       case 'moveLane': push(moveLanes, a.m, a); break;
       case 'attack': push(attacks, a.a, a); break;
+      case 'split': splits.set(a.m, a); break;
+      case 'symbiose': push(symbioses, a.c, a); break;
       case 'graftPick': graftPicks.set(a.m, a); break;
       case 'graftKeywords': graftKeywords.push(a); break;
       case 'graftPosition': graftPositions.push(a); break;
@@ -69,7 +77,7 @@ export function groupLegal(legal: readonly Action[]): LegalGroups {
   }
   return {
     keep, redraw, endTurn, graftBegin, graftCancel, graftSkipAscend, summons, summonCovetous, casts, setTraps, repositions, moveLanes,
-    attacks, graftPicks, graftKeywords, graftPositions,
+    attacks, splits, symbioses, graftPicks, graftKeywords, graftPositions,
   };
 }
 

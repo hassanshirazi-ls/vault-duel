@@ -3,7 +3,7 @@
 import type { GameEvent, Iid, Side } from '@vault-duel/engine';
 
 export type CueKind =
-  | 'enter' | 'graft' | 'lunge' | 'hit' | 'ward' | 'flash' | 'damage' | 'heal' | 'intent' | 'gavel' | 'mood' | 'burn' | 'taken';
+  | 'enter' | 'graft' | 'split' | 'bond' | 'lunge' | 'hit' | 'ward' | 'flash' | 'damage' | 'heal' | 'intent' | 'gavel' | 'mood' | 'burn' | 'taken';
 
 export interface Cue {
   readonly kind: CueKind;
@@ -44,6 +44,9 @@ export function cuesFromEvents(events: readonly GameEvent[]): Cue[] {
     switch (e.e) {
       case 'Summoned': add({ kind: 'enter', iid: e.iid }); break;
       case 'Grafted': add({ kind: 'graft', iid: e.iid }); break;
+      case 'Split': e.parts.forEach((iid, i) => add({ kind: 'split', iid }, i === e.parts.length - 1)); break;
+      case 'Bonded': add({ kind: 'bond', iid: e.host }); break;
+      case 'SymbioteEmerged': add({ kind: 'enter', iid: e.iid }); break;
       case 'LaneMoved':
         if (e.swapped >= 0) add({ kind: 'flash', iid: e.swapped }, false);
         add({ kind: 'flash', iid: e.iid });

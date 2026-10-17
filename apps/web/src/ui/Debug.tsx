@@ -34,7 +34,7 @@ export function DebugOverlay() {
             seed {setup?.seedString}#{setup?.k} · setup {source} · {mode}
           </p>
           <p>
-            turn {state?.turn} · step {state?.step} · mood {state === null ? '-' : MOOD_NAMES[state.collector.mood]} · intent {state?.collector.intent ?? '-'}
+            turn {state?.turn} · step {state?.step} · mood {state === null ? '-' : MOOD_NAMES[state.collector.mood]} · intent {state?.collector.intent ?? '-'} · played {String(state?.played)} · bond {state?.bond}
           </p>
           <p>overrides: {ctx.overrides.length === 0 ? 'none' : ctx.overrides.join(' ')}</p>
           <p>warnings: {ctx.warnings.length === 0 ? 'none' : ctx.warnings.length}</p>

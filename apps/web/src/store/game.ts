@@ -15,6 +15,7 @@ import type { BinderRecord, StatsRecord } from '../persistence/meta';
 import { objectivesMet } from '../view/objectives';
 import type { CheckProgress, SetupSource } from '../daily/rating';
 import type { KV } from '../persistence/storage';
+import { sameAction } from '../view/bond';
 import { groupLegal } from '../view/legal';
 import type { LegalGroups } from '../view/legal';
 import { UNDO_WHY, undoStatus } from '../view/undo';
@@ -91,6 +92,8 @@ export interface GameActions {
   /** begin the day's duel from a clean state */
   start(): void;
   act(action: Action): void;
+  /** A bond option from the Bond options sheet: its steps one by one, each checked against the legal list first */
+  performBond(steps: readonly Action[]): void;
   /** Graft ⇄: the same two materials in the other order, as legal actions (cancel, begin, pick, pick) */
   graftSwap(): void;
   /** Tap a picked material again: the Graft goes back to the same picks without it, as one change with no animation */
@@ -262,6 +265,18 @@ export function createGameStore(deps: GameDeps) {
           settle(step.state);
         } catch (e) {
           set({ error: e instanceof Error ? e.message : String(e) });
+        }
+      },
+
+      performBond(steps) {
+        for (const step of steps) {
+          const legal = get().legal;
+          if (!legal.some((a) => sameAction(a, step))) {
+            set({ error: 'That option is no longer available.' });
+            return;
+          }
+          get().act(step);
+          if (get().error !== null) return;
         }
       },
 
