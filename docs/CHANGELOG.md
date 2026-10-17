@@ -3,6 +3,20 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-17 · Simple mode: Graft only, Riposte, Ambush and a quieter table
+
+The rules changed, so a duel saved before this update starts over. `CONTENT_VERSION` stays `0.2.0`.
+
+- **Graft is the only bond** (D-336): `FLAGS.SPLIT` and `FLAGS.SYMBIOSIS` are now `false`. Their rules stay in the game, switched off, for future daily modes. The **Graft** button beside End turn is back and opens the workbench directly. Shroud's text drops "if you split it, this ends".
+- **Riposte** (`FLAGS.RIPOSTE`, D-337): attacking a guard (or face-down) monster with less Power than its Guard now destroys the attacker, and its owner still takes the difference. Guard holds a lane, and a face-down monster is a gamble to attack.
+- **Ambush** (`FLAGS.AMBUSH`, `AMBUSH_POWER` 2, D-338): flipping your face-down monster to attack gives it +2 Power until the end of the turn, and it can attack right away.
+- **The Collector** counts Riposte, never peeks at a face-down Guard, flips to Ambush when it wins a fight, and sets his guard summons face-down when Composed (`collector.json` `allowFaceDown` true, D-343…D-345). Collector life stays 40: the expert bot wins 50.6% (target 45–55%), greedy 28.3%, median 8 rounds.
+- **Quiet table** (D-339, D-346): the Collector's header is one row (his mood is the portrait ring's color); the round track is a thin strip with an "⚒ in k" Appraisal chip; lane labels are gone; the hint shows only while you hold a card; slot dots and your trap icons sit beside your life; the element wheel lives in Inspect.
+- **Fixed: Grave Recall did nothing** (D-347). Its targets are in your discard pile, which the board couldn't show. A **Choose** button now opens your discard pile.
+- **Fixed: a second row of slots over your traps** (D-339). Three overlapping layers (floating Attack/Face-up toggles, a ring inside each lit slot, full-height lane rails) are gone.
+- **Riposte and Ambush cues** (D-348): targets show "Riposte" or "?" (face-down), your face-down monster's flip button reads "+2", and both play a short effect.
+- **How to play** drops Split and Symbiosis, adds Riposte and Ambush, and shows once more for everyone.
+
 ## 2026-10-17 · Turn slots: one monster, one spell or trap, one bond, any order
 
 The rules changed, so a duel saved before this update starts over. `CONTENT_VERSION` stays `0.2.0`.

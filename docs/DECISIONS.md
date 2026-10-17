@@ -2879,6 +2879,63 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - UI: the pips above the hand show **Monster · Spell/Trap · Bond · Attacks (n left)**. One **Bond** button beside End turn replaces both the hint-bar Bonds button and the Graft button; the Bond sheet keeps hand-picked Grafts as "Graft: pick materials yourself" at the top of its Graft group. A monster that has attacked shows a tick and dims. The Sentinel cover badge has an arrow pointing at the Sentinel that pulls attacks into that lane (side attacks happen only through Sentinel cover; no keyword has `attackReach`). The attacker hint names side pulls ("A Sentinel in lane 2 pulls this attack to the side"), says "Direct hits only when his board is empty", and explains a missing attack (round 1, guard position, empty lane). How to play: "Play and bond" becomes **Your turn**, and the lanes page states that Sentinel cover is the only side attack and when a direct hit is possible. `HOWTO_VERSION` 2 shows the primer once more.
 - `seeds.json` is regenerated for the new rules.
 
+**D-336 · Simple mode: Graft is the only bond; Split and Symbiosis wait for daily modes** (owner, 2026-10-17; changes the D-332 defaults)
+- Owner: "lets go back to a simple game with only grafting and the lane zones. We can save symbiosis and split for daily game modes. Can keep everything else right now, go back to just the graft button and ui."
+- Decision: `FLAGS.SPLIT` and `FLAGS.SYMBIOSIS` default to **false**. Their engine, AI and UI code stays (behind the flags) so a later daily mode or twist can switch them back on. Everything else stays as shipped: lanes, monsters-only sickness, ring A, `BOND_ACTION` (Graft is its own slot) and `TURN_SLOTS`.
+- UI: with only Graft available, the bar beside End turn shows a **Graft** button that opens the Graft sheet directly (no Bond options sheet), and the slot cue reads Graft, not Bond. How to play and card text drop Split and Symbiosis while their flags are off (e.g. Shroud's "if you split it, this ends").
+- Balance note: `APPRAISAL_MIN_POWER` went 7 → 5 in D-332 because Split and Symbiosis kept monsters small. Re-checked in the D-340 sim round.
+
+**D-337 · Riposte: a guard that holds destroys the attacker** (owner pick, 2026-10-17; changes the DESIGN combat table under the flag)
+- Owner: "Make defense and face down more meaningful." Picked Riposte from three options (Riposte / Brace +2 Guard / Stand firm +1 Guard per survived attack).
+- Decision (`FLAGS.RIPOSTE`, default on, both sides): when an attack hits a guard-position defender (including a face-down one, revealed and resolved as guard), and the attacker's combat Power (element bonus included, the same snapshot as D-032) is **below** the defender's Guard, the **attacker is destroyed**, and its owner still takes the difference (unchanged). The destroyer is the defender, so Haunt, Ward, Echo and Insurance Claim work as for any destruction. A tie still does nothing; Power above Guard is unchanged (defender destroyed, Pierce as before). Off = the old rule (attacker survives).
+- Why: guard turns from "survive" into "hold the lane and punish", and because a face-down monster's Guard is hidden, attacking one becomes a real gamble.
+- AI: the Collector and all bots must count a Riposte loss when scoring attacks into guard, and treat a face-down defender's Guard as unknown (the redacted view) rather than peeking.
+
+**D-338 · Ambush flip: a face-down monster springs with +2 Power** (owner pick, 2026-10-17)
+- Owner picked Ambush flip from three options (Ambush flip / hidden wall only / Graft bonus).
+- Decision (`FLAGS.AMBUSH`, default on, both sides; `AMBUSH_POWER` = 2): when its controller flips a face-down monster to **attack** position with a reposition, it gains +`AMBUSH_POWER` Power until the end of that turn, and it may attack that turn (a reposition never blocks attacking; D-335's rule only blocks repositioning after attacking). Being revealed by an attack, by a spell or by Appraisal is not an Ambush. Flipping to face-up guard is not an Ambush. The normal reposition limits stay: not on the turn it was summoned, once per turn.
+- UI: a face-down monster that can spring shows an Ambush cue; the flip plays a short spring effect and the +2 shows as a timed buff.
+- AI: the Collector and the bots consider the Ambush flip when it wins a fight; the Collector may also set monsters face-down (ai-dev judgment, logged as a D-entry).
+
+**D-339 · Quiet table layout, Grave Recall picker, the stray slot row** (owner pick + owner bug reports, 2026-10-17; changes the D-237/D-238/D-334/D-335 duel layout)
+- Owner: "the game UI is very overwhelming. Lets simplify it while keeping visual queues." Picked **Quiet table** from three options (Quiet table / Focus mode / Two bars).
+- Layout: the Collector header becomes one row (portrait, life, intent plaque; mood shown as the portrait ring color, the mood name only in inspect or the menu). The round track becomes a thin strip with the Appraisal hammers, and the separate "Appraisal in round 3 · 2 away" line folds into it ("⚒ in 2"). Lane labels go. The hint text shows only while something is lifted or selected. The slot pips become small dots beside End turn (Monster, Spell/Trap, Graft, Attacks). The element wheel shows only in inspect. Trap slots shrink to small card-back icons near each side's life. Kept: glows on legal targets, attack arrows, attacked ticks, intent icon, Appraisal hammers, keyword frames.
+- Bug (owner): "grave recall spells do nothing for the player." Cause: the engine offers `cast` with a discard-pile target, but the duel screen only lights board targets, so lifting Grave Recall shows "Tap a glowing target" and nothing glows. Fix: a discard picker sheet for spells that target the discard.
+- Bug (owner): "Under the current player's 3 slots, another 3 slots show up slightly above and overlapping trap cards." A second row of lane slots draws over the trap row. Fix in the same web round, with a Playwright check at phone sizes.
+
+**D-340 · Owner authorization for the simple-mode round** (owner, 2026-10-17)
+- Owner said yes to running the whole chain and pushing live: engine (D-337, D-338, flags) → AI and bots → web (D-336 Graft button, D-339) → How to play, DESIGN rules text, CHANGELOG → sim check (retune `COLLECTOR_LIFE` if the expert leaves 45–55%) → seeds → main. Judgment calls made on the way are logged as D-341+.
+
+**D-341 · Riposte details** (engine-dev, 2026-10-17)
+- Riposte compares the same combat snapshot as D-032 (after on-declare effects and the face-down reveal), so Mirror Sigil's reduced Power counts against the attacker. Brittle makes the attacker win outright, so a Brittle kill is never Riposted. Pierce only matters when the attacker wins, so it never meets Riposte. Ward on the attacker saves it through the normal destroy path. The destroyer is the defender, so Haunt, Echo and Insurance Claim apply as for any destruction. Same rule for the Collector's attacks.
+- `previewCombat(...).outcome.destroyAttacker` shows a Riposte in advance; a face-down target stays `known: false`.
+
+**D-342 · Ambush details** (engine-dev, 2026-10-17)
+- The +`AMBUSH_POWER` is a timed mod `{p, g: 0, until: turn}`, so it ends with the turn through `ModifierExpired`; no new state field, no hash change. It can't stack (one reposition per turn). It counts in Unstable and Tethered maths like any timed mod. The flip wakes keywords before any later combat snapshot.
+- Event `Ambushed {iid, p}` follows `Revealed` and `Repositioned`. `ambushPreview(s, env, iid)` returns the Power after the flip, or null (flag off, not face-down); legality stays legal.ts's business. A reposition never blocked attacking, so no attack rule changed.
+
+**D-343 · AI and Riposte: a roster prior, never a peek** (ai-dev, 2026-10-17)
+- The Collector and every bot count a Riposte loss through `previewCombat` (`destroyAttacker`). A face-down defender's Guard is unknown to all of them.
+- The Collector keeps "attack face-down only with `AI_FACEDOWN_ATTACK_MIN_POWER` (7) or more, or when Desperate": 7 is the one Power no base card's Guard can Riposte (the highest Guard in the pool is 7, and a tie does nothing).
+- Greedy and the expert value an attack on a face-down Collector monster as the mean over his public roster's Guards (`faceDownGuards` in the bot weights): a kill above, 0 on a tie, the lost attacker plus the difference below. The old `unknownAttack`/`unknownStat` weights are gone; the expert weights hash changes.
+
+**D-344 · AI and Ambush** (ai-dev, 2026-10-17)
+- The Collector and the expert flip a face-down monster to attack only through the existing look-ahead (reposition, then attack), so the +2 counts when it wins a fight. The expert discounts Power that ends this turn (`tempShare` 1), so a flip with no attack gains nothing. Greedy flips whenever it can; the novice is unchanged.
+
+**D-345 · The Collector sets his guard summons face-down** (ai-dev, 2026-10-17)
+- `collector.json` `allowFaceDown` → true. Under the current lists that means Composed guard summons and all-Slow guard summons go face-down (hidden Guard, safe from Appraisal); Agitated and Desperate still summon in attack.
+- Quick sim (1,000 per bot, 10 dates from 2026-11-01, all D-336..D-345 rules): expert **50.6%** (target 45–55, no `COLLECTOR_LIFE` change), greedy 28.3% (was 14.6), novice 0%; median 8 rounds (was 7), rounds 8–12 51.3%, round 12 10.9%.
+
+**D-346 · Quiet table details** (ui-dev, 2026-10-17)
+- Trap icons: 44px tap buttons for the player (in the bottom bar beside life and the slot dots), non-tappable icons for the Collector (in his header row). The Appraisal chip lives in the round strip ("⚒ in k", "now" when the Appraisal follows your turn). Telegraph and quip float under the header so the board never moves. The hint bar holds the Attack/Face-up toggles, Choose, Cast, Inspect and Cancel. Below 460px wide the Graft and End turn icons drop so the bottom bar fits 360px. The element wheel appears in Inspect (the wide-screen side panel reuses it). Mood in words: menu and wide-screen column. `HOWTO_VERSION` 3.
+- Stray slot row (owner bug) root cause: three layers drew over the trap row when a monster was lifted: absolutely positioned Attack/Face-up toggles (`bottom: 100%` of the footer), a ring inside each lit niche that read as a second slot, and full-height dashed lane rails. All three are gone: toggles are in flow in the hint bar, a lit lane is the niche itself glowing, the rails are faint dividers.
+
+**D-347 · Discard picker** (ui-dev, 2026-10-17)
+- A cast whose legal targets lie in a discard pile (Grave Recall) shows **Choose** in the hint bar, which opens a sheet of exactly those cards; tapping one plays that cast. The view routes only legal casts (`Plan.discard`); `test/recall.test.ts` pins it.
+
+**D-348 · Riposte and Ambush cues** (ui-dev, 2026-10-17)
+- Target badges read "Riposte" (shield) where `previewCombat` says the attacker would be destroyed, and "?" (eye) on face-down targets; the attack hint says a guard that holds destroys the attacker. A Riposte shows as a shield flash on the guard (a `CombatResolved` that destroys only the attacker of a guard/face-down defender); an Ambush as a +p spring from the `Ambushed` event. A face-down monster that can Ambush has a "+2" spark reposition button (labelled Ambush for screen readers), read from `AMBUSH_POWER`.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

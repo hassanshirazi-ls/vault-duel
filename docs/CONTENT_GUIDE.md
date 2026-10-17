@@ -932,8 +932,11 @@ D-305 to D-310). Each row is one edit in `globals.ts`. Changing one is an owner 
 | `SENTINEL_REACH` | `1` | A face-up Sentinel guards its own lane and this many lanes on each side. `0` means its own lane only. Read only with `LANES`. | a whole number, 0 or more |
 | `FLAGS.BOND_ACTION` | `true` | Each turn allows one card play and one bond action, in either order. `false` makes Graft your one play again. | `true` or `false` |
 | `FLAGS.TURN_SLOTS` | `true` | The card play splits in two: one monster summon and one spell or trap a turn, beside the bond, in any order. An attack closes nothing, and a monster that has attacked cannot switch or move. `false` is one card play, and the first attack closes the play and the bond. | `true` or `false` |
-| `FLAGS.SPLIT` | `true` | Your face-up Chimera can unbind into the monsters it was grafted from. | `true` or `false` |
-| `FLAGS.SYMBIOSIS` | `true` | You can attach a base monster from your hand under one of your face-up monsters. | `true` or `false` |
+| `FLAGS.SPLIT` | `false` | Your face-up Chimera can unbind into the monsters it was grafted from. Off since D-336 (kept for daily modes). | `true` or `false` |
+| `FLAGS.SYMBIOSIS` | `false` | You can attach a base monster from your hand under one of your face-up monsters. Off since D-336 (kept for daily modes). | `true` or `false` |
+| `FLAGS.RIPOSTE` | `true` | An attacker whose Power is below a guard (or face-down) defender's Guard is destroyed; its owner still takes the difference (D-337). `false` is the old rule: the attacker survives. | `true` or `false` |
+| `FLAGS.AMBUSH` | `true` | Flipping your own face-down monster to attack gives it `AMBUSH_POWER` until the end of the turn (D-338). | `true` or `false` |
+| `AMBUSH_POWER` | `2` | The Power an Ambush flip adds until the end of that turn. Read only with `AMBUSH`. | a whole number, 0 or more |
 | `BOND_GRAFT_MAX_HAND_MATERIALS` | `3` | The most hand cards one Graft may use. `3` is no limit, the same as `MAX_GRAFT_MATERIALS`. Read only with `BOND_ACTION`. | a whole number, 0 or more |
 | `SYMBIOSIS_GUARD_BONUS` | `2` | The Guard a host gains from its symbiote. Read only with `SYMBIOSIS`. | a whole number, 0 or more |
 | `SPLIT_PART_PERM_P` | `0` | The permanent Power change each part gets when a Chimera splits. A negative number makes the parts weaker. Read only with `SPLIT`. | a whole number, any sign |
@@ -966,12 +969,12 @@ lanes on. The element ring still applies.
   LANES: false,
 ```
 
-Worked example: turn Split off. `FLAGS.SPLIT` set to `false` is clean. With `FLAGS.BOND_ACTION` on, Graft and Symbiosis
-remain bond actions. Turning `FLAGS.BOND_ACTION` off makes Graft your one play again, and Split and Symbiosis, if they
+Worked example: turn Split back on (for a daily mode). `FLAGS.SPLIT` set to `true` is clean. With `FLAGS.BOND_ACTION` on,
+Graft and Split are then both bond actions, and the Graft button becomes a Bond button. Turning `FLAGS.BOND_ACTION` off makes Graft your one play again, and Split and Symbiosis, if they
 are on, become plays too (D-305, D-306).
 
 ```text
-  SPLIT: false,
+  SPLIT: true,
 ```
 
 A rule change also changes the duel's saved rules. A duel saved under the old rules restarts with a notice (D-323).

@@ -11,7 +11,7 @@ Vault Duel is a daily dark-fantasy card duel: every day, every player gets the s
 - **Same game for everyone.** Both decks are shuffled from the date seed, so results are comparable and shareable.
 - **Simple rules, deep combinations.** A new player understands the rules in 60 seconds; depth comes from Grafting, elements, timing around Appraisal, and reading the Collector.
 - **Challenging but fair boss.** The Collector never cheats, is deterministic, and telegraphs his intent.
-- **Fast.** One monster, one spell or trap and one bond per turn, at most 12 rounds, no waiting on animations.
+- **Fast.** One monster, one spell or trap and one Graft per turn, at most 12 rounds, no waiting on animations.
 
 **Locked decisions**
 
@@ -41,10 +41,10 @@ You have 20 life and a 24-card deck; the Collector has 40 life and a fixed 20-ca
 2. **Your turn**, in any order:
    - **Monster**: summon one monster (face-up attack, face-up guard, or face-down guard) into an empty lane of your choice.
    - **Spell or trap**: cast one spell or set one trap.
-   - **Bond**: one Graft, Split or Symbiosis (see Bond actions).
+   - **Graft**: one Graft (see Graft system). Split and Symbiosis are kept for daily modes (see Bond actions).
    - **Attack** with each attack-position monster once.
-   - **Reposition**: each of your monsters may either switch between attack and guard or move one lane (into an empty lane, or trading places with your monster there), once, except on the turn it was summoned and after it has attacked. A face-down monster flipped to attack is revealed.
-3. **End the turn.** Attacking closes nothing: you can summon, cast or bond after an attack.
+   - **Reposition**: each of your monsters may either switch between attack and guard or move one lane (into an empty lane, or trading places with your monster there), once, except on the turn it was summoned and after it has attacked. A face-down monster flipped to attack is revealed and **springs an Ambush**: +2 Power until the end of the turn, and it can attack right away.
+3. **End the turn.** Attacking closes nothing: you can summon, cast or graft after an attack.
 
 **Summoning sickness**: from round 2, a monster can attack the Collector's monsters on the turn it arrives, but not his life; it can attack life from your next turn. Swift lets it hit life on its first turn too; Slow stops it attacking at all on its first turn.
 
@@ -55,8 +55,8 @@ You have 20 life and a 24-card deck; the Collector has 40 life and a fixed 20-ca
 | Defender | Result |
 | --- | --- |
 | Attack position | Higher Power destroys the lower; the loser's owner takes the difference. A tie destroys both, no damage. |
-| Guard position | Power > Guard destroys the defender, no damage. Power < Guard: the attacker's owner takes the difference. Tie: nothing happens. |
-| Face-down | Revealed, then resolved as guard. |
+| Guard position | Power > Guard destroys the defender, no damage. Power < Guard: **Riposte**, the attacker is destroyed and its owner takes the difference. Tie: nothing happens. |
+| Face-down | Revealed, then resolved as guard (so Riposte applies, and the attacker can't see the Guard it is walking into). |
 | Empty lane | No attack, unless the enemy's whole board is empty. |
 | Empty board | Direct attack: full Power as damage. |
 
@@ -153,7 +153,7 @@ Every pair of monsters can graft, so a random hand never has zero options; the s
 
 ## Bond actions
 
-Each turn you get one monster summon, one spell or trap, and one **bond action**: Graft, Split or Symbiosis. Each is good at one thing and bad at another, like chess pieces, so the skill is reading the board and picking the right one. The bond can come at any point in the turn. The **Bond** button beside End turn opens the **Bond options** panel, which lists every bond you can make this turn with its result, and marks the strongest.
+**The standard game uses Graft only** (D-336): the **Graft** button beside End turn opens the Graft workbench. Split and Symbiosis below are kept, switched off, for daily game modes. When a mode turns them on, the bond slot becomes one Graft, Split or Symbiosis, and the button becomes **Bond**, which opens the **Bond options** panel listing every bond you can make this turn with its result, the strongest marked.
 
 | Bond | Good at | Costs you |
 | --- | --- | --- |
@@ -193,7 +193,7 @@ Stat budget: Power + Guard = 8–10; a keyword costs about 1 point.
 | Bloodlust | One of your monsters gets +3 Power this turn |
 | Grave Recall | Return a monster from your discard pile to your hand |
 | Scrying Bones | Draw 2 cards (ignores the draw cap) |
-| Shroud | One of your monsters cannot be Appraised until your next turn; if you split it, this ends |
+| Shroud | One of your monsters cannot be Appraised until your next turn |
 | Siphon | The Collector loses 3 life; you gain 3 |
 
 **Traps** (set face-down as your one spell or trap of the turn; trigger automatically, then discard)
@@ -241,7 +241,7 @@ The Collector plays a fixed 20-card deck of Relics: stronger than your base card
 
 | Mood | Life | Behavior |
 | --- | --- | --- |
-| Composed | 16–25 | Patient: favors guard and traps |
+| Composed | 16–25 | Patient: favors guard (set face-down) and traps |
 | Agitated | 8–15 | Trades aggressively; prioritizes removing your monsters |
 | Desperate | 1–7 | Attacks anything, including face-down monsters |
 
@@ -256,13 +256,13 @@ Play phase:
 3. If a lane is open and he holds a monster that beats the monster it would attack from that lane, play it there (highest-Power target first).
 4. If he has fewer monsters than you and holds a trap, set it.
 5. If a spell has a legal high-value target (Forfeit, Restoration, Gilt Frame on a contested attack), cast it.
-6. Otherwise summon his highest-Power monster that is not Slow; if all are Slow, summon in guard.
+6. Otherwise summon his highest-Power monster that is not Slow; if all are Slow, set it face-down in guard.
 
 Attack phase:
 
 1. Take any lethal attack.
-2. Destroy your highest-Power monster he can beat without losing his attacker.
-3. Attack face-down monsters only with 7+ Power, unless Desperate.
+2. Destroy your highest-Power monster he can beat without losing his attacker (a Riposte counts as a loss).
+3. Attack face-down monsters only with 7+ Power (no base Guard can Riposte it), unless Desperate. He flips his own face-down monster to Ambush when the +2 wins a fight.
 4. Attack directly if your board is empty.
 5. Otherwise hold; Vain monsters still attack the best legal target.
 
