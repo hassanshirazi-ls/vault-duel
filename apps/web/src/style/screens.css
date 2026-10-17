@@ -373,16 +373,13 @@
 .duel {
   position: relative;
   /* fixed rows inside the board area (two trap rows, the track, niches, gaps); card size comes from the area's own width and height */
-  --fixed: 158px;
+  --fixed: 80px;
   --cw: clamp(44px, min(27cqw, calc((100cqh - var(--fixed)) / 2 * 0.8)), 150px);
   display: flex;
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
   padding-bottom: var(--safe-bottom);
-}
-.duel[data-graft] {
-  --fixed: 118px;
 }
 .duel .mini,
 .duel .empty-slot,
@@ -431,13 +428,6 @@
   justify-content: center;
   pointer-events: none;
 }
-.lane-rails.labels {
-  z-index: 8;
-}
-.lane-rails.labels .rail {
-  border: 0;
-  background: none;
-}
 .rail {
   position: relative;
   border-inline: 1px dashed var(--gold-lo);
@@ -447,68 +437,11 @@
   border-inline: 2px solid var(--gold-hi);
   background: linear-gradient(rgb(210 178 106 / 0.2), rgb(210 178 106 / 0.08) 50%, rgb(210 178 106 / 0.2));
 }
-.rail b {
-  position: absolute;
-  top: -9px;
-  left: 50%;
-  translate: -50% 0;
-  z-index: 7;
-  padding: 1px 6px;
-  border-radius: 2px;
-  background: #0d0a0b;
-  border: 1px solid var(--gold-lo);
-  color: var(--gold-hi);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
 
 .row.monsters {
   grid-template-columns: repeat(3, auto);
   justify-items: center;
   gap: 6px;
-}
-.row.traps {
-  grid-template-columns: repeat(2, minmax(0, 150px));
-}
-.duel[data-graft] .row.traps {
-  display: none;
-}
-.trap-slot {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: var(--tap);
-  padding: 0 8px;
-  border-radius: 3px;
-  border: 2px solid #3d312c;
-  background: linear-gradient(#0c0808, #181111);
-  box-shadow: inset 0 4px 10px #000, 0 1px 0 rgb(255 255 255 / 0.05);
-  color: var(--bone-dim);
-  font-size: 14px;
-  font-weight: 700;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.row.traps[data-side='them'] .trap-slot {
-  min-height: 26px;
-}
-.trap-slot.empty {
-  color: var(--gold-lo);
-}
-.trap-slot.set {
-  color: var(--bone);
-  border-color: var(--gold);
-  background: linear-gradient(#35101a, #1e080d);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 0 0 1px #000;
-}
-.trap-slot[data-glow='slot'] {
-  border-color: var(--gold-hi);
-  color: var(--gold-hi);
-  overflow: visible;
 }
 
 /* Nothing below changes the board's size when a selection changes (D-265): the mode toggles and the error line float over
@@ -723,14 +656,6 @@ button.life[data-glow='target']::after {
   opacity: 0.8;
   pointer-events: none;
 }
-.appraisal {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 15px;
-  color: var(--gold-hi);
-}
 /* the gavel strike: the head swings down on the portrait, then a flash */
 .gavel-fx {
   position: absolute;
@@ -791,9 +716,6 @@ button.life[data-glow='target']::after {
 .duel[data-graft] .portrait {
   width: 44px;
   height: 44px;
-}
-.duel[data-graft] .appraisal {
-  display: none;
 }
 
 /* round track: a carved ledger strip */
@@ -867,29 +789,6 @@ button.life[data-glow='target']::after {
 }
 /* a monster is picked: the compass on the left, the hint above its buttons. The bar takes the Play/Bond pip row's
    height (4 + 28 + 2 px), so the footer, and with it the board, keeps its size (D-334). */
-.hintbar[data-compass] {
-  --compass: 84px;
-  display: grid;
-  grid-template-columns: var(--compass) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
-  column-gap: 10px;
-  row-gap: 2px;
-  height: 88px;
-  padding: 2px 12px;
-  font-size: 14px;
-}
-.hintbar[data-compass] > .compass-box {
-  grid-row: 1 / 3;
-  align-self: center;
-}
-.hintbar[data-compass] p {
-  align-self: center;
-  -webkit-line-clamp: 2;
-}
-.hintbar[data-compass] > .hint-buttons {
-  grid-column: 2;
-  justify-self: end;
-}
 .hintbar.mulligan p {
   font-family: var(--font-display);
   font-size: 18px;
@@ -957,21 +856,6 @@ button.life[data-glow='target']::after {
     transform: translateY(-14px) rotate(0deg);
     z-index: 25 !important;
   }
-}
-.mode-toggles {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 100%;
-  z-index: 31;
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  padding: 2px 0;
-  pointer-events: none;
-}
-.mode-toggles .toggle {
-  pointer-events: auto;
 }
 .hand-slot .mini-stats {
   justify-content: flex-start;
@@ -1705,7 +1589,7 @@ button.life[data-glow='target']::after {
     padding-inline: 36px;
   }
   .duel {
-    --fixed: 170px;
+    --fixed: 92px;
     display: grid;
     grid-template-columns: minmax(250px, 310px) minmax(0, 640px) minmax(270px, 330px);
     grid-template-rows: minmax(0, 1fr) auto;
@@ -1754,13 +1638,6 @@ button.life[data-glow='target']::after {
   .duel[data-graft] > .collector .quip {
     display: block;
     font-size: 20px;
-    text-align: center;
-  }
-  .duel[data-graft] > .collector .appraisal {
-    display: flex;
-  }
-  .duel > .collector .appraisal {
-    justify-content: center;
     text-align: center;
   }
   .gavel-fx {
@@ -2278,13 +2155,6 @@ button.life[data-glow='target']::after {
   flex: none;
   padding-top: 4px;
 }
-.duel[data-budget] {
-  --fixed: 170px;
-}
-.bottom > .budget {
-  justify-content: center;
-  padding: 4px 12px 0;
-}
 .btn[aria-pressed='true'] {
   background: var(--brass-plate);
   color: #1a1206;
@@ -2343,4 +2213,481 @@ button.life[data-glow='target']::after {
   background: transparent;
   color: var(--bone-dim);
   border-color: currentColor;
+}
+
+/* ---------- quiet table (D-339) ---------- */
+/* One-row Collector header on phones and tablets: the two inner rows dissolve into the header's own row, in this order:
+   portrait, life, his trap icons, intent plaque (takes the rest), menu. The mood is the ring around the portrait. */
+@media not all and (min-width: 1024px) and (orientation: landscape) {
+  .collector {
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+  .collector-main,
+  .collector-row {
+    display: contents;
+  }
+  .portrait {
+    order: 0;
+    width: 52px;
+    height: 52px;
+  }
+  .collector-row.body > .life {
+    order: 1;
+  }
+  .collector-row.body > .traps {
+    order: 2;
+  }
+  .collector-row.body > .plaque {
+    order: 3;
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    padding: 3px 8px;
+    font-size: 14px;
+    line-height: 1.1;
+    text-align: center;
+  }
+  .collector-row.head > .menu-btn {
+    order: 4;
+    margin-left: auto;
+  }
+  .collector-row.head > .collector-name,
+  .collector-row.head > .mood,
+  .life-max {
+    display: none;
+  }
+  /* the telegraph and the quip float under the header, so they never move the board */
+  .statusline {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 100%;
+    z-index: 6;
+    min-height: 0;
+    margin-top: 6px;
+    pointer-events: none;
+  }
+  .telegraph,
+  .quip {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    margin-inline: auto;
+    padding: 3px 10px;
+    border: 1px solid var(--gold-lo);
+    border-radius: 2px;
+    background: rgb(10 7 8 / 0.92);
+    font-size: 14px;
+  }
+  .telegraph svg {
+    vertical-align: -3px;
+  }
+}
+@media (min-width: 400px) {
+  .life-max {
+    display: inline;
+  }
+}
+/* mood is the portrait ring: gilt calm, amber agitated, red desperate; the mood name is in the menu and the wide column */
+.portrait[data-mood='0'] {
+  box-shadow: 0 0 0 1px #000, 0 0 0 3px #5a7a5a, 0 0 10px rgb(120 170 120 / 0.35);
+}
+.portrait[data-mood='1'] {
+  box-shadow: 0 0 0 1px #000, 0 0 0 3px #c07a3a, 0 0 12px rgb(200 120 60 / 0.55);
+}
+.portrait[data-mood='2'] {
+  box-shadow: 0 0 0 1px #000, 0 0 0 3px var(--flaw), 0 0 14px rgb(255 90 82 / 0.65);
+}
+.menu-mood {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: var(--bone-dim);
+}
+.menu-mood[data-mood='1'] {
+  color: #ffb57a;
+}
+.menu-mood[data-mood='2'] {
+  color: var(--flaw);
+}
+
+/* the round strip: thin, hammers on Appraisal rounds, the countdown chip at the end */
+.track-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding-inline: 4px;
+  border-block: 3px double var(--gold-lo);
+  background: linear-gradient(90deg, transparent, rgb(156 124 60 / 0.12), transparent);
+}
+.track-strip .track {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-block: 0;
+  background: none;
+  padding: 1px 0;
+}
+.track li {
+  min-height: 24px;
+  font-size: 12px;
+}
+.track-mark {
+  height: 12px;
+}
+.track-appraisal {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  align-self: center;
+  padding: 2px 6px;
+  border: 1px solid var(--gold-lo);
+  border-radius: 2px;
+  background: rgb(10 7 8 / 0.7);
+  color: var(--gold-hi);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.track-appraisal[data-soon] {
+  border-color: var(--gold-hi);
+  box-shadow: 0 0 8px rgb(210 178 106 / 0.5);
+}
+
+/* the idle hint bar holds only Undo; a lifted card or monster fills it with the hint and its buttons */
+.hintbar[data-idle] {
+  justify-content: flex-end;
+}
+.hint-buttons .toggle {
+  width: 58px;
+  min-height: var(--tap);
+  font-size: 10px;
+  gap: 0;
+}
+.hint-buttons .toggle span {
+  line-height: 1;
+}
+.hint-buttons .btn[data-ambush] {
+  gap: 2px;
+  width: auto;
+  padding-inline: 8px;
+  border-color: var(--gold-hi);
+}
+.btn-word {
+  font-weight: 800;
+}
+
+/* trap slots as small card backs beside a life seal */
+.traps {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.trap-hit {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+}
+button.trap-hit {
+  width: var(--tap);
+  min-height: var(--tap);
+}
+.trap-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 28px;
+  border-radius: 2px;
+  border: 1.5px solid #3d312c;
+  background: linear-gradient(#0c0808, #181111);
+  color: var(--gold-lo);
+}
+.trap-icon[data-state='set'] {
+  border-color: var(--gold);
+  background: linear-gradient(#35101a, #1e080d);
+  color: var(--bone);
+}
+.trap-icon[data-state='open'],
+.trap-icon[data-glow='slot'] {
+  border-color: var(--gold-hi);
+  color: var(--gold-hi);
+}
+.traps[data-side='me'] .trap-icon {
+  width: 24px;
+  height: 32px;
+}
+
+/* the slot dots beside End turn */
+.sdots {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(2, 16px);
+  gap: 3px;
+}
+.sdot {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--gold-lo);
+  color: var(--bone-dim);
+  background: #140f0f;
+  font-size: 10px;
+  line-height: 1;
+}
+.sdot[data-open] {
+  border-color: var(--gold-hi);
+  background: var(--gold);
+  color: #1a1206;
+}
+.sdot b {
+  font-weight: 800;
+}
+
+/* the bar under the hand: life, traps, dots, Graft or Bond, End turn, on one row at 360px */
+.playerbar {
+  gap: 3px;
+  padding: 4px 6px 6px;
+}
+.playerbar .life.me {
+  margin-right: 0;
+}
+.playerbar .life.me .life-max {
+  display: none;
+}
+.playerbar .btn {
+  padding: 0 8px;
+  min-width: 0;
+  gap: 4px;
+  font-size: 14px;
+}
+.playerbar .end-turn {
+  margin-left: auto;
+  padding: 0 10px;
+  font-size: 14px;
+}
+@media (min-width: 400px) {
+  .playerbar {
+    gap: 6px;
+    padding-inline: 10px;
+  }
+  .playerbar .btn {
+    padding: 0 10px;
+  }
+  .playerbar .end-turn {
+    padding: 0 14px;
+    font-size: 16px;
+  }
+}
+
+/* the discard picker */
+.discard-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 10px;
+  margin: 10px 0 14px;
+  padding: 0;
+  list-style: none;
+  max-height: 52dvh;
+  overflow-y: auto;
+}
+.discard-list .mini {
+  --w: 84px;
+}
+.inspect-compass {
+  margin: 8px auto 0;
+  --compass: 120px;
+}
+
+/* Riposte: the guard flashes a shield; Ambush: the +Power springs off the card */
+.fx-riposte,
+.fx-ambush {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  color: var(--gold-hi);
+}
+.fx-riposte {
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle, rgb(210 178 106 / 0.45), transparent 70%);
+  filter: drop-shadow(0 0 6px #000);
+  animation: riposte-flash calc(var(--cue) * 1.6) var(--ease) calc(var(--cue) * var(--b, 0)) both;
+}
+.fx-ambush {
+  left: 50%;
+  top: 30%;
+  translate: -50% 0;
+  display: inline-flex;
+  gap: 2px;
+  padding: 1px 6px;
+  border: 1px solid var(--gold-hi);
+  border-radius: 2px;
+  background: rgb(10 7 8 / 0.94);
+  font-size: 14px;
+  font-weight: 800;
+  animation: ambush-spring calc(var(--cue) * 1.8) var(--ease) calc(var(--cue) * var(--b, 0)) both;
+}
+@keyframes riposte-flash {
+  0% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes ambush-spring {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.6);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.15);
+  }
+  60% {
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.cue-riposte,
+.cue-ambush {
+  animation-name: cue-flash;
+}
+.preview-badge[data-warn] {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border-color: var(--flaw);
+  color: var(--flaw);
+}
+
+/* narrow phones: the Graft and End turn icons give way so the bar fits 360px with two 44px trap buttons */
+@media (max-width: 459px) {
+  .playerbar .btn-ico {
+    display: none;
+  }
+}
+/* the lit empty lane is the niche itself: it glows, with no second rectangle drawn inside it */
+.empty-slot[data-glow='slot'] {
+  border: 0;
+  background: radial-gradient(circle, rgb(210 178 106 / 0.22), transparent 70%);
+}
+.empty-slot[data-glow='slot']::after {
+  display: none;
+}
+.niche:has(> .empty-slot[data-glow='slot']) {
+  border-color: var(--gold-hi);
+  box-shadow: inset 0 8px 16px #000, 0 0 12px 2px rgb(210 178 106 / 0.6);
+  animation: ring-niche calc(var(--beat) * 6) ease-in-out infinite alternate;
+}
+@keyframes ring-niche {
+  from {
+    box-shadow: inset 0 8px 16px #000, 0 0 14px 3px rgb(210 178 106 / 0.7);
+  }
+  to {
+    box-shadow: inset 0 8px 16px #000, 0 0 6px 1px rgb(210 178 106 / 0.3);
+  }
+}
+/* the lanes sit together in the middle of the board; rails are two faint dividers, not columns */
+.board-area {
+  justify-content: center;
+}
+.lanes {
+  flex: 0 1 auto;
+  justify-content: center;
+  gap: 14px;
+}
+.rail {
+  background: none;
+  border-inline-color: rgb(156 124 60 / 0.35);
+}
+.rail[data-active] {
+  background: linear-gradient(rgb(210 178 106 / 0.14), rgb(210 178 106 / 0.05) 50%, rgb(210 178 106 / 0.14));
+}
+
+/* a lifted hand card rises only a little, and the hint bar's buttons always stay above it */
+.hand-slot[data-selected] {
+  transform: translateY(-14px) scale(1.08) rotate(0deg);
+}
+.hintbar {
+  position: relative;
+  z-index: 40;
+}
+
+/* hint bar, two rows (phone fix): the hint on top across the full width, the buttons on their own row below. It has the
+   same height idle and lifted, so the board never moves; a lifted hand card stays inside the hand and covers nothing. */
+.hintbar {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) var(--tap);
+  align-items: center;
+  height: 104px;
+  padding: 2px 12px;
+  gap: 2px;
+}
+.hintbar > p {
+  grid-row: 1;
+  align-self: end;
+  -webkit-line-clamp: 3;
+  font-size: 14px;
+}
+.hintbar > .hint-buttons {
+  grid-row: 2;
+  justify-self: end;
+}
+
+.hintbar.mulligan {
+  height: 104px;
+}
+.hand-slot[data-selected] {
+  transform: translateY(-10px) scale(1.04) rotate(0deg);
+}
+/* slot dots: filled gold with the icon = open, hollow dim ring with a tick = used */
+.sdots {
+  grid-template-columns: repeat(2, 18px);
+  gap: 3px;
+}
+.sdot {
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+}
+.sdot:not([data-open]) {
+  background: transparent;
+  border-color: var(--bone-dim);
+  color: var(--bone-dim);
+}
+@media (max-width: 399px) {
+  .playerbar {
+    gap: 2px;
+    padding-inline: 4px;
+  }
+  .playerbar .btn {
+    padding: 0 6px;
+  }
+  .playerbar .end-turn {
+    padding: 0 8px;
+  }
 }

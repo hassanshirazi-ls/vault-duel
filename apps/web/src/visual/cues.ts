@@ -1,9 +1,9 @@
 // Animation cues from engine events (ARCHITECTURE.md §7, §16). Pure: events in, a list of beats out. The duel screen
 // plays them with CSS and drops them on any tap. Nothing here decides game state.
-import type { GameEvent, Iid, Side } from '@vault-duel/engine';
+import type { GameEvent, GameState, Iid, Side } from '@vault-duel/engine';
 
 export type CueKind =
-  | 'enter' | 'graft' | 'split' | 'bond' | 'lunge' | 'hit' | 'ward' | 'flash' | 'damage' | 'heal' | 'intent' | 'gavel' | 'mood' | 'burn' | 'taken';
+  | 'enter' | 'graft' | 'split' | 'bond' | 'lunge' | 'hit' | 'ward' | 'flash' | 'damage' | 'heal' | 'intent' | 'gavel' | 'mood' | 'burn' | 'taken' | 'riposte' | 'ambush';
 
 export interface Cue {
   readonly kind: CueKind;
@@ -33,7 +33,12 @@ export const TIMING = {
 /** Beats a cue holds the queue for, when its own animation runs longer than one beat (burn, graft, gavel, taken). */
 const SPAN: Readonly<Partial<Record<CueKind, number>>> = { burn: 2, graft: 3, gavel: 3 };
 
-export function cuesFromEvents(events: readonly GameEvent[]): Cue[] {
+/** Is `iid` a guard (face-up in guard position, or face-down) on a board of `before`? Riposte shows only against one (D-337). */
+const guardIn = (before: GameState | undefined, iid: Iid): boolean =>
+  before !== undefined && before.sides.some((side) => side.board.some((m) => m !== null && m.iid === iid && (m.pos === 1 || m.faceDown)));
+
+/** `before` (the state the events started from) lets a Riposte be told from an ordinary lost attack; without it none is shown. */
+export function cuesFromEvents(events: readonly GameEvent[], before?: GameState): Cue[] {
   const out: Cue[] = [];
   let beat = 0;
   const add = (c: Omit<Cue, 'beat'>, advance = true, span = SPAN[c.kind] ?? 1): void => {
@@ -54,7 +59,12 @@ export function cuesFromEvents(events: readonly GameEvent[]): Cue[] {
       case 'Appraised': add({ kind: 'taken', iid: e.iid }, false); add({ kind: 'flash', iid: e.iid }, true, 3); break;
       case 'Destroyed': add({ kind: 'burn', iid: e.iid, side: e.side }); break;
       case 'AttackDeclared': add({ kind: 'lunge', iid: e.attacker }); break;
-      case 'CombatResolved': add({ kind: 'hit', iid: e.defender }, false); break;
+      case 'CombatResolved':
+        // D-337: the attacker fell to a guard that held: the guard flashes a shield instead of shaking
+        if (e.destroyed.includes(e.attacker) && !e.destroyed.includes(e.defender) && guardIn(before, e.defender)) add({ kind: 'riposte', iid: e.defender }, false);
+        else add({ kind: 'hit', iid: e.defender }, false);
+        break;
+      case 'Ambushed': add({ kind: 'ambush', iid: e.iid, amount: e.p }); break;
       case 'WardBroken': add({ kind: 'ward', iid: e.iid }, false); break;
       case 'SpellCast': case 'TrapTriggered': add({ kind: 'flash', iid: e.iid }); break;
       case 'Damage': if (e.amount > 0) add({ kind: 'damage', side: e.side, amount: e.amount }, false); break;

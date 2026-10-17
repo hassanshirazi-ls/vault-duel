@@ -629,3 +629,55 @@ describe('properties', () => {
     );
   });
 });
+
+describe('Riposte (D-337, FLAGS.RIPOSTE)', () => {
+  const RENV = pipeEnv(withGlobals({ FLAGS: { RIPOSTE: true } }));
+  const snap = (aP: number, dG: number, defPos: 0 | 1 = 1): CombatSnapshot => ({ aP, dP: 9, dG, defPos, advantage: false });
+  const riposteAttack = (f: Fight) => {
+    const h = harness(f.s, RENV);
+    declareAttack(h.run, f.A, f.T);
+    return { h, n: h.done() };
+  };
+
+  it('resolveCombat: Power < Guard destroys the attacker and keeps the damage; tie and win are unchanged', () => {
+    expect(resolveCombat(snap(2, 3), false, false, true)).toEqual({ destroyAttacker: true, destroyDefender: false, dmgToAttacker: 1, dmgToDefender: 0 });
+    expect(resolveCombat(snap(3, 3), false, false, true)).toEqual(resolveCombat(snap(3, 3), false, false));
+    expect(resolveCombat(snap(5, 3), true, false, true)).toEqual(resolveCombat(snap(5, 3), true, false));
+    expect(resolveCombat(snap(2, 3, 0), false, false, true)).toEqual(resolveCombat(snap(2, 3, 0), false, false)); // attack position
+    expect(resolveCombat(snap(2, 3), false, true, true).destroyAttacker).toBe(false); // Brittle auto-win
+  });
+  it('the attacker is destroyed by the defender and its owner takes the difference (player side)', () => {
+    const f = fight('fx-ember-whelp', 'fx-sentinel-wall', { pos: 1 }); // 3 + 2 vs guard 6
+    const { h, n } = riposteAttack(f);
+    expect(n.sides[0].board[0]).toBeNull();
+    expect(n.sides[1].board[0]?.iid).toBe(f.T);
+    expect(lifeOf(n, 0)).toBe(19);
+    expect(ev(h.events, 'Destroyed')[0]).toMatchObject({ iid: f.A, by: f.T });
+  });
+  it('applies to the Collector as attacker too', () => {
+    const f = fight('fx-ember-whelp', 'fx-sentinel-wall', { pos: 1 }, {}, 3);
+    const { n } = riposteAttack(f);
+    expect(n.sides[1].board[0]).toBeNull();
+    expect(lifeOf(n, 1)).toBe(24);
+  });
+  it('a face-down defender is revealed, then ripostes', () => {
+    const f = fight('fx-ember-whelp', 'fx-warded-ox', { pos: 1, faceDown: true }); // 3 vs guard 4
+    const { h, n } = riposteAttack(f);
+    expect(ev(h.events, 'Revealed')).toHaveLength(1);
+    expect(n.sides[0].board[0]).toBeNull();
+    expect(lifeOf(n, 0)).toBe(19);
+  });
+  it('a tie does nothing and a win is unchanged', () => {
+    const tie = riposteAttack(fight('fx-lumen-seer', 'fx-tide-sprite', { pos: 1 }));
+    expect(tie.n.sides[0].board[0]).not.toBeNull();
+    expect([lifeOf(tie.n, 0), lifeOf(tie.n, 1)]).toEqual([20, 25]);
+    const win = riposteAttack(fight('fx-umbra-beast', 'fx-ember-whelp', { pos: 1 }));
+    expect(win.n.sides[1].board[0]).toBeNull();
+    expect(win.n.sides[0].board[0]).not.toBeNull();
+  });
+  it('previewCombat reports the Riposte kill; off, the attacker survives', () => {
+    const f = fight('fx-ember-whelp', 'fx-sentinel-wall', { pos: 1 });
+    expect(previewCombat(f.s, RENV, f.A, f.T)).toMatchObject({ known: true, outcome: { destroyAttacker: true, dmgToAttacker: 1 } });
+    expect(previewCombat(f.s, PENV, f.A, f.T)).toMatchObject({ known: true, outcome: { destroyAttacker: false, dmgToAttacker: 1 } });
+  });
+});

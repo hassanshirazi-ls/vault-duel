@@ -44,6 +44,7 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
   const deckSize = g.DECK_MONSTERS + g.DECK_SPELLS + g.DECK_TRAPS;
   const when = <T,>(on: boolean, ...lines: T[]): T[] => (on ? lines : []);
   const bonds = bondNames(g);
+  const graftOnly = bonds.length === 1; // D-336: no Split or Symbiosis, so no Bond button and no options sheet
   const bondTurn = f.BOND_ACTION;
   const slots = f.TURN_SLOTS; // D-335: one monster, one spell or trap, one bond, any order
   const sentinel = ctx.content.keywords.some((k) => k.id === 'sentinel');
@@ -98,9 +99,12 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
         'Attack a monster in attack position: the higher Power destroys the lower, and the loser takes the difference. A tie destroys both.',
         'Attack a monster in guard: Power above its Guard destroys it with no damage. Below it, you take the difference.',
         'A face-down monster is revealed and fights as a guard. With no monsters in the way, an attack hits life for its full Power.',
+        ...when(f.RIPOSTE, 'Riposte: when your attack is weaker than a guard\u2019s Guard, the guard holds and your attacker is destroyed, and you still take the difference.'),
+        ...when(f.RIPOSTE, 'A face-down monster\u2019s Guard is hidden, so attacking one can end in a Riposte.'),
+        ...when(f.AMBUSH, r('Ambush: flip a face-down monster to attack and it gets +{AMBUSH_POWER} Power until the end of that turn.')),
         ...when(g.SICKNESS_MODE === 'monstersOnly', 'A monster you just summoned may attack monsters but not life until your next turn.'),
         r('An attacker with element advantage gets +{ELEMENT_BONUS} Power. Colors always come with an icon.'),
-        'On the wheel, each arrow points at the element its tail beats. In a duel, a small compass beside the hint shows the picked monster’s element: gold arrows to what it beats, red dashed arrows from what beats it.',
+        'On the wheel, each arrow points at the element its tail beats. In a duel, hold a monster to see a small compass for its element: gold arrows to what it beats, red dashed arrows from what beats it.',
       ],
     },
     ...when<HowToPage>(f.LANES, {
@@ -120,18 +124,26 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
     ...when<HowToPage>(slots, {
       id: 'bonds',
       title: 'Your turn',
-      summary: r(`Each turn: summon one monster, play one spell or trap, make one bond (${orList(bonds)}) and attack once with each monster. Any order. The pips above your hand show what is left.`),
+      summary: r(
+        graftOnly
+          ? 'Each turn: summon one monster, play one spell or trap, make one Graft and attack once with each monster. Any order. The dots beside End turn show what is left.'
+          : `Each turn: summon one monster, play one spell or trap, make one bond (${orList(bonds)}) and attack once with each monster. Any order. The dots beside End turn show what is left.`,
+      ),
       lines: [
         'Monster: summon one monster a turn.',
         'Spell/Trap: cast one spell or set one trap a turn.',
-        r(`Bond: make {BONDS_PER_TURN|bond|bonds} a turn, ${orList(bonds)}. All of them are under the Bond button beside End turn.`),
+        graftOnly
+          ? r('Graft: make {BONDS_PER_TURN|Graft|Grafts} a turn with the Graft button beside End turn.')
+          : r(`Bond: make {BONDS_PER_TURN|bond|bonds} a turn, ${orList(bonds)}. All of them are under the Bond button beside End turn.`),
         'Attacks: each monster in attack position attacks once. The number on the Attacks pip is how many can still attack.',
         'Any order: you can attack first and summon or bond afterwards. Attacking closes nothing.',
         'A monster may move a lane or switch position once, before it attacks. After its attack it stays put, and a tick marks it.',
         'Graft joins monsters into a Chimera.',
         ...when(f.SPLIT, 'Split unbinds a Chimera back into its parts, which can save it from an Appraisal aimed at it.'),
         ...when(f.SYMBIOSIS, 'Symbiosis attaches a monster from your hand under one of yours, as extra Guard and a spare body.'),
-        'The Bond button lists every bond you can make right now, with the board it leaves and whether it is exposed to the next Appraisal. The option marked Best is a hint only.',
+        graftOnly
+          ? 'The Graft button opens the workbench: pick two monsters and see the result, including Ascend and Unstable, before you confirm.'
+          : 'The Bond button lists every bond you can make right now, with the board it leaves and whether it is exposed to the next Appraisal. The option marked Best is a hint only.',
       ],
     }),
     ...when<HowToPage>(bondTurn && !slots, {
@@ -157,7 +169,7 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
       lines: [
         bondTurn
           ? slots
-            ? r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is your bond, so it does not use up your monster summon, and board materials are sacrificed. Start it from the Bond button.')
+            ? r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is your bond, so it does not use up your monster summon, and board materials are sacrificed. Start it from the ' + (graftOnly ? 'Graft' : 'Bond') + ' button.')
             : r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is a bond action, so it does not use up your card play, and board materials are sacrificed.')
           : r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is your card play for the turn, and board materials are sacrificed.'),
         'The two kinds set the family and its Power and Guard. The first material sets the element, so the order matters.',

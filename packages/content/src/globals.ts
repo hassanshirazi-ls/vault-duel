@@ -25,11 +25,15 @@ const FLAGS = {
   LANES: true,
   LANE_SWAP: true,
   // D-305..D-316: bond rules. All off = the pre-flip rules (Graft is the one play); all on since the owner's 2026-10-16 flip
-  SPLIT: true,
-  SYMBIOSIS: true,
+  // D-336: Split and Symbiosis are off for simple mode (kept in the engine for daily modes); Graft is the only bond
+  SPLIT: false,
+  SYMBIOSIS: false,
   BOND_ACTION: true,
   // D-335: one monster, one spell or trap and one bond per turn, any order; attacks close nothing. Off = the one-play turn
   TURN_SLOTS: true,
+  // D-337: a guard that holds destroys the attacker. D-338: a face-down monster flipped to attack gets +AMBUSH_POWER until end of turn
+  RIPOSTE: true,
+  AMBUSH: true,
 } as const satisfies Flags;
 
 const GLOBAL_VALUES = {
@@ -75,6 +79,7 @@ const GLOBAL_VALUES = {
   SENTINEL_REACH: 1, // read only with FLAGS.LANES (D-283)
   LANE_MOVE_RANGE: 1, // read only with FLAGS.LANES (D-282)
   // Bond rules (D-310)
+  AMBUSH_POWER: 2, // D-338; read only with FLAGS.AMBUSH
   SYMBIOSIS_GUARD_BONUS: 2, // read only with FLAGS.SYMBIOSIS (D-308)
   BOND_GRAFT_MAX_HAND_MATERIALS: 3, // 3 = MAX_GRAFT_MATERIALS = no limit; read only with FLAGS.BOND_ACTION (D-306)
   SPLIT_PART_PERM_P: 0, // read only with FLAGS.SPLIT (D-307)

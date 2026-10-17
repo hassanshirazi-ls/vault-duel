@@ -5,7 +5,7 @@
 // (a Graft has no value until it commits, so one ply cannot see it otherwise); a look-ahead that the helper refuses (an
 // action on a face-down Collector monster) scores as the current position. Split and Symbiosis are ordinary one-ply
 // actions whose worth comes from evaluate()'s bond terms (D-312).
-import { evaluate, GREEDY_WEIGHTS } from './evaluate';
+import { evaluate, faceDownAttackValue, GREEDY_WEIGHTS } from './evaluate';
 import type { EvalWeights } from './evaluate';
 import type { Bot, PlayerView } from './player-view';
 
@@ -21,6 +21,12 @@ const costly = (t: string): boolean => t === 'moveLane' || t === 'split' || t ==
 
 function scoreAfter(v: PlayerView, index: number, w: EvalWeights): number {
   const next = v.after(index);
+  if (next === null) {
+    // The look-ahead refuses an attack on a face-down monster: its Guard is unknown, so score the gamble (Riposte, D-337)
+    const a = v.legal[index];
+    const me = a?.t === 'attack' && a.target >= 0 ? v.board.find((m) => m !== null && m.card.iid === a.a) : undefined;
+    if (me !== undefined && me !== null) return evaluate(v, w) + faceDownAttackValue(w, me);
+  }
   return evaluate(next ?? v, w) - (costly(v.legal[index]?.t ?? '') ? MOVE_COST : 0);
 }
 

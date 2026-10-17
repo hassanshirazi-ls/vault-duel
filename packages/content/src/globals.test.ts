@@ -23,8 +23,10 @@ describe('rule levers (owner-only, D-166, D-168)', () => {
 
   // The owner adopted the bond rules and the 2026-10-16 rule changes in the 2026-10-16 flip (docs/BALANCE_LOG.md).
   it('ships the bond rules and rule changes the owner adopted in the 2026-10-16 flip (D-280..D-287, D-305..D-316)', () => {
-    expect(G.FLAGS.SPLIT).toBe(true);
-    expect(G.FLAGS.SYMBIOSIS).toBe(true);
+    expect(G.FLAGS.SPLIT).toBe(false); // D-336: simple mode, Graft is the only bond
+    expect(G.FLAGS.SYMBIOSIS).toBe(false);
+    expect(G.FLAGS.RIPOSTE).toBe(true); // D-337
+    expect(G.FLAGS.AMBUSH).toBe(true); // D-338
     expect(G.FLAGS.BOND_ACTION).toBe(true);
     expect(G.FLAGS.TURN_SLOTS).toBe(true);
     expect(G.FLAGS.LANES).toBe(true);

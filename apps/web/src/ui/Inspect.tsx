@@ -8,6 +8,7 @@ import type { CardView } from '../view/cards';
 import { Glyph } from '../visual/glyphs';
 import { Art } from './Art';
 import { useGame } from './context';
+import { ElementWheel } from './ElementWheel';
 import { Gem } from './Gem';
 import { FlawMark } from './MiniCard';
 import { Sheet } from './Sheet';
@@ -155,6 +156,11 @@ export function CardDetail({ c, onClose, extra }: { readonly c: CardView; readon
               </span>
             )}
           </p>
+        )}
+        {c.element !== null && c.power !== null && (
+          <div className="compass-box inspect-compass">
+            <ElementWheel variant="compass" focus={c.element.id} />
+          </div>
         )}
         </div>
         {onClose !== undefined && (

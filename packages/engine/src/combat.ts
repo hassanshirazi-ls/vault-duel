@@ -42,9 +42,9 @@ export interface CombatOutcome {
 /**
  * The §5.4 resolve table. Brittle: the attacker automatically wins (D-049), damage as the normal
  * rule gives it. Pierce only matters against guard position (D-039); against attack position the
- * normal rule applies.
+ * normal rule applies. `riposte` (FLAGS.RIPOSTE, D-337): an attacker below a guard-position defender's Guard is destroyed too.
  */
-export function resolveCombat(c: CombatSnapshot, pierce: boolean, brittleWin: boolean): CombatOutcome {
+export function resolveCombat(c: CombatSnapshot, pierce: boolean, brittleWin: boolean, riposte = false): CombatOutcome {
   const { aP, dP, dG } = c;
   if (c.defPos === 0) {
     if (brittleWin || aP > dP) {
@@ -61,7 +61,8 @@ export function resolveCombat(c: CombatSnapshot, pierce: boolean, brittleWin: bo
       dmgToDefender: pierce ? Math.max(0, aP - dG) : 0,
     };
   }
-  if (aP < dG) return { destroyAttacker: false, destroyDefender: false, dmgToAttacker: dG - aP, dmgToDefender: 0 };
+  // D-337 Riposte (FLAGS.RIPOSTE): a guard that holds destroys the attacker, who still pays the difference
+  if (aP < dG) return { destroyAttacker: riposte, destroyDefender: false, dmgToAttacker: dG - aP, dmgToDefender: 0 };
   return { destroyAttacker: false, destroyDefender: false, dmgToAttacker: 0, dmgToDefender: 0 };
 }
 
@@ -151,7 +152,7 @@ export function declareAttack(run: Run, attacker: Iid, target: Iid | -1): void {
   if (run.over) return;
   if (monsterOf(tx.state, attacker) === null || monsterOf(tx.state, target) === null) return; // fizzle (D-124)
 
-  const out = resolveCombat(snap, pierce, brittleWin);
+  const out = resolveCombat(snap, pierce, brittleWin, env.g.FLAGS.RIPOSTE);
   const destroyed: Iid[] = [];
   if (out.destroyAttacker) destroyed.push(attacker);
   if (out.destroyDefender) destroyed.push(target);
@@ -225,7 +226,7 @@ export function previewCombat(s: GameState, env: Env, attacker: Iid, target: Iid
   if (t.faceDown) return { known: false };
   const snap = snapshotOf(s, env, attacker, target, t.pos);
   const flags = new Dispatcher(env, s, NULL_SINK).beforeCombat({ attacker, target }, snap);
-  const outcome = resolveCombat(snap, flags.pierce, flags.brittleWin);
+  const outcome = resolveCombat(snap, flags.pierce, flags.brittleWin, env.g.FLAGS.RIPOSTE);
   const ward = env.reg.masks.beforeDestroy;
   return {
     known: true,

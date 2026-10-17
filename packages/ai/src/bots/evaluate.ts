@@ -39,6 +39,15 @@ export interface EvalWeights {
   readonly unstableLast?: number;
   readonly bondAppraisalPower?: number;
   readonly bondAppraisalCard?: number;
+  /**
+   * Riposte (D-337): the Guards a face-down Collector monster may have (his public roster, never the real one), and the Power
+   * assumed when one is destroyed. An attack on a face-down monster is worth the mean over the list of: the kill when Power is
+   * above the Guard, nothing on a tie, and the attacker lost (and the difference paid) when below. Absent: such attacks are worth 0.
+   */
+  readonly faceDownGuards?: readonly number[];
+  readonly foeDownPower?: number;
+  /** Share (0 to 1) of an own monster's end-of-turn Power bonus (Ambush, buff spells) discounted from its value. Absent: 0. */
+  readonly tempShare?: number;
 }
 
 /** The expert's extra terms (ARCHITECTURE.md §14). Each is optional in `evaluate`; the expert's weights file has all of them. */
@@ -73,15 +82,33 @@ export function monsterValue(w: EvalWeights, power: number, guard: number, atk: 
   return w.power * power + w.guard * guard + (atk ? w.attackPos : 0);
 }
 
+/**
+ * Expected score change of attacking a face-down Collector monster with my monster `me` (D-337): its Guard is unknown, so it is
+ * averaged over `faceDownGuards`. The element bonus is unknown before the reveal and not counted.
+ */
+export function faceDownAttackValue(w: EvalWeights, me: { readonly power: number; readonly guard: number; readonly pos: 'atk' | 'grd' }): number {
+  const guards = w.faceDownGuards;
+  if (guards === undefined || guards.length === 0) return 0;
+  const foePower = w.foeDownPower ?? 0;
+  let total = 0;
+  for (const g of guards) {
+    if (me.power > g) total += monsterValue(w, foePower, g, false);
+    else if (me.power < g) total -= monsterValue(w, me.power, me.guard, me.pos === 'atk') + w.myLife * (g - me.power);
+  }
+  return total / guards.length;
+}
+
 /** Higher is better for the player. A finished duel is +-`win`. */
 export function evaluate(v: PlayerView, w: EvalWeights & Partial<ExpertTerms> = GREEDY_WEIGHTS): number {
   if (v.winner === 0) return w.win;
   if (v.winner === 1) return -w.win;
   let score = w.myLife * v.myLife - w.damage * v.foeLife;
   const down = w.faceDownOwn ?? 0;
+  const temp = w.tempShare ?? 0;
   for (const m of v.board) {
     if (m === null) continue;
-    score += m.faceDown ? down * monsterValue(w, m.power, m.guard, m.pos === 'atk', false) : monsterValue(w, m.power, m.guard, m.pos === 'atk', false);
+    const power = temp === 0 ? m.power : m.power - temp * m.tempPower;
+    score += m.faceDown ? down * monsterValue(w, power, m.guard, m.pos === 'atk', false) : monsterValue(w, power, m.guard, m.pos === 'atk', false);
   }
   for (const m of v.foeBoard) {
     if (m === null) continue;

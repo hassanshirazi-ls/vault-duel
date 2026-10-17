@@ -39,6 +39,8 @@ export interface OwnMonster {
   readonly unstableUntil: number;
   /** Shroud protects it from Appraisal while the turn index is below this */
   readonly shroudUntil: number;
+  /** Power it has only until the end of this turn (an Ambush flip, D-338, a spell): evaluations may discount it */
+  readonly tempPower: number;
   /** the attached symbiote (FLAGS.SYMBIOSIS, D-308), or null. It is face-up, so it is public (D-311). */
   readonly sym: OwnCard | null;
   /** keywords the symbiote gives the host right now (active minus printed, flaws never), empty without one */
@@ -128,6 +130,7 @@ export function ownMonster(b: Brain, s: GameState, m: Monster, slot: number): Ow
     appraised: m.appraised,
     unstableUntil: m.unstableUntil,
     shroudUntil: m.shroudUntil,
+    tempPower: m.timed.reduce((n, t) => (t.until <= s.turn && t.p > 0 ? n + t.p : n), 0),
     sym: m.sym >= 0 ? ownCard(b, s, m.sym) : null,
     bondedKeywords: bonded,
   };

@@ -13,7 +13,7 @@
 // weights, are in expert.weights.json (tuning data, never pinned by a test).
 import type { Action } from '@vault-duel/engine';
 import { createGreedy } from './greedy';
-import { evaluate, GREEDY_WEIGHTS, monsterValue } from './evaluate';
+import { evaluate, faceDownAttackValue, GREEDY_WEIGHTS, monsterValue } from './evaluate';
 import type { EvalWeights, ExpertTerms } from './evaluate';
 import type { Noise } from './noise';
 import type { PublicMonster } from '../shared/cards';
@@ -27,10 +27,6 @@ export interface ExpertWeights extends EvalWeights, ExpertTerms {
   readonly attackMargin: number;
   /** ... plus this per trap the Collector has set */
   readonly trapCaution: number;
-  /** attack on a face-down Collector monster: score per Power above `unknownStat` */
-  readonly unknownAttack: number;
-  /** the stat assumed for a face-down Collector monster */
-  readonly unknownStat: number;
   /** bonus for casting a spell that only draws (the look-ahead copy has no deck to draw from) */
   readonly drawSpell: number;
   /** share of a hand monster's stats counted as lost when it is a Graft material (to rank material pairs) */
@@ -371,11 +367,9 @@ export function createExpert(options: ExpertOptions = {}): ExpertBot {
     if (me === undefined || me === null) return { score: Number.NEGATIVE_INFINITY, unknown: false };
     let foe: PublicMonster | null = null;
     for (const f of v.foeBoard) if (f !== null && !f.faceDown && f.iid === a.target) foe = f;
-    if (a.target >= 0 && foe === null) {
-      return { score: w.unknownAttack * (me.power - w.unknownStat), unknown: true };
-    }
+    if (a.target >= 0 && foe === null) return { score: faceDownAttackValue(w, me), unknown: true };
     const p = v.previewCombat(a.a, a.target);
-    if (!p.known) return { score: w.unknownAttack * (me.power - w.unknownStat), unknown: true };
+    if (!p.known) return { score: faceDownAttackValue(w, me), unknown: true };
     const o = p.outcome;
     let s = w.damage * o.dmgToDefender - w.myLife * o.dmgToAttacker;
     if (foe !== null && o.destroyDefender && !p.defenderWarded) s += value(foe.power, foe.guard, foe.pos === 'atk');

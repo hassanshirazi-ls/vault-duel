@@ -101,6 +101,8 @@ const Flags = z
     SYMBIOSIS: z.boolean(),
     BOND_ACTION: z.boolean(),
     TURN_SLOTS: z.boolean(),
+    RIPOSTE: z.boolean(),
+    AMBUSH: z.boolean(),
   })
   .strict();
 
@@ -148,6 +150,7 @@ const GlobalsShape = z
     SENTINEL_REACH: Int,
     LANE_MOVE_RANGE: Int,
     // Bond rules (D-310)
+    AMBUSH_POWER: Int,
     SYMBIOSIS_GUARD_BONUS: Int,
     BOND_GRAFT_MAX_HAND_MATERIALS: Int,
     SPLIT_PART_PERM_P: z.int(), // signed (D-310): negative = weaker parts, the one global that may be below 0

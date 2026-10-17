@@ -18,6 +18,8 @@ export interface Plan {
   readonly moves: ReadonlyMap<number, Action>;
   /** monster-targeting actions (attack, targeted cast, covetous sacrifice), by the board card to tap */
   readonly targets: ReadonlyMap<Iid, Action>;
+  /** casts aimed at a card in a discard pile (Grave Recall), by the card to pick: shown in a picker sheet, not on the board */
+  readonly discard: ReadonlyMap<Iid, Extract<Action, { t: 'cast' }>>;
   /** attack straight at the Collector's life */
   readonly direct: Action | null;
   /** tapping an empty trap slot sets the card */
@@ -34,10 +36,14 @@ export interface Plan {
   readonly anything: boolean;
 }
 
+const NO_CARDS: ReadonlySet<Iid> = new Set();
+
 export const summonMode = (s: Extract<Selection, { t: 'hand' }>): SummonMode => (s.faceDown ? 'down' : s.guard ? 'grd' : 'atk');
 
-export function planFor(groups: LegalGroups, sel: Selection | null): Plan {
+/** `inDiscard` says which cards sit in a discard pile (the view reads that from the state); casts aimed at them go to `Plan.discard`. */
+export function planFor(groups: LegalGroups, sel: Selection | null, inDiscard: ReadonlySet<Iid> = NO_CARDS): Plan {
   const targets = new Map<Iid, Action>();
+  const discard = new Map<Iid, Extract<Action, { t: 'cast' }>>();
   const modes = new Set<SummonMode>();
   const lanes = new Map<number, Action>();
   const sacs = new Set<Iid>();
@@ -72,7 +78,8 @@ export function planFor(groups: LegalGroups, sel: Selection | null): Plan {
       }
     }
     for (const a of groups.casts.get(sel.iid) ?? []) {
-      if (a.target >= 0) targets.set(a.target, a);
+      if (a.target >= 0 && inDiscard.has(a.target)) discard.set(a.target, a);
+      else if (a.target >= 0) targets.set(a.target, a);
       else cast = a;
     }
     setTrap = groups.setTraps.get(sel.iid) ?? null;
@@ -85,8 +92,8 @@ export function planFor(groups: LegalGroups, sel: Selection | null): Plan {
     split = groups.splits.get(sel.iid) ?? null;
     for (const a of groups.moveLanes.get(sel.iid) ?? []) moves.set(a.to, a);
   }
-  const anything = summon !== null || lanes.size > 0 || sacs.size > 0 || moves.size > 0 || targets.size > 0 || direct !== null || setTrap !== null || cast !== null || reposition !== null || split !== null || canAttach;
-  return { summon, lanes, sacs, moves, targets, direct, setTrap, cast, reposition, modes, canAttach, split, anything };
+  const anything = summon !== null || lanes.size > 0 || sacs.size > 0 || moves.size > 0 || targets.size > 0 || discard.size > 0 || direct !== null || setTrap !== null || cast !== null || reposition !== null || split !== null || canAttach;
+  return { summon, lanes, sacs, moves, targets, discard, direct, setTrap, cast, reposition, modes, canAttach, split, anything };
 }
 
 /** Does a board monster have anything to do (so tapping it selects it instead of inspecting)? */

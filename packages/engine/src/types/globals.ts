@@ -25,6 +25,10 @@ export interface Flags {
   readonly BOND_ACTION: boolean;
   /** D-335: a turn has a monster slot, a spell-or-trap slot and the bond slot, in any order; an attack closes nothing */
   readonly TURN_SLOTS: boolean;
+  /** D-337: an attacker below a guard-position defender's Guard is destroyed (and still pays the difference) */
+  readonly RIPOSTE: boolean;
+  /** D-338: flipping a face-down monster to attack gives +AMBUSH_POWER Power until the end of the turn */
+  readonly AMBUSH: boolean;
 }
 
 export type Range = readonly [number, number];
@@ -78,6 +82,8 @@ export interface Globals {
   // Bond rules of 2026-10-16 (D-305..D-316)
   /** D-308: Guard a host gains while it carries a symbiote; read only with FLAGS.SYMBIOSIS */
   readonly SYMBIOSIS_GUARD_BONUS: number;
+  /** D-338: Power an Ambush flip gives; read only with FLAGS.AMBUSH */
+  readonly AMBUSH_POWER: number;
   /** D-306: most hand cards a Graft may use as materials; read only with FLAGS.BOND_ACTION (= MAX_GRAFT_MATERIALS: no limit) */
   readonly BOND_GRAFT_MAX_HAND_MATERIALS: number;
   /** D-307: extra permanent Power on each part of a split Chimera (negative = weaker parts); read only with FLAGS.SPLIT */

@@ -407,7 +407,7 @@
 }
 .mini[data-glow='target']::after,
 .empty-slot[data-glow='slot']::after,
-.trap-slot[data-glow='slot']::after {
+.trap-icon[data-glow='slot']::after {
   content: '';
   position: absolute;
   inset: -5px;

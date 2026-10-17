@@ -1,5 +1,5 @@
-// The duel screen (D-237 mirrored layout): the Collector's header, traps and monsters on top, the round track across
-// the middle, your monsters, traps, fanned hand and End turn at the bottom. Interaction is "tap card, tap target":
+// The duel screen (D-237 mirrored layout, quiet table D-339): the Collector's one-row header, his monsters, the round strip,
+// your monsters, the hint bar, your fanned hand and the bar with your life, traps, slot dots, Graft and End turn. Interaction is "tap card, tap target":
 // everything offered comes from `getLegalActions` through view/legal.ts and view/selection.ts, and every change goes
 // through the store's `act`. A step plays stage by stage (visual/playback.ts): your action, then the Collector's moves
 // one at a time, each behind a telegraph. Any tap skips to the end of it. Tapping a chosen card again deselects it.
@@ -26,8 +26,10 @@ import { useStepFx } from './useStepFx';
 import { useGame } from './context';
 import { DuelMenu } from './DuelMenu';
 import type { UndoTile } from './DuelMenu';
-import { Budget } from './Budget';
-import { ElementWheel } from './ElementWheel';
+import { SlotDots } from './Budget';
+import { DiscardSheet } from './DiscardSheet';
+import { TrapIcons } from './TrapIcons';
+import type { TrapIcon } from './TrapIcons';
 import { BondSheet } from './BondSheet';
 import type { BondMode } from './BondSheet';
 import { GraftSheet } from './GraftSheet';
@@ -36,7 +38,7 @@ import { Inspect } from './Inspect';
 import { CardBack, MiniCard } from './MiniCard';
 import { RoundTrack } from './RoundTrack';
 
-const CARD_CUES = new Set(['enter', 'graft', 'split', 'bond', 'lunge', 'hit', 'ward', 'flash']);
+const CARD_CUES = new Set(['enter', 'graft', 'split', 'bond', 'lunge', 'hit', 'ward', 'flash', 'riposte', 'ambush']);
 /** while the Collector's moves play, nothing is offered */
 const NO_GROUPS = groupLegal([]);
 
@@ -58,6 +60,7 @@ export function Duel() {
   const [hovered, setHovered] = useState<Iid | null>(null);
   const [menu, setMenu] = useState(false);
   const [bondSheet, setBondSheet] = useState<BondMode | null>(null);
+  const [recall, setRecall] = useState(false);
   const wide = useWide();
   const { shown, cues, ghosts, telegraph, blocked, quip } = useStepFx(ctx, rt, state, events, frames);
   const undoNow = useMemo(() => undoStatus(trail), [trail]);
@@ -71,23 +74,32 @@ export function Duel() {
   const them = S.sides[1];
   const pending = S.pending;
   const mulligan = S.step === 'mulligan';
-  const plan: Plan = planFor(groups, pending === null ? sel : null);
+  const inDiscard = new Set<Iid>([...me.discard, ...them.discard]);
+  const plan: Plan = planFor(groups, pending === null ? sel : null, inDiscard);
   const targets: ReadonlyMap<Iid, Action> = pending !== null ? groups.graftPicks : plan.targets;
   const view = (iid: Iid) => cardView(ctx, rt.engine, S, iid);
   const doAct = (a: Action): void => {
     setSel(null);
     act(a);
   };
-  const cueFor = (iid: Iid): { kind: string; beat: number } | undefined => cues.find((c) => c.iid === iid && CARD_CUES.has(c.kind));
+  const cueFor = (iid: Iid): { kind: string; beat: number; amount?: number } | undefined => {
+    const c = cues.find((x) => x.iid === iid && CARD_CUES.has(x.kind));
+    return c === undefined ? undefined : { kind: c.kind, beat: c.beat, ...(c.amount === undefined ? {} : { amount: c.amount }) };
+  };
   const intent = S.collector.intent;
   const appraisal = appraisalCountdown(g, S);
   const mood = S.collector.mood;
-  const combatHint = (attacker: Iid, target: Iid | -1): string | undefined => {
+  // what an attack would do, as a short word and an icon. A guard that holds destroys the attacker (Riposte, D-337); a
+  // face-down defender's Guard is hidden, so the result is unknown and a Riposte is possible.
+  const combatHint = (attacker: Iid, target: Iid | -1): { text: string; icon?: string } | undefined => {
     const p = rt.engine.previewCombat(S, attacker, target);
-    if (!p.known) return undefined;
-    return p.outcome.destroyDefender ? (p.outcome.destroyAttacker ? 'Trade' : 'Destroys') : p.outcome.destroyAttacker ? 'Lost' : 'Holds';
+    if (!p.known) return target >= 0 && g.FLAGS.RIPOSTE ? { text: '?', icon: 'eye' } : undefined;
+    if (p.outcome.destroyDefender) return { text: p.outcome.destroyAttacker ? 'Trade' : 'Destroys' };
+    if (!p.outcome.destroyAttacker) return { text: 'Holds' };
+    const guard = S.sides[1].board.some((m) => m !== null && m.iid === target && m.pos === 1);
+    return guard ? { text: 'Riposte', icon: 'shield' } : { text: 'Lost' };
   };
-  const hintFor = (iid: Iid): string | undefined => (sel?.t === 'board' && pending === null ? combatHint(sel.iid, iid) : undefined);
+  const hintFor = (iid: Iid): { text: string; icon?: string } | undefined => (sel?.t === 'board' && pending === null ? combatHint(sel.iid, iid) : undefined);
 
   // lanes (D-281..D-284): display only. What may be played, moved or attacked is whatever `groups` offers.
   const L = lanesOn(g);
@@ -214,6 +226,8 @@ export function Duel() {
                 glow={glow}
                 selected={lit}
                 mark={mark}
+                preview={glow !== null && telegraph === null ? hintFor(m.iid)?.text : undefined}
+                previewIcon={glow !== null && telegraph === null ? hintFor(m.iid)?.icon : undefined}
                 onTap={telegraph === null && glow !== null ? () => tapBoard(m, false) : undefined}
               />,
             );
@@ -230,7 +244,8 @@ export function Duel() {
               selected={isSel}
               dim={dim}
               cue={cueFor(m.iid)}
-              preview={glow === null || telegraph !== null ? undefined : (note ?? hintFor(m.iid))}
+              preview={glow === null || telegraph !== null ? undefined : (note ?? hintFor(m.iid)?.text)}
+              previewIcon={glow === null || telegraph !== null || note !== undefined ? undefined : hintFor(m.iid)?.icon}
               mark={mark}
               monstersOnly={monstersOnly(g, rt.engine, S, m)}
               moved={movedThisTurn(g, S, m)}
@@ -246,48 +261,19 @@ export function Duel() {
     );
   };
 
-  const trapRow = (side: Side) => {
-    const s = S.sides[side];
+  // trap slots as small card backs beside each side's life (D-339); the same slots, glows and taps as before
+  const trapIcons = (side: Side): TrapIcon[] => {
     const mine = side === 0;
-    return (
-      <div className="row traps" data-side={mine ? 'me' : 'them'}>
-        {s.traps.map((t, i) => {
-          const key = `trap-${i}`;
-          if (t === null) {
-            const open = mine && plan.setTrap !== null;
-            if (slotMarked(side, 'trap', i)) {
-              return (
-                <div key={key} className="trap-slot empty" data-glow="slot" aria-label="Empty trap slot, the Collector sets a trap here">
-                  <Glyph id="trap" size={18} />
-                </div>
-              );
-            }
-            return open ? (
-              <button key={key} type="button" className="trap-slot open" data-glow="slot" aria-label="Empty trap slot, set trap here" onClick={() => doAct(plan.setTrap as Action)}>
-                <Glyph id="trap" size={18} /> Set here
-              </button>
-            ) : (
-              <div key={key} className="trap-slot empty" aria-label="Empty trap slot">
-                <Glyph id="trap" size={18} />
-              </div>
-            );
-          }
-          if (!mine) {
-            return (
-              <div key={key} className="trap-slot set" aria-label="Set trap">
-                <Glyph id="trap" size={18} /> Set trap
-              </div>
-            );
-          }
-          const c = view(t.iid);
-          return (
-            <button key={key} type="button" className="trap-slot set" onClick={() => setInspected(t.iid)}>
-              <Glyph id="trap" size={18} /> {c.name}
-            </button>
-          );
-        })}
-      </div>
-    );
+    return S.sides[side].traps.map((t, i): TrapIcon => {
+      const marked = slotMarked(side, 'trap', i);
+      if (t === null) {
+        const open = mine && plan.setTrap !== null;
+        if (open) return { state: 'open', label: 'Empty trap slot, set trap here', onTap: () => doAct(plan.setTrap as Action) };
+        return { state: 'empty', marked, label: marked ? 'Empty trap slot, the Collector sets a trap here' : 'Empty trap slot' };
+      }
+      if (!mine) return { state: 'set', marked, label: 'Set trap' };
+      return { state: 'set', label: `Set trap: ${view(t.iid).name}`, onTap: () => setInspected(t.iid) };
+    });
   };
 
   // hand
@@ -316,24 +302,20 @@ export function Duel() {
   };
 
   const selView = sel === null ? null : view(sel.iid);
+  const ambushHere = g.FLAGS.AMBUSH && sel?.t === 'board' && plan.reposition !== null && selMonster !== null && selMonster.faceDown;
   // bond rules (D-305..D-320): display only. What may be done is whatever `groups` offers.
   const F = g.FLAGS;
-  const bondsOn = F.SPLIT || F.SYMBIOSIS || F.BOND_ACTION;
+  // D-336: with Graft the only bond there is no options sheet; the Graft button opens the workbench directly
+  const multiBond = F.SPLIT || F.SYMBIOSIS;
+  const bondName = multiBond ? 'Bond' : 'Graft';
   const bondAvailable = groups.graftBegin !== null || groups.splits.size > 0 || groups.symbioses.size > 0;
   const budgetShown = (F.BOND_ACTION || slots) && !blocked && !mulligan && S.result === null;
   // under TURN_SLOTS an attack closes nothing (D-335), so there is nothing to warn about
   const forfeitsBond = !slots && F.BOND_ACTION && S.bond === 0 && bondAvailable && sel?.t === 'board' && (plan.direct !== null || plan.targets.size > 0);
   const attacksLeft = groups.attacks.size;
-  const directOpen = [...groups.attacks.values()].some((list) => list.some((a) => a.target === -1));
   const firstAttackRound = roundOfState(S) < g.FIRST_ATTACK_ROUND_PLAYER;
   // lanes a Sentinel pulls the picked attacker's attack into, other than its own (D-283)
   const sideLanes = L && selSlot >= 0 ? [...plan.targets.keys()].map((t) => them.board.findIndex((x) => x !== null && x.iid === t)).filter((k) => k >= 0 && k !== selSlot) : [];
-  const idleHint = ((): string => {
-    if (directOpen) return 'His board is empty: pick a monster, then tap his life for a direct hit.';
-    if (!bondsOn) return 'Tap a card, then tap where to play it. Tap it again to put it back. Hold a card to inspect.';
-    if (!slots) return 'Tap a card, then tap where to play it.';
-    return 'Tap a card to play it, or a monster to attack. Any order.';
-  })();
   // `lead` is the first thing to do; `rest` is the small print. The bond warning sits between them so it is never cut off.
   const hint = ((): { readonly lead: string; readonly rest: string } | null => {
     if (selView === null) return null;
@@ -346,6 +328,7 @@ export function Duel() {
       if (plan.lanes.size > 0) bits.push(`Tap a lit lane to summon it ${how}.`);
       else if (plan.sacs.size > 0) bits.push('Tap a glowing card to sacrifice, then a lane.');
       if (plan.targets.size > 0) bits.push('Tap a glowing target.');
+      if (plan.discard.size > 0) bits.push('Choose from your discard.');
       if (plan.setTrap !== null) bits.push('Tap an empty trap slot.');
       if (plan.canAttach) bits.push('Or Attach it under a monster.');
       return { lead: bits.join(' '), rest: '' };
@@ -361,16 +344,17 @@ export function Duel() {
     else if (selMonster !== null && selMonster.pos !== 0) bits.push('In guard: switch it to attack position to attack.');
     else if (noLifeLane !== null) bits.push('Empty lane across: no attack, and no direct hit while he has monsters.');
     else if (plan.moves.size === 0) bits.push('No attack available.');
-    if (plan.direct === null && plan.targets.size > 0) rest.push('Direct hits only when his board is empty.');
+    if (g.FLAGS.AMBUSH && selMonster !== null && selMonster.faceDown && plan.reposition !== null) rest.push(`Flip it to attack for an Ambush: +${g.AMBUSH_POWER} Power this turn.`);
+    if (g.FLAGS.RIPOSTE && plan.targets.size > 0) rest.push('Riposte: a held guard destroys the attacker.');
     if (plan.moves.size > 0) rest.push(slots ? 'Move or switch once per turn, before it attacks.' : 'A lane move or a switch: once per turn.');
     if (selMonster !== null && monstersOnly(g, rt.engine, S, selMonster)) rest.push('Summoned this turn: it can hit monsters, not life.');
     return { lead: bits.join(' '), rest: rest.join(' ') };
   })();
 
-  // the element compass (D-272) for the picked monster, an attacker on the board or one to summon from the hand. It sits
-  // at the left of the hint bar so it never covers a lane (D-334); the Play/Bond pips give up their row meanwhile.
-  const compassId = pending === null && !blocked && selView !== null && selView.element !== null && selView.power !== null ? selView.element.id : null;
-  const track = <RoundTrack globals={g} round={roundOfState(S)} />;
+  // the element wheel now lives in Inspect and the side panel only (D-339)
+  const appraisalGavel = cues.find((c) => c.kind === 'gavel');
+  const track = <RoundTrack globals={g} round={roundOfState(S)} appraisal={appraisal === null ? null : { ...appraisal, flashBeat: appraisalGavel?.beat }} />;
+  const recallChoices = [...plan.discard.values()].map((action) => ({ view: view(action.target), action }));
   const openSplit = (m: Iid): void => {
     setInspected(null);
     setBondSheet({ t: 'split', m });
@@ -400,36 +384,22 @@ export function Duel() {
         moodName={moodLabel}
         moodCount={MOOD_NAMES.length}
         intent={intent === null ? null : INTENT_LABEL[intent]}
-        appraisal={
-          appraisal === null
-            ? null
-            : appraisal.roundsAway === 0
-              ? 'Appraisal after your turn'
-              : `Appraisal in round ${appraisal.round} · ${appraisal.roundsAway} away`
-        }
+        traps={trapIcons(1)}
         quip={quip}
         telegraph={tgLine}
         cues={cues}
         directGlow={plan.direct !== null}
         onDirect={() => doAct(plan.direct as Action)}
-        previewDirect={sel?.t === 'board' && plan.direct !== null ? combatHint(sel.iid, -1) : undefined}
+        previewDirect={sel?.t === 'board' && plan.direct !== null ? combatHint(sel.iid, -1)?.text : undefined}
         onMenu={() => setMenu(true)}
       />
 
       <div className="board-area">
-        {trapRow(1)}
         {L ? (
           <div className="lanes">
             <div className="lane-rails" aria-hidden="true">
               {S.sides[0].board.map((_, i) => (
                 <span key={`rail-${i}`} className="rail" data-active={selSlot === i ? '' : undefined} />
-              ))}
-            </div>
-            <div className="lane-rails labels" aria-hidden="true">
-              {S.sides[0].board.map((_, i) => (
-                <span key={`label-${i}`} className="rail">
-                  <b>Lane {i + 1}</b>
-                </span>
               ))}
             </div>
             {monsterRow(1)}
@@ -443,7 +413,6 @@ export function Duel() {
             {monsterRow(0)}
           </>
         )}
-        {trapRow(0)}
       </div>
 
       {error !== null && (
@@ -456,7 +425,6 @@ export function Duel() {
         <GraftSheet onInspect={setInspected} />
       ) : (
         <footer className="bottom" onClick={(e) => e.stopPropagation()}>
-          {budgetShown && compassId === null && <Budget played={S.played} bond={S.bond} slots={slots ? { spell: S.spell, attacks: attacksLeft } : undefined} />}
           {blocked ? (
             <div className="hintbar" aria-live="polite">
               <p className="muted">
@@ -480,12 +448,10 @@ export function Duel() {
               </div>
             </div>
           ) : (
-            <div className="hintbar" aria-live="polite" data-compass={compassId !== null ? '' : undefined}>
+            <div className="hintbar" aria-live="polite" data-idle={selView === null ? '' : undefined}>
               {selView === null ? (
                 <>
-                  <p className="muted">
-                    {undoWhy ?? idleHint}
-                  </p>
+                  <p className="sr-only">{undoWhy ?? ''}</p>
                   <div className="hint-buttons">
                     <button type="button" className="btn ghost" disabled={!canUndo} onClick={() => undo()} title={undoWhy ?? undefined}>
                       <Glyph id="undo" size={18} /> Undo
@@ -494,11 +460,6 @@ export function Duel() {
                 </>
               ) : (
                 <>
-                  {compassId !== null && (
-                    <div className="compass-box">
-                      <ElementWheel variant="compass" focus={compassId} />
-                    </div>
-                  )}
                   <p>
                     {!(L && sel?.t === 'board') && <b>{selView.name} </b>}
                     {hint?.lead}
@@ -511,6 +472,37 @@ export function Duel() {
                     {hint !== null && hint.rest !== '' && ` ${hint.rest}`}
                   </p>
                   <div className="hint-buttons">
+                    {sel?.t === 'hand' && plan.modes.size > 0 && (
+                      <>
+                        <button
+                          type="button"
+                          className="toggle"
+                          aria-pressed={sel.guard}
+                          aria-label={sel.guard ? 'Guard position, tap for Attack' : 'Attack position, tap for Guard'}
+                          disabled={!plan.modes.has('grd') && !sel.guard}
+                          onClick={() => setSel({ ...sel, guard: !sel.guard, faceDown: false })}
+                        >
+                          <Glyph id={sel.guard ? 'shield' : 'sword'} size={18} />
+                          <span>{sel.guard ? 'Guard' : 'Attack'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="toggle"
+                          aria-pressed={sel.faceDown}
+                          aria-label={sel.faceDown ? 'Face-down, tap for face-up' : 'Face-up, tap for face-down'}
+                          disabled={!plan.modes.has('down') && !sel.faceDown}
+                          onClick={() => setSel({ ...sel, faceDown: !sel.faceDown })}
+                        >
+                          <Glyph id={sel.faceDown ? 'facedown' : 'eye'} size={18} />
+                          <span>{sel.faceDown ? 'Face-down' : 'Face-up'}</span>
+                        </button>
+                      </>
+                    )}
+                    {sel?.t === 'hand' && plan.discard.size > 0 && (
+                      <button type="button" className="btn primary" onClick={() => setRecall(true)}>
+                        <Glyph id="tomb" size={18} /> Choose
+                      </button>
+                    )}
                     {plan.cast !== null && (
                       <button type="button" className="btn primary" onClick={() => doAct(plan.cast as Action)}>
                         <Glyph id="spell" size={18} /> Cast
@@ -531,11 +523,13 @@ export function Duel() {
                         <button
                           type="button"
                           className="btn icon"
-                          aria-label={selMonster?.pos === 0 ? 'Switch to Guard position' : 'Switch to Attack position'}
-                          title={selMonster?.pos === 0 ? 'Switch to Guard' : 'Switch to Attack'}
+                          aria-label={ambushHere ? `Ambush: flip it to attack for +${g.AMBUSH_POWER} Power this turn` : selMonster?.pos === 0 ? 'Switch to Guard position' : 'Switch to Attack position'}
+                          title={ambushHere ? 'Ambush' : selMonster?.pos === 0 ? 'Switch to Guard' : 'Switch to Attack'}
+                          data-ambush={ambushHere ? '' : undefined}
                           onClick={() => doAct(plan.reposition as Action)}
                         >
-                          <Glyph id={selMonster?.pos === 0 ? 'shield' : 'sword'} size={20} />
+                          {ambushHere ? <Glyph id="spark" size={18} /> : <Glyph id={selMonster?.pos === 0 ? 'shield' : 'sword'} size={20} />}
+                          {ambushHere && <span className="btn-word">+{g.AMBUSH_POWER}</span>}
                         </button>
                       ) : (
                         <button type="button" className="btn" onClick={() => doAct(plan.reposition as Action)}>
@@ -554,30 +548,6 @@ export function Duel() {
             </div>
           )}
 
-          {sel?.t === 'hand' && plan.modes.size > 0 && (
-            <div className="mode-toggles">
-              <button
-                type="button"
-                className="toggle"
-                aria-pressed={sel.guard}
-                disabled={!plan.modes.has('grd') && !sel.guard}
-                onClick={() => setSel({ ...sel, guard: !sel.guard, faceDown: false })}
-              >
-                <Glyph id={sel.guard ? 'shield' : 'sword'} size={18} />
-                <span>{sel.guard ? 'Guard' : 'Attack'}</span>
-              </button>
-              <button
-                type="button"
-                className="toggle"
-                aria-pressed={sel.faceDown}
-                disabled={!plan.modes.has('down') && !sel.faceDown}
-                onClick={() => setSel({ ...sel, faceDown: !sel.faceDown })}
-              >
-                <Glyph id={sel.faceDown ? 'facedown' : 'eye'} size={18} />
-                <span>{sel.faceDown ? 'Face-down' : 'Face-up'}</span>
-              </button>
-            </div>
-          )}
           <div className="hand" aria-label="Your hand" style={{ '--n': n, '--k': n > 1 ? 1 / (n - 1) : 0 } as CSSProperties}>
             {hand.map(handCard)}
           </div>
@@ -586,26 +556,35 @@ export function Duel() {
             <span className="life me" aria-label={`Your life ${me.life}`}>
               <LifeSeal life={me.life} maxLife={maxLife} hit={myDamage} />
             </span>
-            {!mulligan && bondsOn && (
-              <button
-                type="button"
-                className="btn bonds-btn"
-                data-hot={bondAvailable ? '' : undefined}
-                disabled={!bondAvailable}
-                aria-label={bondAvailable ? `Bond: ${bondNames(F)}` : 'Bond: none possible right now'}
-                onClick={() => setBondSheet({ t: 'options' })}
-              >
-                <Glyph id="link" size={18} /> Bond
-              </button>
-            )}
-            {!mulligan && !bondsOn && groups.graftBegin !== null && (
-              <button type="button" className="btn" onClick={() => doAct(groups.graftBegin as Action)}>
-                <Glyph id="swap" size={18} /> Graft
-              </button>
-            )}
+            <TrapIcons traps={trapIcons(0)} side="me" />
+            {budgetShown && <SlotDots played={S.played} bond={S.bond} spell={S.spell} attacks={attacksLeft} bondName={bondName} />}
+            {!mulligan &&
+              (multiBond ? (
+                <button
+                  type="button"
+                  className="btn bonds-btn"
+                  data-hot={bondAvailable ? '' : undefined}
+                  disabled={!bondAvailable}
+                  aria-label={bondAvailable ? `Bond: ${bondNames(F)}` : 'Bond: none possible right now'}
+                  onClick={() => setBondSheet({ t: 'options' })}
+                >
+                  <Glyph id="link" size={18} /> Bond
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn bonds-btn graft-btn"
+                  data-hot={groups.graftBegin !== null ? '' : undefined}
+                  disabled={groups.graftBegin === null}
+                  aria-label={groups.graftBegin !== null ? 'Graft: join monsters into a Chimera' : 'Graft: not possible right now'}
+                  onClick={() => groups.graftBegin !== null && doAct(groups.graftBegin)}
+                >
+                  <Glyph id="swap" size={18} className="btn-ico" /> Graft
+                </button>
+              ))}
             {!mulligan && (
               <button type="button" className="btn primary end-turn" disabled={groups.endTurn === null} onClick={() => doAct(groups.endTurn as Action)}>
-                End turn <Glyph id="check" size={20} />
+                End turn <Glyph id="check" size={20} className="btn-ico" />
               </button>
             )}
           </div>
@@ -614,8 +593,20 @@ export function Duel() {
 
       {wide && <SidePanel shown={inspected ?? hovered} pinned={inspected !== null} onUnpin={() => setInspected(null)} log={log} onSplit={openSplit} />}
       {!wide && inspected !== null && <Inspect iid={inspected} onClose={() => setInspected(null)} onSplit={openSplit} />}
+      {recall && !blocked && recallChoices.length > 0 && (
+        <DiscardSheet
+          spell={selView?.name ?? 'Discard pile'}
+          choices={recallChoices}
+          onPick={(a) => {
+            setRecall(false);
+            doAct(a);
+          }}
+          onInspect={setInspected}
+          onClose={() => setRecall(false)}
+        />
+      )}
       {bondSheet !== null && <BondSheet mode={bondSheet} onClose={() => setBondSheet(null)} />}
-      {menu && <DuelMenu log={log} undo={undoTile} onClose={() => setMenu(false)} />}
+      {menu && <DuelMenu log={log} undo={undoTile} mood={moodLabel} onClose={() => setMenu(false)} />}
     </main>
   );
 }

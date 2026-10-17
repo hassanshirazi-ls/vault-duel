@@ -84,10 +84,14 @@ describe('greedy and a refused look-ahead (D-222)', () => {
     expect(botAction(createGreedy(), brain, s)).toBeDefined();
   });
 
-  it('a refused attack scores as the current position, so it never beats a real gain', () => {
-    const sc = playerTurn().board(0, 0, 'p-brute').board(1, 0, 'c-brute', { faceDown: true }).hand(0, 'p-open');
-    const s = sc.state();
-    // summoning adds a card to the board; the refused attack (scored as "no change") must not outrank it
-    expect(sc.fmt(s, botAction(createGreedy(), brain, s))).toMatch(/^summon p-open/);
+  it('a refused attack is scored as a gamble over the possible Guards (Riposte, D-337)', () => {
+    // a 2-Power attacker is below every Guard of his roster: Riposte destroys it, so it never attacks a face-down monster
+    const weak = playerTurn().board(0, 0, 'p-open').board(1, 0, 'c-brute', { faceDown: true });
+    const sw = weak.state();
+    expect(weak.fmt(sw, botAction(createGreedy(), brain, sw))).toBe('end');
+    // a 7-Power attacker beats most Guards and ties the 7s, so the gamble pays
+    const strong = playerTurn().board(0, 0, 'p-brute').board(1, 0, 'c-brute', { faceDown: true });
+    const ss = strong.state();
+    expect(strong.fmt(ss, botAction(createGreedy(), brain, ss))).toMatch(/^attack p-brute/);
   });
 });

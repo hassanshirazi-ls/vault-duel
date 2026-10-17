@@ -18,12 +18,13 @@
   "sentinelCover": 1.5,
   "attackMargin": 0,
   "trapCaution": 0.5,
-  "unknownAttack": 0.5,
-  "unknownStat": 4,
+  "foeDownPower": 7,
+  "tempShare": 1,
   "drawSpell": 1.5,
   "graftMaterialShare": 0.6,
   "maxPlans": 400,
   "finalists": 30,
   "graftPairs": 6,
-  "graftVariants": 16
+  "graftVariants": 16,
+  "faceDownGuards": [3, 3, 4, 4, 5, 5, 5, 6, 6, 7, 7, 8, 8]
 }

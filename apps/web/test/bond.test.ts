@@ -185,11 +185,14 @@ describe('How to play follows the bond switches', () => {
     expect(ids(only('SPLIT'))).not.toContain('symbiosis');
     expect(ids(only('SYMBIOSIS'))).toContain('symbiosis');
     expect(ids(only('SYMBIOSIS'))).not.toContain('split');
-    expect(ids([])).toEqual(expect.arrayContaining(['split', 'symbiosis']));
+    // D-336: both are off by default
+    expect(ids([])).not.toContain('split');
+    expect(ids([])).not.toContain('symbiosis');
+    const on = ['FLAGS.SPLIT=true', 'FLAGS.SYMBIOSIS=true'];
     const g = ctxFor().globals;
-    expect(text([])).toContain(`+${g.SYMBIOSIS_GUARD_BONUS} Guard`);
-    expect(text(['SYMBIOSIS_GUARD_BONUS=3'])).toContain('+3 Guard');
-    expect(text([])).toContain('any monster attached under it');
+    expect(text(on)).toContain(`+${g.SYMBIOSIS_GUARD_BONUS} Guard`);
+    expect(text([...on, 'SYMBIOSIS_GUARD_BONUS=3'])).toContain('+3 Guard');
+    expect(text(on)).toContain('any monster attached under it');
   });
   it('names the bond actions in the play sentence without the bond turn, and drops them with it', () => {
     expect(text([...OFF.filter((o) => o.includes('BOND_ACTION') || o.includes('TURN_SLOTS')), 'FLAGS.SPLIT=true', 'FLAGS.SYMBIOSIS=true'])).toContain('or use Graft, Split or Symbiosis');

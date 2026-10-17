@@ -18,6 +18,7 @@ export type GameEvent =
   | { e: 'Repositioned'; iid: Iid; pos: Pos }
   | { e: 'LaneMoved'; iid: Iid; from: number; to: number; swapped: Iid | -1 }
   | { e: 'Revealed'; iid: Iid; side: Side }
+  | { e: 'Ambushed'; iid: Iid; p: number } // D-338: a face-down monster flipped to attack, +p Power until the end of the turn
   | { e: 'Summoned'; side: Side; iid: Iid; slot: number; pos: Pos; faceDown: boolean }
   | { e: 'CovetousSummoned'; iid: Iid; sacrificed: Iid; slot: number }
   | { e: 'Sacrificed'; iid: Iid; reason: 'graft' | 'covetous'; from: 'hand' | 'board' | 'vault' }

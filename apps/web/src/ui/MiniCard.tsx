@@ -41,9 +41,11 @@ export interface MiniCardProps {
   readonly glow?: Glow;
   readonly selected?: boolean;
   readonly dim?: boolean;
-  readonly cue?: { readonly kind: string; readonly beat: number } | undefined;
+  readonly cue?: { readonly kind: string; readonly beat: number; readonly amount?: number | undefined } | undefined;
   readonly large?: boolean;
   readonly preview?: string | undefined;
+  /** a glyph beside the preview text (Riposte shows a shield, a hidden Guard an eye), so the warning is never text alone */
+  readonly previewIcon?: string | undefined;
   /** a labelled marker with an icon, for the Collector's telegraph (D-266) */
   readonly mark?: { readonly icon: string; readonly label: string } | undefined;
   readonly style?: CSSProperties;
@@ -60,7 +62,7 @@ export interface MiniCardProps {
   readonly onHover?: ((on: boolean) => void) | undefined;
 }
 
-export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, mark, style, label, onHover, monstersOnly = false, moved = false, attacked = false, symbiote = null }: MiniCardProps) {
+export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, previewIcon, mark, style, label, onHover, monstersOnly = false, moved = false, attacked = false, symbiote = null }: MiniCardProps) {
   const press = useLongPress(onTap, onLong);
   const frame = frameFor(view.keywords);
   const flaw = view.keywords.find((k) => k.flaw);
@@ -189,7 +191,26 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
           <span className="sym-name">{symbiote.name}</span>
         </span>
       )}
-      {preview !== undefined && <span className="preview-badge">{preview}</span>}
+      {cue?.kind === 'riposte' && (
+        <span className="fx-riposte" aria-hidden="true">
+          <Glyph id="shield" size={22} />
+        </span>
+      )}
+      {cue?.kind === 'ambush' && (
+        <span className="fx-ambush" aria-hidden="true">
+          <Glyph id="spark" size={14} /> +{cue.amount ?? 0}
+        </span>
+      )}
+      {preview !== undefined && (
+        <span className="preview-badge" data-warn={previewIcon !== undefined ? '' : undefined}>
+          {previewIcon !== undefined && <Glyph id={previewIcon} size={12} />} {preview}
+        </span>
+      )}
+      {preview !== undefined && mark === undefined && (
+        <span className="preview-badge" data-warn={previewIcon !== undefined ? '' : undefined}>
+          {previewIcon !== undefined && <Glyph id={previewIcon} size={12} />} {preview}
+        </span>
+      )}
       {mark !== undefined && (
         <span className="preview-badge">
           <Glyph id={mark.icon} size={13} /> {mark.label}
@@ -200,13 +221,18 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
 }
 
 /** The back of a card the player cannot see (the Collector's traps and face-down monsters). */
-export function CardBack({ icon, label, onTap, glow = null, selected = false, mark }: { readonly icon: string; readonly label: string; readonly onTap?: (() => void) | undefined; readonly glow?: Glow; readonly selected?: boolean; readonly mark?: { readonly icon: string; readonly label: string } | undefined }) {
+export function CardBack({ icon, label, onTap, glow = null, selected = false, mark, preview, previewIcon }: { readonly preview?: string | undefined; readonly previewIcon?: string | undefined; readonly icon: string; readonly label: string; readonly onTap?: (() => void) | undefined; readonly glow?: Glow; readonly selected?: boolean; readonly mark?: { readonly icon: string; readonly label: string } | undefined }) {
   return (
     <button type="button" className="mini back" aria-label={label} data-glow={glow ?? undefined} data-selected={selected ? '' : undefined} onClick={onTap} disabled={onTap === undefined}>
       <span className="mini-clip" />
       <span className="back-icon">
         <Glyph id={icon} size={28} />
       </span>
+      {preview !== undefined && mark === undefined && (
+        <span className="preview-badge" data-warn={previewIcon !== undefined ? '' : undefined}>
+          {previewIcon !== undefined && <Glyph id={previewIcon} size={12} />} {preview}
+        </span>
+      )}
       {mark !== undefined && (
         <span className="preview-badge">
           <Glyph id={mark.icon} size={13} /> {mark.label}

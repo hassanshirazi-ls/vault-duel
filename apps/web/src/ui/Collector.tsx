@@ -1,9 +1,11 @@
-// Collector header (D-237, D-238): portrait that changes with mood, life, the intent plaque, the Appraisal countdown,
-// the mood indicator and a one-line quip that fades by itself. The 1-12 round track lives in RoundTrack.
+// Collector header (D-237, D-238, D-339): portrait whose ring shows the mood, life, his trap icons, the intent plaque and a
+// one-line quip that fades by itself. The 1-12 round strip, with the Appraisal countdown, lives in RoundTrack.
 import type { CSSProperties } from 'react';
 import type { TelegraphLine } from '../view/telegraph';
 import type { Cue } from '../visual/cues';
 import { Glyph, InkSplash } from '../visual/glyphs';
+import { TrapIcons } from './TrapIcons';
+import type { TrapIcon } from './TrapIcons';
 
 const MOOD_LABEL: Readonly<Record<string, string>> = { composed: 'Composed', agitated: 'Agitated', desperate: 'Desperate' };
 
@@ -90,7 +92,8 @@ export interface CollectorHeaderProps {
   readonly moodName: string | null;
   readonly moodCount: number;
   readonly intent: { readonly icon: string; readonly label: string } | null;
-  readonly appraisal: string | null;
+  /** his trap slots, as small card backs beside his life */
+  readonly traps: readonly TrapIcon[];
   readonly quip: { readonly key: number; readonly text: string } | null;
   /** the Collector's next move, announced before it happens (D-266); replaces the quip while it shows */
   readonly telegraph: TelegraphLine | null;
@@ -101,13 +104,19 @@ export interface CollectorHeaderProps {
   readonly onMenu: () => void;
 }
 
+/**
+ * The one-row header (D-339): portrait (its ring is the mood), life, his trap icons, the intent plaque and the menu. On a wide
+ * screen the same parts stand in a column and the name and the mood in words come back. The Appraisal countdown lives in the
+ * round strip.
+ */
 export function CollectorHeader(p: CollectorHeaderProps) {
   const damage = p.cues.find((c) => c.kind === 'damage' && c.side === 1);
   const gavel = p.cues.find((c) => c.kind === 'gavel');
   const intentCue = p.cues.find((c) => c.kind === 'intent');
+  const moodWord = p.moodName === null ? null : (MOOD_LABEL[p.moodName] ?? p.moodName);
   return (
     <header className="collector">
-      <div className="portrait" data-mood={p.mood}>
+      <div className="portrait" data-mood={p.moodName === null ? undefined : p.mood} role="img" aria-label={moodWord === null ? 'The Collector' : `The Collector, ${moodWord.toLowerCase()}`} title={moodWord ?? undefined}>
         <Face mood={p.mood} />
       </div>
       {gavel !== undefined && (
@@ -116,23 +125,23 @@ export function CollectorHeader(p: CollectorHeaderProps) {
         </span>
       )}
       <div className="collector-main">
-        <div className="collector-row">
+        <div className="collector-row head">
           <h2 className="collector-name">The Collector</h2>
-          {p.moodName !== null && (
+          {moodWord !== null && (
             <span className="mood" data-mood={p.mood} title="Mood">
               <span className="pips" aria-hidden="true">
                 {Array.from({ length: p.moodCount }, (_, i) => (
                   <i key={i} data-on={i <= p.mood ? '' : undefined} />
                 ))}
               </span>
-              {MOOD_LABEL[p.moodName] ?? p.moodName}
+              {moodWord}
             </span>
           )}
           <button type="button" className="btn ghost menu-btn" aria-label="Menu" onClick={p.onMenu}>
             <Glyph id="menu" size={20} />
           </button>
         </div>
-        <div className="collector-row">
+        <div className="collector-row body">
           <button
             type="button"
             className="life"
@@ -148,6 +157,7 @@ export function CollectorHeader(p: CollectorHeaderProps) {
               </span>
             )}
           </button>
+          <TrapIcons traps={p.traps} side="them" />
           {p.intent !== null && (
             <span className={`plaque ${intentCue !== undefined ? 'cue cue-flash' : ''}`} style={{ '--b': intentCue?.beat ?? 0 } as CSSProperties}>
               <Glyph id={p.intent.icon} size={18} />
@@ -155,11 +165,6 @@ export function CollectorHeader(p: CollectorHeaderProps) {
             </span>
           )}
         </div>
-        {p.appraisal !== null && (
-          <p className={`appraisal ${gavel !== undefined ? 'cue cue-flash' : ''}`} style={{ '--b': gavel?.beat ?? 0 } as CSSProperties}>
-            <Glyph id="gavel" size={16} /> {p.appraisal}
-          </p>
-        )}
         <div className="statusline">
           {p.telegraph !== null ? (
             <p className="telegraph" role="status">

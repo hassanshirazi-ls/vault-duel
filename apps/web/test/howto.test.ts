@@ -18,7 +18,9 @@ describe('How to play copy', () => {
     const pages = howToPages(ctxFor(OFF));
     expect(pages.map((p) => p.id)).toEqual(['goal', 'cards', 'combat', 'graft', 'appraisal', 'winning', 'keywords']);
     const live = howToPages(ctxFor());
-    expect(live.map((p) => p.id)).toEqual(['goal', 'cards', 'combat', 'lanes', 'bonds', 'graft', 'split', 'symbiosis', 'appraisal', 'winning', 'keywords']);
+    // D-336: Split and Symbiosis are off by default, so their pages are gone
+    expect(live.map((p) => p.id)).toEqual(['goal', 'cards', 'combat', 'lanes', 'bonds', 'graft', 'appraisal', 'winning', 'keywords']);
+    expect(howToPages(ctxFor(['FLAGS.SPLIT=true', 'FLAGS.SYMBIOSIS=true'])).map((p) => p.id)).toEqual(['goal', 'cards', 'combat', 'lanes', 'bonds', 'graft', 'split', 'symbiosis', 'appraisal', 'winning', 'keywords']);
     for (const p of live) for (const l of p.lines) expect(l).not.toMatch(/[{}|]/);
     for (const p of pages) for (const l of p.lines) expect(l).not.toMatch(/[{}|]/);
   });
@@ -65,9 +67,12 @@ describe('How to play copy', () => {
     const page = (id: string) => pages.find((p) => p.id === id);
     expect(page('lanes')?.lines.join('\n')).toContain(`within ${ctx.globals.SENTINEL_REACH} lane of it`);
     const bonds = page('bonds')?.lines.join('\n') ?? '';
-    expect(bonds).toContain('Graft, Split or Symbiosis');
     expect(bonds).toContain('Attacking closes nothing');
-    expect(bonds).toContain('marked Best');
+    expect(bonds).toContain('Graft button');
+    expect(bonds).not.toMatch(/Split|Symbiosis/);
+    const multi = howToPages(ctxFor(['FLAGS.SPLIT=true', 'FLAGS.SYMBIOSIS=true'])).find((p) => p.id === 'bonds')?.lines.join('\n') ?? '';
+    expect(multi).toContain('Graft, Split or Symbiosis');
+    expect(multi).toContain('marked Best');
     expect(page('bonds')?.title).toBe('Your turn');
     const keywords = page('keywords');
     expect(keywords?.open).toBe(true);
@@ -86,7 +91,8 @@ describe('How to play copy', () => {
     expect(text).toContain('summon one monster and play one spell or trap');
     expect(text).toContain('Monster: summon one monster a turn.');
     expect(text).toContain('Spell/Trap: cast one spell or set one trap a turn.');
-    expect(text).toContain('under the Bond button beside End turn');
+    expect(text).toContain('with the Graft button beside End turn');
+    expect(howToPages(ctxFor(['FLAGS.SPLIT=true'])).flatMap((p) => p.lines).join('\n')).toContain('under the Bond button beside End turn');
     expect(text).toContain('not after it has attacked');
     expect(text).toContain('only way an attack goes to the side');
     expect(text).toContain('direct hit on his life needs his whole monster board to be empty');
@@ -98,8 +104,15 @@ describe('How to play copy', () => {
   });
   it('points the combat page at the in-duel compass', () => {
     const text = howToPages(ctxFor()).find((p) => p.id === 'combat')?.lines.join('\n') ?? '';
-    expect(text).toContain('compass beside the hint');
+    expect(text).toContain('hold a monster to see a small compass');
     expect(text).not.toContain('strip');
+  });
+  it('teaches Riposte and Ambush with their numbers, and drops them with their switches (D-337, D-338)', () => {
+    const combat = (o: readonly string[] = []) => howToPages(ctxFor(o)).find((p) => p.id === 'combat')?.lines.join('\n') ?? '';
+    expect(combat()).toContain('Riposte');
+    expect(combat()).toContain(`+${ctxFor().globals.AMBUSH_POWER} Power until the end of that turn`);
+    expect(combat(['AMBUSH_POWER=3'])).toContain('+3 Power');
+    expect(combat(['FLAGS.RIPOSTE=false', 'FLAGS.AMBUSH=false'])).not.toMatch(/Riposte|Ambush/);
   });
   it('joins lists', () => {
     expect(joinList([3, 6, 9])).toBe('3, 6 and 9');

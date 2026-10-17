@@ -70,7 +70,7 @@ export function telegraphOf(f: Frame): Telegraph | null {
 export function stagesOf(frames: readonly Frame[]): Stage[] {
   const out: Stage[] = [];
   for (const f of frames) {
-    const cues = cuesFromEvents(f.events);
+    const cues = cuesFromEvents(f.events, f.before);
     const telegraph = f.side === 1 ? telegraphOf(f) : null;
     if (telegraph !== null) {
       out.push({ kind: 'telegraph', state: f.before, before: f.before, events: [], cues: [], telegraph, side: f.side, ms: TIMING.TELEGRAPH_MS });

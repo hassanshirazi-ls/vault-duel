@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { GC, GENV } from '../test-utils/graft-fixture';
+import { GC, GENV, graftEnv } from '../test-utils/graft-fixture';
+import { withGlobals } from '../test-utils/globals';
+import { attackOptions } from './combat';
+import { effectivePower } from './stats';
 import { SPY } from '../test-utils/pipeline-fixture';
 import { harness } from '../test-utils/run';
 import { StateBuilder } from '../test-utils/state';
 import { EngineError } from './errors';
-import { reposition } from './reposition';
+import { ambushPreview, reposition } from './reposition';
 
 beforeEach(() => {
   SPY.length = 0;
@@ -50,5 +53,55 @@ describe('reposition (D-014, D-022, D-023, D-024, D-161)', () => {
     const h = harness(b.place(0, 0, mine).place(1, 0, his).build(), GENV);
     expect(() => reposition(h.run, his)).toThrow(EngineError);
     expect(() => reposition(h.run, 99)).toThrow(EngineError);
+  });
+});
+
+describe('Ambush flip (D-338, FLAGS.AMBUSH)', () => {
+  const AENV = graftEnv(withGlobals({ AMBUSH_POWER: 3, FLAGS: { AMBUSH: true } }));
+  const setup = (over: Parameters<StateBuilder['place']>[3] = {}) => {
+    const b = new StateBuilder(GC).turn(4);
+    const m = b.card('fx-ember-whelp', 0);
+    return { m, s: b.place(0, 0, m, { entered: 0, faceDown: true, pos: 1, ...over }).build() };
+  };
+
+  it('flipping face-down to attack adds +AMBUSH_POWER until the end of the turn and emits Ambushed', () => {
+    const { m, s } = setup();
+    const base = effectivePower(s, AENV, m);
+    const h = harness(s, AENV);
+    reposition(h.run, m);
+    const n = h.done();
+    expect(h.events).toEqual([{ e: 'Revealed', iid: m, side: 0 }, { e: 'Repositioned', iid: m, pos: 0 }, { e: 'Ambushed', iid: m, p: 3 }]);
+    expect(n.sides[0].board[0]?.timed).toEqual([{ p: 3, g: 0, until: 4 }]);
+    expect(effectivePower(n, AENV, m)).toBe(base + 3);
+    expect(effectivePower({ ...n, turn: 6 }, AENV, m)).toBe(base); // gone on the next own turn
+  });
+  it('the preview matches the flip', () => {
+    const { m, s } = setup();
+    const pv = ambushPreview(s, AENV, m);
+    const h = harness(s, AENV);
+    reposition(h.run, m);
+    expect(pv).toEqual({ p: 3, power: effectivePower(h.done(), AENV, m) });
+  });
+  it('a ambushed monster may attack that turn', () => {
+    const b = new StateBuilder(GC).turn(4);
+    const m = b.card('fx-ember-whelp', 0);
+    const t = b.card('fx-ember-whelp', 1);
+    const env = graftEnv(withGlobals({ AMBUSH_POWER: 3, FLAGS: { AMBUSH: true, LANES: false } }));
+    const eng = harness(b.place(0, 0, m, { entered: 0, faceDown: true, pos: 1 }).place(1, 0, t).build(), env);
+    reposition(eng.run, m);
+    expect(attackOptions(eng.done(), env, m)).toEqual([t]);
+  });
+  it('is not an Ambush with the flag off, for a face-up toggle, or when null for non-face-down', () => {
+    const { m, s } = setup();
+    const h = harness(s, GENV);
+    reposition(h.run, m);
+    expect(h.events.map((e) => e.e)).toEqual(['Revealed', 'Repositioned']);
+    expect(h.done().sides[0].board[0]?.timed).toEqual([]);
+    expect(ambushPreview(s, GENV, m)).toBeNull();
+    const up = setup({ faceDown: false, pos: 1 });
+    const h2 = harness(up.s, AENV);
+    reposition(h2.run, up.m);
+    expect(h2.events.map((e) => e.e)).toEqual(['Repositioned']);
+    expect(ambushPreview(up.s, AENV, up.m)).toBeNull();
   });
 });

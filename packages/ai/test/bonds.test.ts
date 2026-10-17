@@ -210,9 +210,10 @@ describe('with every switch off the bond code is inert', () => {
     const s = createEngine(CONTENT, OFF, { intent: collector.intentPolicy }).newGame(SEED(1)).state;
     expect(playerView(collector.brain, s).bonds).toBe(false);
     expect(playerView(collector.brain, s).bondAction).toBe(false);
-    const on = createCollector({ content: CONTENT, globals: GLOBALS });
-    const s2 = createEngine(CONTENT, GLOBALS, { intent: on.intentPolicy }).newGame(SEED(1)).state;
-    expect(playerView(on.brain, s2).bonds).toBe(true); // the live defaults since the 2026-10-16 flip
+    // D-336: Split and Symbiosis are off by default again, so the "on" side names its flags (LIVE) instead of the defaults
+    const on = createCollector({ content: CONTENT, globals: LIVE });
+    const s2 = createEngine(CONTENT, LIVE, { intent: on.intentPolicy }).newGame(SEED(1)).state;
+    expect(playerView(on.brain, s2).bonds).toBe(true); // bond switches on
     expect(playerView(on.brain, s2).bondAction).toBe(true);
   });
 });

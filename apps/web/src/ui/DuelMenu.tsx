@@ -40,7 +40,7 @@ function LogList({ lines, className, refEl }: { readonly lines: readonly LogLine
   );
 }
 
-export function DuelMenu({ log, undo, onClose }: { readonly log: readonly LogLine[]; readonly undo: UndoTile; readonly onClose: () => void }) {
+export function DuelMenu({ log, undo, mood, onClose }: { readonly log: readonly LogLine[]; readonly undo: UndoTile; /** the Collector's mood, in words (D-339: the header shows it only as the portrait ring) */ readonly mood?: string | null | undefined; readonly onClose: () => void }) {
   const mode = useGame((s) => s.mode);
   const state = useGame((s) => s.state);
   const doUndo = useGame((s) => s.undo);
@@ -67,6 +67,11 @@ export function DuelMenu({ log, undo, onClose }: { readonly log: readonly LogLin
             <h2>{title}</h2>
             {close}
           </header>
+          {mood !== undefined && mood !== null && (
+            <p className="menu-mood" data-mood={state?.collector.mood}>
+              <Glyph id="eye" size={16} /> The Collector is {mood.toLowerCase()}. The ring around his portrait shows it.
+            </p>
+          )}
           <div className="tiles">
             <Tile
               icon="undo"

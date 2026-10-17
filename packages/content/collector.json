@@ -9,7 +9,7 @@
   "ace": "the-unpriced",
   "canGraft": false,
   "ai": {
-    "allowFaceDown": false,
+    "allowFaceDown": true,
     "reposition": "laneAware",
     "play": ["winThisTurn", "summonAce", "summonBeater", "setTrapWhenBehind", "castHighValueSpell", "summonFallback", "utility"],
     "attack": ["lethal", "killWithoutLoss", "faceDownIfStrong", "directIfEmpty", "holdExceptVain"],

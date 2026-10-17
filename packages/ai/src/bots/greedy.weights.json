@@ -8,5 +8,7 @@
   "trap": 1,
   "win": 1000000,
   "laneFace": 1.5,
-  "sentinelCover": 1
+  "sentinelCover": 1,
+  "foeDownPower": 7,
+  "faceDownGuards": [3, 3, 4, 4, 5, 5, 5, 6, 6, 7, 7, 8, 8]
 }
