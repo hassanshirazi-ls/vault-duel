@@ -18,7 +18,7 @@ export default defineKeyword({
   examples: [
     `
 card ex-brittle C ember beast 4/4 brittle
-card ex-striker P tide beast 1/1
+card ex-striker P umbra beast 1/1
 step attack
 P board [ex-striker A]
 C board [ex-brittle G]

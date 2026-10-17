@@ -2856,6 +2856,15 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 **D-331 · Bond matrix result** (playtest-runner, 2026-10-16; docs/reports/bond-matrix-2026-10-16.md)
 - Result: on 123L, adding all three bond rules keeps every round-length target failing, drops Appraisal success to 15% and Unpriced to 8% (Split dodges the target; Symbiosis replaces Grafts), and puts the expert at 62.8% (full run). `BOND_GRAFT_MAX_HAND_MATERIALS` is the strength lever: 2 gives expert 53.4% with grafts/win 1.65 (both in band), 1 gives 49.2% with grafts/win 1.25 (fail). `SPLIT_PART_PERM_P = -1` and `SYMBIOSIS_GUARD_BONUS = 1` showed no visible effect on win rate. Expert speed with lanes + bonds: 37–52 duels/s/core. No value was changed by the sim.
 
+**D-332 · Shipped package and Collector tuning: the 2026-10-16 flip** (balance-analyst + main session, owner-authorized 2026-10-16)
+- Decision: the defaults now ship the owner's package: `SICKNESS_MODE = monstersOnly`, `FLAGS.LANES`, ring A (D-285), Collector `ai.reposition = laneAware` (D-286), `FLAGS.SPLIT`, `FLAGS.SYMBIOSIS`, `FLAGS.BOND_ACTION`. One tuning change: `APPRAISAL_MIN_POWER` 7 → 5, because Split parts and Symbiosis hosts are base monsters (Power 2–7) and dodged Appraisal (success 13–15%, Unpriced 8%). `BOND_GRAFT_MAX_HAND_MATERIALS` stays 3: the limit of 2 isn't needed once Appraisal bites (with 5 and 2 the expert fell to 40%). `CONTENT_VERSION` 0.2.0. Flip-time texts: Swift, Sentinel (`{SENTINEL_REACH|lane|lanes}`), Shroud (D-288, bond draft §2).
+- Evidence (full run, 50,000 per bot, 60 dates, no overrides): expert 51.4%, Appraisal 49.7%, Unpriced 23.0%, grafts/win 2.00 (all pass); greedy 28.3%; novice 0.3%, median rounds 5, rounds 8–12 15.9%, round 12 1.5%, seed rejection 73.7% (fail). docs/BALANCE_LOG.md, docs/reports/balance/B01–B15.
+- Still failing, accepted for the playtest: round length (the owner wants a faster pace; monsters-only sickness shortens games), novice (D-117), seed rejection (date spread, no data lever).
+- Reason: the owner asked for everything to be live for testing on 2026-10-17. Saved duels from before the flip restart with the rules notice (D-323); `seeds.json` is regenerated for the new rules.
+
+**D-333 · The expert's plan bound counts lane-move nodes** (ai-dev, 2026-10-16)
+- Decision: in `rankedPlans`, lane-move nodes draw only on the plan budget that is left (`min(perNode, maxPlans - plans.length)`), so a small bound is honoured. At the live bound (400) the expert's choices are unchanged (sim metrics identical). Tests that mean "switch off" now set the switches off explicitly, and the expert-hash pins are derived (`expertHash(bondsOn)`) rather than literal.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

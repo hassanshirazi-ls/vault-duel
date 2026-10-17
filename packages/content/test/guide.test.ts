@@ -245,7 +245,15 @@ const QUILL_LINE = '    QUILL_TOLL: 2,';
 const DECK_LINE = '"example-collector-purge",';
 const CAST_LINE = '"example-collector-purge": { "pick": "highestPower" },';
 
-const SNIPPETS = [BEAST_JSON, RELIC_JSON, SPELL_JSON, TRAP_JSON, DRAW_JSON, COLLECTOR_SPELL_JSON, QUILL_JSON, BRIEF_LINE, DRAW_NUMBER_LINE, QUILL_LINE, DECK_LINE, CAST_LINE];
+const ELEMENT_EMBER_JSON = '{ "id": "ember", "name": "Ember", "color": "#C8452C", "icon": "flame", "beats": ["gale"], "identity": "Aggressive, high Power" }';
+const ELEMENT_VOID_JSON = '{ "id": "void", "name": "Void", "color": "#2A2A2A", "icon": "moon", "beats": ["ember"], "identity": "Example only" }';
+const SUMMON_LANE_LINE = '"summonLane": ["sentinelCenter", "facingBeatable", "facingEmpty", "leftmostFree"]';
+const SENTINEL_TEMPLATE = 'Enemy attacks in its lane and in the lanes within {SENTINEL_REACH|lane|lanes} of it must target it.';
+
+const SNIPPETS = [
+  BEAST_JSON, RELIC_JSON, SPELL_JSON, TRAP_JSON, DRAW_JSON, COLLECTOR_SPELL_JSON, QUILL_JSON, BRIEF_LINE, DRAW_NUMBER_LINE,
+  QUILL_LINE, DECK_LINE, CAST_LINE, ELEMENT_EMBER_JSON, ELEMENT_VOID_JSON, SUMMON_LANE_LINE, SENTINEL_TEMPLATE,
+];
 
 // ---- Messages the guide quotes. Lists of ids are written as "…" in the guide, so those are quoted by prefix. --------
 
@@ -286,11 +294,26 @@ const TRAP_NOT_PREFERRED = (at: number): string =>
 /** The card numbers that only the player spells after the first two use (scrying-bones and siphon). */
 const NUMBERS_OF_DROPPED_SPELLS = ['SCRYING_DRAW', 'SIPHON_DRAIN', 'SIPHON_GAIN'];
 
+/** Sections 3, 7, 10 and 13: the messages added for the 2026-10-17 rules (v0.2.0). */
+const BEATS_UNKNOWN = 'elements.json › ember › beats unknown element "wind" › use an id from elements.json';
+const UMBRA_BEATS = 'elements.json › lumen › beats unknown element "umbra" › use an id from elements.json';
+const UMBRA_CARD = 'cards/player-monsters.json › <card id> › unknown element "umbra" › use one of: …, or add it to elements.json';
+const REPOSITION_BAD = 'collector.json › ai › reposition: got "sometimes" › use one of: toAttackIfUsable, allAttack, laneAware';
+const LANE_BAD = 'collector.json › ai › params.summonLane.[0]: got "nowhere" › use one of: sentinelCenter, facingBeatable, facingEmpty, leftmostFree';
+const SICKNESS_BAD = 'globals.ts › SICKNESS_MODE › Invalid option: expected one of "classic"|"monstersOnly" › fix the value in globals.ts';
+const LANES_WORDS = 'globals.ts › FLAGS › LANES: Invalid input: expected boolean, received string › fix the value in globals.ts';
+const REACH_NEGATIVE = 'globals.ts › SENTINEL_REACH › must be 0 or more › use 0 or more';
+const BONDS_BAD = 'globals.ts › BONDS_PER_TURN › must be 1 until the engine supports other values › keep 1';
+const SYMBIOTES_BAD = 'globals.ts › SYMBIOTES_PER_HOST › must be 1 until the engine supports other values › keep 1';
+const SENTINEL_TYPO = 'keywords/sentinel.ts › sentinel › text: unknown placeholder {SENTINEL_REACHX} › did you mean {SENTINEL_REACH}?';
+
 const MESSAGES = [
   BUDGET_11, MISSING_BRIEF, ORPHAN_BRIEF, NO_EXAMPLES, BARE_NUMBER, TWO_SENTENCES, MALFORMED, UNKNOWN_PLACEHOLDER,
   UNUSED_PLACEHOLDER, NOT_A_NUMBER, UNKNOWN_REF, POOL_SPELLS, MISSING_POWER, RELIC_FLAW_MISSING, BASE_FLAW, TWO_KEYWORDS,
   RELIC_TWO_KEYWORDS, ACE_NOT_RELIC, COVETOUS_MOVED, ACE_NOT_IN_DECK, FORFEIT_NEEDS_ONE, PURGE_NEEDS_ONE, CONTESTED_NO_POWER,
   FORFEIT_NOT_IN_DECK, UNUSED_SIPHON_DRAIN, UNUSED_SIPHON_GAIN, PINNED_RELIC_FLAWS,
+  BEATS_UNKNOWN, UMBRA_BEATS, REPOSITION_BAD, LANE_BAD, SICKNESS_BAD, LANES_WORDS, REACH_NEGATIVE, BONDS_BAD, SYMBIOTES_BAD,
+  SENTINEL_TYPO,
 ];
 
 /** Asserts that the guide quotes `line` verbatim. Table cells escape the pipe character, so the guide text is normalised first. */
@@ -447,7 +470,7 @@ describe('guide §1 · where things live', () => {
 describe('guide §2 · the edit loop', () => {
   it('§2 the commands the guide names are scripts in package.json', () => {
     const scripts = (JSON.parse(readFileSync(resolve(CONTENT_ROOT, '../../package.json'), 'utf8')) as { scripts: Record<string, string> }).scripts;
-    for (const name of ['content:check', 'content:gen', 'sim:quick', 'sim:full', 'dev']) {
+    for (const name of ['content:check', 'content:gen', 'sim:quick', 'sim:full', 'seeds:check', 'dev']) {
       expect(scripts[name], name).toBeDefined();
       expect(GUIDE_TEXT.includes(`pnpm ${name}`), `guide names pnpm ${name}`).toBe(true);
     }
@@ -1365,6 +1388,8 @@ describe('guide §7 · tune a global', () => {
       ['MIN_GRAFT_MATERIALS=3', 'globals.ts › MIN_GRAFT_MATERIALS › must be 2 until the engine supports other values › keep 2', 'MIN_GRAFT_MATERIALS=2'],
       ['WARD_CHARGES=2', 'globals.ts › WARD_CHARGES › must be 1 until the engine supports other values › keep 1', 'WARD_CHARGES=1'],
       ['RELIC_FLAWS=2', PINNED_RELIC_FLAWS, 'RELIC_FLAWS=1'],
+      ['BONDS_PER_TURN=2', BONDS_BAD, 'BONDS_PER_TURN=1'],
+      ['SYMBIOTES_PER_HOST=2', SYMBIOTES_BAD, 'SYMBIOTES_PER_HOST=1'],
       ['FLAGS.ACE_SET_ASIDE=true', 'globals.ts › FLAGS › ACE_SET_ASIDE: must be false until the engine supports other values › keep false', 'FLAGS.ACE_SET_ASIDE=false'],
     ];
     for (const [refused, message, accepted] of cases) {
@@ -1453,5 +1478,63 @@ describe('guide: structure and quoted text', () => {
     expect(JSON.parse(DRAW_JSON)).toMatchObject({ id: 'example-draw', type: 'spell' });
     expect(JSON.parse(COLLECTOR_SPELL_JSON)).toMatchObject({ id: 'example-collector-purge' });
     expect(JSON.parse(`{${CAST_LINE.replace(/,$/, '')}}`)).toMatchObject({ 'example-collector-purge': { pick: 'highestPower' } });
+  });
+});
+
+// v0.2.0 rules (2026-10-17): every new message the guide quotes is what content:check really prints.
+describe('guide · the v0.2.0 rule levers', () => {
+  it('an unknown element in a beats list is refused', async () => {
+    const root = makeCopy();
+    const elements = readArray(root, 'elements.json').map((e) => (e['id'] === 'ember' ? { ...e, beats: ['wind'] } : e));
+    writeJson(root, 'elements.json', elements);
+    expect((await check(root)).errors).toContain(BEATS_UNKNOWN);
+  });
+
+  it('removing an element names every place that still uses it', async () => {
+    const root = makeCopy();
+    writeJson(root, 'elements.json', readArray(root, 'elements.json').filter((e) => e['id'] !== 'umbra'));
+    const errors = (await check(root)).errors;
+    expect(errors).toContain(UMBRA_BEATS);
+    const [prefix, suffix] = UMBRA_CARD.split('<card id>') as [string, string];
+    const [suffixHead, suffixTail] = suffix.split('…') as [string, string];
+    expect(errors.some((e) => e.startsWith(prefix) && e.includes(suffixHead) && e.endsWith(suffixTail))).toBe(true);
+  });
+
+  it('a reposition mode or summon lane rule that does not exist is refused', async () => {
+    const root = makeCopy();
+    const collector = readObject(root, 'collector.json');
+    const ai = collector['ai'] as Json;
+    const params = ai['params'] as Json;
+    const lanes = params['summonLane'] as string[];
+    writeJson(root, 'collector.json', { ...collector, ai: { ...ai, reposition: 'sometimes', params: { ...params, summonLane: ['nowhere', ...lanes.slice(1)] } } });
+    const errors = (await check(root)).errors;
+    expect(errors).toContain(REPOSITION_BAD);
+    expect(errors).toContain(LANE_BAD);
+  });
+
+  it('a sickness mode, a lanes flag or a Sentinel reach of the wrong kind is refused', async () => {
+    const sickness = makeCopy();
+    setGlobal(sickness, 'SICKNESS_MODE', "'sometimes'");
+    expect((await check(sickness)).errors).toContain(SICKNESS_BAD);
+
+    const lanes = makeCopy();
+    const path = join(lanes, 'src/globals.ts');
+    const text = readFileSync(path, 'utf8');
+    expect(/\bLANES: true/.test(text)).toBe(true);
+    writeFileSync(path, text.replace(/\bLANES: true/, "LANES: 'yes'"));
+    expect((await check(lanes)).errors).toContain(LANES_WORDS);
+
+    const reach = makeCopy();
+    setGlobal(reach, 'SENTINEL_REACH', '-1');
+    expect((await check(reach)).errors).toContain(REACH_NEGATIVE);
+  });
+
+  it('a mistyped placeholder in the Sentinel text is caught with a suggestion', async () => {
+    const root = makeCopy();
+    const path = join(root, 'keywords/sentinel.ts');
+    const text = readFileSync(path, 'utf8');
+    expect(text.includes('{SENTINEL_REACH|')).toBe(true);
+    writeFileSync(path, text.replace('{SENTINEL_REACH|', '{SENTINEL_REACHX|'));
+    expect((await check(root)).errors).toContain(SENTINEL_TYPO);
   });
 });

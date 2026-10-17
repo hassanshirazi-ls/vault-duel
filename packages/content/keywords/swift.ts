@@ -9,7 +9,7 @@ export default defineKeyword({
   kind: 'keyword',
   icon: 'swift', // not given in DESIGN.md (judgment call)
   visual: 'motion-streaks',
-  text: 'Can attack monsters the turn it is summoned, but not life directly.',
+  text: 'Can also attack life directly the turn it is summoned.',
   hooks: {
     // 'classic': monsters but not life (D-041); 'monstersOnly' sickness already allows monsters, so Swift adds life (D-280)
     attackPermission: (q) =>

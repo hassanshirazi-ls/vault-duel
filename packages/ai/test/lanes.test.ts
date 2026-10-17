@@ -272,14 +272,17 @@ describe('engine facade lane queries', () => {
 
 describe('LANES off ignores every lane datum', () => {
   it('plays the same duels with summonLane changed and laneAware on', () => {
+    // The live defaults flipped LANES on (2026-10-16), so the off path is set explicitly.
+    const OFF: Globals = { ...GLOBALS, SICKNESS_MODE: 'classic', FLAGS: { ...GLOBALS.FLAGS, LANES: false, SPLIT: false, SYMBIOSIS: false, BOND_ACTION: false } };
     const ai = CONTENT.collector.ai;
     const odd = createCollector({
       content: { ...CONTENT, collector: { ...CONTENT.collector, ai: { ...ai, reposition: 'laneAware', params: { ...ai.params, summonLane: ['facingEmpty', 'leftmostFree'] } } } },
-      globals: GLOBALS,
+      globals: OFF,
     });
-    const base = createCollector({ content: CONTENT, globals: GLOBALS });
+    const oldAi: GameContent = { ...CONTENT, collector: { ...CONTENT.collector, ai: { ...ai, reposition: 'toAttackIfUsable' } } }; // the pre-flip reposition
+    const base = createCollector({ content: oldAi, globals: OFF });
     const trace = (collector: Collector, n: number): string => {
-      const engine = createEngine(CONTENT, GLOBALS, { intent: collector.intentPolicy });
+      const engine = createEngine(CONTENT, OFF, { intent: collector.intentPolicy });
       const bot = createGreedy();
       let s = engine.newGame(SEED(n)).state;
       const out: string[] = [];

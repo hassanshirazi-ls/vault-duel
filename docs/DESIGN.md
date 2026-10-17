@@ -11,7 +11,7 @@ Vault Duel is a daily dark-fantasy card duel: every day, every player gets the s
 - **Same game for everyone.** Both decks are shuffled from the date seed, so results are comparable and shareable.
 - **Simple rules, deep combinations.** A new player understands the rules in 60 seconds; depth comes from Grafting, elements, timing around Appraisal, and reading the Collector.
 - **Challenging but fair boss.** The Collector never cheats, is deterministic, and telegraphs his intent.
-- **Fast.** One card per turn, at most 12 rounds, no waiting on animations.
+- **Fast.** One card and one bond action per turn, at most 12 rounds, no waiting on animations.
 
 **Locked decisions**
 
@@ -38,11 +38,14 @@ You have 20 life and a 24-card deck; the Collector has 25 life and a fixed 20-ca
 **A round** = the player's turn, then the Collector's turn.
 
 1. **Draw** up to 5 cards, at most 2 per turn (spell effects ignore the cap).
-2. **Reposition**: each of your monsters may switch between attack and guard once, except on the turn it was summoned. A face-down monster flipped to attack is revealed.
-3. **Play one card**: summon a monster (face-up attack, face-up guard, or face-down guard), Graft, cast a spell, or set a trap.
-4. **Attack** with each attack-position monster once, then end the turn.
+2. **Reposition**: each of your monsters may either switch between attack and guard or move one lane (into an empty lane, or trading places with your monster there), once, except on the turn it was summoned. A face-down monster flipped to attack is revealed.
+3. **Play one card**: summon a monster (face-up attack, face-up guard, or face-down guard) into an empty lane of your choice, cast a spell, or set a trap.
+4. **Bond action** (once, before your first attack, in either order with your card): Graft, Split or Symbiosis (see Bond actions).
+5. **Attack** with each attack-position monster once, then end the turn.
 
-**Board**: 3 monster slots and 2 trap slots per side. A full board blocks summoning; a Graft that uses a board monster frees its slot.
+**Summoning sickness**: from round 2, a monster can attack the Collector's monsters on the turn it arrives, but not his life; it can attack life from your next turn. Swift lets it hit life on its first turn too; Slow stops it attacking at all on its first turn.
+
+**Board**: 3 lanes and 2 trap slots per side. Each of your lanes faces the Collector's lane across from it. A full board blocks summoning; a Graft that uses a board monster frees its lane.
 
 **Combat**
 
@@ -51,9 +54,10 @@ You have 20 life and a 24-card deck; the Collector has 25 life and a fixed 20-ca
 | Attack position | Higher Power destroys the lower; the loser's owner takes the difference. A tie destroys both, no damage. |
 | Guard position | Power > Guard destroys the defender, no damage. Power < Guard: the attacker's owner takes the difference. Tie: nothing happens. |
 | Face-down | Revealed, then resolved as guard. |
+| Empty lane | No attack, unless the enemy's whole board is empty. |
 | Empty board | Direct attack: full Power as damage. |
 
-Element advantage adds +2 Power when attacking only. Keywords and traps resolve before damage.
+A monster can attack only the enemy monster in the lane across from it (or a Sentinel covering that lane). Element advantage adds +2 Power when attacking only. Keywords and traps resolve before damage.
 
 **Win and loss**: you win when the Collector hits 0. You lose at 0 life, or when the vault seals at the end of round 12. If you cannot draw, you skip the draw (no deck-out loss).
 
@@ -65,11 +69,11 @@ Every monster has one element and one kind. Elements give a flat +2 Power when a
 | --- | --- | --- | --- |
 | Ember | Gale | Red, flame | Aggressive, high Power |
 | Gale | Tide | Pale green, feather | Fast, Swift and Pierce |
-| Tide | Ember | Deep blue, wave | Durable, Ward and Echo |
+| Tide | Lumen | Deep blue, wave | Durable, Ward and Echo |
 | Lumen | Umbra | Gold, halo | Defensive, Sentinel and Ward |
-| Umbra | Lumen | Violet, eye | Tricky, Haunt and Pierce |
+| Umbra | Ember | Violet, eye | Tricky, Haunt and Pierce |
 
-Lumen and Umbra beat each other both ways: whichever attacks gets +2. Every element always shows both its color and its icon (color-blind safe).
+The elements form one ring: each beats exactly one and loses to exactly one (Ember → Gale → Tide → Lumen → Umbra → Ember). Every element always shows both its color and its icon (color-blind safe).
 
 | Kind | Stat profile | Graft role |
 | --- | --- | --- |
@@ -87,8 +91,8 @@ Launch has 6 keywords and 5 Flaws. Base cards carry at most 1 keyword; Chimeras 
 
 | Keyword | Rule | Inspired by | Visual |
 | --- | --- | --- | --- |
-| Swift | Can attack monsters the turn it is summoned, but not life directly | Hearthstone Rush | Motion streaks |
-| Sentinel | Enemy attacks must target Sentinels first | Hearthstone Taunt | Iron shield border |
+| Swift | Can also attack life directly the turn it is summoned | Hearthstone Rush | Motion streaks |
+| Sentinel | Enemy attacks in its lane and in the lanes beside it must target it | Hearthstone Taunt | Iron shield border |
 | Pierce | Power beyond the defender's Guard is dealt to its owner's life | Runeterra Overwhelm | Spear notch on frame |
 | Ward | The first time it would be destroyed, it loses Ward instead | Hearthstone Divine Shield | Pale barrier |
 | Haunt | When destroyed, the monster that destroyed it loses 2 Power permanently | Deathrattle family | Ghost wisps |
@@ -108,7 +112,7 @@ Complexity budget: no card text longer than one sentence. A new keyword must jus
 
 ## Graft system
 
-Grafting combines 2 monsters into a Chimera whose family is set by their two kinds and whose element is set by the first material. It is your one play for the turn.
+Grafting combines 2 monsters into a Chimera whose family is set by their two kinds and whose element is set by the first material. It is your bond action for the turn, so it does not use up your card play.
 
 **Rules**
 
@@ -117,7 +121,7 @@ Grafting combines 2 monsters into a Chimera whose family is set by their two kin
 3. Chimeras inherit up to 2 keywords from their materials (player picks if more than 2 are available).
 4. **Ascend** (second step, same turn): graft the new Chimera with 1 more monster. Result: same family, Ascended, +2 Power and +1 Guard, may take that material's keyword (still max 2). Max 3 materials total.
 5. **Unstable**: if the materials' elements oppose each other (one beats the other, or Lumen + Umbra), the Chimera gets +3 Power but is destroyed at the end of your next turn.
-6. The Chimera enters in attack or guard position (player's choice) and follows normal summoning rules (cannot attack this turn unless Swift).
+6. The Chimera enters in attack or guard position (player's choice) in an empty lane of your choice, and follows normal summoning rules (summoning sickness).
 7. The UI always shows a preview of the result before confirming. A first-time result is added to the Binder.
 
 **Chimera families** (15 kind pairs, order-independent). Art is one painting per family; the element changes the frame and glow, so launch needs 15 Chimera paintings, not 75.
@@ -142,7 +146,23 @@ Grafting combines 2 monsters into a Chimera whose family is set by their two kin
 | Construct + Spirit | Haunted Engine | 7 / 6 |
 | Spirit + Spirit | Choir of Ash | 7 / 5 |
 
-Every pair of monsters can graft, so a random hand never has zero options; the skill is choosing which pair, which order, and when. Most Chimeras reach 7+ Power, which makes them Appraisal targets (see The Collector).
+Every pair of monsters can graft, so a random hand never has zero options; the skill is choosing which pair, which order, and when. Every Chimera reaches 5+ Power, which makes it an Appraisal target (see The Collector).
+
+## Bond actions
+
+Each turn you get one card play and one **bond action**: Graft, Split or Symbiosis. Each is good at one thing and bad at another, like chess pieces, so the skill is reading the board and picking the right one. The bond must happen before your first attack. The **Bond options** panel lists every bond you can make this turn with its result, and marks the strongest.
+
+| Bond | Good at | Costs you |
+| --- | --- | --- |
+| Graft | One big body that breaks walls and wins trades | Two cards become one, and the Chimera is the biggest Appraisal target |
+| Split | Dodging Appraisal, getting lanes back, escaping Unstable, re-grafting in a new order | The Chimera's bonus stats and Ascend are lost; the parts can't attack or move that turn |
+| Symbiosis | Staying power: a second monster waits under the first, even on a full board | If the host is Appraised, the Collector takes both cards; the attached card isn't attacking |
+
+**Split**: unbind one of your face-up Chimeras into the monsters it was grafted from. The first part keeps the Chimera's lane, the rest take the nearest free lanes, and any part with no room goes to your hand. Splitting is not destruction, so Echo, Haunt, Last Rites and Insurance Claim do not trigger. A Chimera that arrived this turn can't be split, and its materials must still be in your discard.
+
+**Symbiosis**: attach a base monster from your hand under one of your face-up monsters (one per host). The host gains +2 Guard and, if it has room, the attached monster's keyword. If the host is destroyed, the attached monster comes out in its lane as if newly summoned. If the host is Appraised, the Collector takes both. A host with a symbiote can't be grafted or split.
+
+The Collector never bonds.
 
 ## Player card pool v0.1
 
@@ -170,7 +190,7 @@ Stat budget: Power + Guard = 8–10; a keyword costs about 1 point.
 | Bloodlust | One of your monsters gets +3 Power this turn |
 | Grave Recall | Return a monster from your discard pile to your hand |
 | Scrying Bones | Draw 2 cards (ignores the draw cap) |
-| Shroud | One of your monsters cannot be Appraised until your next turn |
+| Shroud | One of your monsters cannot be Appraised until your next turn; if you split it, this ends |
 | Siphon | The Collector loses 3 life; you gain 3 |
 
 **Traps** (set face-down as your one play; trigger automatically, then discard)
@@ -212,7 +232,7 @@ The Collector plays a fixed 20-card deck of Relics: stronger than your base card
 
 **Traps (3)**: Display Case (cancel an attack and switch the attacker to guard), Counterfeit (a Chimera grafted this turn loses 3 Power), Insurance Claim (when his monster is destroyed, he gains 3 life).
 
-**Appraisal**: at the start of his turns in rounds 3, 6 and 9, he takes your highest-Power face-up monster with Power 7 or more (tie: leftmost). It goes to an open slot on his board, or to his vault if his board is full. Face-down monsters and Shrouded monsters are safe. A countdown is always on screen.
+**Appraisal**: at the start of his turns in rounds 3, 6 and 9, he takes your highest-Power face-up monster with Power 5 or more (tie: leftmost). It goes to his leftmost open lane, or to his vault if his board is full. Face-down monsters and Shrouded monsters are safe. A monster with a symbiote attached is taken together with it. A countdown is always on screen.
 
 **Moods** (by his life)
 
@@ -230,7 +250,7 @@ Play phase:
 
 1. If he can win this turn, do it.
 2. If The Unpriced is summonable, summon it.
-3. If a slot is open and he holds a monster that beats your strongest face-up monster, play it.
+3. If a lane is open and he holds a monster that beats the monster it would attack from that lane, play it there (highest-Power target first).
 4. If he has fewer monsters than you and holds a trap, set it.
 5. If a spell has a legal high-value target (Forfeit, Restoration, Gilt Frame on a contested attack), cast it.
 6. Otherwise summon his highest-Power monster that is not Slow; if all are Slow, summon in guard.

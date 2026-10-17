@@ -1,12 +1,13 @@
 # Vault Duel content guide
 
-This guide is for the game's owner. It shows how to change cards, numbers and the Collector without writing code.
-It covers sections 1 to 7 now. Sections 8 to 16 come later in Phase 1.
+This guide is for the game's owner. It shows how to change cards, numbers, rules and the Collector without writing code.
+It covers sections 1 to 7, the element ring (10), the Collector's lane settings (13) and balance checks (16). Sections
+8, 9, 11, 12, 14 and 15 come later in Phase 1.
 
 Every worked example in this guide is tested. `packages/content/test/guide.test.ts` copies the content to a temp
 folder, makes the same change, runs the same checks as `pnpm content:check`, and asserts the exact output printed
-here. When a number in an example matters, the test sets it on its own copy. So an example stays true when you tune
-the game, and the examples never depend on the live values.
+here. Examples that run the simulator run it on a tiny setting and read the report it writes. When a number in an
+example matters, the test sets it on its own copy, so an example stays true when you tune the game.
 
 ## Words used here
 
@@ -14,10 +15,17 @@ the game, and the examples never depend on the live values.
   base monster has at most one keyword (section 4).
 - **Relic**: a Collector monster. Every Relic has exactly one Flaw.
 - **Spell** and **trap**: cards with effects. A trap waits face down until its trigger happens.
-- **Element**: one of the colors of the game. An element can beat other elements. The `beats` field in `elements.json` says which.
+- **Element**: one of the colors of the game. An element can beat other elements. The `beats` field in `elements.json` says which (section 10).
 - **Kind**: the family of a monster, such as beast or knight.
 - **Keyword**: an ability printed on a card. A base monster has at most one (`MAX_BASE_KEYWORDS`, section 4).
 - **Flaw**: a drawback printed on a Relic. Flaws are not keywords.
+- **Lane**: one of the three columns of monster slots on each side. Lane 0 is the left-hand column. With lanes on, a
+  monster can attack only the monster across from it (section 7).
+- **Summon turn**: the turn a monster enters the board. What a monster may do on that turn is set by `SICKNESS_MODE` (section 7).
+- **Sentinel reach**: how many lanes beside its own a face-up Sentinel guards (`SENTINEL_REACH`, section 7).
+- **Bond action**: one of Graft, Split or Symbiosis. With `FLAGS.BOND_ACTION` on, a turn allows one card play and one bond action.
+- **Split**: unbinds your face-up Chimera into the monsters it was grafted from.
+- **Symbiosis**: attaches a base monster from your hand under one of your face-up monsters.
 - **Global**: a number or switch in `packages/content/src/globals.ts`.
 - **Placeholder**: a `{NAME}` in card text. It shows the current value of a global.
 - **Chimera**: the monster made by grafting monsters together. Its name and stats come from `recipes.json`.
@@ -28,9 +36,11 @@ the game, and the examples never depend on the live values.
 | --- | --- |
 | `pnpm content:check` | Built. Use it after every change. |
 | `pnpm content:gen` | Built. Run it only after you add or delete a keyword file (section 11, later). |
-| `pnpm sim:quick`, `pnpm sim:full` | Not built yet. The simulator is not in the repo yet. |
-| `pnpm dev` | Not built yet. The web app is not in the repo yet. |
-| `--set NAME=VALUE` in the simulator, `?set=NAME=VALUE` in the web build | Not built yet. The override rules exist in the content package (`withOverrides`). |
+| `pnpm sim:quick`, `pnpm sim:full` | Built. They print and save a balance report (section 16). |
+| `pnpm seeds:check` | Built. It warns when the daily seed file was made for another build (section 16). |
+| `pnpm dev` | Built. Saving a content file reloads the web app. A duel in progress restarts, with a notice. |
+| `--set NAME=VALUE` in the simulator, `?set=NAME=VALUE` in `pnpm dev` | Built. The web form works in the dev build only; production ignores it. |
+| `--ring` and `--collector` in the simulator | Built. Sections 10 and 13. |
 
 Every command in this guide runs from the repository root.
 
@@ -53,11 +63,13 @@ Values live in data. Rules live in the design document.
 | Collector spells and traps | `packages/content/cards/collector-spells.json`, `packages/content/cards/collector-traps.json` | Owner |
 | The Collector's deck list, his ace, his dialogue | `packages/content/collector.json` (`deck`, `ace`, `dialogue`) | Owner |
 | The Collector's AI card lists: the entries in `ai › params › castHighValueSpell` and the ids in `ai › trapPreference` | `packages/content/collector.json` (`ai`) | Owner, edited with the card, like `deck` (D-204) |
-| The Collector's other AI settings: rule lists, mood overrides, `reposition`, string parameters | `packages/content/collector.json` (`ai`) | Owner only, with a decision entry first (D-166) |
-| Numbers and switches | `packages/content/src/globals.ts` | Owner |
+| The Collector's other AI settings: rule lists (including `summonLane`), mood overrides, `reposition`, string parameters | `packages/content/collector.json` (`ai`) | Owner only, with a decision entry first (D-166) |
+| The element ring: each element's `beats` | `packages/content/elements.json` | Owner only, with a decision entry first (D-285) |
+| Other elements' details (name, color, icon, identity), kinds, Chimera families | `packages/content/elements.json`, `kinds.json`, `recipes.json` | Owner |
+| Numbers | `packages/content/src/globals.ts` | Owner |
+| Rule switches and rule numbers: the lane, sickness and bond settings, `APPRAISAL_MIN_POWER` (section 7) | `packages/content/src/globals.ts` | Owner only, with a decision entry first (D-166) |
 | Balance targets (`TARGET_*`) | `packages/content/src/globals.ts` | Owner only, with a decision entry first (D-166) |
 | Proposal switches (`FLAGS.APPRAISED_ENTERS_GUARD`, `FLAGS.ACE_SET_ASIDE`, `FLAGS.CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`, `SLOW_TURNS`) | `packages/content/src/globals.ts` | Owner only, with a decision entry first (D-166) |
-| Elements, kinds, Chimera families | `packages/content/elements.json`, `kinds.json`, `recipes.json` | Owner |
 | Objectives and weekly twists | `packages/content/objectives.json`, `twists.json` | Owner |
 | Art briefs (one line per card) | `packages/content/art-briefs.json` | Owner and artist |
 | Keyword and Flaw rules | `packages/content/keywords/<id>.ts` (code) | Engineering (section 11, later) |
@@ -103,24 +115,25 @@ Make one change at a time. Then check it, play it, and commit it.
 
 1. Edit the file. Keep the JSON valid: quotes around text, commas between entries, no comma after the last one.
 2. Run `pnpm content:check`. Fix every error line. Warning lines do not stop you, but read them.
-3. Run `pnpm sim:quick` when the change may affect balance (available once the simulator lands).
-4. Play it in `pnpm dev` (available once the web app lands). The web build is planned to reload when you save a JSON
-   file or `globals.ts`. A duel in progress is planned to restart, with a notice.
+3. Run `pnpm sim:quick` when the change may affect balance. Section 16 explains the report and a quick smoke run.
+4. Play it in `pnpm dev`. Saving a JSON file or `globals.ts` reloads the web app. A duel in progress restarts, with a
+   notice, because the rules it was playing under changed (D-176, D-197).
 5. Commit the change with a short message that names it, for example "Tune: Example Beast budget".
 
 ### CONTENT_VERSION
 
 `CONTENT_VERSION` in `globals.ts` names a playtest build. Leave it alone while you tune. Change it only when you
-publish a new playtest build (D-179). Saves are protected without it, because the game checks the content and the
-globals when it loads a save (D-108).
+publish a new playtest build (D-179). The CHANGELOG records each build. Saves are protected without it, because the
+game checks the content and the globals when it loads a save (D-108). A duel saved under other rules starts over with
+a notice (D-323).
 
 ### Commands
 
 ```bash
 pnpm content:check
 pnpm content:gen        # only after you add or delete a keyword file (section 11, later)
-pnpm sim:quick          # available once the simulator lands
-pnpm dev                # available once the web app lands
+pnpm sim:quick          # the balance report; takes much longer than content:check (section 16)
+pnpm dev                # the web app, reloads when you save content
 ```
 
 ### Worked example: a warning does not stop the loop
@@ -269,7 +282,15 @@ list of valid ids, the list is shown as `…`, because the ids can change. The c
 | `warning: collector.json › deck[17] › Collector trap "display-case" is not in ai.trapPreference › add it, or AI rule 4 never sets it` | A Collector trap is in his deck and his trap list does not name it. Add its id to `trapPreference` (section 5). |
 | `cards/player-spells.json › pool › 2 spells × MAX_COPIES=2 can't fill DECK_SPELLS=5 › add 1 spell, or lower DECK_SPELLS or raise MAX_COPIES in globals.ts` | There are too few spells for the deck. Add the listed number, or change the globals (section 5). |
 | `cards/player-monsters.json › pool › deck constraints unsatisfiable on 1000 of 1000 test dates › relax DECK_MIN_ELEMENTS, DECK_MIN_KINDS or the CURVE_* globals, or add monsters` | The deck generator cannot build a deck on the test dates. Relax the deck rules in `globals.ts`, or add monsters. |
+| `elements.json › ember › beats unknown element "wind" › use an id from elements.json` | An element's `beats` names an element that does not exist. Use an id from `elements.json` (section 10). |
+| `collector.json › ai › reposition: got "sometimes" › use one of: toAttackIfUsable, allAttack, laneAware` | The Collector's reposition mode is not one of the three. Use one of them (section 13). |
+| `collector.json › ai › params.summonLane.[0]: got "nowhere" › use one of: sentinelCenter, facingBeatable, facingEmpty, leftmostFree` | A summon-lane rule name is wrong. Use one of the four, in the list (section 13). |
 | `globals.ts › PLAYER_LIFE › must be 0 or more › use 0 or more` | A global is negative. Use 0 or more. |
+| `globals.ts › SENTINEL_REACH › must be 0 or more › use 0 or more` | A rule number is negative. Use 0 or more (section 7). |
+| `globals.ts › SICKNESS_MODE › Invalid option: expected one of "classic"\|"monstersOnly" › fix the value in globals.ts` | The sickness mode is misspelled. Use `classic` or `monstersOnly` (section 7). |
+| `globals.ts › FLAGS › LANES: Invalid input: expected boolean, received string › fix the value in globals.ts` | A switch is written in words. Write `true` or `false`, without quotes (section 7). |
+| `globals.ts › BONDS_PER_TURN › must be 1 until the engine supports other values › keep 1` | A pinned bond setting was changed. Keep 1 (section 7). |
+| `globals.ts › SYMBIOTES_PER_HOST › must be 1 until the engine supports other values › keep 1` | The same, for symbiotes. Keep 1 (section 7). |
 | `globals.ts › APPRAISAL_ROUNDS › round 13 > MAX_ROUNDS=12 › remove it` | An Appraisal round is after the last round. Remove the round, or raise `MAX_ROUNDS`. |
 | `globals.ts › WARD_CHARGES › must be 1 until the engine supports other values › keep 1` | A pinned global is set to another value. Keep the one value (section 7). |
 | `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1` | `RELIC_FLAWS` is pinned to 1, because a Relic has exactly one Flaw. Keep 1 (section 7). |
@@ -277,6 +298,7 @@ list of valid ids, the list is shown as `…`, because the ids can change. The c
 | `keywords/index.gen.ts › (file) › stale, does not match keywords/*.ts › run pnpm content:gen` | A keyword file changed, and the generated list was not rebuilt. Run `pnpm content:gen`. |
 | `keywords/example-ward.ts › example-ward › id "example-other" ≠ file name › rename the file or the id` | A keyword file's id does not match its file name. Make them match. |
 | `warning: keywords/example-ward.ts › example-ward › no examples › add one board-DSL example with declared cards (D-169)` | A keyword has no example test. A warning only. Add one (section 11, later). |
+| `keywords/sentinel.ts › sentinel › text: unknown placeholder {SENTINEL_REACHX} › did you mean {SENTINEL_REACH}?` | A keyword's text names a global that does not exist. Fix the name (section 6). |
 | `globals.ts › CONTENT_NUMBERS › PLAYER_LIFE: PLAYER_LIFE is already a core key of Globals › rename it, or change the core PLAYER_LIFE instead` | A card number has the same name as a core global. Rename the card number. |
 
 **"not yet checked" lines:** none today. If one appears, that rule is listed but not checked, so a clean run does not
@@ -308,7 +330,8 @@ Field rules:
 
 - `id` is permanent (section 5). Give it once, in lower case, with hyphens.
 - `name` is the name players see. You can change it at any time.
-- `element` and `kind` must be ids from `elements.json` and `kinds.json`.
+- `element` and `kind` must be ids from `elements.json` and `kinds.json`. The element ring that decides fights is in
+  section 10.
 - `power` and `guard` are whole numbers from 0 to 20. Write them without quotes.
 - `keywords` is a list of keyword ids, such as `["swift"]`. For no keyword, use `[]`. A base monster may have at most
   `MAX_BASE_KEYWORDS` of them, which is 1 at launch (see below).
@@ -486,7 +509,8 @@ says who may edit what. In short:
 
 - The **card lists** are yours to edit with the card: the entries under `ai › params › castHighValueSpell`, and the ids
   under `ai › trapPreference`. Adding or removing a Collector card that the AI plays is a data edit (D-204).
-- Everything else in the AI is owner-only, with a decision entry first (D-166).
+- Everything else in the AI is owner-only, with a decision entry first (D-166). That includes the lane settings of
+  section 13.
 
 #### castHighValueSpell
 
@@ -693,7 +717,8 @@ uses.
 - **Where placeholders work.** Card text, objective text, twist text and keyword text. Not names, dialogue or art
   briefs.
 - **Text follows the value.** The placeholder shows the current number. If you tune the number, the text follows.
-- **Overrides show too.** A temporary `--set` or `?set=` value shows in the card text as well (D-172), once those tools are built.
+- **Overrides show too.** A `--set` in the simulator, or `?set=` in the dev build, changes the number in the text as
+  well (D-172).
 
 ### Template: a card with a placeholder
 
@@ -753,13 +778,29 @@ If the text shows `{DRAW_CARDS}` but no effect or condition uses `$DRAW_CARDS`, 
 warning: cards/player-spells.json › example-draw › text: {DRAW_CARDS} is not used by this card's effects or conditions › check the name
 ```
 
+### Worked example: keyword text uses the same placeholders
+
+The Sentinel keyword's text names its reach as a placeholder. `{SENTINEL_REACH|lane|lanes}` reads "lane" when the
+number is 1 and "lanes" otherwise. Written out in full, the sentence is:
+
+```text
+Enemy attacks in its lane and in the lanes within {SENTINEL_REACH|lane|lanes} of it must target it.
+```
+
+With `SENTINEL_REACH` set to 1, it reads "…within 1 lane of it…". With 2, it reads "…within 2 lanes of it…". The test
+sets 2 on its copy and the check is clean. A misspelled name is refused, and the check suggests the right one:
+
+```text
+keywords/sentinel.ts › sentinel › text: unknown placeholder {SENTINEL_REACHX} › did you mean {SENTINEL_REACH}?
+```
+
 ### Commands
 
 ```bash
 pnpm content:check
 ```
 
-A preview of the rendered text in the web app is not built yet (available once the web app lands).
+`pnpm dev` shows each card's text through the same function, so a changed number shows there too.
 
 ---
 
@@ -768,8 +809,8 @@ A preview of the rendered text in the web app is not built yet (available once t
 Globals are the numbers and switches in `packages/content/src/globals.ts`. There are three ways to change one.
 
 1. **Permanently.** Edit the value in `globals.ts`. Then run `pnpm content:check`.
-2. **Temporarily.** Use `--set NAME=VALUE` in the simulator, or `?set=NAME=VALUE` in the web build. Neither is built
-   yet. The rules that check an override already exist, so the errors are the same ones shown below.
+2. **Temporarily.** Use `--set NAME=VALUE` on a simulator run, or `?set=NAME=VALUE` in the address of `pnpm dev`. The
+   value is never written to a file.
 3. **As a card number.** Add one line to the `CONTENT_NUMBERS` block for a number that only one card uses (D-171).
 
 ### Template: a core global
@@ -800,16 +841,18 @@ The budget warning from section 4 goes away when the top of the range is raised 
 
 ### Worked example: a temporary --set
 
-`--set` changes a value for one run. The example sets `PLAYER_LIFE=18` and `DRAW_CARDS=1`. The game then reads 18 for
-life, and the card text reads "Draw 1 card." The value in `globals.ts` does not change, because an override is never
-written to the file. With no `--set`, the value is the one in the file.
+`--set` changes a value for one simulator run. The example sets `PLAYER_LIFE` to 18 for a smoke run. The report
+records the override in its header. The value in `globals.ts` does not change, because an override is never written to
+the file. With no `--set`, the value is the one in the file.
 
-```text
---set PLAYER_LIFE=18 --set DRAW_CARDS=1        (planned; the simulator is not built yet)
-?set=PLAYER_LIFE=18&set=DRAW_CARDS=1           (planned; the web build is not built yet)
+```bash
+pnpm sim:quick --games 2 --seed-dates 1 --bots expert --workers 1 --set PLAYER_LIFE=18 --out /tmp/vd-guide-set
 ```
 
-A typo is refused, and the message lists what to do:
+The web build takes the same form in the address bar, in the dev build only: `?set=PLAYER_LIFE=18`. Repeat `set=` for
+more values, as in `?set=PLAYER_LIFE=18&set=FLAGS.SPLIT=false`.
+
+A typo is refused, and the message lists what to do. The simulator prints `sim: bad --set` and then the line:
 
 ```text
 globals.ts › PLAYER_LEFE › unknown key › use a key from globals.ts or a name already in CONTENT_NUMBERS
@@ -870,10 +913,70 @@ globals.ts › CONTENT_NUMBERS › PLAYER_LIFE: PLAYER_LIFE is already a core ke
 `globals.ts` has a `FLAGS` block of on-or-off switches. Set one flag at a time, for example `FLAGS.WEEKLY_TWIST=true`.
 An unknown flag is refused and the check lists the valid ones.
 
-The proposal switches (`APPRAISED_ENTERS_GUARD`, `ACE_SET_ASIDE`, `CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`, `SLOW_TURNS`)
-hold the DESIGN rules as written. They change only with a decision entry (D-166).
+The proposal switches (`APPRAISED_ENTERS_GUARD`, `ACE_SET_ASIDE`, `CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`) hold the DESIGN
+rules as written. They change only with a decision entry (D-166). `SLOW_TURNS` stays 1. The proposal to set it to 2 was
+withdrawn, because Slow now restricts a monster on its summon turn (D-280).
 
-### Settings that are locked to one value
+### Rule switches and rule numbers
+
+These settings change how the game plays. They are the 2026-10-16 rules, which ship on in v0.2.0 (D-280 to D-287 and
+D-305 to D-310). Each row is one edit in `globals.ts`. Changing one is an owner decision: write the reason in
+`docs/DECISIONS.md` first, and keep the simulator evidence (`docs/BALANCE_LOG.md`).
+
+| Setting | Shipped in v0.2.0 | What it does | Values you may write |
+| --- | --- | --- | --- |
+| `SICKNESS_MODE` | `'monstersOnly'` | On its summon turn, a monster may attack monsters but not life. `'classic'` is the old rule: no attack at all on that turn. | `'classic'` or `'monstersOnly'` |
+| `FLAGS.LANES` | `true` | Each monster attacks only the monster across from it. When that side has no monster, the attack goes straight at life. `false` is free targeting. | `true` or `false` |
+| `FLAGS.LANE_SWAP` | `true` | A lane move may trade places with your own monster in the lane it enters. Read only with `LANES`. | `true` or `false` |
+| `LANE_MOVE_RANGE` | `1` | How many lanes one lane move may cross. Read only with `LANES`. | a whole number, 0 or more |
+| `SENTINEL_REACH` | `1` | A face-up Sentinel guards its own lane and this many lanes on each side. `0` means its own lane only. Read only with `LANES`. | a whole number, 0 or more |
+| `FLAGS.BOND_ACTION` | `true` | Each turn allows one card play and one bond action, in either order. `false` makes Graft your one play again. | `true` or `false` |
+| `FLAGS.SPLIT` | `true` | Your face-up Chimera can unbind into the monsters it was grafted from. | `true` or `false` |
+| `FLAGS.SYMBIOSIS` | `true` | You can attach a base monster from your hand under one of your face-up monsters. | `true` or `false` |
+| `BOND_GRAFT_MAX_HAND_MATERIALS` | `3` | The most hand cards one Graft may use. `3` is no limit, the same as `MAX_GRAFT_MATERIALS`. Read only with `BOND_ACTION`. | a whole number, 0 or more |
+| `SYMBIOSIS_GUARD_BONUS` | `2` | The Guard a host gains from its symbiote. Read only with `SYMBIOSIS`. | a whole number, 0 or more |
+| `SPLIT_PART_PERM_P` | `0` | The permanent Power change each part gets when a Chimera splits. A negative number makes the parts weaker. Read only with `SPLIT`. | a whole number, any sign |
+| `APPRAISAL_MIN_POWER` | `5` | Appraisal takes only a face-up monster with at least this Power. It was 7 before v0.2.0, because Split parts and Symbiosis hosts are base monsters with Power 2 to 7. | a whole number, 0 or more |
+
+The sim tested `APPRAISAL_MIN_POWER` at 5, 6 and 7, and `BOND_GRAFT_MAX_HAND_MATERIALS` at 2 and 3 (`docs/BALANCE_LOG.md`).
+The other rule numbers are shipped at their starting values and have not been swept. Change one by one step, then run
+`pnpm sim:quick`.
+
+### Turn a rule off or on
+
+Each rule switch is one line. Find it in `globals.ts`, change `true` to `false` (or the reverse), and run the check:
+
+```text
+  LANES: false,
+```
+
+Worked example: put the old summon-turn rule back. In `globals.ts`, change `SICKNESS_MODE` to `'classic'`. The check is
+clean, and the game reads the old rule. The test writes the same change to its copy:
+
+```text
+  SICKNESS_MODE: 'classic',
+```
+
+Worked example: turn lanes off. The check is clean with `FLAGS.LANES` set to `false`. Its settings then do nothing in
+play: `FLAGS.LANE_SWAP`, `SENTINEL_REACH`, `LANE_MOVE_RANGE` and the Collector's `summonLane` list are read only with
+lanes on. The element ring still applies.
+
+```text
+  LANES: false,
+```
+
+Worked example: turn Split off. `FLAGS.SPLIT` set to `false` is clean. With `FLAGS.BOND_ACTION` on, Graft and Symbiosis
+remain bond actions. Turning `FLAGS.BOND_ACTION` off makes Graft your one play again, and Split and Symbiosis, if they
+are on, become plays too (D-305, D-306).
+
+```text
+  SPLIT: false,
+```
+
+A rule change also changes the duel's saved rules. A duel saved under the old rules restarts with a notice (D-323).
+Every rule switch is listed in the table above.
+
+### Settings locked to one value
 
 Some settings are pinned. The engine does not support any other value yet, so the check refuses it. Each one accepts
 only the value shown.
@@ -886,10 +989,13 @@ only the value shown.
 | `MIN_GRAFT_MATERIALS` | 2 | `globals.ts › MIN_GRAFT_MATERIALS › must be 2 until the engine supports other values › keep 2` |
 | `WARD_CHARGES` | 1 | `globals.ts › WARD_CHARGES › must be 1 until the engine supports other values › keep 1` |
 | `RELIC_FLAWS` | 1 | `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1` |
+| `BONDS_PER_TURN` | 1 | `globals.ts › BONDS_PER_TURN › must be 1 until the engine supports other values › keep 1` |
+| `SYMBIOTES_PER_HOST` | 1 | `globals.ts › SYMBIOTES_PER_HOST › must be 1 until the engine supports other values › keep 1` |
 | `FLAGS.ACE_SET_ASIDE` | false | `globals.ts › FLAGS › ACE_SET_ASIDE: must be false until the engine supports other values › keep false` |
 
 `RELIC_FLAWS` stays a global so the number is written down, but a Relic has exactly one Flaw because its `flaw` field
-is a single id. Changing it to 2 is refused, and only a decision entry can lift the pin (D-202).
+is a single id. Changing it to 2 is refused, and only a decision entry can lift the pin (D-202). `BONDS_PER_TURN` is
+one bond action a turn, and `SYMBIOTES_PER_HOST` is one symbiote on each host (D-306, D-308).
 
 Two more limits apply:
 
@@ -926,14 +1032,298 @@ that. You do not need to do anything. A planned setting you set today keeps its 
 ### Sanity rules
 
 The check also refuses values that break a rule, such as a negative number, an Appraisal round after the last round,
-star cuts that are not in descending order, or a rate outside 0 to 1. The messages look the same as the ones above.
+star cuts that are not in descending order, or a rate outside 0 to 1. Every number is 0 or more, with one exception:
+`SPLIT_PART_PERM_P` may be negative, because it is the one lever for weaker parts. The messages look the same as the ones above.
+
+`SPLIT_PART_PERM_P` set to -1 is accepted. `SENTINEL_REACH` set to -1 is refused:
+
+```text
+  SPLIT_PART_PERM_P: -1,
+```
+
+```text
+globals.ts › SENTINEL_REACH › must be 0 or more › use 0 or more
+```
 
 ### Commands
 
 ```bash
 pnpm content:check
-pnpm sim:quick --set NAME=VALUE    # planned; the simulator is not built yet
+pnpm sim:quick --set NAME=VALUE    # the balance report is explained in section 16
 ```
 
-Balance checks (`pnpm sim:quick`, `pnpm sim:full`) read `TARGET_*` in `globals.ts`. They are available once the
-simulator lands. Section 16, later, explains the reports.
+Balance checks (`pnpm sim:quick`, `pnpm sim:full`) read `TARGET_*` in `globals.ts`. Section 16 explains the reports.
+
+---
+
+## 10. The element ring
+
+Elements are the colors of the game. `packages/content/elements.json` holds one entry per element. Its `beats` field
+names the element it beats. When an attacker's element beats the defender's, the attacker gets +`ELEMENT_BONUS` Power
+(2 at launch). Only the attacker gets the bonus.
+
+### The launch ring
+
+The launch ring is one five-step ring, decided by the owner (D-285):
+
+```text
+Ember → Gale → Tide → Lumen → Umbra → Ember
+```
+
+Each element beats exactly one element and loses to exactly one. Ember beats Gale, Gale beats Tide, Tide beats Lumen,
+Lumen beats Umbra, and Umbra beats Ember. The check does not enforce the one-beat rule (see the worked example below),
+so keep to it by hand.
+
+### Template: one element
+
+Each element is one line in `packages/content/elements.json`, inside the list. This is the Ember line:
+
+```json
+{ "id": "ember", "name": "Ember", "color": "#C8452C", "icon": "flame", "beats": ["gale"], "identity": "Aggressive, high Power" }
+```
+
+Field rules:
+
+- `id` is permanent (section 5). Give it once, in lower case.
+- `name` is the name players see.
+- `color` is written as `#` and six hexadecimal digits, such as `#C8452C`.
+- `beats` is a list of element ids. Keep one id in it, for the one-ring rule.
+- `identity` is a short phrase about how the element plays. It is text, not a rule.
+
+### Worked example: change the ring to ring B
+
+The simulator has three named rings for testing (A is the launch ring, B and C are alternates). Ring B is:
+
+```text
+Ember → Gale → Tide → Umbra → Lumen → Ember
+```
+
+Ring B is three edits in `elements.json`: Tide, Umbra and Lumen change their `beats`. The test changes those three on
+its copy and the check is clean:
+
+```text
+"beats": ["umbra"]     <- tide
+"beats": ["lumen"]     <- umbra
+"beats": ["ember"]     <- lumen
+```
+
+### Worked example: a beats entry that is not an element is refused
+
+Write `"beats": ["wind"]` and the check names the element and the fix:
+
+```text
+elements.json › ember › beats unknown element "wind" › use an id from elements.json
+```
+
+### Worked example: the check does not enforce one ring
+
+The check accepts an element that beats two others, because it checks only that each id exists. Ember beating both
+Gale and Tide passes:
+
+```text
+"beats": ["gale", "tide"]
+```
+
+That is not the ring the owner chose (D-285). Keep one beat per element.
+
+### Worked example: add an element
+
+Add a line with its own id, name, color, icon, identity and `beats`. This example adds Void, which beats Ember. The
+check is clean:
+
+```json
+{ "id": "void", "name": "Void", "color": "#2A2A2A", "icon": "moon", "beats": ["ember"], "identity": "Example only" }
+```
+
+Adding an element is untested in the web app, whose element strip was drawn for five elements. Ask before you add one,
+and try it in `pnpm dev` before you rely on it.
+
+### Worked example: remove an element
+
+Removing an element is not one edit. Delete its line, and the check names the `beats` line that points at it and each
+card that uses it. Here `umbra` is removed. The first line is the `beats` line, and one line follows for each card
+with the element:
+
+```text
+elements.json › lumen › beats unknown element "umbra" › use an id from elements.json
+cards/player-monsters.json › <card id> › unknown element "umbra" › use one of: …, or add it to elements.json
+```
+
+The `<card id>` line repeats for each card and each Relic that uses the element. Names depend on your cards, so the
+guide shows the shape.
+
+Fix every line: change the `beats`, and move or delete each card. The check is clean when nothing names the element.
+
+### Worked example: a ring in the simulator
+
+`--ring` runs the simulator on a different ring, without changing `elements.json`. `B` is ring B. The report header
+lists the override:
+
+```bash
+pnpm sim:quick --games 2 --seed-dates 1 --bots expert --workers 1 --ring B --out /tmp/vd-guide-ring
+```
+
+The three names are `A` (the launch ring), `B` and `C`. You can also list the five ids in beat order, such as
+`--ring ember,gale,tide,umbra,lumen`, which is ring B. A list that is missing an element is refused:
+
+```text
+sim: --ring needs every element exactly once (ember, gale, tide, lumen, umbra), got "ember,gale"
+```
+
+### Commands
+
+```bash
+pnpm content:check
+```
+
+---
+
+## 13. The Collector's lanes and reposition
+
+Section 5 covers his deck and ace. The settings here decide how he places and moves his monsters once lanes are on.
+They are AI rules, so they are owner-only, with a decision entry first (D-166).
+
+### Where: collector.json
+
+- `ai › reposition` is how he sets his monsters before he plays. It takes one of three values:
+  - `toAttackIfUsable` (the mode before v0.2.0) turns a guard monster to attack only when that gives it an attack he
+    would use.
+  - `allAttack` (used when he is desperate) turns every guard monster to attack.
+  - `laneAware` (shipped) does what `toAttackIfUsable` does, and also makes lane moves: a monster moves to another
+    lane, or swaps with one of his own, when that wins at least one more kill, or when it moves a Sentinel toward the
+    middle lane without losing an attack. A monster moves at most once a turn (D-286). It has no effect with
+    `FLAGS.LANES` off, because there are no lane moves then.
+- `ai › params › summonLane` is an ordered list of rules that choose the lane for a new summon. The rules run in
+  order. A rule that finds a free lane narrows the choice to those lanes, and a rule that finds none is skipped. The
+  leftmost of the lanes left at the end wins. The list is read only with `FLAGS.LANES`:
+  - `sentinelCenter`: a Sentinel takes the middle lane when that lane is free.
+  - `facingBeatable`: a free lane that faces a face-up player monster this card would beat in battle. The strongest
+    such monster counts first.
+  - `facingEmpty`: a free lane across from an empty player lane, so this card cannot be attacked from that lane.
+  - `leftmostFree`: the leftmost free lane.
+
+Lane 0 is the left column and lane 2 the right. The middle lane is 1.
+
+### Template: the summon-lane list
+
+The list goes inside `params` in `collector.json`. The shipped list is:
+
+```text
+"summonLane": ["sentinelCenter", "facingBeatable", "facingEmpty", "leftmostFree"]
+```
+
+### Worked example: a shorter lane list
+
+A list with only `leftmostFree` is accepted. He then summons into the leftmost free lane, and the other three rules are
+not used. The check is clean on a copy with this list:
+
+```text
+"summonLane": ["leftmostFree"]
+```
+
+### Worked example: a rule name that does not exist
+
+Write `"nowhere"` in the list and the check names the rule and lists the four:
+
+```text
+collector.json › ai › params.summonLane.[0]: got "nowhere" › use one of: sentinelCenter, facingBeatable, facingEmpty, leftmostFree
+```
+
+### Worked example: a reposition mode that does not exist
+
+Write `"sometimes"` for `reposition` and the check names the three modes:
+
+```text
+collector.json › ai › reposition: got "sometimes" › use one of: toAttackIfUsable, allAttack, laneAware
+```
+
+### Commands
+
+The simulator can try another reposition mode or lane list without changing the file. `--collector-reposition` sets
+`ai › reposition`. `--collector` takes `ai.<path>=<json>` and can be repeated. A path always starts with `ai.`. Quote the
+value so the shell passes it as one piece:
+
+```bash
+pnpm sim:quick --games 2 --seed-dates 1 --bots expert --workers 1 --collector-reposition toAttackIfUsable --out /tmp/vd-guide-collector
+pnpm sim:quick --games 2 --seed-dates 1 --bots expert --workers 1 --collector 'ai.params.summonLane=["leftmostFree"]' --out /tmp/vd-guide-collector
+```
+
+The report header lists each one:
+
+```text
+- content overrides (--ring, --collector): `collector.ai.reposition="toAttackIfUsable"`
+```
+
+---
+
+## 16. Checking balance
+
+The simulator plays the game with bots and reports whether the numbers sit inside the targets in `globals.ts`. The
+Target column of each report row is the range from there.
+
+### The commands
+
+| Command | What it runs |
+| --- | --- |
+| `pnpm sim:quick` | `SIM_QUICK_GAMES` games per bot (2000 at launch) for the expert and novice bots, over `SIM_SEED_CHECK_DATES` dates (60) from today. It takes much longer than `content:check`. |
+| `pnpm sim:full` | `SIM_FULL_GAMES` games per bot (50,000 at launch), the same dates, and the seed difficulty check (`SIM_RUNS_PER_SEED` duels per candidate). It takes longer still. |
+| `pnpm seeds:check` | Reads the saved daily-seed file and says whether it was made for this build. It warns and always exits 0. |
+
+`sim quick` takes `--set`, `--ring`, `--collector` and `--collector-reposition` (sections 7, 10 and 13). `sim full`
+takes `--set`. A smoke run uses small numbers, so it finishes in seconds. It shows that the command works, not whether
+the balance is right:
+
+```bash
+pnpm sim:quick --games 2 --seed-dates 1 --bots expert --workers 1 --set SICKNESS_MODE=classic --out /tmp/vd-guide-smoke
+pnpm sim:full --games 2 --seed-dates 1 --bots expert --workers 1 --out /tmp/vd-guide-smoke
+```
+
+The seed file is checked with:
+
+```bash
+pnpm seeds:check
+```
+
+If its first line reads `WARNING: the manifest was made for a different build`, the app rates each day on the device.
+The warning gives the command that rebuilds the file.
+
+### Reading the report
+
+Each run prints a summary and writes two files into `docs/reports/`, named for the command and the date: a `.md` file
+you can read and a `.json` file with every global the run used. The `.md` file has these parts:
+
+- **The header.** Content version, the globals hash, and the overrides the run used. A run with `--set` shows the
+  overrides, so you can tell the two runs apart:
+
+  ```text
+  - overrides (--set): `SICKNESS_MODE=classic`
+  ```
+
+- **Balance targets.** One row per metric. The Result column says `pass`, `fail`, `not measured` or `info`:
+
+  ```text
+  | BT-1 | Win rate | expert |
+  ```
+
+  The metrics are: BT-1 the expert's win rate against the Collector; BT-3 the median round a game ends; BT-3b the
+  share of games ending in rounds 8 to 12 (it needs to be more than half); BT-4 the share ending in round 12; BT-5 the
+  grafts per win; BT-6 the Appraisal success rate; BT-7 how often the Unpriced (the Collector's ace) appears; BT-2 the
+  novice's win rate; BT-8 the seed rejection rate (sim full and sim seed only); DUEL-MIN and LEARN-SEC (minutes to
+  play and seconds to learn), which need people to play, so they are never measured by the simulator.
+- **Anomalies.** A line under `ANOMALY` is a warning about the run itself. The speed line (PERF) is one: it reports
+  duels per second per core against `PERF_DUELS_PER_SEC_PER_CORE`, and a tiny run is always slow.
+- **The rest.** Win rate by bot, the round each game ended, a per-bot detail table, damage and the sealed Vault,
+  bond usage per game (`## Bond usage (per finished game)`: grafts, splits, symbioses), per-card play and win, keyword
+  exposure, and performance.
+
+A smoke run is only a check that the command works. Its numbers are noise. Read a real run, and compare two runs
+that differ by one setting, not one run against a target.
+
+### What to do with a result
+
+1. Change one value, in `globals.ts` or with `--set`.
+2. Run `pnpm sim:quick` with the same settings and with the change (`--set NAME=VALUE`), and compare the Result column
+   of the two reports.
+3. If a change is kept, write the reason in `docs/DECISIONS.md` and the evidence in `docs/BALANCE_LOG.md`.
+
+The targets (`TARGET_*`) are owner-only. Change one only with a decision entry first (D-166).

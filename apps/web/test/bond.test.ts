@@ -17,6 +17,8 @@ import { started } from './helpers';
 
 const DATE = '2026-10-20';
 const ALL = ['FLAGS.SPLIT=true', 'FLAGS.SYMBIOSIS=true', 'FLAGS.BOND_ACTION=true'];
+// The pre-flip rules (the live defaults since 2026-10-16 have every switch on)
+const OFF = ['FLAGS.SPLIT=false', 'FLAGS.SYMBIOSIS=false', 'FLAGS.BOND_ACTION=false'];
 type Harness = Awaited<ReturnType<typeof started>>;
 
 const ctxFor = (overrides: readonly string[] = []) => {
@@ -169,25 +171,28 @@ describe('log, cues and undo label for the new events', () => {
 describe('How to play follows the bond switches', () => {
   const text = (o: readonly string[]) => howToPages(ctxFor(o)).flatMap((p) => [p.summary, ...p.lines]).join('\n');
   it('is today\'s copy with every switch off', () => {
-    const pages = howToPages(ctxFor());
+    const pages = howToPages(ctxFor(OFF));
     expect(pages.map((p) => p.id)).toEqual(['goal', 'cards', 'combat', 'graft', 'appraisal', 'winning']);
-    const t = text([]);
+    const t = text(OFF);
     expect(t).toContain('set a trap, or Graft.');
     expect(t).toContain('It is your card play for the turn');
     expect(t).not.toMatch(/Split|Symbiosis|bond/);
   });
   it('adds Split and Symbiosis pages only for their switch, with numbers from the globals', () => {
     const ids = (o: readonly string[]) => howToPages(ctxFor(o)).map((p) => p.id);
-    expect(ids(['FLAGS.SPLIT=true'])).toContain('split');
-    expect(ids(['FLAGS.SPLIT=true'])).not.toContain('symbiosis');
-    expect(ids(['FLAGS.SYMBIOSIS=true'])).toContain('symbiosis');
+    const only = (on: string) => [...OFF.filter((o) => !o.startsWith(`FLAGS.${on}=`)), `FLAGS.${on}=true`];
+    expect(ids(only('SPLIT'))).toContain('split');
+    expect(ids(only('SPLIT'))).not.toContain('symbiosis');
+    expect(ids(only('SYMBIOSIS'))).toContain('symbiosis');
+    expect(ids(only('SYMBIOSIS'))).not.toContain('split');
+    expect(ids([])).toEqual(expect.arrayContaining(['split', 'symbiosis']));
     const g = ctxFor().globals;
-    expect(text(['FLAGS.SYMBIOSIS=true'])).toContain(`+${g.SYMBIOSIS_GUARD_BONUS} Guard`);
-    expect(text(['FLAGS.SYMBIOSIS=true', 'SYMBIOSIS_GUARD_BONUS=3'])).toContain('+3 Guard');
-    expect(text(['FLAGS.SYMBIOSIS=true'])).toContain('any monster attached under it');
+    expect(text([])).toContain(`+${g.SYMBIOSIS_GUARD_BONUS} Guard`);
+    expect(text(['SYMBIOSIS_GUARD_BONUS=3'])).toContain('+3 Guard');
+    expect(text([])).toContain('any monster attached under it');
   });
   it('names the bond actions in the play sentence without the bond turn, and drops them with it', () => {
-    expect(text(['FLAGS.SPLIT=true', 'FLAGS.SYMBIOSIS=true'])).toContain('or use Graft, Split or Symbiosis');
+    expect(text([...OFF.filter((o) => o.includes('BOND_ACTION')), 'FLAGS.SPLIT=true', 'FLAGS.SYMBIOSIS=true'])).toContain('or use Graft, Split or Symbiosis');
     const on = text(ALL);
     expect(on).toContain('summon a monster, cast a spell or set a trap.');
     expect(on).toContain('Before your first attack you may also make 1 bond action: Graft, Split or Symbiosis, in either order.');

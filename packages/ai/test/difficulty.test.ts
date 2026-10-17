@@ -17,6 +17,7 @@ const G: Globals = {
   DIFFICULTY_STAR_CUTS: [0.6, 0.4],
   OBJECTIVES_PER_DAY: 3,
 };
+const OFF: Globals = { ...G, FLAGS: { ...G.FLAGS, SPLIT: false, SYMBIOSIS: false, BOND_ACTION: false } };
 const OBJECTIVES = ['o-a', 'o-b', 'o-c', 'o-d', 'o-e'];
 const ctx = (g: Globals = G): DayContext => ({ content: CONTENT, globals: g, objectiveIds: OBJECTIVES });
 
@@ -119,7 +120,10 @@ describe('prepareDay (§12.5)', () => {
   });
 
   it('records a hash of the expert weights, which changes with them', () => {
-    expect(prepareDay(ctx(), '2026-10-15', run).expertHash).toBe(expertHash());
+    // The live defaults have the bond switches on since the 2026-10-16 flip, so the hash covers the bond weights; with every
+    // switch off it is the old plain hash.
+    expect(prepareDay(ctx(), '2026-10-15', run).expertHash).toBe(expertHash(true));
+    expect(prepareDay(ctx(OFF), '2026-10-15', run).expertHash).toBe(expertHash(false));
     expect(expertHash()).toMatch(/^[0-9a-f]{32}$/);
   });
 
@@ -166,7 +170,8 @@ describe('prepareDay (§12.5)', () => {
 
   it('checkKey changes with the globals and carries the content and expert hashes (D-236)', () => {
     const a = checkKey(ctx());
-    expect(a).toEqual({ contentHash: CONTENT.hash, globalsHash: a.globalsHash, expertHash: expertHash() });
+    expect(a).toEqual({ contentHash: CONTENT.hash, globalsHash: a.globalsHash, expertHash: expertHash(true) }); // bond switches on since the 2026-10-16 flip
+    expect(checkKey(ctx(OFF)).expertHash).toBe(expertHash(false));
     expect(checkKey(ctx({ ...G, SIM_RUNS_PER_SEED: G.SIM_RUNS_PER_SEED + 1 })).globalsHash).not.toBe(a.globalsHash);
   });
 

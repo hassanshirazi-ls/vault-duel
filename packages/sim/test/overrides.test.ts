@@ -81,14 +81,15 @@ describe('applyContentOverrides', () => {
 describe('loadContext with content overrides', () => {
   it('changes the compiled matrix and the content hash, not the globals hash', () => {
     const base = loadContext([]);
-    const ringA = loadContext([], { ring: 'A' });
-    const n = ringA.content.elementIds.length;
-    const idx = (id: string): number => ringA.content.elementIds.indexOf(id);
-    expect(ringA.content.beats[idx('tide') * n + idx('lumen')]).toBe(1);
-    expect(ringA.content.beats[idx('tide') * n + idx('ember')] ?? 0).toBe(0);
-    expect(ringA.content.hash).not.toBe(base.content.hash);
-    expect(checkKey(ringA).globalsHash).toBe(checkKey(base).globalsHash);
-    expect(ringA.contentOverrides).toEqual([`ring=${NAMED_RINGS['A']}`]);
+    // Ring A is the shipped default since the 2026-10-16 flip, so ring B is the override that changes the matrix.
+    const ringB = loadContext([], { ring: 'B' });
+    const n = ringB.content.elementIds.length;
+    const idx = (id: string): number => ringB.content.elementIds.indexOf(id);
+    expect(ringB.content.beats[idx('tide') * n + idx('umbra')]).toBe(1);
+    expect(ringB.content.beats[idx('tide') * n + idx('lumen')] ?? 0).toBe(0);
+    expect(ringB.content.hash).not.toBe(base.content.hash);
+    expect(checkKey(ringB).globalsHash).toBe(checkKey(base).globalsHash);
+    expect(ringB.contentOverrides).toEqual([`ring=${NAMED_RINGS['B']}`]);
   });
 
   it('A spelled out equals A by name', () => {
@@ -97,7 +98,8 @@ describe('loadContext with content overrides', () => {
 
   it('a collector override changes the content hash, and the default path is the same as before', () => {
     const base = loadContext([]);
-    expect(loadContext([], { collector: ['ai.reposition="laneAware"'] }).content.hash).not.toBe(base.content.hash);
+    // laneAware is the shipped default since the 2026-10-16 flip, so the old mode is the override.
+    expect(loadContext([], { collector: ['ai.reposition="toAttackIfUsable"'] }).content.hash).not.toBe(base.content.hash);
     expect(loadContext([], {}).content.hash).toBe(base.content.hash);
     expect(base.contentOverrides).toEqual([]);
   });

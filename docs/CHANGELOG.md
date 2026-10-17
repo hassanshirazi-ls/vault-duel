@@ -3,6 +3,49 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-17 · v0.2.0: lanes, bond actions and a new ring
+
+This release turns on the rules from the 2026-10-16 playtest round and adds three "chess piece" bond actions. `CONTENT_VERSION` is now `0.2.0`. **A duel saved before this update starts over** with the notice "The rules changed since this duel was saved; it starts over." (D-323).
+
+### New rules, now on by default
+
+- **Lanes** (`FLAGS.LANES`, D-281…D-284). Each side has three lanes, and a monster attacks only the monster across from it. An empty lane does not reach the Collector's life; a direct attack needs his whole board empty. You pick the lane when you summon or graft. Once per turn a monster may either move one lane (or trade places with your monster there) or switch between attack and guard (`FLAGS.LANE_SWAP`, `LANE_MOVE_RANGE`).
+- **Summoning sickness, monsters only** (`SICKNESS_MODE = monstersOnly`, D-280). From round 2, a new monster can attack his monsters on the turn it arrives, but not his life. Swift now also lets it hit life that turn; Slow stops it attacking at all.
+- **Sentinel guards three lanes** (`SENTINEL_REACH` 1, D-283): its own lane and the lanes beside it.
+- **One element ring** (ring A, `elements.json` `beats`, D-285): Ember → Gale → Tide → Lumen → Umbra → Ember. Each element beats exactly one and loses to exactly one; Lumen and Umbra no longer beat each other.
+- **Bond actions** (D-305…D-320). Each turn you play one card and make one bond action, in either order, before your first attack (`FLAGS.BOND_ACTION`):
+  - **Graft**: as before, but it no longer uses up your card play.
+  - **Split** (`FLAGS.SPLIT`): unbind one of your Chimeras back into the monsters it was made from. Good for dodging Appraisal or getting lanes back; you lose the Chimera's bonus stats.
+  - **Symbiosis** (`FLAGS.SYMBIOSIS`): attach a monster from your hand under one of yours. The host gets +`SYMBIOSIS_GUARD_BONUS` (2) Guard and the attached monster's keyword; when the host is destroyed, the attached monster comes out in its lane. If the host is Appraised, the Collector takes both.
+
+### Collector changes
+
+- **Appraisal takes monsters with Power 5 or more** (`APPRAISAL_MIN_POWER` 7 → 5, D-332). Split and Symbiosis let players keep everything under 7, so Appraisal almost stopped working (13–15% success). At 5 it succeeds about half the time again. Evidence: `docs/BALANCE_LOG.md`.
+- He places summons by lane and makes lane moves when they give him more kills (`collector.json` `ai.reposition = laneAware`, `ai.params.summonLane`; D-286).
+- He never makes bond actions.
+- Full sim of the shipped rules (50,000 duels per bot): expert player 51.4% (target 45–55%), Appraisal 49.7%, The Unpriced appears in 23.0% of duels. Games are short (median 5 rounds), which matches the faster pace you asked for; the round-length targets still fail (D-332).
+
+### New texts
+
+- Swift: "Can also attack life directly the turn it is summoned."
+- Sentinel: "Enemy attacks in its lane and in the lanes within {SENTINEL_REACH|lane|lanes} of it must target it."
+- Shroud: "One of your monsters cannot be Appraised until your next turn; if you split it, this ends."
+- How to play now has 8 pages, adding Split and Symbiosis and lines for lanes and sickness. Each line appears only while its rule is on.
+
+### In the app
+
+- Lanes on the board, lane picking when you summon or graft, lit "Move"/"Swap" slots for lane moves, a "No hit" note for an empty lane across, and a sickness badge (D-322).
+- The in-duel element compass is now a strip above your board: "Beats … +2" and "Weak to …". The full wheel stays in How to play (D-321).
+- "Play" and "Bond" pips show what you have left this turn. A Split button sits on Chimeras, and an Attach button on hand monsters. An attached monster shows as a tab under its host (D-327).
+- **Bond options**: a button beside Undo lists every Graft, Split and Symbiosis you can make this turn, with the result and whether it is safe from the next Appraisal, and marks the best one (D-328).
+
+### New levers in the content guide
+
+- `SICKNESS_MODE`, `FLAGS.LANES`, `FLAGS.LANE_SWAP`, `LANE_MOVE_RANGE`, `SENTINEL_REACH`, `FLAGS.SPLIT`, `FLAGS.SYMBIOSIS`, `FLAGS.BOND_ACTION`, `SYMBIOSIS_GUARD_BONUS`, `BOND_GRAFT_MAX_HAND_MATERIALS`, `SPLIT_PART_PERM_P`. Each rule turns off with one edit in `globals.ts`.
+- Editing the element ring in `elements.json`, and the Collector's `summonLane` / `reposition` in `collector.json`.
+- Sim overrides for trying a change without editing: `--set`, `--ring`, `--collector`, `--collector-reposition`.
+- New `content:check` messages for a bad `beats` id, a removed element, a bad reposition mode or lane rule, a bad sickness mode, a lanes flag in words, a negative Sentinel reach, and a mistyped Sentinel placeholder. Each is quoted in the guide and tested.
+
 ## 2026-10-16
 
 ### Changed

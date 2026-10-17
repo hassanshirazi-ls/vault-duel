@@ -1,7 +1,7 @@
 [
   { "id": "ember", "name": "Ember", "color": "#C8452C", "icon": "flame", "beats": ["gale"], "identity": "Aggressive, high Power" },
   { "id": "gale", "name": "Gale", "color": "#8FBF9A", "icon": "feather", "beats": ["tide"], "identity": "Fast, Swift and Pierce" },
-  { "id": "tide", "name": "Tide", "color": "#2B4C7E", "icon": "wave", "beats": ["ember"], "identity": "Durable, Ward and Echo" },
+  { "id": "tide", "name": "Tide", "color": "#2B4C7E", "icon": "wave", "beats": ["lumen"], "identity": "Durable, Ward and Echo" },
   { "id": "lumen", "name": "Lumen", "color": "#D4A93C", "icon": "halo", "beats": ["umbra"], "identity": "Defensive, Sentinel and Ward" },
-  { "id": "umbra", "name": "Umbra", "color": "#6B4C9A", "icon": "eye", "beats": ["lumen"], "identity": "Tricky, Haunt and Pierce" }
+  { "id": "umbra", "name": "Umbra", "color": "#6B4C9A", "icon": "eye", "beats": ["ember"], "identity": "Tricky, Haunt and Pierce" }
 ]

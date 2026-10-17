@@ -21,10 +21,13 @@ describe('rule levers (owner-only, D-166, D-168)', () => {
     expect(G.SLOW_TURNS).toBe(1);
   });
 
-  it('keeps the bond rules off until the owner adopts them (D-305..D-316)', () => {
-    expect(G.FLAGS.SPLIT).toBe(false);
-    expect(G.FLAGS.SYMBIOSIS).toBe(false);
-    expect(G.FLAGS.BOND_ACTION).toBe(false);
+  // The owner adopted the bond rules and the 2026-10-16 rule changes in the 2026-10-16 flip (docs/BALANCE_LOG.md).
+  it('ships the bond rules and rule changes the owner adopted in the 2026-10-16 flip (D-280..D-287, D-305..D-316)', () => {
+    expect(G.FLAGS.SPLIT).toBe(true);
+    expect(G.FLAGS.SYMBIOSIS).toBe(true);
+    expect(G.FLAGS.BOND_ACTION).toBe(true);
+    expect(G.FLAGS.LANES).toBe(true);
+    expect(G.SICKNESS_MODE).toBe('monstersOnly');
     expect(G.BOND_GRAFT_MAX_HAND_MATERIALS).toBe(G.MAX_GRAFT_MATERIALS); // 3 = no limit
   });
 });

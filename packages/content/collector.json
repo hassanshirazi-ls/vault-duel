@@ -10,7 +10,7 @@
   "canGraft": false,
   "ai": {
     "allowFaceDown": false,
-    "reposition": "toAttackIfUsable",
+    "reposition": "laneAware",
     "play": ["winThisTurn", "summonAce", "summonBeater", "setTrapWhenBehind", "castHighValueSpell", "summonFallback", "utility"],
     "attack": ["lethal", "killWithoutLoss", "faceDownIfStrong", "directIfEmpty", "holdExceptVain"],
     "params": {

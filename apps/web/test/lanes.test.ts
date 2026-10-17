@@ -14,7 +14,9 @@ import { cuesFromEvents } from '../src/visual/cues';
 import { makeStore, started } from './helpers';
 
 const DATE = '2026-10-14';
-const LANES = ['FLAGS.LANES=true'];
+const LANES = ['FLAGS.LANES=true', 'SICKNESS_MODE=classic'];
+// The pre-flip rules (the live defaults since 2026-10-16 have lanes on and monsters-only sickness)
+const OFF = ['FLAGS.LANES=false', 'SICKNESS_MODE=classic'];
 type Harness = Awaited<ReturnType<typeof started>>;
 
 const legalOf = (h: Harness): readonly Action[] => h.store.getState().legal;
@@ -77,7 +79,8 @@ describe('lanes on: the plan', () => {
   });
 
   it('an empty lane across, with monsters elsewhere, is a note and gives no life hit', async () => {
-    const h = await started(DATE, memoryStorage(), LANES);
+    // a seed whose duel reaches the shape under the shipped ring and Collector
+    const h = await started('2026-10-15', memoryStorage(), LANES);
     const g = h.store.getState().ctx?.globals as NonNullable<ReturnType<typeof h.store.getState>['ctx']>['globals'];
     expect(lanesOn(g)).toBe(true);
     let seen = false;
@@ -106,7 +109,7 @@ describe('lanes on: the plan', () => {
     const rt = h.store.getState().rt as NonNullable<ReturnType<typeof h.store.getState>['rt']>;
     const s = stateOf(h);
     expect(coveredLanes(ctx.globals, rt.engine, ctx.content.kwBit['sentinel'], s, 0).size).toBe(0);
-    const off = await started(DATE);
+    const off = await started(DATE, memoryStorage(), OFF);
     const offCtx = off.store.getState().ctx as NonNullable<ReturnType<typeof h.store.getState>['ctx']>;
     expect(coveredLanes(offCtx.globals, rt.engine, offCtx.content.kwBit['sentinel'], stateOf(off), 0).size).toBe(0);
     expect(attackNote(offCtx.globals, stateOf(off), 0)).toBeNull();
@@ -115,7 +118,7 @@ describe('lanes on: the plan', () => {
 
 describe('lanes off: nothing changes', () => {
   it('summons play on any empty slot and no lane or move is offered', async () => {
-    const h = await started(DATE);
+    const h = await started(DATE, memoryStorage(), OFF);
     h.store.getState().act({ t: 'keep' });
     const groups = groupLegal(legalOf(h));
     const iid = [...groups.summons.keys()][0] as number;
@@ -127,7 +130,7 @@ describe('lanes off: nothing changes', () => {
   });
 
   it('shows no sickness mark (classic sickness)', async () => {
-    const h = await started(DATE);
+    const h = await started(DATE, memoryStorage(), OFF);
     const ctx = h.store.getState().ctx as NonNullable<ReturnType<typeof h.store.getState>['ctx']>;
     const rt = h.store.getState().rt as NonNullable<ReturnType<typeof h.store.getState>['rt']>;
     drive(h, (l) => l.some((a) => a.t === 'endTurn') && stateOf(h).sides[0].board.some((m) => m !== null));
@@ -170,10 +173,10 @@ describe('sickness mark (D-280)', () => {
 describe('old saves (D-287)', () => {
   it('a duel saved under other rules starts over with the rules notice', async () => {
     const storage = memoryStorage();
-    const old = await started(DATE, storage);
+    const old = await started(DATE, storage, OFF);
     old.store.getState().act({ t: 'keep' });
     expect(loadSession(storage, DATE)?.actions.length).toBe(1);
-    const next = makeStore(DATE, storage, LANES);
+    const next = makeStore(DATE, storage);
     await next.store.getState().boot();
     const s = next.store.getState();
     expect(s.notice).toBe(RULES_NOTICE);

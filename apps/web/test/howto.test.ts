@@ -10,10 +10,16 @@ const ctxFor = (overrides: readonly string[] = []) => {
   return r.ctx;
 };
 
+// The pre-flip rules (the live defaults since 2026-10-16 have lanes, sickness and the bond rules on)
+const OFF = ['FLAGS.LANES=false', 'FLAGS.SPLIT=false', 'FLAGS.SYMBIOSIS=false', 'FLAGS.BOND_ACTION=false', 'SICKNESS_MODE=classic'];
+
 describe('How to play copy', () => {
   it('has the six pages in order, with no unrendered placeholder', () => {
-    const pages = howToPages(ctxFor());
+    const pages = howToPages(ctxFor(OFF));
     expect(pages.map((p) => p.id)).toEqual(['goal', 'cards', 'combat', 'graft', 'appraisal', 'winning']);
+    const live = howToPages(ctxFor());
+    expect(live.map((p) => p.id)).toEqual(['goal', 'cards', 'combat', 'graft', 'split', 'symbiosis', 'appraisal', 'winning']);
+    for (const p of live) for (const l of p.lines) expect(l).not.toMatch(/[{}|]/);
     for (const p of pages) for (const l of p.lines) expect(l).not.toMatch(/[{}|]/);
   });
   it('reads every number from the globals', () => {
@@ -43,12 +49,12 @@ describe('How to play copy', () => {
   });
   it('teaches lanes and sickness only when those rules are on', () => {
     const text = (o: readonly string[]) => howToPages(ctxFor(o)).flatMap((p) => p.lines).join('\n');
-    expect(text([])).not.toMatch(/lane|just summoned/);
-    const on = text(['FLAGS.LANES=true', 'SICKNESS_MODE=monstersOnly']);
+    expect(text(OFF)).not.toMatch(/lane|just summoned/);
+    const on = text([]);
     expect(on).toContain('only attack the monster across');
     expect(on).toContain('up to 1 lane sideways');
     expect(on).toContain('just summoned may attack monsters but not life');
-    expect(text(['FLAGS.LANES=true', 'LANE_MOVE_RANGE=2'])).toContain('up to 2 lanes sideways');
+    expect(text(['LANE_MOVE_RANGE=2'])).toContain('up to 2 lanes sideways');
     expect(on).not.toMatch(/[{}|]/);
   });
   it('joins lists', () => {

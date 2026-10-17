@@ -19,7 +19,7 @@
     "effects": [ { "op": "draw", "who": "self", "n": "$SCRYING_DRAW" } ]
   },
   {
-    "id": "shroud", "type": "spell", "name": "Shroud", "text": "One of your monsters cannot be Appraised until your next turn.",
+    "id": "shroud", "type": "spell", "name": "Shroud", "text": "One of your monsters cannot be Appraised until your next turn; if you split it, this ends.",
     "target": { "side": "ally", "zone": "board" },
     "effects": [ { "op": "preventAppraisal", "target": "chosen", "duration": "untilYourNextTurn" } ]
   },

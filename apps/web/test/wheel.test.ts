@@ -28,9 +28,18 @@ describe('element wheel layout (D-271)', () => {
     expect(wheelSummary(layout)).toContain('a beats c');
   });
 
-  it('falls back to content order with a two-way pair for today\'s matrix, and draws without error', () => {
-    const c = ctx();
-    const els = [...c.elements.values()];
+  it('the shipped matrix is a single five-element cycle', () => {
+    const els = [...ctx().elements.values()];
+    const layout = wheelLayout(els);
+    expect(layout.cycle).toBe(true);
+    expect(layout.edges.every((e) => !e.twoWay)).toBe(true);
+    expect(layout.edges).toHaveLength(els.length);
+  });
+
+  it('falls back to content order with a two-way pair for the pre-flip matrix, and draws without error', () => {
+    // the ring before the 2026-10-16 flip: ember>gale>tide>ember, lumen<>umbra
+    const beats: Record<string, string[]> = { ember: ['gale'], gale: ['tide'], tide: ['ember'], lumen: ['umbra'], umbra: ['lumen'] };
+    const els = [...ctx().elements.values()].map((e) => ({ ...e, beats: beats[e.id] ?? e.beats }));
     const layout = wheelLayout(els);
     expect(layout.cycle).toBe(false);
     expect(layout.order.map((e) => e.id)).toEqual(els.map((e) => e.id));

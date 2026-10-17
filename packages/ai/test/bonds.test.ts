@@ -28,6 +28,8 @@ const NUMBERS = { T_GILT_POWER: 2, T_FORFEIT_MAX: 4, AI_FACEDOWN_ATTACK_MIN_POWE
 const ON = { SPLIT: true, SYMBIOSIS: true, BOND_ACTION: true } as const;
 const BOND = withGlobals({ FLAGS: ON, CONTENT_NUMBERS: NUMBERS });
 const LIVE: Globals = { ...GLOBALS, FLAGS: { ...GLOBALS.FLAGS, ...ON } };
+/** Every 2026-10-16 switch off explicitly (the live defaults flipped on): Graft only, free targeting, classic sickness. */
+const OFF: Globals = { ...GLOBALS, SICKNESS_MODE: 'classic', FLAGS: { ...GLOBALS.FLAGS, LANES: false, SPLIT: false, SYMBIOSIS: false, BOND_ACTION: false } };
 const LIVE_LANES: Globals = { ...LIVE, FLAGS: { ...LIVE.FLAGS, LANES: true }, SICKNESS_MODE: 'monstersOnly' };
 
 const world = createWorld(
@@ -191,7 +193,7 @@ describe.each([
 describe('with every switch off the bond code is inert', () => {
   it('no bot ever takes a bond action', () => {
     for (const [, make] of BOTS) {
-      const { actions } = play(GLOBALS, make, 4);
+      const { actions } = play(OFF, make, 4);
       for (const a of actions) expect(['split', 'symbiose']).not.toContain(a.t);
     }
   });
@@ -204,10 +206,14 @@ describe('with every switch off the bond code is inert', () => {
   });
 
   it('the bond views report the switches', () => {
-    const collector = createCollector({ content: CONTENT, globals: GLOBALS });
-    const s = createEngine(CONTENT, GLOBALS, { intent: collector.intentPolicy }).newGame(SEED(1)).state;
+    const collector = createCollector({ content: CONTENT, globals: OFF });
+    const s = createEngine(CONTENT, OFF, { intent: collector.intentPolicy }).newGame(SEED(1)).state;
     expect(playerView(collector.brain, s).bonds).toBe(false);
     expect(playerView(collector.brain, s).bondAction).toBe(false);
+    const on = createCollector({ content: CONTENT, globals: GLOBALS });
+    const s2 = createEngine(CONTENT, GLOBALS, { intent: on.intentPolicy }).newGame(SEED(1)).state;
+    expect(playerView(on.brain, s2).bonds).toBe(true); // the live defaults since the 2026-10-16 flip
+    expect(playerView(on.brain, s2).bondAction).toBe(true);
   });
 });
 

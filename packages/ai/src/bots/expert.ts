@@ -461,7 +461,7 @@ export function createExpert(options: ExpertOptions = {}): ExpertBot {
         if (view !== null) plans.push({ actions: [...node.actions, ...tail], view, bonus: p.bonus });
       }
     }
-    for (const node of moveNodes) plans.push(...rank(playLines(node).plain).slice(0, perNode));
+    for (const node of moveNodes) plans.push(...rank(playLines(node).plain).slice(0, Math.min(perNode, Math.max(0, w.maxPlans - plans.length)))); // within the plan bound
     plans.push(...first.combos.slice(0, Math.max(0, w.maxPlans - plans.length))); // bond lines, within the plan bound
     stats.planned++;
     stats.lastPlans = plans.length;

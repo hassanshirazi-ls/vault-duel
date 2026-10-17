@@ -9,7 +9,7 @@ export default defineKeyword({
   kind: 'keyword',
   icon: 'shield',
   visual: 'iron-shield-border',
-  text: 'Enemy attacks must target Sentinels first.',
+  text: 'Enemy attacks in its lane and in the lanes within {SENTINEL_REACH|lane|lanes} of it must target it.',
   hooks: { restrictTargets: () => true },
   examples: [
     `

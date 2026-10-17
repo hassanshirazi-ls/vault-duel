@@ -21,18 +21,18 @@ const FLAGS = {
   APPRAISED_ENTERS_GUARD: false,
   ACE_SET_ASIDE: false,
   CHIMERA_TO_HAND: true,
-  // D-281, D-282: LANES off = free targeting, as today; LANE_SWAP is read only with LANES
-  LANES: false,
+  // D-281, D-282: LANES off = free targeting; LANE_SWAP is read only with LANES. On since the owner's 2026-10-16 flip
+  LANES: true,
   LANE_SWAP: true,
-  // D-305..D-316: bond rules. All off = today's rules (Graft is the one play; no Split, no Symbiosis)
-  SPLIT: false,
-  SYMBIOSIS: false,
-  BOND_ACTION: false,
+  // D-305..D-316: bond rules. All off = the pre-flip rules (Graft is the one play); all on since the owner's 2026-10-16 flip
+  SPLIT: true,
+  SYMBIOSIS: true,
+  BOND_ACTION: true,
 } as const satisfies Flags;
 
 const GLOBAL_VALUES = {
   // Identity & seeding
-  CONTENT_VERSION: '0.1.0',
+  CONTENT_VERSION: '0.2.0',
   SEED_PREFIX: 'vault-duel',
   // Life & length
   PLAYER_LIFE: 20,
@@ -68,8 +68,8 @@ const GLOBAL_VALUES = {
   TETHERED_PENALTY: 2,
   RELIC_FLAWS: 1,
   SLOW_TURNS: 1, // 1 = DESIGN as written; 2 = proposal M-01
-  // Rule changes of 2026-10-16 (D-280..D-287); the shipped values are today's rules until the sim A/B
-  SICKNESS_MODE: 'classic', // 'classic' | 'monstersOnly' (D-280)
+  // Rule changes of 2026-10-16 (D-280..D-287); shipped by the owner's 2026-10-16 flip (docs/BALANCE_LOG.md)
+  SICKNESS_MODE: 'monstersOnly', // 'classic' | 'monstersOnly' (D-280)
   SENTINEL_REACH: 1, // read only with FLAGS.LANES (D-283)
   LANE_MOVE_RANGE: 1, // read only with FLAGS.LANES (D-282)
   // Bond rules (D-310)
@@ -95,7 +95,7 @@ const GLOBAL_VALUES = {
   DURATION_NEXT_OWN_TURN: 2,
   // Appraisal
   APPRAISAL_ROUNDS: [3, 6, 9],
-  APPRAISAL_MIN_POWER: 7,
+  APPRAISAL_MIN_POWER: 5, // 7 before the 2026-10-16 flip: Split and Symbiosis kept monsters under 7 (docs/BALANCE_LOG.md)
   // Moods (Composed = above AGITATED_AT)
   MOOD_AGITATED_AT: 15,
   MOOD_DESPERATE_AT: 7,

@@ -1420,7 +1420,7 @@ export const DEFAULT_GLOBALS = deepFreeze({
   MAX_BASE_KEYWORDS: 1, MAX_INHERITED_KEYWORDS: 2, WARD_CHARGES: 1,
   HAUNT_PENALTY: 2, TETHERED_PENALTY: 2, RELIC_FLAWS: 1, SLOW_TURNS: 1,   // 1 = entry turn only (M-01's 2 withdrawn, D-280)
   // Rule changes of 2026-10-16 (D-280…D-287); the shipped values are today's rules until the sim A/B
-  SICKNESS_MODE: 'classic',      // 'classic' | 'monstersOnly' (D-280)
+  SICKNESS_MODE: 'monstersOnly', // 'classic' | 'monstersOnly' (D-280); shipped default since the D-332 flip
   SENTINEL_REACH: 1,             // lanes each side of a Sentinel; read only with FLAGS.LANES (D-283)
   LANE_MOVE_RANGE: 1,            // read only with FLAGS.LANES (D-282)
   // Bond actions of 2026-10-16 (D-305…D-316); today's rules are the default
@@ -1437,7 +1437,7 @@ export const DEFAULT_GLOBALS = deepFreeze({
   // Durations (turn-index offsets)
   DURATION_NEXT_OWN_TURN: 2,
   // Appraisal
-  APPRAISAL_ROUNDS: [3, 6, 9], APPRAISAL_MIN_POWER: 7,
+  APPRAISAL_ROUNDS: [3, 6, 9], APPRAISAL_MIN_POWER: 5,   // 7 until the D-332 flip
   // Moods (Composed = above AGITATED_AT)
   MOOD_AGITATED_AT: 15, MOOD_DESPERATE_AT: 7,
   // Deck generation
@@ -1469,8 +1469,8 @@ export const DEFAULT_GLOBALS = deepFreeze({
     // Proposal levers (DECISIONS §M): these defaults = DESIGN as written (CHIMERA_TO_HAND: true allows Echo/Grave
     // Recall of Chimeras per D-046/D-068; false = M-12). Changed only for sim A/B until the owner adopts one.
     APPRAISED_ENTERS_GUARD: false, ACE_SET_ASIDE: false, CHIMERA_TO_HAND: true,
-    LANES: false, LANE_SWAP: true,   // D-281, D-282: LANES off = free targeting, as today
-    SPLIT: false, SYMBIOSIS: false, BOND_ACTION: false,   // D-305…D-310: all off = Graft is the one play, no Split, no Symbiosis
+    LANES: true, LANE_SWAP: true,    // D-281, D-282; on since the D-332 flip (off = free targeting)
+    SPLIT: true, SYMBIOSIS: true, BOND_ACTION: true,   // D-305…D-310; on since the D-332 flip (all off = Graft is the one play)
   },
   // Content numbers (D-171): referenced only as "$NAME" from data or keyword effects, and as {NAME} in text.
   // Open record: add a line here for a new card number. Names must not repeat a core key.
