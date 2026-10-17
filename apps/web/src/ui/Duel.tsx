@@ -26,7 +26,8 @@ import { useStepFx } from './useStepFx';
 import { useGame } from './context';
 import { DuelMenu } from './DuelMenu';
 import type { UndoTile } from './DuelMenu';
-import { ElementStrip } from './ElementStrip';
+import { Budget } from './Budget';
+import { ElementWheel } from './ElementWheel';
 import { BondSheet } from './BondSheet';
 import type { BondMode } from './BondSheet';
 import { GraftSheet } from './GraftSheet';
@@ -34,25 +35,6 @@ import { useWide } from './hooks';
 import { Inspect } from './Inspect';
 import { CardBack, MiniCard } from './MiniCard';
 import { RoundTrack } from './RoundTrack';
-
-/** The turn's budget under BOND_ACTION (D-306): one card play and one bond action, each shown with an icon and a mark. */
-function Budget({ played, bond }: { readonly played: boolean; readonly bond: 0 | 1 | 2 }) {
-  const playState = played ? 'used' : 'open';
-  const bondState = bond === 0 ? 'open' : bond === 1 ? 'used' : 'closed';
-  const word = { open: 'available', used: 'used', closed: 'closed by your attack' } as const;
-  return (
-    <div className="budget" role="group" aria-label="This turn">
-      <span className="pip" data-state={playState} aria-label={`Card play: ${word[playState]}`}>
-        <span className="mark">{played ? <Glyph id="check" size={11} /> : null}</span>
-        <Glyph id="deck" size={14} /> Play
-      </span>
-      <span className="pip" data-state={bondState} aria-label={`Bond action: ${word[bondState]}`}>
-        <span className="mark">{bondState === 'used' ? <Glyph id="check" size={11} /> : bondState === 'closed' ? <Glyph id="cross" size={11} /> : null}</span>
-        <Glyph id="link" size={14} /> Bond
-      </span>
-    </div>
-  );
-}
 
 const CARD_CUES = new Set(['enter', 'graft', 'split', 'bond', 'lunge', 'hit', 'ward', 'flash']);
 /** while the Collector's moves play, nothing is offered */
@@ -359,15 +341,10 @@ export function Duel() {
     return { lead: bits.join(' '), rest: rest.join(' ') };
   })();
 
-  // the element compass (D-272), now a strip over the round track so it never covers a lane: for the picked monster,
-  // an attacker on the board or one to summon from the hand
+  // the element compass (D-272) for the picked monster, an attacker on the board or one to summon from the hand. It sits
+  // at the left of the hint bar so it never covers a lane (D-334); the Play/Bond pips give up their row meanwhile.
   const compassId = pending === null && !blocked && selView !== null && selView.element !== null && selView.power !== null ? selView.element.id : null;
-  const track = (
-    <div className="track-wrap">
-      <RoundTrack globals={g} round={roundOfState(S)} />
-      {compassId !== null && <ElementStrip focus={compassId} />}
-    </div>
-  );
+  const track = <RoundTrack globals={g} round={roundOfState(S)} />;
   const openSplit = (m: Iid): void => {
     setInspected(null);
     setBondSheet({ t: 'split', m });
@@ -453,7 +430,7 @@ export function Duel() {
         <GraftSheet onInspect={setInspected} />
       ) : (
         <footer className="bottom" onClick={(e) => e.stopPropagation()}>
-          {budgetShown && <Budget played={S.played} bond={S.bond} />}
+          {budgetShown && compassId === null && <Budget played={S.played} bond={S.bond} />}
           {blocked ? (
             <div className="hintbar" aria-live="polite">
               <p className="muted">
@@ -477,7 +454,7 @@ export function Duel() {
               </div>
             </div>
           ) : (
-            <div className="hintbar" aria-live="polite">
+            <div className="hintbar" aria-live="polite" data-compass={compassId !== null ? '' : undefined}>
               {selView === null ? (
                 <>
                   <p className="muted">
@@ -496,6 +473,11 @@ export function Duel() {
                 </>
               ) : (
                 <>
+                  {compassId !== null && (
+                    <div className="compass-box">
+                      <ElementWheel variant="compass" focus={compassId} />
+                    </div>
+                  )}
                   <p>
                     {!(L && sel?.t === 'board') && <b>{selView.name} </b>}
                     {hint?.lead}

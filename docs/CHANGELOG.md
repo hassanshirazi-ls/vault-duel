@@ -3,6 +3,13 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-17 · Web: the round compass is back, and How to play covers the new rules
+
+No content or rule changes; `CONTENT_VERSION` stays `0.2.0`.
+
+- **Round compass** (D-334): picking a monster shows the element compass again, now at the left of the hint above your hand instead of the flat strip over the round track. It never covers a lane, and the board doesn't move when it appears.
+- **How to play** (D-334) has three new pages: **Lanes** (attacks go straight across, "No hit", when his life is open, Sentinel reach, lane moves), **Play and bond** (one card play plus one bond action, the Play/Bond pips, the Bonds button and its Best hint) and **Keywords and Flaws** (every keyword and Flaw with its card text). Each has a Try it question.
+
 ## 2026-10-17 · v0.2.0: lanes, bond actions and a new ring
 
 This release turns on the rules from the 2026-10-16 playtest round and adds three "chess piece" bond actions. `CONTENT_VERSION` is now `0.2.0`. **A duel saved before this update starts over** with the notice "The rules changed since this duel was saved; it starts over." (D-323).

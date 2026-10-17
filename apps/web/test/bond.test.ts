@@ -172,7 +172,7 @@ describe('How to play follows the bond switches', () => {
   const text = (o: readonly string[]) => howToPages(ctxFor(o)).flatMap((p) => [p.summary, ...p.lines]).join('\n');
   it('is today\'s copy with every switch off', () => {
     const pages = howToPages(ctxFor(OFF));
-    expect(pages.map((p) => p.id)).toEqual(['goal', 'cards', 'combat', 'graft', 'appraisal', 'winning']);
+    expect(pages.map((p) => p.id)).toEqual(['goal', 'cards', 'combat', 'lanes', 'graft', 'appraisal', 'winning', 'keywords']);
     const t = text(OFF);
     expect(t).toContain('set a trap, or Graft.');
     expect(t).toContain('It is your card play for the turn');

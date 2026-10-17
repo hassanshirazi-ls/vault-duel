@@ -2,11 +2,12 @@
 // renderText(template, globals) (D-172) or comes straight from the globals, so a tuned number changes the primer too.
 // A page whose feature flag is off is left out, and so is each line about that feature.
 import type { CardView } from './cards';
-import { definitionView } from './cards';
+import { definitionView, keywordViews } from './cards';
+import type { KeywordView } from './cards';
 import type { ElementInfo, GameCtx } from '../content/load';
 import { wheelLayout } from './wheel';
 
-export type HowToArtId = 'goal' | 'cards' | 'combat' | 'graft' | 'split' | 'symbiosis' | 'appraisal' | 'winning';
+export type HowToArtId = 'goal' | 'cards' | 'combat' | 'lanes' | 'bonds' | 'graft' | 'split' | 'symbiosis' | 'appraisal' | 'winning' | 'keywords';
 
 export interface HowToPage {
   readonly id: HowToArtId;
@@ -15,6 +16,8 @@ export interface HowToPage {
   readonly summary: string;
   /** every rule of the page, one per line, folded under "All the rules" */
   readonly lines: readonly string[];
+  /** the rules start unfolded (the keyword glossary, whose lines are the page) */
+  readonly open?: boolean;
 }
 
 /** "3, 6 and 9" */
@@ -42,6 +45,8 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
   const when = <T,>(on: boolean, ...lines: T[]): T[] => (on ? lines : []);
   const bonds = bondNames(g);
   const bondTurn = f.BOND_ACTION;
+  const sentinel = ctx.content.keywords.some((k) => k.id === 'sentinel');
+  const glossary = keywordGlossary(ctx);
   // the play sentence by switch state (docs/reports/bond-flip-content-draft.md 3a): with the bond action on, Graft is no longer a play
   const playTail = bondTurn ? '' : bonds.length === 1 ? ', or Graft' : `, or use ${orList(bonds)}`;
   const playSummaryTail = bondTurn ? '' : bonds.length === 1 ? ' or Graft' : ` or use ${orList(bonds)}`;
@@ -72,9 +77,7 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
           : r(`Then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell, set a trap${playTail}.`),
         ...when(bondTurn, r(`Before your first attack you may also make {BONDS_PER_TURN|bond action|bond actions}: ${orList(bonds)}, in either order. Your first attack ends the bond for the turn.`)),
         r('Your board has {BOARD_SLOTS} monster slots and {TRAP_SLOTS} trap slots.'),
-        ...when(f.LANES, r('The {BOARD_SLOTS} monster slots are lanes: each of your monsters faces the Collector\'s slot straight across. You pick the lane when you summon.')),
         r('A monster stands in attack or guard. You may switch it {REPOSITIONS_PER_TURN|time|times} a turn, but not on the turn it was summoned.'),
-        ...when(f.LANES, r('Instead of switching, a monster may move up to {LANE_MOVE_RANGE|lane|lanes} sideways, trading places with your monster there. A move and a switch share one turn\'s reposition.')),
         r('Each monster in attack position may attack {ATTACKS_PER_TURN|time|times} a turn. Your first attacks come in round {FIRST_ATTACK_ROUND_PLAYER}.'),
         'Tap a card in your hand to lift it, then tap a glowing slot or target. Hold any card to read it.',
       ],
@@ -87,12 +90,40 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
         'Attack a monster in attack position: the higher Power destroys the lower, and the loser takes the difference. A tie destroys both.',
         'Attack a monster in guard: Power above its Guard destroys it with no damage. Below it, you take the difference.',
         'A face-down monster is revealed and fights as a guard. With no monsters in the way, an attack hits life for its full Power.',
-        ...when(f.LANES, 'With lanes, a monster can only attack the monster across from it. An empty lane across means no attack, and life can be hit only when the Collector has no monsters at all.'),
         ...when(g.SICKNESS_MODE === 'monstersOnly', 'A monster you just summoned may attack monsters but not life until your next turn.'),
         r('An attacker with element advantage gets +{ELEMENT_BONUS} Power. Colors always come with an icon.'),
-        'On the wheel, each arrow points at the element its tail beats. In a duel, the strip above your board shows what the picked monster’s element beats and is weak to.',
+        'On the wheel, each arrow points at the element its tail beats. In a duel, a small compass beside the hint shows the picked monster’s element: gold arrows to what it beats, red dashed arrows from what beats it.',
       ],
     },
+    ...when<HowToPage>(f.LANES, {
+      id: 'lanes',
+      title: 'Lanes',
+      summary: r("Your {BOARD_SLOTS} monster slots are lanes. A monster attacks only the Collector's monster straight across from it, so an empty lane across means no hit. His life is open only when his board is empty."),
+      lines: [
+        r("The {BOARD_SLOTS} monster slots are lanes: each of your monsters faces the Collector's slot straight across. You pick the lane when you summon."),
+        'With lanes, a monster can only attack the monster across from it. An empty lane across means no attack, and life can be hit only when the Collector has no monsters at all.',
+        ...when(sentinel, r('A Sentinel guards nearby lanes: attacks in its lane and within {SENTINEL_REACH|lane|lanes} of it must target it. A shield badge marks the lanes it covers.')),
+        r("Instead of switching, a monster may move up to {LANE_MOVE_RANGE|lane|lanes} sideways, trading places with your monster there. A move and a switch share one turn's reposition."),
+        'Pick your monster and its lane lights up. A slot marked "No hit" has nothing to attack; lit Move and Swap slots show where it can go.',
+        'He picks lanes too: he likes to summon across from a monster he can beat, or across from an empty lane.',
+      ],
+    }),
+    ...when<HowToPage>(bondTurn, {
+      id: 'bonds',
+      title: 'Play and bond',
+      summary: r(`Each turn you get {PLAYS_PER_TURN|card play|card plays} and {BONDS_PER_TURN|bond action|bond actions}. A bond is ${orList(bonds)}. Bond before you attack: your first attack closes it.`),
+      lines: [
+        r('Each turn you have {PLAYS_PER_TURN|card play|card plays}: summon a monster, cast a spell or set a trap.'),
+        r(`You also have {BONDS_PER_TURN|bond action|bond actions}: ${orList(bonds)}. A bond does not use up your card play.`),
+        'Play and bond in either order, but your first attack closes the bond for the turn.',
+        'Graft joins monsters into a Chimera.',
+        ...when(f.SPLIT, 'Split unbinds a Chimera back into its parts, which can save it from an Appraisal aimed at it.'),
+        ...when(f.SYMBIOSIS, 'Symbiosis attaches a monster from your hand under one of yours, as extra Guard and a spare body.'),
+        'The Play and Bond pips above your hand show what is left this turn: a tick means used, a cross means your attack closed it.',
+        'The Bonds button lists every bond you can make right now, with the board it leaves and whether it is exposed to the next Appraisal.',
+        'The option marked Best is the one a strong player would likely pick. It is a hint only.',
+      ],
+    }),
     {
       id: 'graft',
       title: 'Graft',
@@ -163,8 +194,21 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
         'Practice replays today\'s seed, unrecorded, once your daily attempt is done.',
       ],
     },
+    ...when<HowToPage>(glossary.length > 0, {
+      id: 'keywords',
+      title: 'Keywords and Flaws',
+      summary: 'A keyword is a small rule a monster carries. A Flaw is a drawback, shown as a cracked frame. Hold any card to read its own.',
+      lines: glossary.map((k) => `${k.name}${k.flaw ? ' (Flaw)' : ''}: ${k.text}`),
+      open: true,
+    }),
   ];
   return pages;
+}
+
+/** Every keyword, then every Flaw, in content order, with its rendered rule text. */
+export function keywordGlossary(ctx: GameCtx): KeywordView[] {
+  const all = keywordViews(ctx, (2 ** ctx.content.keywords.length - 1) >>> 0);
+  return [...all.filter((k) => !k.flaw), ...all.filter((k) => k.flaw)];
 }
 
 export interface HowToSamples {
@@ -272,6 +316,34 @@ export function howToQuiz(ctx: GameCtx, id: HowToArtId): Quiz | null {
           ? r(`${pair.defender.name} beats ${pair.attacker.name}, so the attacker gets +{ELEMENT_BONUS} Power.`)
           : r(`${pair.defender.name} does not beat ${pair.attacker.name} (it is ${pair.attacker.name} that beats ${pair.defender.name}), and only an attacker gets +{ELEMENT_BONUS} Power, so nobody does.`),
       };
+    }
+    case 'lanes':
+      return {
+        question: "Your monster is in Lane 1. The Collector's Lane 1 is empty, but he has a monster in Lane 2 (no Sentinels). What can your monster attack?",
+        answers: [
+          { label: 'His monster in Lane 2', right: false },
+          { label: 'His life', right: false },
+          { label: 'Nothing from there', right: true },
+        ],
+        why: 'It attacks only straight across, and his life is open only when his board is empty. Move it a lane, or summon across from him.',
+      };
+    case 'bonds':
+      return {
+        question: 'You attack with a monster, then want to Graft. Can you?',
+        answers: [
+          { label: 'Yes, Graft is a bond', right: false },
+          { label: 'No, the attack closed the bond', right: true },
+          { label: 'Only if you have not played a card', right: false },
+        ],
+        why: 'Your first attack closes the bond for the turn. Graft first, then attack.',
+      };
+    case 'keywords': {
+      const glossary = keywordGlossary(ctx);
+      const flaw = glossary.find((k) => k.flaw);
+      const plain = glossary.filter((k) => !k.flaw).slice(0, 2);
+      if (flaw === undefined || plain.length < 2) return null;
+      const answers = [plain[0], flaw, plain[1]].map((k) => ({ label: (k as KeywordView).name, right: k === flaw }));
+      return { question: 'Which of these is a Flaw?', answers, why: `${flaw.name} is a Flaw: ${flaw.text}` };
     }
     case 'graft':
       return { question: 'How many monsters does a plain Graft join?', answers: numberAnswers(g.MIN_GRAFT_MATERIALS), why: r('Graft joins {MIN_GRAFT_MATERIALS} monsters into one Chimera.') };

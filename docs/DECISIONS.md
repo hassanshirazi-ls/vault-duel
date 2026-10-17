@@ -2820,7 +2820,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 **D-320 · `bondOptions` lists every ordered Graft tuple** (engine-dev, 2026-10-16)
 - Decision: one option per ordered material tuple (up to 155 for 8 materials, about 1.5 ms). A Graft result is shown in attack position in the leftmost lane. Appraisal exposure is judged at the Collector turn of the next Appraisal round and ignores an Unstable expiry before then. Under `BOND_ACTION` the hand-material limit applies to both sides. A Covetous sacrifice of a host emits `Sacrificed` for the host, then the symbiote (discard order host, symbiote). `SPLIT_PART_PERM_P` is the only global allowed below 0.
 
-**D-321 · The in-duel compass becomes an element strip** (ui-dev, 2026-10-16; changes the D-271 compass C placement)
+**D-321 · The in-duel compass becomes an element strip** (ui-dev, 2026-10-16; changes the D-271 compass C placement; reversed by D-334)
 - Decision: with three lanes, the 116 px compass couldn't sit off the board at 360 px and stay legible. A strip above the player's row shows the picked monster's element gem, "Beats [gems] +N" and "Weak to [gems]", read from `elements.json` and `ELEMENT_BONUS`. The full wheel (A) stays in How to play. The strip is used with lanes on and off.
 - Owner review: flagged in the 2026-10-17 morning report; the owner picked compass C on 2026-10-16.
 
@@ -2864,6 +2864,11 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 
 **D-333 · The expert's plan bound counts lane-move nodes** (ai-dev, 2026-10-16)
 - Decision: in `rankedPlans`, lane-move nodes draw only on the plan budget that is left (`min(perNode, maxPlans - plans.length)`), so a small bound is honoured. At the live bound (400) the expert's choices are unchanged (sim metrics identical). Tests that mean "switch off" now set the switches off explicitly, and the expert-hash pins are derived (`expertHash(bondsOn)`) rather than literal.
+
+**D-334 · The round compass returns, in the hint bar; How to play teaches lanes, the bond turn and keywords** (owner + main session, 2026-10-17; reverses D-321)
+- Owner: "bring back the round compass and the player guide should have the new mechanics and such in it for explanation". Placement picked by the owner from four options (hint bar, Collector header, the old spot over the board, over the round track).
+- Compass: the D-272 compass (`ElementWheel variant="compass"`) sits at the left of the hint bar while a monster is picked (hand or board), with the hint above its buttons. The bar grows to 88 px by taking the Play/Bond pip row (34 px), which is hidden meanwhile, so the footer and the board keep their size (measured at 360×640 up to 1280×800). The element strip (`ElementStrip`, `stripFor`) is removed and the round track shows again while picking. With `BOND_ACTION` off there is no pip row, so the bar grows into the board (the flags-off case only).
+- How to play: three new pages built from the content and globals: **Lanes** (`FLAGS.LANES`; the lane lines move there from the cards and combat pages; adds the Sentinel reach, the lane hints and how he picks lanes per D-286), **Play and bond** (`FLAGS.BOND_ACTION`; the duel's own pips in three moments of a turn, the bond kinds, the Bonds sheet and its Best hint), and **Keywords and Flaws** (every keyword, then every Flaw, with its rendered card text; the rules start unfolded). Each has a Try it. The combat page now points at the compass. 11 pages live; the page dots narrow below 44 px wide when they don't fit (height stays 44, the arrows are the main way).
 
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 

@@ -290,7 +290,9 @@
 .ht-dot {
   display: grid;
   place-items: center;
-  width: var(--tap);
+  /* 44 px each while they fit; with many pages at 360 px they narrow (height stays 44, and the arrows are the main way) */
+  flex: 0 1 var(--tap);
+  min-width: 0;
   height: var(--tap);
   background: none;
   border: 0;
@@ -607,6 +609,133 @@
 }
 .ht-art .wheel {
   max-width: 270px;
+}
+
+/* Lanes (D-334): three columns, his row on top. Lane 1 attacks straight across, lane 2 has nothing across ("No hit"). */
+.ht-lanes {
+  display: grid;
+  grid-template-columns: repeat(3, 70px);
+  justify-content: center;
+  justify-items: center;
+  align-items: center;
+  gap: 4px 0;
+  width: max-content;
+  margin-inline: auto;
+}
+.ht-lane-cell {
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  border-inline-end: 1px dashed var(--gold-lo);
+}
+.ht-lane-cell:nth-child(3n + 1) {
+  border-inline-start: 1px dashed var(--gold-lo);
+}
+.ht-lanes .ht-niche {
+  width: 62px;
+}
+.ht-lanes .ht-card .mini {
+  --w: 54px;
+}
+.ht-lane-name {
+  color: var(--gold-hi);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.ht-lane-mark {
+  display: grid;
+  place-items: center;
+  min-height: 24px;
+  color: var(--bone-dim);
+  font-size: 13px;
+  font-weight: 700;
+}
+.ht-lane-mark.hit {
+  color: var(--gold-hi);
+}
+.ht-lane-mark .miss {
+  padding: 0 6px;
+  border: 1px dashed var(--flaw);
+  border-radius: 2px;
+  color: var(--bone);
+}
+.ht-lane-atk {
+  position: relative;
+  animation: demo-lane-lunge calc(var(--beat) * 20) ease-in-out infinite;
+}
+@keyframes demo-lane-lunge {
+  0%,
+  22%,
+  52%,
+  100% {
+    transform: translateY(0);
+  }
+  38% {
+    transform: translateY(-40px);
+  }
+}
+
+/* Play and bond (D-334): the duel's own pips in three moments of a turn, then the bond kinds */
+.ht-bonds {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+.ht-bond-step {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+.ht-bond-step small {
+  color: var(--bone-dim);
+  font-size: 13px;
+}
+.ht-bond-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+  margin: 4px 0 0;
+  color: var(--gold-hi);
+  font-weight: 700;
+}
+.ht-bond-kinds span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Keywords and Flaws (D-334): every keyword as icon + name; a Flaw in oxblood with a dashed edge */
+.ht-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ht-keywords li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--gold-lo);
+  border-radius: 2px;
+  background: #0d0a0b;
+  color: var(--bone);
+  font-size: 14px;
+}
+.ht-keywords li > svg {
+  color: var(--gold-hi);
+}
+.ht-keywords li[data-flaw] {
+  border: 1px dashed var(--flaw);
+}
+.ht-keywords li[data-flaw] > svg {
+  color: var(--flaw);
 }
 
 /* Try it */

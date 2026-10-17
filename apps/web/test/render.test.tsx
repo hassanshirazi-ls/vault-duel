@@ -104,7 +104,7 @@ describe('How to play and feedback render', () => {
     await booted.store.getState().boot();
     const out = html(booted);
     expect(out).toContain('role="dialog"');
-    expect(out).toContain('1 of 8: The goal');
+    expect(out).toContain('1 of 11: The goal');
     expect(out).toContain('aria-label="How to play"');
     booted.store.getState().closeHowTo();
     expect(html(booted)).not.toContain('role="dialog"');

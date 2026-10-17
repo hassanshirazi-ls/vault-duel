@@ -5,9 +5,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent } from 'react';
 import type { GameCtx } from '../content/load';
-import { howToPages, howToQuiz, howToSamples } from '../view/howto';
+import { howToPages, howToQuiz, howToSamples, keywordGlossary } from '../view/howto';
 import type { HowToArtId, HowToPage, HowToSamples, Quiz } from '../view/howto';
 import { Glyph } from '../visual/glyphs';
+import { Budget } from './Budget';
 import { useGame } from './context';
 import { ElementWheel } from './ElementWheel';
 import { MiniCard } from './MiniCard';
@@ -17,10 +18,10 @@ import { Seal } from './Seal';
 const noop = (): void => undefined;
 
 /** A card drawn for display only: no tap, no focus (inert), hidden from assistive tech. */
-function Exhibit({ view, symbiote }: { readonly view: HowToSamples['monsters'][number]; readonly symbiote?: HowToSamples['monsters'][number] | undefined }) {
+function Exhibit({ view, symbiote, side = 'me' }: { readonly view: HowToSamples['monsters'][number]; readonly symbiote?: HowToSamples['monsters'][number] | undefined; readonly side?: 'me' | 'them' }) {
   return (
     <div className="ht-card" inert aria-hidden="true">
-      <MiniCard view={view} side="me" symbiote={symbiote ?? null} onTap={noop} onLong={noop} />
+      <MiniCard view={view} side={side} symbiote={symbiote ?? null} onTap={noop} onLong={noop} />
     </div>
   );
 }
@@ -99,6 +100,80 @@ function Illustration({ id, ctx, samples }: { readonly id: HowToArtId; readonly 
           )}
           <ElementWheel />
         </>
+      );
+    case 'lanes': {
+      // lane 1: your strongest sample attacks his weakest straight across; lane 2: nothing across, so no hit; lane 3: his
+      // monster faces an empty lane
+      const [a, b, c] = [...samples.monsters].sort((x, y) => (y.power ?? 0) - (x.power ?? 0));
+      const niche = (v: HowToSamples['monsters'][number] | undefined, side: 'me' | 'them', atk = false) => (
+        <span className={atk ? 'ht-lane-cell ht-lane-atk' : 'ht-lane-cell'}>
+          <span className="ht-niche">{v !== undefined && <Exhibit view={v} side={side} />}</span>
+        </span>
+      );
+      return (
+        <div className="ht-lanes" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <b key={`l${i}`} className="ht-lane-cell ht-lane-name">
+              Lane {i + 1}
+            </b>
+          ))}
+          {niche(c, 'them')}
+          {niche(undefined, 'them')}
+          {niche(b, 'them')}
+          <span className="ht-lane-cell ht-lane-mark hit">
+            <Glyph id="sword" size={20} />
+          </span>
+          <span className="ht-lane-cell ht-lane-mark">
+            <span className="miss">No hit</span>
+          </span>
+          <span className="ht-lane-cell ht-lane-mark" />
+          {niche(a, 'me', true)}
+          {niche(b, 'me')}
+          {niche(undefined, 'me')}
+        </div>
+      );
+    }
+    case 'bonds':
+      return (
+        <div className="ht-bonds" inert aria-hidden="true">
+          <div className="ht-bond-step">
+            <Budget played={false} bond={0} />
+            <small>Your turn starts</small>
+          </div>
+          <div className="ht-bond-step">
+            <Budget played bond={1} />
+            <small>A card played and a bond made</small>
+          </div>
+          <div className="ht-bond-step">
+            <Budget played={false} bond={2} />
+            <small>Attacked first: the bond is closed</small>
+          </div>
+          <p className="ht-bond-kinds">
+            <span>
+              <Glyph id="swap" size={18} /> Graft
+            </span>
+            {g.FLAGS.SPLIT && (
+              <span>
+                <Glyph id="split" size={18} /> Split
+              </span>
+            )}
+            {g.FLAGS.SYMBIOSIS && (
+              <span>
+                <Glyph id="link" size={18} /> Symbiosis
+              </span>
+            )}
+          </p>
+        </div>
+      );
+    case 'keywords':
+      return (
+        <ul className="ht-keywords" aria-hidden="true">
+          {keywordGlossary(ctx).map((k) => (
+            <li key={k.id} data-flaw={k.flaw ? '' : undefined}>
+              <Glyph id={k.icon} size={18} /> {k.name}
+            </li>
+          ))}
+        </ul>
       );
     case 'graft':
       return samples.graft === null ? (
@@ -322,7 +397,7 @@ export function HowToPlay() {
               </div>
               <p className="ht-summary">{p.summary}</p>
               {quizzes[i] !== null && quizzes[i] !== undefined && <TryIt quiz={quizzes[i] as Quiz} />}
-              <details className="ht-more">
+              <details className="ht-more" open={p.open}>
                 <summary>All the rules</summary>
                 <ul className="ht-lines">
                   {p.lines.map((line, j) => (
