@@ -2,6 +2,21 @@
 
 Every applied balance change, with the evidence. Experiment JSONs live in `docs/reports/balance/` (T01-T25: 123L without bond rules; B01-B15: this cycle). Marks follow the TARGET_* globals: expert win 45-55%, median rounds 9-11, rounds 8-12 over half, round 12 15-30%, grafts/win 1.5-3, Appraisal 30-60%, Unpriced 20-40%, novice 20-30%, seed rejection at most 15%. Quick noise: about plus or minus 2.2 points on a 2000-game win rate.
 
+## 2026-10-17 · Collector life for the turn slots (D-335)
+
+Change: `FLAGS.TURN_SLOTS` on (one monster, one spell or trap, one bond, any order; attacks close nothing). The expert bot now plans again after each play, so it uses both slots. Quick runs: `sim quick --games 1000 --bots expert,greedy,novice` (10 dates from 2026-10-17), live package otherwise.
+
+| Cell | Expert | Greedy | Novice | Median rounds | Rounds 8-12 | Round 12 |
+|---|---|---|---|---|---|---|
+| old turn (`TURN_SLOTS=false`), life 25 | 51.8 | 26.4 | 0.2 | 5 | 18.4 | 1.2 |
+| slots, life 25, expert without replanning | 31.0 | 32.6 | 0.5 | 5 | 15.7 | 1.3 |
+| slots, life 25 | 73.5 | 32.6 | 0.5 | 6 | n/a | n/a |
+| slots, life 30 | 64.2 | 24.3 | 0.1 | 6 | 31.2 | 1.9 |
+| slots, life 35 | 56.3 | 19.6 | 0.1 | 7 | 38.6 | 3.7 |
+| **slots, life 40 (shipped)** | **50.0** | 14.6 | 0.0 | 7 | 45.6 | 6.7 |
+
+- Applied: `COLLECTOR_LIFE` 25 → 40. Expert passes; round length moves toward its target (still under 9–11). Greedy falls to 15% and novice stays near 0 (both already failing; the owner's playtest decides whether the Collector should get fewer slots instead).
+
 ## 2026-10-16 · Collector tuning for the owner's package (123L + Split, Symbiosis, bond action)
 
 Package (fixed by the owner): `SICKNESS_MODE=monstersOnly`, `FLAGS.LANES`, ring A, Collector reposition `laneAware`, `FLAGS.SPLIT`, `FLAGS.SYMBIOSIS`, `FLAGS.BOND_ACTION`. Start point: `BOND_GRAFT_MAX_HAND_MATERIALS=2` (h2).

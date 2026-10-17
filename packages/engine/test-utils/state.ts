@@ -132,6 +132,7 @@ export class StateBuilder {
       step: this.stepName,
       played: false,
       bond: 0,
+      spell: 0,
       redrawsLeft: 1,
       pending: null,
       sides: [side(a), side(b)],

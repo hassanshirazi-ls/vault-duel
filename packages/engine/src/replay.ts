@@ -37,7 +37,7 @@ type InstCovered = Exclude<keyof Instance, 'def' | 'owner' | 'chimera'>;
 
 type StateCovered = Exclude<
   keyof GameState,
-  'v' | 'cfg' | 'seed' | 'rng' | 'turn' | 'step' | 'played' | 'bond' | 'redrawsLeft' | 'pending' | 'sides' | 'inst' | 'appraisal' | 'collector' | 'twist' | 'track' | 'result' | 'log' | 'nActions'
+  'v' | 'cfg' | 'seed' | 'rng' | 'turn' | 'step' | 'played' | 'bond' | 'spell' | 'redrawsLeft' | 'pending' | 'sides' | 'inst' | 'appraisal' | 'collector' | 'twist' | 'track' | 'result' | 'log' | 'nActions'
 >;
 type PendingCovered = Exclude<keyof NonNullable<GameState['pending']>, 'kind' | 'stage' | 'mats' | 'kw'>;
 type TrackCovered = Exclude<keyof GameState['track'], 'round' | 'grafts' | 'families' | 'unpriced' | 'appraisedLost'>;
@@ -60,6 +60,7 @@ export function canonicalState(s: GameState): string {
     r === null ? null : [r.winner, r.reason, r.round],
     s.nActions,
     ...(s.bond !== 0 ? [s.bond] : []),
+    ...(s.spell !== 0 ? [`s${s.spell}`] : []),
   ]);
 }
 

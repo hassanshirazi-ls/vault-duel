@@ -16,9 +16,9 @@ import { cuesFromEvents } from '../src/visual/cues';
 import { started } from './helpers';
 
 const DATE = '2026-10-20';
-const ALL = ['FLAGS.SPLIT=true', 'FLAGS.SYMBIOSIS=true', 'FLAGS.BOND_ACTION=true'];
+const ALL = ['FLAGS.SPLIT=true', 'FLAGS.SYMBIOSIS=true', 'FLAGS.BOND_ACTION=true', 'FLAGS.TURN_SLOTS=false'];
 // The pre-flip rules (the live defaults since 2026-10-16 have every switch on)
-const OFF = ['FLAGS.SPLIT=false', 'FLAGS.SYMBIOSIS=false', 'FLAGS.BOND_ACTION=false'];
+const OFF = ['FLAGS.SPLIT=false', 'FLAGS.SYMBIOSIS=false', 'FLAGS.BOND_ACTION=false', 'FLAGS.TURN_SLOTS=false'];
 type Harness = Awaited<ReturnType<typeof started>>;
 
 const ctxFor = (overrides: readonly string[] = []) => {
@@ -192,7 +192,7 @@ describe('How to play follows the bond switches', () => {
     expect(text([])).toContain('any monster attached under it');
   });
   it('names the bond actions in the play sentence without the bond turn, and drops them with it', () => {
-    expect(text([...OFF.filter((o) => o.includes('BOND_ACTION')), 'FLAGS.SPLIT=true', 'FLAGS.SYMBIOSIS=true'])).toContain('or use Graft, Split or Symbiosis');
+    expect(text([...OFF.filter((o) => o.includes('BOND_ACTION') || o.includes('TURN_SLOTS')), 'FLAGS.SPLIT=true', 'FLAGS.SYMBIOSIS=true'])).toContain('or use Graft, Split or Symbiosis');
     const on = text(ALL);
     expect(on).toContain('summon a monster, cast a spell or set a trap.');
     expect(on).toContain('Before your first attack you may also make 1 bond action: Graft, Split or Symbiosis, in either order.');

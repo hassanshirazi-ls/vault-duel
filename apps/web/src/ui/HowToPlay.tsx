@@ -134,6 +134,24 @@ function Illustration({ id, ctx, samples }: { readonly id: HowToArtId; readonly 
       );
     }
     case 'bonds':
+      if (g.FLAGS.TURN_SLOTS) {
+        return (
+          <div className="ht-bonds" inert aria-hidden="true">
+            <div className="ht-bond-step">
+              <Budget played={false} bond={0} slots={{ spell: 0, attacks: 2 }} />
+              <small>Your turn starts: all open</small>
+            </div>
+            <div className="ht-bond-step">
+              <Budget played bond={0} slots={{ spell: 0, attacks: 1 }} />
+              <small>Summoned and attacked once: the rest is still open</small>
+            </div>
+            <div className="ht-bond-step">
+              <Budget played bond={1} slots={{ spell: 1, attacks: 0 }} />
+              <small>All used: end your turn</small>
+            </div>
+          </div>
+        );
+      }
       return (
         <div className="ht-bonds" inert aria-hidden="true">
           <div className="ht-bond-step">

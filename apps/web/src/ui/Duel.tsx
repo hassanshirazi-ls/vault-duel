@@ -91,6 +91,7 @@ export function Duel() {
 
   // lanes (D-281..D-284): display only. What may be played, moved or attacked is whatever `groups` offers.
   const L = lanesOn(g);
+  const slots = g.FLAGS.TURN_SLOTS; // D-335: monster, spell or trap, bond, attacks, in any order
   const sentinelBit = ctx.content.kwBit['sentinel'];
   const covers = [coveredLanes(g, rt.engine, sentinelBit, S, 0), coveredLanes(g, rt.engine, sentinelBit, S, 1)] as const;
   const selSlot = sel?.t === 'board' ? S.sides[0].board.findIndex((m) => m !== null && m.iid === sel.iid) : -1;
@@ -143,13 +144,20 @@ export function Duel() {
       <div className="row monsters" data-side={mine ? 'me' : 'them'}>
         {s.board.map((m, i) => {
           const key = keys[i] as string;
-          const guarded = covers[side].has(i);
+          const coverFrom = covers[side].get(i);
+          const guarded = coverFrom !== undefined;
           const niche = (child: ReactNode) => (
             <div key={key} className="niche" data-lane={L ? i : undefined} data-covered={guarded ? '' : undefined}>
               {child}
-              {guarded && (
-                <span className="cover-mark" title="Guarded by a Sentinel: attacks here must target it" aria-label="Guarded by a Sentinel">
+              {coverFrom !== undefined && (
+                <span
+                  className="cover-mark"
+                  title={`Sentinel in lane ${coverFrom + 1}: attacks into this lane must hit it instead`}
+                  aria-label={`Covered by the Sentinel in lane ${coverFrom + 1}: attacks here go to it`}
+                >
+                  {coverFrom < i && <span className="arrow">←</span>}
                   <Glyph id="barrier" size={12} />
+                  {coverFrom > i && <span className="arrow">→</span>}
                 </span>
               )}
             </div>
@@ -226,6 +234,7 @@ export function Duel() {
               mark={mark}
               monstersOnly={monstersOnly(g, rt.engine, S, m)}
               moved={movedThisTurn(g, S, m)}
+              attacked={mine && slots && m.attacked === S.turn}
               symbiote={m.sym >= 0 ? view(m.sym) : null}
               onTap={() => tapBoard(m, mine)}
               onLong={() => setInspected(m.iid)}
@@ -311,8 +320,20 @@ export function Duel() {
   const F = g.FLAGS;
   const bondsOn = F.SPLIT || F.SYMBIOSIS || F.BOND_ACTION;
   const bondAvailable = groups.graftBegin !== null || groups.splits.size > 0 || groups.symbioses.size > 0;
-  const budgetShown = F.BOND_ACTION && !blocked && !mulligan && S.result === null;
-  const forfeitsBond = F.BOND_ACTION && S.bond === 0 && bondAvailable && sel?.t === 'board' && (plan.direct !== null || plan.targets.size > 0);
+  const budgetShown = (F.BOND_ACTION || slots) && !blocked && !mulligan && S.result === null;
+  // under TURN_SLOTS an attack closes nothing (D-335), so there is nothing to warn about
+  const forfeitsBond = !slots && F.BOND_ACTION && S.bond === 0 && bondAvailable && sel?.t === 'board' && (plan.direct !== null || plan.targets.size > 0);
+  const attacksLeft = groups.attacks.size;
+  const directOpen = [...groups.attacks.values()].some((list) => list.some((a) => a.target === -1));
+  const firstAttackRound = roundOfState(S) < g.FIRST_ATTACK_ROUND_PLAYER;
+  // lanes a Sentinel pulls the picked attacker's attack into, other than its own (D-283)
+  const sideLanes = L && selSlot >= 0 ? [...plan.targets.keys()].map((t) => them.board.findIndex((x) => x !== null && x.iid === t)).filter((k) => k >= 0 && k !== selSlot) : [];
+  const idleHint = ((): string => {
+    if (directOpen) return 'His board is empty: pick a monster, then tap his life for a direct hit.';
+    if (!bondsOn) return 'Tap a card, then tap where to play it. Tap it again to put it back. Hold a card to inspect.';
+    if (!slots) return 'Tap a card, then tap where to play it.';
+    return 'Tap a card to play it, or a monster to attack. Any order.';
+  })();
   // `lead` is the first thing to do; `rest` is the small print. The bond warning sits between them so it is never cut off.
   const hint = ((): { readonly lead: string; readonly rest: string } | null => {
     if (selView === null) return null;
@@ -330,13 +351,18 @@ export function Duel() {
       return { lead: bits.join(' '), rest: '' };
     }
     const bits: string[] = [];
-    if (plan.split !== null) bits.push('Split it back into its parts.');
-    if (L && plan.direct !== null) bits.push('His board is empty: tap his life to attack it.');
-    else if (plan.direct !== null || plan.targets.size > 0) bits.push('Tap a glowing target to attack.');
-    else if (noLifeLane !== null) bits.push('Empty lane: it cannot hit his life while he has monsters.');
-    else if (plan.moves.size === 0) bits.push('No attack available.');
     const rest: string[] = [];
-    if (plan.moves.size > 0) rest.push('A lane move or a switch: once per turn.');
+    const attacked = selMonster !== null && selMonster.attacked === S.turn;
+    if (plan.split !== null) bits.push('Split it back into its parts.');
+    if (plan.direct !== null) bits.push('His board is empty: tap his life for a direct hit.');
+    else if (plan.targets.size > 0) bits.push(sideLanes.length > 0 ? `A Sentinel in lane ${joinLanes(sideLanes)} pulls this attack to the side: tap it.` : 'Tap a glowing target to attack.');
+    else if (attacked) bits.push('Already attacked this turn.');
+    else if (firstAttackRound) bits.push(`No attacks until round ${g.FIRST_ATTACK_ROUND_PLAYER}.`);
+    else if (selMonster !== null && selMonster.pos !== 0) bits.push('In guard: switch it to attack position to attack.');
+    else if (noLifeLane !== null) bits.push('Empty lane across: no attack, and no direct hit while he has monsters.');
+    else if (plan.moves.size === 0) bits.push('No attack available.');
+    if (plan.direct === null && plan.targets.size > 0) rest.push('Direct hits only when his board is empty.');
+    if (plan.moves.size > 0) rest.push(slots ? 'Move or switch once per turn, before it attacks.' : 'A lane move or a switch: once per turn.');
     if (selMonster !== null && monstersOnly(g, rt.engine, S, selMonster)) rest.push('Summoned this turn: it can hit monsters, not life.');
     return { lead: bits.join(' '), rest: rest.join(' ') };
   })();
@@ -430,7 +456,7 @@ export function Duel() {
         <GraftSheet onInspect={setInspected} />
       ) : (
         <footer className="bottom" onClick={(e) => e.stopPropagation()}>
-          {budgetShown && compassId === null && <Budget played={S.played} bond={S.bond} />}
+          {budgetShown && compassId === null && <Budget played={S.played} bond={S.bond} slots={slots ? { spell: S.spell, attacks: attacksLeft } : undefined} />}
           {blocked ? (
             <div className="hintbar" aria-live="polite">
               <p className="muted">
@@ -458,14 +484,9 @@ export function Duel() {
               {selView === null ? (
                 <>
                   <p className="muted">
-                    {undoWhy ?? (bondsOn ? 'Tap a card, then tap where to play it.' : 'Tap a card, then tap where to play it. Tap it again to put it back. Hold a card to inspect.')}
+                    {undoWhy ?? idleHint}
                   </p>
                   <div className="hint-buttons">
-                    {bondsOn && (
-                      <button type="button" className="btn bonds-btn" data-hot={bondAvailable ? '' : undefined} disabled={!bondAvailable} onClick={() => setBondSheet({ t: 'options' })}>
-                        <Glyph id="link" size={18} /> Bonds
-                      </button>
-                    )}
                     <button type="button" className="btn ghost" disabled={!canUndo} onClick={() => undo()} title={undoWhy ?? undefined}>
                       <Glyph id="undo" size={18} /> Undo
                     </button>
@@ -565,7 +586,19 @@ export function Duel() {
             <span className="life me" aria-label={`Your life ${me.life}`}>
               <LifeSeal life={me.life} maxLife={maxLife} hit={myDamage} />
             </span>
-            {!mulligan && groups.graftBegin !== null && (
+            {!mulligan && bondsOn && (
+              <button
+                type="button"
+                className="btn bonds-btn"
+                data-hot={bondAvailable ? '' : undefined}
+                disabled={!bondAvailable}
+                aria-label={bondAvailable ? `Bond: ${bondNames(F)}` : 'Bond: none possible right now'}
+                onClick={() => setBondSheet({ t: 'options' })}
+              >
+                <Glyph id="link" size={18} /> Bond
+              </button>
+            )}
+            {!mulligan && !bondsOn && groups.graftBegin !== null && (
               <button type="button" className="btn" onClick={() => doAct(groups.graftBegin as Action)}>
                 <Glyph id="swap" size={18} /> Graft
               </button>
@@ -586,3 +619,13 @@ export function Duel() {
     </main>
   );
 }
+
+/** "2", "1 and 3" */
+const joinLanes = (lanes: readonly number[]): string => {
+  const n = [...new Set(lanes)].sort((a, b) => a - b).map((k) => String(k + 1));
+  return n.length <= 1 ? n.join('') : `${n.slice(0, -1).join(', ')} or ${n[n.length - 1]}`;
+};
+
+/** "Graft, Split or Symbiosis", by switch */
+const bondNames = (F: { readonly SPLIT: boolean; readonly SYMBIOSIS: boolean }): string =>
+  ['Graft', ...(F.SPLIT ? ['Split'] : []), ...(F.SYMBIOSIS ? ['Symbiosis'] : [])].join(', ');

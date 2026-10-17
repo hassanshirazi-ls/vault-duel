@@ -11,7 +11,7 @@ const ctxFor = (overrides: readonly string[] = []) => {
 };
 
 // The pre-flip rules (the live defaults since 2026-10-16 have lanes, sickness and the bond rules on)
-const OFF = ['FLAGS.LANES=false', 'FLAGS.SPLIT=false', 'FLAGS.SYMBIOSIS=false', 'FLAGS.BOND_ACTION=false', 'SICKNESS_MODE=classic'];
+const OFF = ['FLAGS.LANES=false', 'FLAGS.SPLIT=false', 'FLAGS.SYMBIOSIS=false', 'FLAGS.BOND_ACTION=false', 'FLAGS.TURN_SLOTS=false', 'SICKNESS_MODE=classic'];
 
 describe('How to play copy', () => {
   it('has the six pages in order, with no unrendered placeholder', () => {
@@ -66,8 +66,9 @@ describe('How to play copy', () => {
     expect(page('lanes')?.lines.join('\n')).toContain(`within ${ctx.globals.SENTINEL_REACH} lane of it`);
     const bonds = page('bonds')?.lines.join('\n') ?? '';
     expect(bonds).toContain('Graft, Split or Symbiosis');
-    expect(bonds).toContain('first attack closes the bond');
+    expect(bonds).toContain('Attacking closes nothing');
     expect(bonds).toContain('marked Best');
+    expect(page('bonds')?.title).toBe('Your turn');
     const keywords = page('keywords');
     expect(keywords?.open).toBe(true);
     expect(keywords?.lines.length).toBe(ctx.content.keywords.length);
@@ -78,6 +79,22 @@ describe('How to play copy', () => {
     expect(howToQuiz(ctx, 'bonds')?.answers.filter((a) => a.right)).toHaveLength(1);
     const kq = howToQuiz(ctx, 'keywords');
     expect(kq?.answers.filter((a) => a.right).map((a) => a.label)).toEqual([keywordGlossary(ctx).find((k) => k.flaw)?.name]);
+  });
+  it('teaches the turn slots (D-335): one monster, one spell or trap, one bond, any order', () => {
+    const ctx = ctxFor();
+    const text = howToPages(ctx).flatMap((p) => [p.summary, ...p.lines]).join('\n');
+    expect(text).toContain('summon one monster and play one spell or trap');
+    expect(text).toContain('Monster: summon one monster a turn.');
+    expect(text).toContain('Spell/Trap: cast one spell or set one trap a turn.');
+    expect(text).toContain('under the Bond button beside End turn');
+    expect(text).toContain('not after it has attacked');
+    expect(text).toContain('only way an attack goes to the side');
+    expect(text).toContain('direct hit on his life needs his whole monster board to be empty');
+    expect(text).not.toContain('first attack closes');
+    expect(howToQuiz(ctx, 'cards')?.answers.find((a) => a.right)?.label).toBe('Yes, a spell or trap is its own slot');
+    expect(howToQuiz(ctx, 'bonds')?.answers.find((a) => a.right)?.label).toBe('Yes, any order');
+    const old = howToPages(ctxFor(['FLAGS.TURN_SLOTS=false']));
+    expect(old.find((p) => p.id === 'bonds')?.title).toBe('Play and bond');
   });
   it('points the combat page at the in-duel compass', () => {
     const text = howToPages(ctxFor()).find((p) => p.id === 'combat')?.lines.join('\n') ?? '';

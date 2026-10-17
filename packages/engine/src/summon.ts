@@ -82,8 +82,16 @@ export function sacrificeCandidates(s: GameState, env: Env, side: Side, c: Iid):
 
 const POS_OF_MODE = { atk: 0, grd: 1, down: 1 } as const satisfies Record<SummonMode, Pos>;
 
-/** Common tail of a play: the one play of the turn is used and the Reposition step closes (D-014). */
-export function playUsed(run: Run): void {
+/**
+ * Common tail of a play: the one play of the turn is used and the Reposition step closes (D-014). With FLAGS.TURN_SLOTS
+ * (D-335) it uses only its own slot, the monster slot (`played`) or the spell-or-trap slot (`spell`), and the step stays.
+ */
+export function playUsed(run: Run, slot: 'monster' | 'spell' = 'monster'): void {
+  if (run.env.g.FLAGS.TURN_SLOTS) {
+    if (slot === 'spell') run.tx.set('spell', 1);
+    else run.tx.set('played', true);
+    return;
+  }
   run.tx.set('played', true);
   run.tx.set('step', 'attack');
 }
@@ -158,6 +166,6 @@ export function setTrap(run: Run, c: Iid): number {
   takeFromHand(run, side, c);
   tx.setTrap(side, slot, { iid: c, set: tx.state.turn });
   run.emit({ e: 'TrapSet', side, iid: c, slot });
-  playUsed(run);
+  playUsed(run, 'spell');
   return slot;
 }

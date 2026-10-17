@@ -22,6 +22,7 @@
 //                chimera(<family>,<element>,<kw>,<kw>[,asc][,grafted@T][,mats=<id>+<id>[+<id>]])
 //                (mats= creates the stored materials in the owner's discard, in order, D-307)
 //   bond         bond used | closed | open   (GameState.bond, D-306; default open)
+//   spell        spell used | open           (GameState.spell, FLAGS.TURN_SLOTS, D-335; default open)
 //   actions      do end | keep | redraw | summon <card> A|G|D [lane N] | covetous <card> sac <ref> A|G [lane N] | set <card>
 //                | reposition P0 | move P0 > N (lane move, FLAGS.LANES) | cast <card> [> <ref>] | attack P0 > C1|face
 //                | graft <ref> <ref> [| ascend <ref>] [| kw a,b] [| lane N] | pos A|G
@@ -117,6 +118,7 @@ export interface Scenario {
   step: Step;
   played: boolean;
   bond: 0 | 1 | 2;
+  spell: 0 | 1;
   twist: number;
   readonly sides: [SideSpec, SideSpec];
   readonly script: ScriptLine[];
@@ -235,7 +237,7 @@ export function withDeclared(base: ContentSpec, declared: readonly DeclaredCard[
 }
 
 export function parseScenario(text: string): Scenario {
-  const sc: Scenario = { declared: [], turn: null, step: 'main', played: false, bond: 0, twist: -1, sides: [emptySide(), emptySide()], script: [] };
+  const sc: Scenario = { declared: [], turn: null, step: 'main', played: false, bond: 0, spell: 0, twist: -1, sides: [emptySide(), emptySide()], script: [] };
   const lines = text.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const lineNo = i + 1;
@@ -263,6 +265,10 @@ export function parseScenario(text: string): Scenario {
       const b = words[1];
       if (b !== 'used' && b !== 'closed' && b !== 'open') throw new ScenarioError(lineNo, `bond used|closed|open, got '${b ?? ''}'`);
       sc.bond = b === 'used' ? 1 : b === 'closed' ? 2 : 0;
+    } else if (head === 'spell') {
+      const b = words[1];
+      if (b !== 'used' && b !== 'open') throw new ScenarioError(lineNo, `spell used|open, got '${b ?? ''}'`);
+      sc.spell = b === 'used' ? 1 : 0;
     }
     else if (head === 'twist') sc.twist = num(lineNo, words[1]);
     else if (head === 'P' || head === 'C') {
@@ -391,6 +397,7 @@ export function buildScenario(sc: Scenario, c: CompiledContent, g: Globals): Bui
     step: sc.step,
     played: sc.played,
     bond: sc.bond,
+    spell: sc.spell,
     redrawsLeft: sc.step === 'mulligan' && g.FLAGS.REDRAW ? g.REDRAWS : 0,
     pending: null,
     sides: [p, col],

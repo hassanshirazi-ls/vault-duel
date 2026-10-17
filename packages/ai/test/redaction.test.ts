@@ -39,13 +39,13 @@ const PLAYER_VIEW_FIELDS: Record<keyof PlayerView, true> = {
   hand: true, board: true, traps: true, discard: true, deckCount: true,
   foeHandCount: true, foeDeckCount: true, foeBoard: true, foeTrapCount: true, foeDiscard: true, foeVault: true,
   pendingGraft: true, winner: true, appraisalTarget: true, legal: true, after: true, previewCombat: true, previewGraft: true, beats: true,
-  lanes: true, sentinelReach: true, elementBonus: true, bonds: true, bondAction: true,
+  lanes: true, sentinelReach: true, elementBonus: true, bonds: true, bondAction: true, turnSlots: true,
 };
 
 describe('the view types', () => {
   it('list their fields explicitly', () => {
     expect(Object.keys(COLLECTOR_VIEW_FIELDS).length).toBe(23);
-    expect(Object.keys(PLAYER_VIEW_FIELDS).length).toBe(30);
+    expect(Object.keys(PLAYER_VIEW_FIELDS).length).toBe(31);
   });
 
   it('have no field for hidden information', () => {

@@ -3,6 +3,16 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-17 · Turn slots: one monster, one spell or trap, one bond, any order
+
+The rules changed, so a duel saved before this update starts over. `CONTENT_VERSION` stays `0.2.0`.
+
+- **Your turn** (`FLAGS.TURN_SLOTS`, D-335): summon one monster, play one spell or trap, make one bond (Graft, Split or Symbiosis) and attack once with each monster, **in any order**. Attacking no longer closes your card play or your bond. A monster that has attacked can't switch position or move lanes that turn.
+- **The Collector** plays by the same rules, so he can also summon and play a spell or trap in one turn.
+- **Collector life 25 → 40** (`COLLECTOR_LIFE`, D-335). The extra slot helps a skilled player much more than him: at 25 the expert bot won 73.5%; at 40 it wins 50.0% (target 45–55%), and games last longer (median 7 rounds, was 5).
+- **Clearer screen**: the pips above your hand read Monster · Spell/Trap · Bond · Attacks (with the number of monsters that can still attack). One **Bond** button beside End turn replaces the separate Graft and Bonds buttons; picking Graft materials by hand is at the top of its sheet. A monster that has attacked shows a tick. A Sentinel's cover badge points at the Sentinel, the only thing that pulls an attack to the side. The attack hint says when a direct hit is possible (his board empty) and why a monster can't attack.
+- **How to play**: "Play and bond" is now **Your turn**, and it shows once more for everyone.
+
 ## 2026-10-17 · Web: the round compass is back, and How to play covers the new rules
 
 No content or rule changes; `CONTENT_VERSION` stays `0.2.0`.

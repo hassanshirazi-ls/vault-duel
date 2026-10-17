@@ -22,7 +22,7 @@ function deepFreeze<T>(o: T): T {
 
 const makeState = (): GameState =>
   deepFreeze({
-    v: 1, cfg: 'c', seed: 's', rng: [1, 2, 3, 4], turn: 0, step: 'main', played: false, bond: 0, redrawsLeft: 1,
+    v: 1, cfg: 'c', seed: 's', rng: [1, 2, 3, 4], turn: 0, step: 'main', played: false, bond: 0, spell: 0, redrawsLeft: 1,
     pending: null,
     sides: [side(20, [1, 2, 3], [4, 5]), side(25, [6, 7], [8])],
     inst: [{ def: 0, owner: 0, chimera: null }],

@@ -45,6 +45,7 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
   const when = <T,>(on: boolean, ...lines: T[]): T[] => (on ? lines : []);
   const bonds = bondNames(g);
   const bondTurn = f.BOND_ACTION;
+  const slots = f.TURN_SLOTS; // D-335: one monster, one spell or trap, one bond, any order
   const sentinel = ctx.content.keywords.some((k) => k.id === 'sentinel');
   const glossary = keywordGlossary(ctx);
   // the play sentence by switch state (docs/reports/bond-flip-content-draft.md 3a): with the bond action on, Graft is no longer a play
@@ -65,19 +66,26 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
     {
       id: 'cards',
       title: 'Playing cards',
-      summary: bondTurn
+      summary: slots
+        ? r('Each turn you draw back up to {HAND_SIZE} cards. Then you may summon one monster and play one spell or trap, in any order. Tap a card, then tap where it goes. Hold any card to read it.')
+        : bondTurn
         ? r('Each turn you draw back up to {HAND_SIZE} cards, then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell or set a trap. Tap a card, then tap where it goes. Hold any card to read it.')
         : r(`Each turn you draw back up to {HAND_SIZE} cards, then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell, set a trap${playSummaryTail}. Tap a card, then tap where it goes. Hold any card to read it.`),
       lines: [
         r('You begin with {OPENING_HAND} cards.'),
         ...when(f.REDRAW, r('Before round 1 you may send your hand back for a fresh one ({REDRAWS|redraw|redraws}).')),
         r('Each turn you draw back up to {HAND_SIZE} cards, at most {MAX_DRAW_PER_TURN|card|cards} a turn.'),
-        bondTurn
-          ? r('Then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell or set a trap.')
-          : r(`Then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell, set a trap${playTail}.`),
-        ...when(bondTurn, r(`Before your first attack you may also make {BONDS_PER_TURN|bond action|bond actions}: ${orList(bonds)}, in either order. Your first attack ends the bond for the turn.`)),
+        slots
+          ? 'Then you may summon one monster and play one spell or trap (cast the spell, or set the trap).'
+          : bondTurn
+            ? r('Then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell or set a trap.')
+            : r(`Then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell, set a trap${playTail}.`),
+        ...when(slots, r(`You may also make {BONDS_PER_TURN|bond|bonds}: ${orList(bonds)}. Summon, spell, bond and attacks come in any order.`)),
+        ...when(bondTurn && !slots, r(`Before your first attack you may also make {BONDS_PER_TURN|bond action|bond actions}: ${orList(bonds)}, in either order. Your first attack ends the bond for the turn.`)),
         r('Your board has {BOARD_SLOTS} monster slots and {TRAP_SLOTS} trap slots.'),
-        r('A monster stands in attack or guard. You may switch it {REPOSITIONS_PER_TURN|time|times} a turn, but not on the turn it was summoned.'),
+        slots
+          ? 'A monster stands in attack or guard. You may switch it once a turn, but not on the turn it was summoned, and not after it has attacked.'
+          : r('A monster stands in attack or guard. You may switch it {REPOSITIONS_PER_TURN|time|times} a turn, but not on the turn it was summoned.'),
         r('Each monster in attack position may attack {ATTACKS_PER_TURN|time|times} a turn. Your first attacks come in round {FIRST_ATTACK_ROUND_PLAYER}.'),
         'Tap a card in your hand to lift it, then tap a glowing slot or target. Hold any card to read it.',
       ],
@@ -98,17 +106,35 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
     ...when<HowToPage>(f.LANES, {
       id: 'lanes',
       title: 'Lanes',
-      summary: r("Your {BOARD_SLOTS} monster slots are lanes. A monster attacks only the Collector's monster straight across from it, so an empty lane across means no hit. His life is open only when his board is empty."),
+      summary: r("Your {BOARD_SLOTS} monster slots are lanes. A monster attacks only the Collector's monster straight across from it, unless a Sentinel next to that lane pulls the attack to itself. An empty lane across means no hit. A direct hit on his life needs his board to be empty."),
       lines: [
         r("The {BOARD_SLOTS} monster slots are lanes: each of your monsters faces the Collector's slot straight across. You pick the lane when you summon."),
         'With lanes, a monster can only attack the monster across from it. An empty lane across means no attack, and life can be hit only when the Collector has no monsters at all.',
-        ...when(sentinel, r('A Sentinel guards nearby lanes: attacks in its lane and within {SENTINEL_REACH|lane|lanes} of it must target it. A shield badge marks the lanes it covers.')),
+        ...when(sentinel, r('A Sentinel guards nearby lanes: attacks in its lane and within {SENTINEL_REACH|lane|lanes} of it must target it. This is the only way an attack goes to the side. A shield badge with an arrow marks each covered lane and points at the Sentinel.')),
+        'A direct hit on his life needs his whole monster board to be empty. Then his life glows when you pick an attacker.',
         r("Instead of switching, a monster may move up to {LANE_MOVE_RANGE|lane|lanes} sideways, trading places with your monster there. A move and a switch share one turn's reposition."),
         'Pick your monster and its lane lights up. A slot marked "No hit" has nothing to attack; lit Move and Swap slots show where it can go.',
         'He picks lanes too: he likes to summon across from a monster he can beat, or across from an empty lane.',
       ],
     }),
-    ...when<HowToPage>(bondTurn, {
+    ...when<HowToPage>(slots, {
+      id: 'bonds',
+      title: 'Your turn',
+      summary: r(`Each turn: summon one monster, play one spell or trap, make one bond (${orList(bonds)}) and attack once with each monster. Any order. The pips above your hand show what is left.`),
+      lines: [
+        'Monster: summon one monster a turn.',
+        'Spell/Trap: cast one spell or set one trap a turn.',
+        r(`Bond: make {BONDS_PER_TURN|bond|bonds} a turn, ${orList(bonds)}. All of them are under the Bond button beside End turn.`),
+        'Attacks: each monster in attack position attacks once. The number on the Attacks pip is how many can still attack.',
+        'Any order: you can attack first and summon or bond afterwards. Attacking closes nothing.',
+        'A monster may move a lane or switch position once, before it attacks. After its attack it stays put, and a tick marks it.',
+        'Graft joins monsters into a Chimera.',
+        ...when(f.SPLIT, 'Split unbinds a Chimera back into its parts, which can save it from an Appraisal aimed at it.'),
+        ...when(f.SYMBIOSIS, 'Symbiosis attaches a monster from your hand under one of yours, as extra Guard and a spare body.'),
+        'The Bond button lists every bond you can make right now, with the board it leaves and whether it is exposed to the next Appraisal. The option marked Best is a hint only.',
+      ],
+    }),
+    ...when<HowToPage>(bondTurn && !slots, {
       id: 'bonds',
       title: 'Play and bond',
       summary: r(`Each turn you get {PLAYS_PER_TURN|card play|card plays} and {BONDS_PER_TURN|bond action|bond actions}. A bond is ${orList(bonds)}. Bond before you attack: your first attack closes it.`),
@@ -130,7 +156,9 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
       summary: r('Graft joins {MIN_GRAFT_MATERIALS} monsters into one Chimera. The first material sets its element, and a preview shows the result before you confirm.') + (f.ASCEND ? r(' Add one more ({MAX_GRAFT_MATERIALS} in all) to Ascend it.') : ''),
       lines: [
         bondTurn
-          ? r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is a bond action, so it does not use up your card play, and board materials are sacrificed.')
+          ? slots
+            ? r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is your bond, so it does not use up your monster summon, and board materials are sacrificed. Start it from the Bond button.')
+            : r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is a bond action, so it does not use up your card play, and board materials are sacrificed.')
           : r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is your card play for the turn, and board materials are sacrificed.'),
         'The two kinds set the family and its Power and Guard. The first material sets the element, so the order matters.',
         r('A Chimera inherits up to {MAX_INHERITED_KEYWORDS|keyword|keywords}. If more are available, you choose.'),
@@ -295,6 +323,17 @@ export function howToQuiz(ctx: GameCtx, id: HowToArtId): Quiz | null {
     case 'cards': {
       const f = g.FLAGS;
       const names = bondNames(g);
+      if (f.TURN_SLOTS) {
+        return {
+          question: 'You summoned a monster this turn. Can you still set a trap?',
+          answers: [
+            { label: 'Yes, a spell or trap is its own slot', right: true },
+            { label: 'No, one card a turn', right: false },
+            { label: 'Only before you attack', right: false },
+          ],
+          why: 'Each turn you get one monster summon and one spell or trap, in any order, plus one bond.',
+        };
+      }
       const uses = f.BOND_ACTION
         ? r(`You play {PLAYS_PER_TURN|card|cards} a turn: a summon, a spell or a trap uses it. ${orList(names)} ${names.length === 1 ? 'is a bond action' : 'are bond actions'}, and you may make {BONDS_PER_TURN|bond action|bond actions} before your first attack.`)
         : r(`You play {PLAYS_PER_TURN|card|cards} a turn: a summon, a spell, a trap or ${names.length === 1 ? 'a Graft' : `one of ${orList(names)}`} ${names.length === 1 ? 'each use' : 'each uses'} one.`);
@@ -328,6 +367,17 @@ export function howToQuiz(ctx: GameCtx, id: HowToArtId): Quiz | null {
         why: 'It attacks only straight across, and his life is open only when his board is empty. Move it a lane, or summon across from him.',
       };
     case 'bonds':
+      if (g.FLAGS.TURN_SLOTS) {
+        return {
+          question: 'You attack with a monster, then want to Graft. Can you?',
+          answers: [
+            { label: 'Yes, any order', right: true },
+            { label: 'No, the attack closed the bond', right: false },
+            { label: 'Only if you have not summoned', right: false },
+          ],
+          why: 'Summon, spell or trap, bond and attacks come in any order. Attacking closes nothing.',
+        };
+      }
       return {
         question: 'You attack with a monster, then want to Graft. Can you?',
         answers: [

@@ -112,12 +112,15 @@ export function declareAttack(run: Run, attacker: Iid, target: Iid | -1): void {
     throw new EngineError(`attack: ${target} is not on the defending board`);
   }
 
-  // Declaration. The first attack closes the Reposition step and forfeits an unused play (D-014).
+  // Declaration. The first attack closes the Reposition step and forfeits an unused play (D-014); with FLAGS.TURN_SLOTS
+  // it closes nothing, and only this monster is done for the turn (D-335).
   tx.patchMonster(aSide, locSlot(aLoc), { attacked: s0.turn }); // a cancelled attack still counts (D-033)
   if (aSide === 0) markRound(tx, RoundFlag.Attacked);
-  if (tx.state.step !== 'attack') tx.set('step', 'attack');
-  if (!tx.state.played) tx.set('played', true);
-  if (env.g.FLAGS.BOND_ACTION && tx.state.bond === 0) tx.set('bond', 2); // the first attack closes an unused bond action (D-306)
+  if (!env.g.FLAGS.TURN_SLOTS) {
+    if (tx.state.step !== 'attack') tx.set('step', 'attack');
+    if (!tx.state.played) tx.set('played', true);
+    if (env.g.FLAGS.BOND_ACTION && tx.state.bond === 0) tx.set('bond', 2); // the first attack closes an unused bond action (D-306)
+  }
   run.emit({ e: 'AttackDeclared', attacker, target });
 
   const evt: AttackEvt = { attacker, target };

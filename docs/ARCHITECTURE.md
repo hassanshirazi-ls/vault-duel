@@ -406,7 +406,7 @@ export class Tx {
 | Reposition | `step: 'main'`, `!played`; `reposition` actions |
 | Play one card | `step: 'main'`, `!played`; summon/cast/setTrap/graft actions; a play moves `step` to `'attack'`. With `FLAGS.BOND_ACTION` off, `graft`, `split` and `symbiose` are plays |
 | Bond action (`FLAGS.BOND_ACTION` on, D-306) | `step: 'main'` or `'attack'`, `bond === 0`; `graft`, `split`, `symbiose`; sets `bond = 1`; does not touch `played`, `step` or the reposition step. Either order with the play |
-| Attack | `step: 'attack'` (or first `attack` from `'main'`, which forfeits the play — D-014, and with `BOND_ACTION` on sets `bond = 2`, closing the bond action) |
+| Attack | `step: 'attack'` (or first `attack` from `'main'`, which forfeits the play — D-014, and with `BOND_ACTION` on sets `bond = 2`, closing the bond action). With `FLAGS.TURN_SLOTS` (D-335) the step stays `'main'` all turn: an attack closes nothing, a summon sets `played`, a cast or trap sets `spell = 1`, and a monster with `attacked === turn` no longer repositions or moves |
 | End | `endTurn` → end-of-turn → opponent's start-of-turn → … until a decision is needed |
 
 `applyAction` always returns a state where the active side (or `over`) has a decision to make; there are no "advance" actions.
@@ -1999,6 +1999,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | GR-15 | Symbiosis: attach a hand monster under a face-up host; +Guard and keyword; emerges on host leaving; Appraisal takes both (`FLAGS.SYMBIOSIS`) | `bond.ts › symbiose, release` (§5.6b), `stats.ts`, `destroy.ts`, `appraisal.ts`, `globals` (`SYMBIOSIS_GUARD_BONUS`) | D-308, D-309 |
 | GR-16 | One card play + one bond action per turn (`FLAGS.BOND_ACTION`); the first attack closes it | `turn.ts`, `combat.ts › declare`, `graft.ts › bondUsed`, `legal.ts`, `GameState.bond` | D-306 |
 | GR-17 | Options preview of every bond action | `bond-preview.ts › bondOptions` (§5.6c), `ai/bots/rank-bonds.ts` | D-313 |
+| GR-18 | Turn slots: one monster (`played`), one spell or trap (`GameState.spell`), one bond, any order; attacks close nothing; an attacked monster no longer repositions (`FLAGS.TURN_SLOTS`) | `summon.ts › playUsed(run, slot)`, `combat.ts › declare`, `legal.ts › forEachPlay`, `turn.ts › startTurn` | D-335 |
 | GR-18 | Collector never bonds; symbiote is public; AI reads engine stats | `legal.ts › canBond`, `ai/collector/view.ts` | D-305, D-311 |
 | GR-19 | Bots use bond actions; sim A/B cells and metrics | `ai/bots/*`, `sim` matrix | D-312, D-314 |
 

@@ -6,16 +6,21 @@ import type { Engine, GameState, Globals, Iid, Monster, Side } from '@vault-duel
 /** Is the lane mode on? It changes what the board draws, never what is legal. */
 export const lanesOn = (g: Globals): boolean => g.FLAGS.LANES;
 
-/** Lanes (other than the Sentinel's own) that a face-up Sentinel on `side` covers (D-283). Empty with lanes off. */
-export function coveredLanes(g: Globals, engine: Engine, kwBit: number | undefined, s: GameState, side: Side): ReadonlySet<number> {
-  const out = new Set<number>();
+/**
+ * Lanes (other than the Sentinel's own) that a face-up Sentinel on `side` covers (D-283), each mapped to the lane of the
+ * Sentinel that pulls attacks there (the nearest; the left one on a tie). Empty with lanes off.
+ */
+export function coveredLanes(g: Globals, engine: Engine, kwBit: number | undefined, s: GameState, side: Side): ReadonlyMap<number, number> {
+  const out = new Map<number, number>();
   if (!lanesOn(g) || kwBit === undefined) return out;
   const board = s.sides[side].board;
   board.forEach((m, i) => {
     if (m === null || ((engine.activeKeywords(s, m.iid) >>> kwBit) & 1) === 0) return;
     for (let d = -g.SENTINEL_REACH; d <= g.SENTINEL_REACH; d++) {
       const lane = i + d;
-      if (d !== 0 && lane >= 0 && lane < board.length) out.add(lane);
+      if (d === 0 || lane < 0 || lane >= board.length) continue;
+      const prev = out.get(lane);
+      if (prev === undefined || Math.abs(prev - lane) > Math.abs(d)) out.set(lane, i);
     }
   });
   return out;

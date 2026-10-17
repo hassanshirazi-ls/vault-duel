@@ -58,6 +58,8 @@ export interface PlayerView {
   readonly bonds: boolean;
   /** FLAGS.BOND_ACTION: bond actions use the bond slot beside the one play (D-306) */
   readonly bondAction: boolean;
+  /** FLAGS.TURN_SLOTS (D-335): a monster, a spell or trap and a bond per turn, in any order */
+  readonly turnSlots: boolean;
   /** SENTINEL_REACH (D-283), meaningful with `lanes` */
   readonly sentinelReach: number;
   /** ELEMENT_BONUS, for the lane terms' quick arithmetic */
@@ -168,6 +170,7 @@ export function playerView(b: Brain, s: GameState): PlayerView {
     lanes: b.globals.FLAGS.LANES,
     bonds: b.globals.FLAGS.SPLIT || b.globals.FLAGS.SYMBIOSIS,
     bondAction: b.globals.FLAGS.BOND_ACTION,
+    turnSlots: b.globals.FLAGS.TURN_SLOTS,
     sentinelReach: b.globals.SENTINEL_REACH,
     elementBonus: b.globals.ELEMENT_BONUS,
     previewCombat: (attacker, target) => b.engine.previewCombat(redacted(), attacker, target),

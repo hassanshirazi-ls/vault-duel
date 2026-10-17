@@ -139,6 +139,7 @@ export function createExpert(options: ExpertOptions = {}): ExpertBot {
   const fallback = createGreedy(GREEDY_WEIGHTS);
   const stats: ExpertStats = { planned: 0, lastPlans: 0, maxPlans: 0, totalPlans: 0 };
   const queue: Action[] = [];
+  let turnSlots = false; // read from the view each time a plan is made (the queue is empty before the first)
 
   const value = (power: number, guard: number, atk: boolean): number => monsterValue(w, power, guard, atk);
 
@@ -487,13 +488,15 @@ export function createExpert(options: ExpertOptions = {}): ExpertBot {
         const i = ctx.legal.findIndex((a) => sameAction(a, next));
         if (i >= 0) {
           queue.shift();
-          // A spell can change what the redacted look-ahead could not see (a draw), so plan again after it.
-          if (next.t === 'cast') queue.length = 0;
+          // A spell can change what the redacted look-ahead could not see (a draw), so plan again after it. With
+          // FLAGS.TURN_SLOTS (D-335) a plan holds one play, so plan again after any play to use the other slot.
+          if (next.t === 'cast' || (turnSlots && isPlay(next))) queue.length = 0;
           return i;
         }
         queue.length = 0; // the plan no longer fits (a hidden trap, say): plan again
       }
       const v = ctx.view();
+      turnSlots = v.turnSlots;
       if (v.pendingGraft) break;
       const ranked = rankedPlans(v);
       const first = ranked[0]?.actions[0];

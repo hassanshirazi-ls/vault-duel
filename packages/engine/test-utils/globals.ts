@@ -44,7 +44,7 @@ export const TEST_GLOBALS: Globals = {
     ASCEND: true, UNSTABLE: true, APPRAISAL: true, MOODS: true, INTENTS: true,
     WEEKLY_TWIST: false, REDRAW: true, BONUS_OBJECTIVES: true, ANIMATIONS: true, DEBUG_OVERLAY: false,
     APPRAISED_ENTERS_GUARD: false, ACE_SET_ASIDE: false, CHIMERA_TO_HAND: true,
-    LANES: false, LANE_SWAP: true, SPLIT: false, SYMBIOSIS: false, BOND_ACTION: false,
+    LANES: false, LANE_SWAP: true, SPLIT: false, SYMBIOSIS: false, BOND_ACTION: false, TURN_SLOTS: false,
   },
 };
 

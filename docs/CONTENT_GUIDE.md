@@ -23,7 +23,7 @@ example matters, the test sets it on its own copy, so an example stays true when
   monster can attack only the monster across from it (section 7).
 - **Summon turn**: the turn a monster enters the board. What a monster may do on that turn is set by `SICKNESS_MODE` (section 7).
 - **Sentinel reach**: how many lanes beside its own a face-up Sentinel guards (`SENTINEL_REACH`, section 7).
-- **Bond action**: one of Graft, Split or Symbiosis. With `FLAGS.BOND_ACTION` on, a turn allows one card play and one bond action.
+- **Bond action**: one of Graft, Split or Symbiosis. With `FLAGS.BOND_ACTION` on, a turn allows one card play and one bond action. With `FLAGS.TURN_SLOTS` on as well, a turn allows one monster summon, one spell or trap and one bond, in any order.
 - **Split**: unbinds your face-up Chimera into the monsters it was grafted from.
 - **Symbiosis**: attaches a base monster from your hand under one of your face-up monsters.
 - **Global**: a number or switch in `packages/content/src/globals.ts`.
@@ -931,6 +931,7 @@ D-305 to D-310). Each row is one edit in `globals.ts`. Changing one is an owner 
 | `LANE_MOVE_RANGE` | `1` | How many lanes one lane move may cross. Read only with `LANES`. | a whole number, 0 or more |
 | `SENTINEL_REACH` | `1` | A face-up Sentinel guards its own lane and this many lanes on each side. `0` means its own lane only. Read only with `LANES`. | a whole number, 0 or more |
 | `FLAGS.BOND_ACTION` | `true` | Each turn allows one card play and one bond action, in either order. `false` makes Graft your one play again. | `true` or `false` |
+| `FLAGS.TURN_SLOTS` | `true` | The card play splits in two: one monster summon and one spell or trap a turn, beside the bond, in any order. An attack closes nothing, and a monster that has attacked cannot switch or move. `false` is one card play, and the first attack closes the play and the bond. | `true` or `false` |
 | `FLAGS.SPLIT` | `true` | Your face-up Chimera can unbind into the monsters it was grafted from. | `true` or `false` |
 | `FLAGS.SYMBIOSIS` | `true` | You can attach a base monster from your hand under one of your face-up monsters. | `true` or `false` |
 | `BOND_GRAFT_MAX_HAND_MATERIALS` | `3` | The most hand cards one Graft may use. `3` is no limit, the same as `MAX_GRAFT_MATERIALS`. Read only with `BOND_ACTION`. | a whole number, 0 or more |

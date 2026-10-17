@@ -3,7 +3,7 @@
 import { getJson } from './storage';
 import type { KV } from './storage';
 
-export const HOWTO_VERSION = 1;
+export const HOWTO_VERSION = 2; // 2: the turn slots (D-335)
 export const HOWTO_KEY = 'vd:howto';
 
 export function howToSeen(kv: KV): boolean {

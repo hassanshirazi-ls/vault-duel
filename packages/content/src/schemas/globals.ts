@@ -100,6 +100,7 @@ const Flags = z
     SPLIT: z.boolean(),
     SYMBIOSIS: z.boolean(),
     BOND_ACTION: z.boolean(),
+    TURN_SLOTS: z.boolean(),
   })
   .strict();
 

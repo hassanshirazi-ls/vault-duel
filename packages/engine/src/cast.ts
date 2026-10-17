@@ -20,7 +20,7 @@ export function castSpell(run: Run, c: Iid, target: Iid | -1): void {
   if (!tx.zoneRemove(side, 'hand', c)) throw new EngineError(`card ${c} is not in the hand of side ${side}`);
   tx.zonePush(inst.owner, 'discard', c);
   run.emit({ e: 'SpellCast', side, iid: c, target });
-  playUsed(run);
+  playUsed(run, 'spell');
   const refs = makeRefs({ chosen: target });
   for (let i = 0; i < spell.effects.length; i++) {
     run.queue({ effect: spell.effects[i] as Effect, refs, source: c, side });

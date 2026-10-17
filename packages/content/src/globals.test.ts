@@ -26,6 +26,7 @@ describe('rule levers (owner-only, D-166, D-168)', () => {
     expect(G.FLAGS.SPLIT).toBe(true);
     expect(G.FLAGS.SYMBIOSIS).toBe(true);
     expect(G.FLAGS.BOND_ACTION).toBe(true);
+    expect(G.FLAGS.TURN_SLOTS).toBe(true);
     expect(G.FLAGS.LANES).toBe(true);
     expect(G.SICKNESS_MODE).toBe('monstersOnly');
     expect(G.BOND_GRAFT_MAX_HAND_MATERIALS).toBe(G.MAX_GRAFT_MATERIALS); // 3 = no limit

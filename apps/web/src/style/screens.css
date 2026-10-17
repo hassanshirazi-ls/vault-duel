@@ -2290,3 +2290,57 @@ button.life[data-glow='target']::after {
   color: #1a1206;
   border-color: #e3c77f;
 }
+
+/* ---------- turn slots (D-335): Monster · Spell/Trap · Bond · Attacks, in any order ---------- */
+.budget.slots {
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+.budget.slots .pip {
+  flex: 0 1 auto;
+  min-width: 0;
+  gap: 3px;
+  padding: 0 6px 0 3px;
+  font-size: 12px;
+}
+.budget.slots .pip-word {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pip .mark[data-count] {
+  background: var(--gold-hi);
+  color: #1a1206;
+  border-color: var(--gold-hi);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+@media (max-width: 379px) {
+  /* the type icon gives way first, so every word still fits on a 360px phone */
+  .budget.slots .pip > svg {
+    display: none;
+  }
+}
+@media (min-width: 400px) {
+  .budget.slots {
+    gap: 6px;
+  }
+  .budget.slots .pip {
+    font-size: 13px;
+    padding: 0 8px 0 4px;
+  }
+}
+.btn.bond-manual {
+  width: 100%;
+  justify-content: center;
+  gap: 6px;
+  margin: 2px 0 8px;
+  min-height: 40px;
+  font-size: 14px;
+}
+
+.pip[data-state='used'] .mark[data-count] {
+  background: transparent;
+  color: var(--bone-dim);
+  border-color: currentColor;
+}

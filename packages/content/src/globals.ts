@@ -28,6 +28,8 @@ const FLAGS = {
   SPLIT: true,
   SYMBIOSIS: true,
   BOND_ACTION: true,
+  // D-335: one monster, one spell or trap and one bond per turn, any order; attacks close nothing. Off = the one-play turn
+  TURN_SLOTS: true,
 } as const satisfies Flags;
 
 const GLOBAL_VALUES = {
@@ -36,7 +38,7 @@ const GLOBAL_VALUES = {
   SEED_PREFIX: 'vault-duel',
   // Life & length
   PLAYER_LIFE: 20,
-  COLLECTOR_LIFE: 25,
+  COLLECTOR_LIFE: 40, // 25 before D-335: the turn slots give a skilled player much more than the Collector (docs/BALANCE_LOG.md)
   MAX_ROUNDS: 12,
   // Decks
   COLLECTOR_DECK_SIZE: 20,

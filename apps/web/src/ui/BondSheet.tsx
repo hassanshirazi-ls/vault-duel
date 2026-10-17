@@ -181,6 +181,8 @@ export function BondSheet({ mode, onClose }: { readonly mode: BondMode; readonly
   const rt = useGame((s) => s.rt);
   const state = useGame((s) => s.state);
   const perform = useGame((s) => s.performBond);
+  const graftBegin = useGame((s) => s.groups?.graftBegin ?? null);
+  const act = useGame((s) => s.act);
   const preview = useMemo(() => (rt === null || state === null ? null : rt.engine.bondOptions(state)), [rt, state]);
   const view = useMemo(() => {
     if (ctx === null || rt === null || state === null || preview === null) return null;
@@ -194,6 +196,21 @@ export function BondSheet({ mode, onClose }: { readonly mode: BondMode; readonly
   };
   const bestId = view.best === null ? null : view.best.id;
   const bondOn = ctx.globals.FLAGS.BOND_ACTION;
+  const slots = ctx.globals.FLAGS.TURN_SLOTS;
+  // the Graft workbench, for picking the materials by hand (one Bond button for every bond, D-335)
+  const manualGraft =
+    graftBegin === null ? null : (
+      <button
+        type="button"
+        className="btn bond-manual"
+        onClick={() => {
+          onClose();
+          act(graftBegin);
+        }}
+      >
+        <Glyph id="swap" size={16} /> Graft: pick materials yourself
+      </button>
+    );
 
   if (mode.t === 'split') {
     const row = view.groups.flatMap((g) => g.families).flatMap((f) => f.rows).find((r) => r.id === `split:${mode.m}`);
@@ -244,7 +261,12 @@ export function BondSheet({ mode, onClose }: { readonly mode: BondMode; readonly
         </div>
         <div className="bonds-scroll">
           <p className="muted bonds-note">
-            {bondOn ? 'Each turn you may make one bond action, before your first attack.' : 'A bond action is your card play for the turn.'} Tap an option to do it. The result shown is what you would have afterwards.
+            {slots
+              ? 'One bond each turn, at any point in it. It does not use your monster or spell slot.'
+              : bondOn
+                ? 'Each turn you may make one bond action, before your first attack.'
+                : 'A bond action is your card play for the turn.'}{' '}
+            Tap an option to do it. The result shown is what you would have afterwards.
           </p>
           {view.best !== null && view.best.rank !== null && (
             <button type="button" className="bonds-best" onClick={() => pick(view.best as BondRowView)}>
@@ -254,17 +276,19 @@ export function BondSheet({ mode, onClose }: { readonly mode: BondMode; readonly
               </span>
             </button>
           )}
-          {view.empty && <p className="muted">No bond action is possible right now.</p>}
+          {view.empty && graftBegin === null && <p className="muted">No bond action is possible right now.</p>}
           {view.groups.map((g) => (
             <section key={g.kind} className="bond-group" aria-label={g.label}>
               <h3>
                 <Glyph id={BOND_ICON[g.kind]} size={16} /> {g.label} <span className="count">{g.count}</span>
               </h3>
+              {g.kind === 'graft' && manualGraft}
               {g.families.map((f) => (
                 <Family key={f.key} fam={f} bestId={bestId} onPick={pick} />
               ))}
             </section>
           ))}
+          {!view.groups.some((g) => g.kind === 'graft') && manualGraft}
         </div>
       </div>
     </Sheet>

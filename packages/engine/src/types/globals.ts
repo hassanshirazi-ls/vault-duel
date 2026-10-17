@@ -23,6 +23,8 @@ export interface Flags {
   readonly SYMBIOSIS: boolean;
   /** D-306: bond actions are a second slot beside the one card play; default off (they are plays) */
   readonly BOND_ACTION: boolean;
+  /** D-335: a turn has a monster slot, a spell-or-trap slot and the bond slot, in any order; an attack closes nothing */
+  readonly TURN_SLOTS: boolean;
 }
 
 export type Range = readonly [number, number];

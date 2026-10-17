@@ -11,7 +11,7 @@ Vault Duel is a daily dark-fantasy card duel: every day, every player gets the s
 - **Same game for everyone.** Both decks are shuffled from the date seed, so results are comparable and shareable.
 - **Simple rules, deep combinations.** A new player understands the rules in 60 seconds; depth comes from Grafting, elements, timing around Appraisal, and reading the Collector.
 - **Challenging but fair boss.** The Collector never cheats, is deterministic, and telegraphs his intent.
-- **Fast.** One card and one bond action per turn, at most 12 rounds, no waiting on animations.
+- **Fast.** One monster, one spell or trap and one bond per turn, at most 12 rounds, no waiting on animations.
 
 **Locked decisions**
 
@@ -27,7 +27,7 @@ Vault Duel is a daily dark-fantasy card duel: every day, every player gets the s
 
 ## Core rules
 
-You have 20 life and a 24-card deck; the Collector has 25 life and a fixed 20-card deck. Reduce his life to 0 before round 12 ends.
+You have 20 life and a 24-card deck; the Collector has 40 life and a fixed 20-card deck. Reduce his life to 0 before round 12 ends.
 
 **Setup**
 
@@ -38,10 +38,13 @@ You have 20 life and a 24-card deck; the Collector has 25 life and a fixed 20-ca
 **A round** = the player's turn, then the Collector's turn.
 
 1. **Draw** up to 5 cards, at most 2 per turn (spell effects ignore the cap).
-2. **Reposition**: each of your monsters may either switch between attack and guard or move one lane (into an empty lane, or trading places with your monster there), once, except on the turn it was summoned. A face-down monster flipped to attack is revealed.
-3. **Play one card**: summon a monster (face-up attack, face-up guard, or face-down guard) into an empty lane of your choice, cast a spell, or set a trap.
-4. **Bond action** (once, before your first attack, in either order with your card): Graft, Split or Symbiosis (see Bond actions).
-5. **Attack** with each attack-position monster once, then end the turn.
+2. **Your turn**, in any order:
+   - **Monster**: summon one monster (face-up attack, face-up guard, or face-down guard) into an empty lane of your choice.
+   - **Spell or trap**: cast one spell or set one trap.
+   - **Bond**: one Graft, Split or Symbiosis (see Bond actions).
+   - **Attack** with each attack-position monster once.
+   - **Reposition**: each of your monsters may either switch between attack and guard or move one lane (into an empty lane, or trading places with your monster there), once, except on the turn it was summoned and after it has attacked. A face-down monster flipped to attack is revealed.
+3. **End the turn.** Attacking closes nothing: you can summon, cast or bond after an attack.
 
 **Summoning sickness**: from round 2, a monster can attack the Collector's monsters on the turn it arrives, but not his life; it can attack life from your next turn. Swift lets it hit life on its first turn too; Slow stops it attacking at all on its first turn.
 
@@ -57,7 +60,7 @@ You have 20 life and a 24-card deck; the Collector has 25 life and a fixed 20-ca
 | Empty lane | No attack, unless the enemy's whole board is empty. |
 | Empty board | Direct attack: full Power as damage. |
 
-A monster can attack only the enemy monster in the lane across from it (or a Sentinel covering that lane). Element advantage adds +2 Power when attacking only. Keywords and traps resolve before damage.
+A monster can attack only the enemy monster in the lane across from it, or a Sentinel covering that lane: Sentinel cover is the only way an attack goes to the side. A direct hit on life needs the enemy's whole monster board to be empty. Element advantage adds +2 Power when attacking only. Keywords and traps resolve before damage.
 
 **Win and loss**: you win when the Collector hits 0. You lose at 0 life, or when the vault seals at the end of round 12. If you cannot draw, you skip the draw (no deck-out loss).
 
@@ -112,7 +115,7 @@ Complexity budget: no card text longer than one sentence. A new keyword must jus
 
 ## Graft system
 
-Grafting combines 2 monsters into a Chimera whose family is set by their two kinds and whose element is set by the first material. It is your bond action for the turn, so it does not use up your card play.
+Grafting combines 2 monsters into a Chimera whose family is set by their two kinds and whose element is set by the first material. It is your bond for the turn, so it does not use up your monster summon.
 
 **Rules**
 
@@ -150,7 +153,7 @@ Every pair of monsters can graft, so a random hand never has zero options; the s
 
 ## Bond actions
 
-Each turn you get one card play and one **bond action**: Graft, Split or Symbiosis. Each is good at one thing and bad at another, like chess pieces, so the skill is reading the board and picking the right one. The bond must happen before your first attack. The **Bond options** panel lists every bond you can make this turn with its result, and marks the strongest.
+Each turn you get one monster summon, one spell or trap, and one **bond action**: Graft, Split or Symbiosis. Each is good at one thing and bad at another, like chess pieces, so the skill is reading the board and picking the right one. The bond can come at any point in the turn. The **Bond** button beside End turn opens the **Bond options** panel, which lists every bond you can make this turn with its result, and marks the strongest.
 
 | Bond | Good at | Costs you |
 | --- | --- | --- |
@@ -182,7 +185,7 @@ The v0.1 pool is 25 monsters (one per element × kind), 6 spells and 4 traps. Ea
 
 Stat budget: Power + Guard = 8–10; a keyword costs about 1 point.
 
-**Spells** (cast as your one play; resolve immediately)
+**Spells** (cast as your one spell or trap of the turn; resolve immediately)
 
 | Spell | Effect |
 | --- | --- |
@@ -193,7 +196,7 @@ Stat budget: Power + Guard = 8–10; a keyword costs about 1 point.
 | Shroud | One of your monsters cannot be Appraised until your next turn; if you split it, this ends |
 | Siphon | The Collector loses 3 life; you gain 3 |
 
-**Traps** (set face-down as your one play; trigger automatically, then discard)
+**Traps** (set face-down as your one spell or trap of the turn; trigger automatically, then discard)
 
 | Trap | Trigger and effect |
 | --- | --- |

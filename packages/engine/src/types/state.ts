@@ -108,6 +108,8 @@ export interface GameState {
   readonly played: boolean;
   /** FLAGS.BOND_ACTION only (D-306): 0 open, 1 bond action used, 2 closed by an attack; stays 0 when the flag is off */
   readonly bond: 0 | 1 | 2;
+  /** FLAGS.TURN_SLOTS only (D-335): 0 the spell-or-trap slot is open, 1 used; stays 0 when the flag is off */
+  readonly spell: 0 | 1;
   readonly redrawsLeft: number;
   readonly pending: Pending | null;
   readonly sides: readonly [SideState, SideState];
