@@ -117,6 +117,7 @@ export function declareAttack(run: Run, attacker: Iid, target: Iid | -1): void {
   if (aSide === 0) markRound(tx, RoundFlag.Attacked);
   if (tx.state.step !== 'attack') tx.set('step', 'attack');
   if (!tx.state.played) tx.set('played', true);
+  if (env.g.FLAGS.BOND_ACTION && tx.state.bond === 0) tx.set('bond', 2); // the first attack closes an unused bond action (D-306)
   run.emit({ e: 'AttackDeclared', attacker, target });
 
   const evt: AttackEvt = { attacker, target };

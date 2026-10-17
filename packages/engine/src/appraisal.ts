@@ -12,15 +12,17 @@ import type { Run } from './pipeline';
 import { effectivePower, roundOf } from './stats';
 import { freeBoardSlot } from './summon';
 import { RoundFlag } from './types/state';
-import type { Iid, Monster } from './types/state';
+import type { Env } from './hooks/registry';
+import type { GameState, Iid, Monster } from './types/state';
 
 const PLAYER = 0;
 const COLLECTOR = 1;
 
 /** Slot of the monster the Collector would take from the player's board right now, or -1 (D-076). */
-export function appraisalTarget(run: Run): number {
-  const { env } = run;
-  const s = run.state;
+export const appraisalTarget = (run: Run): number => appraisalTargetOf(run.state, run.env);
+
+/** The same for any state: Power excludes the symbiosis Guard bonus, so a bonded host is judged by its Power alone (D-308). */
+export function appraisalTargetOf(s: GameState, env: Env): number {
   const board = s.sides[PLAYER].board;
   let best = -1;
   let bestPower = -1;
@@ -57,10 +59,12 @@ export function appraisal(run: Run): void {
     // Judgment call: FLAGS.APPRAISED_ENTERS_GUARD is proposal M-03 (default off); implemented as "enters in guard".
     const pos = env.g.FLAGS.APPRAISED_ENTERS_GUARD ? 1 : m.pos;
     tx.setSlot(COLLECTOR, toSlot, { ...m, pos, entered: tx.state.turn, appraised: true });
-    run.emit({ e: 'Appraised', iid, fromSlot, to: 'board', toSlot });
+    // a host's symbiote goes with it and stays attached on his board (D-308)
+    run.emit({ e: 'Appraised', iid, fromSlot, to: 'board', toSlot, ...(m.sym >= 0 ? { sym: m.sym } : {}) });
   } else {
     tx.zonePush(COLLECTOR, 'vault', iid);
-    run.emit({ e: 'Appraised', iid, fromSlot, to: 'vault', toSlot: -1 });
+    if (m.sym >= 0) tx.zonePush(COLLECTOR, 'vault', m.sym); // in the vault they are two cards (D-308)
+    run.emit({ e: 'Appraised', iid, fromSlot, to: 'vault', toSlot: -1, ...(m.sym >= 0 ? { sym: m.sym } : {}) });
   }
   const a = tx.state.appraisal;
   tx.set('appraisal', { ...a, successes: a.successes + 1, taken: [...a.taken, iid] });

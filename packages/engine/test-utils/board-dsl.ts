@@ -18,13 +18,18 @@
 //                P|C board [<id> A|G|D flags...] ... [-]       P|C traps [<id>] [-] ...
 //                P|C vault [<id> flags...] ...
 //   monster flags new moved done ward-used appraised p+2 g-1 p+3@7 g+1@7 unstable@T shroud@T
-//                chimera(<family>,<element>,<kw>,<kw>[,asc][,grafted@T])
+//                sym(<card-id>) (attached symbiote, D-308; the card is in no zone)
+//                chimera(<family>,<element>,<kw>,<kw>[,asc][,grafted@T][,mats=<id>+<id>[+<id>]])
+//                (mats= creates the stored materials in the owner's discard, in order, D-307)
+//   bond         bond used | closed | open   (GameState.bond, D-306; default open)
 //   actions      do end | keep | redraw | summon <card> A|G|D [lane N] | covetous <card> sac <ref> A|G [lane N] | set <card>
 //                | reposition P0 | move P0 > N (lane move, FLAGS.LANES) | cast <card> [> <ref>] | attack P0 > C1|face
 //                | graft <ref> <ref> [| ascend <ref>] [| kw a,b] [| lane N] | pos A|G
+//                | split P0 | symbiose <card> > P0
 //   lanes        a board line `[a A] [-] [b G]` places by lane (slot index); the Globals under test come from the caller
 //   expectations expect legal|illegal <action> | expect P|C life N | expect <slot> empty|power N|guard N|pos X|card <id>|has <kw>
 //                | expect P|C hand|deck|discard|vault N | expect P|C hand|discard|vault has <id>
+//                | expect <slot> sym <id>|none
 //                | expect event <Name> [<slot>] | expect no event <Name> [<slot>] | expect winner P|C
 //
 // Refs: `P0..P2`, `C0..C2` (board slots; also resolved against the board as it was at setup for events),
@@ -72,7 +77,8 @@ export interface MonsterSpec {
   readonly timed: readonly TimedMod[];
   readonly unstable: number | null;
   readonly shroud: number | null;
-  readonly chimera: { readonly family: string; readonly element: string; readonly kw: readonly string[]; readonly asc: boolean; readonly grafted: number | null } | null;
+  readonly sym: string | null;
+  readonly chimera: { readonly family: string; readonly element: string; readonly kw: readonly string[]; readonly asc: boolean; readonly grafted: number | null; readonly mats: readonly string[] } | null;
 }
 
 export interface SideSpec {
@@ -110,6 +116,7 @@ export interface Scenario {
   /** `round R collector|player` resolved at parse time */
   step: Step;
   played: boolean;
+  bond: 0 | 1 | 2;
   twist: number;
   readonly sides: [SideSpec, SideSpec];
   readonly script: ScriptLine[];
@@ -138,7 +145,7 @@ function parseMonster(line: number, body: string): MonsterSpec | null {
     pos = rest[0];
     rest = rest.slice(1);
   }
-  const m = { isNew: false, moved: false, done: false, wardUsed: false, appraised: false, permP: 0, permG: 0, unstable: null as number | null, shroud: null as number | null };
+  const m = { isNew: false, moved: false, done: false, wardUsed: false, appraised: false, permP: 0, permG: 0, unstable: null as number | null, shroud: null as number | null, sym: null as string | null };
   const timed: TimedMod[] = [];
   let chimera: MonsterSpec['chimera'] = null;
   for (const f of rest) {
@@ -156,6 +163,7 @@ function parseMonster(line: number, body: string): MonsterSpec | null {
       else m.permG += Number(r[2]);
     } else if ((r = f.match(/^unstable@(\d+)$/))) m.unstable = Number(r[1]);
     else if ((r = f.match(/^shroud@(\d+)$/))) m.shroud = Number(r[1]);
+    else if ((r = f.match(/^sym\((.+)\)$/))) m.sym = r[1] as string;
     else if ((r = f.match(/^chimera\((.*)\)$/))) {
       const args = (r[1] ?? '').split(',').map((a) => a.trim());
       const [family, element, ...more] = args;
@@ -165,13 +173,15 @@ function parseMonster(line: number, body: string): MonsterSpec | null {
       const kw: string[] = [];
       let asc = false;
       let grafted: number | null = null;
+      let mats: string[] = [];
       for (const a of more) {
         const g = a.match(/^grafted@(\d+)$/);
-        if (a === 'asc') asc = true;
+        if (a.startsWith('mats=')) mats = a.slice(5).split('+').filter((x) => x !== '');
+        else if (a === 'asc') asc = true;
         else if (g !== null) grafted = Number(g[1]);
         else if (a !== '' && a !== '-' && a !== 'none') kw.push(a);
       }
-      chimera = { family, element, kw, asc, grafted };
+      chimera = { family, element, kw, asc, grafted, mats };
     } else throw new ScenarioError(line, `unknown monster flag '${f}'`);
   }
   return { id, pos, ...m, timed, chimera };
@@ -225,7 +235,7 @@ export function withDeclared(base: ContentSpec, declared: readonly DeclaredCard[
 }
 
 export function parseScenario(text: string): Scenario {
-  const sc: Scenario = { declared: [], turn: null, step: 'main', played: false, twist: -1, sides: [emptySide(), emptySide()], script: [] };
+  const sc: Scenario = { declared: [], turn: null, step: 'main', played: false, bond: 0, twist: -1, sides: [emptySide(), emptySide()], script: [] };
   const lines = text.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const lineNo = i + 1;
@@ -249,6 +259,11 @@ export function parseScenario(text: string): Scenario {
       if (s !== 'main' && s !== 'attack' && s !== 'mulligan') throw new ScenarioError(lineNo, `step main|attack|mulligan, got '${s ?? ''}'`);
       sc.step = s;
     } else if (head === 'played') sc.played = words[1] === 'yes';
+    else if (head === 'bond') {
+      const b = words[1];
+      if (b !== 'used' && b !== 'closed' && b !== 'open') throw new ScenarioError(lineNo, `bond used|closed|open, got '${b ?? ''}'`);
+      sc.bond = b === 'used' ? 1 : b === 'closed' ? 2 : 0;
+    }
     else if (head === 'twist') sc.twist = num(lineNo, words[1]);
     else if (head === 'P' || head === 'C') {
       const side = sc.sides[SIDE[head] as Side];
@@ -300,6 +315,7 @@ export function buildScenario(sc: Scenario, c: CompiledContent, g: Globals): Bui
   const setupBoard = new Map<number, Iid>();
   for (const sideNo of [0, 1] as const) {
     const sp = sc.sides[sideNo];
+    const extraDiscard: Iid[] = [];
     const mk = (m: MonsterSpec, owner: Side): { iid: Iid; mon: Monster } => {
       let chimera: ChimeraInfo | null = null;
       let d: DefIdx;
@@ -315,9 +331,15 @@ export function buildScenario(sc: Scenario, c: CompiledContent, g: Globals): Bui
           if (bit === undefined) throw new ScenarioError(0, `unknown keyword '${k}'`);
           kw |= 1 << bit;
         }
-        chimera = { element: e, kw: kw >>> 0, ascended: ch.asc, materials: [], grafted: ch.grafted ?? entered };
+        const materials = ch.mats.map((id) => {
+          const mi = newCard(def(id), m.appraised ? 0 : owner);
+          extraDiscard.push(mi); // stored materials sit in the owner's discard, as after a real Graft (D-307)
+          return mi;
+        });
+        chimera = { element: e, kw: kw >>> 0, ascended: ch.asc, materials, grafted: ch.grafted ?? entered };
       } else d = def(m.id);
       const iid = newCard(d, m.appraised ? 0 : owner, chimera);
+      const sym = m.sym === null ? -1 : newCard(def(m.sym), m.appraised ? 0 : owner);
       const mon = makeMonster(iid, {
         pos: m.pos === 'A' ? 0 : 1,
         faceDown: m.pos === 'D',
@@ -331,6 +353,7 @@ export function buildScenario(sc: Scenario, c: CompiledContent, g: Globals): Bui
         unstableUntil: m.unstable ?? -1,
         shroudUntil: m.shroud ?? -1,
         appraised: m.appraised,
+        sym,
       });
       return { iid, mon };
     };
@@ -351,7 +374,7 @@ export function buildScenario(sc: Scenario, c: CompiledContent, g: Globals): Bui
     const hand = sp.hand === '*' ? filler(sideNo, g.HAND_SIZE) : cards(sp.hand ?? []);
     // Judgment call: §17 says "filler" without a size; an unspecified deck is 2 x OPENING_HAND filler cards.
     const deck = sp.deck === null || sp.deck === '*' ? filler(sideNo, 2 * g.OPENING_HAND) : cards(sp.deck);
-    const discard = cards(sp.discard);
+    const discard = [...cards(sp.discard), ...extraDiscard];
     const vault = sp.vault.map((m) => mk(m, sideNo).iid);
     sides.push({
       life: sp.life ?? (sideNo === 0 ? g.PLAYER_LIFE : g.COLLECTOR_LIFE),
@@ -367,6 +390,7 @@ export function buildScenario(sc: Scenario, c: CompiledContent, g: Globals): Bui
     turn,
     step: sc.step,
     played: sc.played,
+    bond: sc.bond,
     redrawsLeft: sc.step === 'mulligan' && g.FLAGS.REDRAW ? g.REDRAWS : 0,
     pending: null,
     sides: [p, col],
@@ -479,6 +503,11 @@ class Runner {
       case 'move': {
         if (a[1] !== '>') throw new ScenarioError(line, 'move <slot> > <lane>');
         return { t: 'moveLane', m: this.ref(line, a[0] ?? '') as Iid, to: Number(a[2]) };
+      }
+      case 'split': return { t: 'split', m: this.ref(line, a[0] ?? '') as Iid };
+      case 'symbiose': {
+        if (a[1] !== '>') throw new ScenarioError(line, 'symbiose <card> > <slot>');
+        return { t: 'symbiose', c: this.ref(line, a[0] ?? '') as Iid, host: this.ref(line, a[2] ?? '') as Iid };
       }
       case 'summon': return { t: 'summon', c: this.ref(line, a[0] ?? '') as Iid, mode: this.pos(line, a[1]), ...this.lane(line, a) };
       case 'covetous': {
@@ -612,6 +641,10 @@ class Runner {
       const got: Pos | 'D' = m.faceDown ? 'D' : m.pos;
       const want = w[2] === 'A' ? 0 : w[2] === 'G' ? 1 : 'D';
       if (got !== want) this.fail(line, `${h} is ${m.faceDown ? 'D' : m.pos === 0 ? 'A' : 'G'}, expected ${w[2] ?? ''}`);
+    } else if (k === 'sym') {
+      const want = w[2] ?? '';
+      const got = m.sym < 0 ? 'none' : (this.c.ids[this.state.inst[m.sym]?.def ?? -1] ?? '?');
+      if (got !== want) this.fail(line, `${h} sym is ${got}, expected ${want}`);
     } else if (k === 'card') {
       if (this.state.inst[m.iid]?.def !== this.c.index.get(w[2] ?? '')) this.fail(line, `${h} is not ${w[2] ?? ''}`);
     } else if (k === 'has') {

@@ -97,6 +97,9 @@ const Flags = z
     CHIMERA_TO_HAND: z.boolean(),
     LANES: z.boolean(),
     LANE_SWAP: z.boolean(),
+    SPLIT: z.boolean(),
+    SYMBIOSIS: z.boolean(),
+    BOND_ACTION: z.boolean(),
   })
   .strict();
 
@@ -143,6 +146,12 @@ const GlobalsShape = z
     SICKNESS_MODE: z.enum(['classic', 'monstersOnly']),
     SENTINEL_REACH: Int,
     LANE_MOVE_RANGE: Int,
+    // Bond rules (D-310)
+    SYMBIOSIS_GUARD_BONUS: Int,
+    BOND_GRAFT_MAX_HAND_MATERIALS: Int,
+    SPLIT_PART_PERM_P: z.int(), // signed (D-310): negative = weaker parts, the one global that may be below 0
+    BONDS_PER_TURN: pinned(1), // D-306: one bond action per turn; keep 1
+    SYMBIOTES_PER_HOST: pinned(1), // D-308: one symbiote per host; keep 1
     // Graft
     MIN_GRAFT_MATERIALS: pinned(2), // D-170, D-199: a graft takes exactly two materials; keep 2
     MAX_GRAFT_MATERIALS: Int.refine((value) => value >= 2 && value <= 3, GRAFT_RANGE), // D-170, D-199: 2 to 3

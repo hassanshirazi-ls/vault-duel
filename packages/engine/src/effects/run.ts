@@ -3,11 +3,12 @@
 // win check) is reached through EffectHost.
 import { EngineError } from '../errors';
 import type { Env } from '../hooks/registry';
+import { releaseSymbiote } from '../symbiote';
 import { locate, locSide, locSlot } from '../stats';
 import type { Tx } from '../tx';
 import type { Effect } from '../types/effects';
 import type { GameEvent } from '../types/events';
-import type { GameState, Iid, Side } from '../types/state';
+import type { GameState, Iid, Monster, Side } from '../types/state';
 import { evalCond } from './conditions';
 import { resolveNum } from './num';
 import { resolveRef } from './targets';
@@ -164,9 +165,14 @@ export function runEffect(tx: Tx, env: Env, q: QueuedEffect, host: EffectHost): 
       const owner = inst.owner;
       const loc = locate(tx.state, target);
       if (loc >= 0) {
+        const hostMon = tx.state.sides[locSide(loc)].board[locSlot(loc)] as Monster;
         tx.setSlot(locSide(loc), locSlot(loc), null);
         tx.zonePush(owner, 'hand', target);
         host.emit({ e: 'ReturnedToHand', iid: target, side: owner, from: 'board', source: q.source });
+        // the symbiote comes out in the host's slot (D-308), still before any other effect runs
+        if (hostMon.sym >= 0) {
+          releaseSymbiote(tx, (ev) => host.emit(ev), target, hostMon.sym, hostMon.pos, locSide(loc), locSlot(loc), 'returned');
+        }
       } else if (tx.zoneRemove(owner, 'discard', target)) {
         tx.zonePush(owner, 'hand', target);
         host.emit({ e: 'ReturnedToHand', iid: target, side: owner, from: 'discard', source: q.source });

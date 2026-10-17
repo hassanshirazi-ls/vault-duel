@@ -69,6 +69,7 @@ export function startTurn(run: Run): void {
   // (4) The Reposition step begins.
   tx.set('step', 'main');
   tx.set('played', false);
+  if (g.FLAGS.BOND_ACTION) tx.set('bond', 0); // D-306: only written with the flag, so default play is untouched
 
   // (5) Player turn only: compute and freeze the Collector's intent (D-095, D-096). Last, so the policy sees a
   // well-formed decision state (D-221).

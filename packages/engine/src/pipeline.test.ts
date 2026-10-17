@@ -117,7 +117,7 @@ describe('makeMonster (§18.7)', () => {
     const m = makeMonster(4, { entered: 3, pos: 1 });
     expect(Object.getOwnPropertyNames(m)).toEqual([
       'iid', 'pos', 'faceDown', 'entered', 'repositioned', 'attacked', 'wardUsed', 'permP', 'permG',
-      'timed', 'unstableUntil', 'shroudUntil', 'appraised',
+      'timed', 'unstableUntil', 'shroudUntil', 'appraised', 'sym',
     ]);
     expect(m).toMatchObject({ iid: 4, pos: 1, faceDown: false, entered: 3, repositioned: -1, attacked: -1, unstableUntil: -1, shroudUntil: -1 });
     expect(m.timed).toBe(NO_TIMED);

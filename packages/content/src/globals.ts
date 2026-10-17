@@ -24,6 +24,10 @@ const FLAGS = {
   // D-281, D-282: LANES off = free targeting, as today; LANE_SWAP is read only with LANES
   LANES: false,
   LANE_SWAP: true,
+  // D-305..D-316: bond rules. All off = today's rules (Graft is the one play; no Split, no Symbiosis)
+  SPLIT: false,
+  SYMBIOSIS: false,
+  BOND_ACTION: false,
 } as const satisfies Flags;
 
 const GLOBAL_VALUES = {
@@ -68,6 +72,12 @@ const GLOBAL_VALUES = {
   SICKNESS_MODE: 'classic', // 'classic' | 'monstersOnly' (D-280)
   SENTINEL_REACH: 1, // read only with FLAGS.LANES (D-283)
   LANE_MOVE_RANGE: 1, // read only with FLAGS.LANES (D-282)
+  // Bond rules (D-310)
+  SYMBIOSIS_GUARD_BONUS: 2, // read only with FLAGS.SYMBIOSIS (D-308)
+  BOND_GRAFT_MAX_HAND_MATERIALS: 3, // 3 = MAX_GRAFT_MATERIALS = no limit; read only with FLAGS.BOND_ACTION (D-306)
+  SPLIT_PART_PERM_P: 0, // read only with FLAGS.SPLIT (D-307)
+  BONDS_PER_TURN: 1, // pinned (D-306)
+  SYMBIOTES_PER_HOST: 1, // pinned (D-308)
   // Graft
   MIN_GRAFT_MATERIALS: 2,
   MAX_GRAFT_MATERIALS: 3,

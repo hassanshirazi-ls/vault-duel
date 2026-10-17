@@ -13,7 +13,7 @@ export type GameEvent =
   | { e: 'IntentSet'; intent: Intent }
   | { e: 'MoodChanged'; from: Mood; to: Mood }
   | { e: 'AppraisalAttempt'; round: number }
-  | { e: 'Appraised'; iid: Iid; fromSlot: number; to: 'board' | 'vault'; toSlot: number }
+  | { e: 'Appraised'; iid: Iid; fromSlot: number; to: 'board' | 'vault'; toSlot: number; sym?: Iid }
   | { e: 'AppraisalFailed'; round: number; reason: 'noTarget' }
   | { e: 'Repositioned'; iid: Iid; pos: Pos }
   | { e: 'LaneMoved'; iid: Iid; from: number; to: number; swapped: Iid | -1 }
@@ -37,6 +37,9 @@ export type GameEvent =
       slot: number;
       pos: Pos;
     }
+  | { e: 'Split'; side: Side; iid: Iid; parts: readonly Iid[]; slots: readonly number[]; pos: Pos } // slots[i] = -1: part went to the hand (D-307)
+  | { e: 'Bonded'; side: Side; host: Iid; symbiote: Iid; kw: KwMask; guard: number } // kw/guard = the host's after (D-308)
+  | { e: 'SymbioteEmerged'; side: Side; iid: Iid; host: Iid; slot: number; cause: 'destroyed' | 'returned' } // D-308
   | { e: 'SpellCast'; side: Side; iid: Iid; target: Iid | -1 }
   | { e: 'TrapSet'; side: Side; iid: Iid; slot: number }
   | { e: 'TrapTriggered'; side: Side; iid: Iid; slot: number }

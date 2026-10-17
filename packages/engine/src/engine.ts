@@ -6,6 +6,8 @@ import type { CombatPreview } from './combat';
 import { EngineError } from './errors';
 import { deepFreeze } from './freeze';
 import { mustAttack } from './hooks/dispatch';
+import { bondOptions } from './bond-preview';
+import type { BondPreview } from './bond-preview';
 import { previewGraft } from './graft';
 import type { GraftPreview } from './graft';
 import { createEnv } from './hooks/registry';
@@ -82,6 +84,8 @@ export interface Engine {
   previewCombat(s: GameState, attacker: Iid, target: Iid | -1): CombatPreview;
   /** §5.6. Allocates. */
   previewGraft(s: GameState): GraftPreview | null;
+  /** D-313, §5.6c: every legal bond action of the player's turn with its predicted result and Appraisal exposure. Facts only. Allocates; not for the hot sim loop. */
+  bondOptions(s: GameState): BondPreview;
   /** D-281: the enemy monsters the monster `iid` may declare an attack on (lanes and Sentinel cover; classic with LANES off). Empty off the board. Ignores permission and state; a wholly empty enemy board is the direct attack, not listed. */
   laneTargets(s: GameState, iid: Iid): Iid[];
   /** The same for the monster `iid` as if it stood in `lane` of its own side (under LANES off: the classic targets). Empty off the board. */
@@ -152,6 +156,7 @@ export function createEngineInternals(
     mustAttack: (s, iid) => mustAttack(env, s, iid),
     previewCombat: (s, attacker, target) => previewCombat(s, env, attacker, target),
     previewGraft: (s) => previewGraft(s, env),
+    bondOptions: (s) => bondOptions(s, env),
     laneTargets: (s, iid) => laneTargets(env, s, iid),
     targetsFromLane(s, iid, lane) {
       const loc = stats.locate(s, iid);

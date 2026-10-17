@@ -6,11 +6,12 @@
 //   remove them all simultaneously to their OWNER's discard; emit Destroyed
 //   dispatch onDestroyed for every monster (its own hooks by LKI.kw first), then flush queued effects once (D-158)
 import { activeKwOf, activeSide, effectiveGuard, effectivePower, locate, locSide, locSlot } from './stats';
+import { releaseSymbiote } from './symbiote';
 import { markRound } from './track';
 import type { Run } from './pipeline';
 import { RoundFlag } from './types/state';
 import type { DestroyedEvt } from './types/hooks';
-import type { Iid, Side } from './types/state';
+import type { Iid, Pos, Side } from './types/state';
 
 export type DestroyCause = 'combat' | 'effect' | 'unstable';
 
@@ -80,6 +81,7 @@ export function destroyBatch(
 
   // 2. Last-known information, taken after Ward and before removal (D-122).
   const lki: DestroyedEvt[] = [];
+  const posOf: Pos[] = []; // the host's position, for an emerging symbiote (D-308); parallel to `lki`
   for (const e of doomed) {
     const s = tx.state;
     const m = s.sides[e.side].board[e.slot];
@@ -93,7 +95,9 @@ export function destroyBatch(
       power: effectivePower(s, env, e.iid),
       guard: effectiveGuard(s, env, e.iid),
       kw: activeKwOf(s, env, m),
+      sym: m.sym,
     });
+    posOf.push(m.pos);
   }
 
   // 3. Simultaneous removal to the OWNER's discard (D-047).
@@ -106,6 +110,12 @@ export function destroyBatch(
     if (k.side === 0) lostPlayerMonster = true;
   }
   if (lostPlayerMonster) markRound(tx, RoundFlag.LostMonster);
+
+  // 3b. Symbiotes come out in their host's slot, after Destroyed and before any onDestroyed dispatch (D-308).
+  for (let i = 0; i < lki.length; i++) {
+    const k = lki[i] as DestroyedEvt;
+    if (k.sym >= 0) releaseSymbiote(tx, run.host.emit, k.iid, k.sym, posOf[i] as Pos, k.side, k.slot, 'destroyed');
+  }
 
   // 4. onDestroyed per monster: its own hooks (LKI.kw) first, then everyone else (§8.3.1b). The whole batch is
   //    dispatched against the same post-removal board, then the queued effects run once, FIFO (D-158).

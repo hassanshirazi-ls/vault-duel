@@ -29,7 +29,7 @@ describe('appraisal (§5.7, D-075 to D-079)', () => {
     expect(n.sides[0].board[0]).not.toBeNull();
     expect(n.sides[1].board[0]).toEqual({
       iid: 1, pos: 1, faceDown: false, entered: 5, repositioned: 3, attacked: 3, wardUsed: true,
-      permP: 1, permG: 0, timed: [], unstableUntil: 7, shroudUntil: -1, appraised: true,
+      permP: 1, permG: 0, timed: [], unstableUntil: 7, shroudUntil: -1, appraised: true, sym: -1,
     });
     expect(n.appraisal).toEqual({ attempts: 1, successes: 1, taken: [1] });
     expect(n.track.appraisedLost).toBe(1);

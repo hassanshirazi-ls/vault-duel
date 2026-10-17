@@ -6,7 +6,7 @@ import type { GameState, Monster, SideState } from './types/state';
 
 const mon = (iid: number): Monster => ({
   iid, pos: 0, faceDown: false, entered: 0, repositioned: -1, attacked: -1, wardUsed: false,
-  permP: 0, permG: 0, timed: [], unstableUntil: -1, shroudUntil: -1, appraised: false,
+  permP: 0, permG: 0, timed: [], unstableUntil: -1, shroudUntil: -1, appraised: false, sym: -1,
 });
 const side = (life: number, deck: number[], hand: number[]): SideState => ({
   life, deck, hand, discard: [], board: [mon(100), null, null], traps: [null, null], vault: [],
@@ -22,7 +22,7 @@ function deepFreeze<T>(o: T): T {
 
 const makeState = (): GameState =>
   deepFreeze({
-    v: 1, cfg: 'c', seed: 's', rng: [1, 2, 3, 4], turn: 0, step: 'main', played: false, redrawsLeft: 1,
+    v: 1, cfg: 'c', seed: 's', rng: [1, 2, 3, 4], turn: 0, step: 'main', played: false, bond: 0, redrawsLeft: 1,
     pending: null,
     sides: [side(20, [1, 2, 3], [4, 5]), side(25, [6, 7], [8])],
     inst: [{ def: 0, owner: 0, chimera: null }],

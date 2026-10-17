@@ -19,8 +19,10 @@ const monsterTuple = (m: Monster | null): unknown =>
   m === null
     ? null
     : [m.iid, m.pos, m.faceDown, m.entered, m.repositioned, m.attacked, m.wardUsed, m.permP, m.permG,
-       m.timed.map((t) => [t.p, t.g, t.until]), m.unstableUntil, m.shroudUntil, m.appraised];
-type MonsterCovered = Exclude<keyof Monster, 'iid' | 'pos' | 'faceDown' | 'entered' | 'repositioned' | 'attacked' | 'wardUsed' | 'permP' | 'permG' | 'timed' | 'unstableUntil' | 'shroudUntil' | 'appraised'>;
+       m.timed.map((t) => [t.p, t.g, t.until]), m.unstableUntil, m.shroudUntil, m.appraised,
+       // the bond fields are hashed only when set, so a state that never bonds hashes as it did before D-305
+       ...(m.sym >= 0 ? [m.sym] : [])];
+type MonsterCovered = Exclude<keyof Monster, 'sym' | 'iid' | 'pos' | 'faceDown' | 'entered' | 'repositioned' | 'attacked' | 'wardUsed' | 'permP' | 'permG' | 'timed' | 'unstableUntil' | 'shroudUntil' | 'appraised'>;
 
 const sideTuple = (s: SideState): unknown => [
   s.life, s.deck, s.hand, s.discard, s.board.map(monsterTuple), s.traps.map((t) => (t === null ? null : [t.iid, t.set])), s.vault,
@@ -35,7 +37,7 @@ type InstCovered = Exclude<keyof Instance, 'def' | 'owner' | 'chimera'>;
 
 type StateCovered = Exclude<
   keyof GameState,
-  'v' | 'cfg' | 'seed' | 'rng' | 'turn' | 'step' | 'played' | 'redrawsLeft' | 'pending' | 'sides' | 'inst' | 'appraisal' | 'collector' | 'twist' | 'track' | 'result' | 'log' | 'nActions'
+  'v' | 'cfg' | 'seed' | 'rng' | 'turn' | 'step' | 'played' | 'bond' | 'redrawsLeft' | 'pending' | 'sides' | 'inst' | 'appraisal' | 'collector' | 'twist' | 'track' | 'result' | 'log' | 'nActions'
 >;
 type PendingCovered = Exclude<keyof NonNullable<GameState['pending']>, 'kind' | 'stage' | 'mats' | 'kw'>;
 type TrackCovered = Exclude<keyof GameState['track'], 'round' | 'grafts' | 'families' | 'unpriced' | 'appraisedLost'>;
@@ -57,6 +59,7 @@ export function canonicalState(s: GameState): string {
     [s.track.round, s.track.grafts, s.track.families, s.track.unpriced, s.track.appraisedLost],
     r === null ? null : [r.winner, r.reason, r.round],
     s.nActions,
+    ...(s.bond !== 0 ? [s.bond] : []),
   ]);
 }
 

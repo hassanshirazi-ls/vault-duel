@@ -19,6 +19,8 @@ export type Action =
   | { readonly t: 'graftKeywords'; readonly kw: KwMask }
   | { readonly t: 'graftPosition'; readonly pos: Pos; readonly lane?: number }
   | { readonly t: 'graftCancel' }
+  | { readonly t: 'split'; readonly m: Iid } // FLAGS.SPLIT: unbind own face-up Chimera m (D-307)
+  | { readonly t: 'symbiose'; readonly c: Iid; readonly host: Iid } // FLAGS.SYMBIOSIS: attach hand monster c under face-up own host (D-308)
   | { readonly t: 'attack'; readonly a: Iid; readonly target: Iid | -1 }
   | { readonly t: 'endTurn' };
 

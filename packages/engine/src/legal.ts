@@ -2,13 +2,15 @@
 // only ever choose from, or check against, this enumeration. Order is fixed and part of determinism:
 //
 //   over -> nothing | pending Graft -> stage actions + graftCancel | mulligan -> keep, redraw
-//   main and not yet played: reposition, moveLane (LANES), summon, summonCovetous, cast, setTrap, graftBegin
+//   main and not yet played: reposition, moveLane (LANES), summon, summonCovetous, cast, setTrap
+//   bond slot open (D-306; the unused play when BOND_ACTION is off): graftBegin, split, symbiose
 //   main or attack: attack, endTurn
 //
 // Query hooks (Sentinel, Swift, Vain, Slow, Covetous) are consulted through stats.ts / dispatch.ts /
 // summon.ts, so keyword constraints show up here without any keyword-specific code.
 import { attackOptions } from './combat';
 import { targetCandidates } from './effects/targets';
+import { bondSlotOpen, canHost, canSplit, isBaseMonsterCard } from './bond';
 import { forEachGraftAction, graftAllowed } from './graft';
 import { mustAttack } from './hooks/dispatch';
 import type { Env } from './hooks/registry';
@@ -105,7 +107,33 @@ function forEachPlay(env: Env, s: GameState, side: Side, visit: ActionVisitor): 
       if (def !== undefined && (env.c.trap[def] ?? null) !== null && visit({ t: 'setTrap', c })) return true;
     }
   }
-  return graftAllowed(s, env, side) && visit({ t: 'graftBegin' });
+  return false;
+}
+
+/**
+ * The bond actions (D-305, D-306): graftBegin, split, symbiose. Same place in the order with BOND_ACTION off (they are
+ * plays, so this runs only while the play is unused) and on (the bond slot is open, in the main or attack step).
+ */
+function forEachBond(env: Env, s: GameState, side: Side, visit: ActionVisitor): boolean {
+  if (graftAllowed(s, env, side) && visit({ t: 'graftBegin' })) return true;
+  const sd = s.sides[side];
+  if (env.g.FLAGS.SPLIT) {
+    for (let i = 0; i < sd.board.length; i++) {
+      const m = sd.board[i];
+      if (m !== null && m !== undefined && canSplit(s, env, side, m) && visit({ t: 'split', m: m.iid })) return true;
+    }
+  }
+  if (env.g.FLAGS.SYMBIOSIS) {
+    for (let k = 0; k < sd.hand.length; k++) {
+      const c = sd.hand[k] as Iid;
+      if (!isBaseMonsterCard(s, env, c)) continue;
+      for (let i = 0; i < sd.board.length; i++) {
+        const host = sd.board[i];
+        if (host !== null && host !== undefined && canHost(side, host) && visit({ t: 'symbiose', c, host: host.iid })) return true;
+      }
+    }
+  }
+  return false;
 }
 
 /** Attacks, then endTurn unless a Vain monster still has a legal attack (D-052). */
@@ -136,6 +164,7 @@ export function forEachLegal(env: Env, s: GameState, visit: ActionVisitor): void
   }
   const side = activeSide(s);
   if (s.step === 'main' && !s.played && forEachPlay(env, s, side, visit)) return;
+  if (bondSlotOpen(s, env) && forEachBond(env, s, side, visit)) return;
   forEachAttackAndEnd(env, s, side, visit);
 }
 
@@ -185,6 +214,10 @@ export function sameAction(a: Action, b: Action): boolean {
       return b.t === 'graftKeywords' && a.kw === b.kw;
     case 'graftPosition':
       return b.t === 'graftPosition' && a.pos === b.pos && a.lane === b.lane;
+    case 'split':
+      return b.t === 'split' && a.m === b.m;
+    case 'symbiose':
+      return b.t === 'symbiose' && a.c === b.c && a.host === b.host;
     case 'attack':
       return b.t === 'attack' && a.a === b.a && a.target === b.target;
   }

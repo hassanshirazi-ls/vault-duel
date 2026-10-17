@@ -22,7 +22,7 @@ export const EMPTY_TIMED: Monster['timed'] = [];
 export function monster(iid: Iid, over: Partial<Mut<Monster>> = {}): Monster {
   return {
     iid, pos: 0, faceDown: false, entered: 0, repositioned: -1, attacked: -1, wardUsed: false,
-    permP: 0, permG: 0, timed: EMPTY_TIMED, unstableUntil: -1, shroudUntil: -1, appraised: false,
+    permP: 0, permG: 0, timed: EMPTY_TIMED, unstableUntil: -1, shroudUntil: -1, appraised: false, sym: -1,
     ...over,
   };
 }
@@ -131,6 +131,7 @@ export class StateBuilder {
       turn: this.turnIdx,
       step: this.stepName,
       played: false,
+      bond: 0,
       redrawsLeft: 1,
       pending: null,
       sides: [side(a), side(b)],

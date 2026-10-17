@@ -17,6 +17,12 @@ export interface Flags {
   readonly LANES: boolean;
   /** D-282: a lane move onto an own monster swaps places; read only with LANES */
   readonly LANE_SWAP: boolean;
+  /** D-307: unbind an own face-up Chimera into its stored materials; default off */
+  readonly SPLIT: boolean;
+  /** D-308: attach a hand monster under a face-up own monster; default off */
+  readonly SYMBIOSIS: boolean;
+  /** D-306: bond actions are a second slot beside the one card play; default off (they are plays) */
+  readonly BOND_ACTION: boolean;
 }
 
 export type Range = readonly [number, number];
@@ -67,6 +73,17 @@ export interface Globals {
   readonly SENTINEL_REACH: number;
   /** D-282: lanes a lane move may travel; read only with FLAGS.LANES */
   readonly LANE_MOVE_RANGE: number;
+  // Bond rules of 2026-10-16 (D-305..D-316)
+  /** D-308: Guard a host gains while it carries a symbiote; read only with FLAGS.SYMBIOSIS */
+  readonly SYMBIOSIS_GUARD_BONUS: number;
+  /** D-306: most hand cards a Graft may use as materials; read only with FLAGS.BOND_ACTION (= MAX_GRAFT_MATERIALS: no limit) */
+  readonly BOND_GRAFT_MAX_HAND_MATERIALS: number;
+  /** D-307: extra permanent Power on each part of a split Chimera (negative = weaker parts); read only with FLAGS.SPLIT */
+  readonly SPLIT_PART_PERM_P: number;
+  /** D-306: pinned 1; the engine allows one bond action per turn */
+  readonly BONDS_PER_TURN: number;
+  /** D-308: pinned 1; one symbiote per host */
+  readonly SYMBIOTES_PER_HOST: number;
   // Graft
   readonly MIN_GRAFT_MATERIALS: number;
   readonly MAX_GRAFT_MATERIALS: number;

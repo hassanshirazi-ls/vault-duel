@@ -53,6 +53,8 @@ export interface DestroyedEvt {
   readonly power: number;
   readonly guard: number;
   readonly kw: KwMask;
+  /** the host's attached symbiote at the moment of destruction, -1 none (D-308); its keyword bits are already in `kw` */
+  readonly sym: Iid;
 }
 export interface DestroyEvt {
   readonly iid: Iid;

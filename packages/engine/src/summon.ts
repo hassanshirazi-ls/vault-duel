@@ -122,8 +122,10 @@ export function summonCovetous(run: Run, c: Iid, sac: Iid, mode: 'atk' | 'grd', 
   const side = activeSide(tx.state);
   takeFromHand(run, side, c);
   const loc = locate(tx.state, sac);
+  let sacSym: Iid = -1; // the sacrificed host's attached symbiote leaves with it (D-308)
   if (loc >= 0) {
     if (locSide(loc) !== side) throw new EngineError(`covetous: ${sac} is on the other board`);
+    sacSym = tx.state.sides[side].board[locSlot(loc)]?.sym ?? -1;
     tx.setSlot(side, locSlot(loc), null);
     run.emit({ e: 'Sacrificed', iid: sac, reason: 'covetous', from: 'board' });
   } else if (tx.zoneRemove(side, 'vault', sac)) {
@@ -132,6 +134,10 @@ export function summonCovetous(run: Run, c: Iid, sac: Iid, mode: 'atk' | 'grd', 
     throw new EngineError(`covetous: ${sac} is neither on the board nor in the vault`);
   }
   tx.zonePush(tx.state.inst[sac]?.owner ?? side, 'discard', sac);
+  if (sacSym >= 0) {
+    run.emit({ e: 'Sacrificed', iid: sacSym, reason: 'covetous', from: 'board' });
+    tx.zonePush(tx.state.inst[sacSym]?.owner ?? side, 'discard', sacSym);
+  }
   const slot = enter(run, side, c, mode, lane);
   run.emit({ e: 'CovetousSummoned', iid: c, sacrificed: sac, slot });
   if (tx.state.inst[c]?.def === env.c.collector.ace && !tx.state.track.unpriced) {

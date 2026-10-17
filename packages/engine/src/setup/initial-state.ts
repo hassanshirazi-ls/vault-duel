@@ -63,6 +63,7 @@ export function buildInitialState(env: Env, seed: string, opts: NewGameOptions =
     turn: 0,
     step: 'mulligan',
     played: false,
+    bond: 0,
     redrawsLeft: g.FLAGS.REDRAW ? g.REDRAWS : 0,
     pending: null,
     sides,

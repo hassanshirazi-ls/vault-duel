@@ -2,6 +2,7 @@
 // the input state, the event list, the effect queue. Actions are atomic: the input state is never written,
 // so an EngineError leaves the caller's state intact. Win checks live in pipeline.ts (lifeChanged /
 // checkWin / endGame); there is no second check here.
+import { split, symbiose } from './bond';
 import { castSpell } from './cast';
 import { declareAttack } from './combat';
 import { EngineError } from './errors';
@@ -96,6 +97,10 @@ function dispatch(run: Run, a: Action): void {
       return;
     case 'graftCancel':
       return graftCancel(run);
+    case 'split':
+      return split(run, a.m);
+    case 'symbiose':
+      return symbiose(run, a.c, a.host);
     case 'attack':
       return declareAttack(run, a.a, a.target);
     case 'endTurn':

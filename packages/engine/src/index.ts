@@ -26,6 +26,7 @@ export { canonicalJson } from './canonical';
 export { deckForSeed } from './setup/deckgen';
 export type { CombatOutcome, CombatPreview } from './combat';
 export type { GraftPreview } from './graft';
+export type { AppraisalExposure, BondKind, BondOption, BondPreview, BondResultMonster } from './bond-preview';
 export { activeSide, roundOf } from './stats';
 export { pickSignature, signatureForSeed } from './setup/signature';
 export { redactState } from './view/redact';

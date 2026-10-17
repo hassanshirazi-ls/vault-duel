@@ -27,6 +27,7 @@ export type RootField =
   | 'turn'
   | 'step'
   | 'played'
+  | 'bond'
   | 'redrawsLeft'
   | 'pending'
   | 'appraisal'

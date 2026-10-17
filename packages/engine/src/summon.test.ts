@@ -27,7 +27,7 @@ describe('summon (§5, D-014, D-021)', () => {
     expect(n.sides[0].hand).toEqual([]);
     expect(n.sides[0].board[1]).toEqual({
       iid: c, pos, faceDown, entered: 2, repositioned: -1, attacked: -1, wardUsed: false,
-      permP: 0, permG: 0, timed: [], unstableUntil: -1, shroudUntil: -1, appraised: false,
+      permP: 0, permG: 0, timed: [], unstableUntil: -1, shroudUntil: -1, appraised: false, sym: -1,
     });
     expect(n.played).toBe(true);
     expect(n.step).toBe('attack');

@@ -28,6 +28,18 @@ export function locate(s: GameState, iid: Iid): number {
   return LOC_NONE;
 }
 
+/** The board monster that carries `iid` as its symbiote (D-308), or null. Attached cards are in no zone array. */
+export function hostOfSymbiote(s: GameState, iid: Iid): Monster | null {
+  for (let side = 0; side < 2; side++) {
+    const board = s.sides[side as Side].board;
+    for (let i = 0; i < board.length; i++) {
+      const m = board[i];
+      if (m !== null && m !== undefined && m.sym === iid) return m;
+    }
+  }
+  return null;
+}
+
 export function monsterOf(s: GameState, iid: Iid): Monster | null {
   const loc = locate(s, iid);
   return loc < 0 ? null : (s.sides[locSide(loc)].board[locSlot(loc)] ?? null);
@@ -61,6 +73,20 @@ export function isMonsterCard(s: GameState, env: Env, iid: Iid): boolean {
   return t === DefType.Monster || t === DefType.Family;
 }
 
+/** Bits of the registry that are keywords (not Flaws): only keywords are inherited by a Chimera or lent by a symbiote. */
+export function keywordBits(env: Env): KwMask {
+  let m = 0;
+  const kws = env.c.keywords;
+  for (let i = 0; i < kws.length; i++) if (kws[i]?.kind === 'keyword') m |= 1 << i;
+  return m >>> 0;
+}
+
+export function popcount(m: number): number {
+  let n = 0;
+  for (let b = m | 0; b !== 0; b &= b - 1) n++;
+  return n;
+}
+
 /** Printed keyword bits: def keywords | inherited Chimera keywords (before face-down / Ward state). */
 export function printedKw(s: GameState, env: Env, iid: Iid): KwMask {
   const inst = s.inst[iid];
@@ -76,6 +102,12 @@ export function printedKw(s: GameState, env: Env, iid: Iid): KwMask {
 export function activeKwOf(s: GameState, env: Env, m: Monster): KwMask {
   if (m.faceDown) return 0;
   let kw = printedKw(s, env, m.iid);
+  // A symbiote lends its keyword bits (never Flaws) while the host has room for one (D-308). The bit lent can be
+  // masked below like any other: a used Ward switches off the Ward bit whichever card gave it.
+  if (m.sym >= 0 && env.g.FLAGS.SYMBIOSIS) {
+    const kb = keywordBits(env);
+    if (popcount(kw & kb) < env.g.MAX_INHERITED_KEYWORDS) kw |= printedKw(s, env, m.sym) & kb;
+  }
   if (m.wardUsed) kw &= ~env.reg.masks.beforeDestroy;
   return kw >>> 0;
 }
@@ -123,6 +155,7 @@ function statOf(s: GameState, env: Env, iid: Iid, power: boolean, twist: boolean
     if (t !== undefined && s.turn <= t.until) v += power ? t.p : t.g;
   }
   if (power && m.unstableUntil >= 0) v += env.g.UNSTABLE_BONUS;
+  if (!power && m.sym >= 0 && env.g.FLAGS.SYMBIOSIS) v += env.g.SYMBIOSIS_GUARD_BONUS; // D-308: Power is untouched
   const mask = activeKwOf(s, env, m) & (power ? env.reg.masks.staticPower : env.reg.masks.staticGuard);
   if (mask !== 0) {
     const q = new QueryContext(env, s, iid, side);

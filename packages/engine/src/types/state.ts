@@ -43,6 +43,8 @@ export interface Monster {
   readonly unstableUntil: number;
   readonly shroudUntil: number;
   readonly appraised: boolean;
+  /** attached symbiote (FLAGS.SYMBIOSIS, D-308); -1 none. The symbiote is in no zone array while attached */
+  readonly sym: Iid;
 }
 
 export interface TrapSlot {
@@ -104,6 +106,8 @@ export interface GameState {
   readonly turn: number;
   readonly step: Step;
   readonly played: boolean;
+  /** FLAGS.BOND_ACTION only (D-306): 0 open, 1 bond action used, 2 closed by an attack; stays 0 when the flag is off */
+  readonly bond: 0 | 1 | 2;
   readonly redrawsLeft: number;
   readonly pending: Pending | null;
   readonly sides: readonly [SideState, SideState];

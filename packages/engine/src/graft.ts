@@ -4,15 +4,15 @@
 // material 2, optionally an Ascend material), graftKeywords (only when more keywords are available than
 // can be inherited), graftPosition (commits). graftCancel is legal at every stage and nothing is applied
 // before the commit. legal.ts calls `forEachGraftAction`; the reducer calls the action functions.
+import { bondTail, isBaseMonsterCard } from './bond';
 import { EngineError } from './errors';
 import type { Env } from './hooks/registry';
 import { makeMonster } from './monster';
 import type { Run } from './pipeline';
-import { activeSide, elementOf, kindOf, locate, locSlot, printedKw } from './stats';
-import { entrySlot, playUsed } from './summon';
+import { activeSide, elementOf, keywordBits, kindOf, locate, locSlot, popcount, printedKw } from './stats';
+import { entrySlot } from './summon';
 import { markRound } from './track';
 import type { Action, ActionVisitor } from './types/actions';
-import { DefType } from './types/content';
 import type { DefIdx, ElemIdx, KwMask } from './types/content';
 import type { Globals } from './types/globals';
 import type { GameState, GraftStage, Iid, PendingGraft, Pos, Side } from './types/state';
@@ -24,10 +24,7 @@ import { RoundFlag } from './types/state';
 export const canGraft = (env: Env, side: Side): boolean => side === 0 || env.c.collector.canGraft;
 
 /** Only base monsters are materials; Chimeras never are (D-056). */
-function isBaseMonster(s: GameState, env: Env, iid: Iid): boolean {
-  const inst = s.inst[iid];
-  return inst !== undefined && inst.chimera === null && env.c.type[inst.def] === DefType.Monster;
-}
+const isBaseMonster = isBaseMonsterCard;
 
 const onOwnBoard = (s: GameState, side: Side, iid: Iid): boolean => s.sides[side].board.some((m) => m?.iid === iid);
 
@@ -38,7 +35,8 @@ export function eligibleMaterials(s: GameState, env: Env, side: Side): Iid[] {
   for (let i = 0; i < sd.hand.length; i++) if (isBaseMonster(s, env, sd.hand[i] as Iid)) out.push(sd.hand[i] as Iid);
   for (let i = 0; i < sd.board.length; i++) {
     const m = sd.board[i];
-    if (m !== null && m !== undefined && isBaseMonster(s, env, m.iid)) out.push(m.iid);
+    // a host that carries a symbiote is committed to the bond: it is no material (D-308)
+    if (m !== null && m !== undefined && m.sym < 0 && isBaseMonster(s, env, m.iid)) out.push(m.iid);
   }
   return out;
 }
@@ -60,8 +58,16 @@ function familyOf(s: GameState, env: Env, a: Iid, b: Iid): DefIdx {
   return env.c.recipe[ka * env.c.nKinds + kb] ?? -1;
 }
 
+/** With FLAGS.BOND_ACTION a Graft uses at most BOND_GRAFT_MAX_HAND_MATERIALS cards from the hand (D-306). */
+function handLimitOk(s: GameState, env: Env, side: Side, mats: readonly Iid[]): boolean {
+  if (!env.g.FLAGS.BOND_ACTION) return true;
+  let n = 0;
+  for (let i = 0; i < mats.length; i++) if (!onOwnBoard(s, side, mats[i] as Iid)) n++;
+  return n <= env.g.BOND_GRAFT_MAX_HAND_MATERIALS;
+}
+
 const pairOk = (s: GameState, env: Env, side: Side, a: Iid, b: Iid): boolean =>
-  a !== b && familyOf(s, env, a, b) >= 0 && slotFeasible(s, side, [a, b]);
+  a !== b && familyOf(s, env, a, b) >= 0 && slotFeasible(s, side, [a, b]) && handLimitOk(s, env, side, [a, b]);
 
 /** Material 1 candidates: eligible monsters that have at least one valid partner, so no pending Graft is a dead end. Judgment call: §6.2 says "each eligible base monster"; this also requires a feasible partner. */
 export function mat1Candidates(s: GameState, env: Env, side: Side): Iid[] {
@@ -74,7 +80,9 @@ export function mat2Candidates(s: GameState, env: Env, side: Side, mat1: Iid): I
 }
 
 export function ascendCandidates(s: GameState, env: Env, side: Side, mats: readonly Iid[]): Iid[] {
-  return eligibleMaterials(s, env, side).filter((x) => !mats.includes(x) && slotFeasible(s, side, [...mats, x]));
+  return eligibleMaterials(s, env, side).filter(
+    (x) => !mats.includes(x) && slotFeasible(s, side, [...mats, x]) && handLimitOk(s, env, side, [...mats, x]),
+  );
 }
 
 /** `graftBegin` legality (§6.2): may graft, enough eligible materials, and a feasible pair. */
@@ -87,20 +95,6 @@ export function graftAllowed(s: GameState, env: Env, side: Side): boolean {
 }
 
 // ---- keywords --------------------------------------------------------------------------------
-
-/** Bits of the registry that are keywords (not Flaws). Only keywords are inherited (judgment call, see report). */
-function keywordBits(env: Env): KwMask {
-  let m = 0;
-  const kws = env.c.keywords;
-  for (let i = 0; i < kws.length; i++) if (kws[i]?.kind === 'keyword') m |= 1 << i;
-  return m >>> 0;
-}
-
-const popcount = (m: number): number => {
-  let n = 0;
-  for (let b = m | 0; b !== 0; b &= b - 1) n++;
-  return n;
-};
 
 /**
  * Distinct union of the materials' printed keywords (D-059, D-182 ruling B). Every material gives its printed
@@ -262,7 +256,7 @@ export function graftPosition(run: Run, pos: Pos, lane?: number): number {
   );
 
   tx.set('pending', null);
-  playUsed(run); // same tail as every play (D-155)
+  bondTail(run); // a play (D-155), or the bond slot with FLAGS.BOND_ACTION (D-306)
   if (side === 0) {
     // Judgment call: Track.grafts / families count the player's Grafts only, like the round flags (D-127).
     const t = tx.state.track;

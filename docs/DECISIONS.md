@@ -2807,6 +2807,19 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Reason: none is decided silently; the owner has accepted recommended defaults so far (D-288).
 - Owner ruling (2026-10-16, night): the owner asked the main session to finish and ship the whole change without waiting for them, so all eight defaults above are accepted as written. The UI follows the current D-237/D-271 style instead of new mockups, and the main session updates DESIGN.md at the flip (owner's request, an exception to D-315's "edited by the owner").
 
+**D-317 · Attached symbiotes are found with `hostOfSymbiote`** (engine-dev, 2026-10-16)
+- Decision: `locate` stays board-only. An attached symbiote is in no zone (D-308), so `stats.ts › hostOfSymbiote(s, iid)` finds its host.
+- Reason: keeps every existing `locate` caller unchanged.
+
+**D-318 · The host's keyword cap counts keyword bits only** (engine-dev, 2026-10-16)
+- Decision: for D-308's `MAX_INHERITED_KEYWORDS` check, a Flaw on the host does not use up a keyword place.
+
+**D-319 · `hashState` includes `bond` and `sym` only when they are not the default** (engine-dev, 2026-10-16)
+- Decision: play that never bonds hashes exactly as before, so the default-equivalence digests and replay hashes stay stable.
+
+**D-320 · `bondOptions` lists every ordered Graft tuple** (engine-dev, 2026-10-16)
+- Decision: one option per ordered material tuple (up to 155 for 8 materials, about 1.5 ms). A Graft result is shown in attack position in the leftmost lane. Appraisal exposure is judged at the Collector turn of the next Appraisal round and ignores an Unstable expiry before then. Under `BOND_ACTION` the hand-material limit applies to both sides. A Covetous sacrifice of a host emits `Sacrificed` for the host, then the symbiote (discard order host, symbiote). `SPLIT_PART_PERM_P` is the only global allowed below 0.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

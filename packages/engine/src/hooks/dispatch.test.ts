@@ -120,14 +120,14 @@ describe('subscriber order (§8.3.1)', () => {
     const D = 77; // removed from the board already; only its LKI exists
     log.length = 0;
     new Dispatcher(renv, s, sink()).onDestroyed({
-      iid: D, side: 1, slot: 2, cause: 'effect', by: -1, power: 1, guard: 1, kw: fxKw(RC, 'fx-rec-a', 'fx-rec-b'),
+      iid: D, side: 1, slot: 2, cause: 'effect', by: -1, power: 1, guard: 1, kw: fxKw(RC, 'fx-rec-a', 'fx-rec-b'), sym: -1,
     });
     expect(log).toEqual([`a@${D}`, `b@${D}`, `a@${A}`, `a@${B}`, `b@${B}`, `b@${C}`, `trap@${T0}`, `trap@${TC}`]);
   });
   it('onDestroyed own hooks with an empty LKI mask are not called', () => {
     const { s, A, B, C, T0, TC } = board(2);
     log.length = 0;
-    new Dispatcher(renv, s, sink()).onDestroyed({ iid: 77, side: 0, slot: 2, cause: 'combat', by: A, power: 1, guard: 1, kw: 0 });
+    new Dispatcher(renv, s, sink()).onDestroyed({ iid: 77, side: 0, slot: 2, cause: 'combat', by: A, power: 1, guard: 1, kw: 0, sym: -1 });
     expect(log).toEqual([`a@${A}`, `a@${B}`, `b@${B}`, `b@${C}`, `trap@${T0}`, `trap@${TC}`]);
   });
   it('the subscriber list is fixed before any hook runs', () => {
@@ -178,7 +178,7 @@ describe('queued effects and event refs (§8.3.2)', () => {
     const s = b.place(1, 0, killer).build();
     const sk = sink();
     const d = new Dispatcher(qenv, s, sk);
-    d.onDestroyed({ iid: dead, side: 0, slot: 0, cause: 'combat', by: killer, power: 1, guard: 1, kw: fxKw(qc, 'fx-q') });
+    d.onDestroyed({ iid: dead, side: 0, slot: 0, cause: 'combat', by: killer, power: 1, guard: 1, kw: fxKw(qc, 'fx-q'), sym: -1 });
     expect(sk.queued.map((x) => x.effect.op)).toEqual(['destroy', 'returnToHand']);
     expect(sk.queued[0]?.refs).toMatchObject({ destroyed: dead, destroyer: killer, self: dead });
     expect(sk.queued[0]?.side).toBe(0); // controller at destruction
@@ -492,7 +492,7 @@ describe('globals reach the hooks', () => {
     const shade = b.card('fx-haunt-shade', 0);
     const s = b.place(1, 0, killer).build();
     const sk = sink();
-    new Dispatcher(e, s, sk).onDestroyed({ iid: shade, side: 0, slot: 0, cause: 'combat', by: killer, power: 3, guard: 3, kw: fxKw(FX, 'fx-haunt') });
+    new Dispatcher(e, s, sk).onDestroyed({ iid: shade, side: 0, slot: 0, cause: 'combat', by: killer, power: 3, guard: 3, kw: fxKw(FX, 'fx-haunt'), sym: -1 });
     expect(sk.queued[0]?.effect).toMatchObject({ op: 'modifyStats', power: '-$HAUNT_PENALTY' });
   });
 });

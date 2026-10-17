@@ -22,5 +22,6 @@ export function makeMonster(iid: Iid, init: MonsterInit = {}): Monster {
     unstableUntil: init.unstableUntil ?? -1,
     shroudUntil: init.shroudUntil ?? -1,
     appraised: init.appraised ?? false,
+    sym: init.sym ?? -1,
   };
 }

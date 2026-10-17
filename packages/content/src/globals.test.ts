@@ -20,6 +20,13 @@ describe('rule levers (owner-only, D-166, D-168)', () => {
     expect(G.UNSTABLE_EXPIRY).toBe('endOfNextOwnTurn');
     expect(G.SLOW_TURNS).toBe(1);
   });
+
+  it('keeps the bond rules off until the owner adopts them (D-305..D-316)', () => {
+    expect(G.FLAGS.SPLIT).toBe(false);
+    expect(G.FLAGS.SYMBIOSIS).toBe(false);
+    expect(G.FLAGS.BOND_ACTION).toBe(false);
+    expect(G.BOND_GRAFT_MAX_HAND_MATERIALS).toBe(G.MAX_GRAFT_MATERIALS); // 3 = no limit
+  });
 });
 
 // Inert globals and ranges (D-170, D-199). The tests move each value off its own launch value, so they hold for any
@@ -28,10 +35,16 @@ describe('inert pins and ranges (D-170, D-199)', () => {
   const accepts = (over: Record<string, unknown>): boolean => GlobalsSchema.safeParse({ ...G, ...over }).success;
 
   it('accepts only the value the engine reads for each inert count', () => {
-    for (const key of ['PLAYS_PER_TURN', 'REPOSITIONS_PER_TURN', 'ATTACKS_PER_TURN', 'MIN_GRAFT_MATERIALS', 'RELIC_FLAWS']) {
+    for (const key of ['PLAYS_PER_TURN', 'REPOSITIONS_PER_TURN', 'ATTACKS_PER_TURN', 'MIN_GRAFT_MATERIALS', 'RELIC_FLAWS', 'BONDS_PER_TURN', 'SYMBIOTES_PER_HOST']) {
       expect(accepts({ [key]: G[key as keyof typeof G] }), key).toBe(true);
       expect(accepts({ [key]: (G[key as keyof typeof G] as number) + 1 }), key).toBe(false);
     }
+  });
+
+  it('lets SPLIT_PART_PERM_P go below zero, the one signed global (D-310)', () => {
+    expect(accepts({ SPLIT_PART_PERM_P: -1 })).toBe(true);
+    expect(accepts({ SPLIT_PART_PERM_P: 1.5 })).toBe(false);
+    expect(accepts({ SYMBIOSIS_GUARD_BONUS: -1 })).toBe(false);
   });
 
   it('accepts only the set-aside flag value the engine reads (D-184)', () => {
