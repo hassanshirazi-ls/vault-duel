@@ -252,6 +252,7 @@ export interface Monster {         // a monster on a board slot; replaced (not m
   readonly unstableUntil: number;  // -1, or turn index at whose END it is destroyed; bonus applies while ≥ 0
   readonly shroudUntil: number;    // shrouded while state.turn < shroudUntil; -1 none
   readonly appraised: boolean;     // acquired through Appraisal (Covetous)
+  readonly sym: Iid;               // attached symbiote (FLAGS.SYMBIOSIS, D-308); -1 none. The symbiote is in no zone array while attached
 }
 
 export interface TrapSlot { readonly iid: Iid; readonly set: number } // turn index set
@@ -276,6 +277,10 @@ export interface PendingGraft {
   readonly kw: KwMask;             // chosen keywords (set at 'keywords' or auto)
 }
 export type Pending = PendingGraft;  // union reserved for future multi-step choices
+// D-305…D-316: Split and Symbiosis are ONE action each (`split m`, `symbiose c host`), so they add no Pending stage and the
+// union does not change. Graft is the only multi-step bond. If the owner later wants a Split placement choice (D-316 Q3), add:
+//   export interface PendingSplit { readonly kind: 'split'; readonly m: Iid; readonly stage: 'lane'; readonly placed: readonly number[] }
+//   export type Pending = PendingGraft | PendingSplit;   // then forEachLegal gets a 'split' branch beside the graft one
 
 export interface AppraisalState {
   readonly attempts: number;       // Appraisal steps reached (D-079)
@@ -308,6 +313,7 @@ export interface GameState {
   readonly turn: number;           // 0 … 2*MAX_ROUNDS-1; round = (turn >> 1) + 1; active side = turn & 1
   readonly step: Step;
   readonly played: boolean;        // the one play of this turn is used
+  readonly bond: 0 | 1 | 2;        // FLAGS.BOND_ACTION only (D-306): 0 open, 1 bond action used, 2 closed by an attack. Reset to 0 in startTurn; stays 0 when the flag is off
   readonly redrawsLeft: number;
   readonly pending: Pending | null;
   readonly sides: readonly [SideState, SideState];
@@ -335,6 +341,8 @@ Checklist of required fields → where they live:
 | timed modifiers with expiry | `Monster.timed[].until` |
 | Unstable expiry | `Monster.unstableUntil` |
 | Shroud | `Monster.shroudUntil` |
+| attached symbiote | `Monster.sym` (D-308) |
+| bond action used / closed | `GameState.bond` (D-306) |
 | trap slots | `SideState.traps` |
 | vault | `SideState.vault` (Collector) |
 | discard | `SideState.discard` |
@@ -343,9 +351,9 @@ Checklist of required fields → where they live:
 | RNG state | `GameState.rng` |
 | action log | `GameState.log` (+ `toActions(state)` helper) |
 
-**Card conservation invariant** (property-tested): every `Iid` is in exactly one of deck, hand, discard, board, traps, vault — or is a Chimera material in a discard.
+**Card conservation invariant** (property-tested): every `Iid` is in exactly one of deck, hand, discard, board, traps, vault — or is a Chimera material in a discard, or is a **symbiote attached** to a board monster (`Monster.sym`, D-308; `locate` returns an "attached" location). A Chimera instance **dissolved by Split** (D-307) is in no zone and its materials are on the board or in the hand; it can never return. A material is in at most one Chimera's live `materials` claim (Split requires all of them in the discard).
 
-**Derived, never stored:** effective stats (D-031), active keywords (`printed | chimera.kw`, minus Ward if used, none if face-down), round, active side, next Appraisal round, Tethered, element advantage.
+**Derived, never stored:** effective stats (D-031; Guard `+SYMBIOSIS_GUARD_BONUS` while `sym >= 0`, Power untouched), active keywords (`printed | chimera.kw`, plus the symbiote's keyword bits when the host has fewer than `MAX_INHERITED_KEYWORDS` (D-308), minus Ward if used, none if face-down), round, active side, next Appraisal round, Tethered, element advantage.
 
 ### 4.1 Copy-on-write transaction (`tx.ts`) — D-128
 
@@ -396,8 +404,9 @@ export class Tx {
 | Setup: shuffle, draw 5, redraw | `newGame()` builds state in `step: 'mulligan'`; actions `redraw` / `keep` |
 | Draw | automatic inside the action that starts the turn (`keep`, `endTurn`) |
 | Reposition | `step: 'main'`, `!played`; `reposition` actions |
-| Play one card | `step: 'main'`, `!played`; summon/cast/setTrap/graft actions; a play moves `step` to `'attack'` |
-| Attack | `step: 'attack'` (or first `attack` from `'main'`, which forfeits the play — D-014) |
+| Play one card | `step: 'main'`, `!played`; summon/cast/setTrap/graft actions; a play moves `step` to `'attack'`. With `FLAGS.BOND_ACTION` off, `graft`, `split` and `symbiose` are plays |
+| Bond action (`FLAGS.BOND_ACTION` on, D-306) | `step: 'main'` or `'attack'`, `bond === 0`; `graft`, `split`, `symbiose`; sets `bond = 1`; does not touch `played`, `step` or the reposition step. Either order with the play |
+| Attack | `step: 'attack'` (or first `attack` from `'main'`, which forfeits the play — D-014, and with `BOND_ACTION` on sets `bond = 2`, closing the bond action) |
 | End | `endTurn` → end-of-turn → opponent's start-of-turn → … until a decision is needed |
 
 `applyAction` always returns a state where the active side (or `over`) has a decision to make; there are no "advance" actions.
@@ -411,7 +420,7 @@ dispatch onTurnStart                                   (§8.3 order)
 if side === Collector && FLAGS.APPRAISAL && APPRAISAL_ROUNDS.includes(round): appraisal()   (§5.7)
 draw step: n = min(MAX_DRAW_PER_TURN, max(0, HAND_SIZE − hand.length), deck.length)  (D-011)
            wanted 0 → DrawSkipped{handFull}; deck short → CardDrawn… then DrawSkipped{deckEmpty}  (D-153)
-step = 'main'; played = false
+step = 'main'; played = false; bond = 0
 if side === Player && FLAGS.INTENTS: collector.intent = intentPolicy(tx.state); emit IntentSet   (D-095, D-150, D-221)
 ```
 
@@ -440,6 +449,7 @@ Timed modifiers and Gilt Frame need no cleanup: they stop applying when `turn > 
 declare(attacker A, target T | direct):
   A.attacked = turn; track.round[round−1] |= RoundFlag.Attacked (player)
   step = 'attack'; played = true                          // first attack closes Reposition, forfeits the play (D-014, D-155)
+  if FLAGS.BOND_ACTION && bond === 0: bond = 2            // and closes an unused bond action (D-306)
   emit AttackDeclared
   ctx = { cancelled: false }
   dispatch onAttackDeclared (attacker-side monsters, then defender traps in slot order)   // Snare, Mirror Sigil, Thornwall, Display Case
@@ -478,6 +488,9 @@ destroyBatch(list, cause, destroyerOf?):
               → 'prevent' ⇒ wardUsed = true (all of m's beforeDestroy bits go inactive, D-133); emit WardBroken; drop from list
   snapshot last-known info (LKI) for each remaining m (stats, keywords, controller, slot, destroyer)
   remove all remaining from boards simultaneously → owner's discard (D-047); emit Destroyed{iid, cause, by}
+  symbiotes (FLAGS.SYMBIOSIS, D-308): for each removed m with LKI.sym >= 0, in the same order: release it as a fresh Monster in m's slot
+        (pos = m's pos, entered = turn, no mods, wardUsed false; appraised = true if the controller is the Collector); emit SymbioteEmerged.
+        Done BEFORE the onDestroyed dispatch below. A Ward-prevented host keeps its symbiote.
   track: player-controlled → round[round−1] |= RoundFlag.LostMonster
   for each m in order: dispatch onDestroyed: m's own hooks with LKI (Haunt, Echo), then other subscribers (traps: Last Rites, Insurance Claim)
                        // LKI = DestroyedEvt (§8.1); m's own hooks are selected by LKI.kw, not by its (gone) board record (D-122)
@@ -506,7 +519,7 @@ graftPosition pos          → COMMIT:
      place in leftmost free slot (FLAGS.LANES: the lane in graftPosition, D-284): { pos, entered: turn, unstableUntil: unstable ? unstableExpiry(turn, g) : -1, … }
           // unstableExpiry: e = turn + UNSTABLE_EXPIRY_TURNS ('endOfNextOwnTurn', DESIGN);
           //                 e + DURATION_NEXT_OWN_TURN − 1 ('startOfOwnTurnAfterNext', lever M-02; D-183)
-     played = true; step = 'attack'
+     played = true; step = 'attack'          // FLAGS.BOND_ACTION: bondUsed() instead, i.e. bond = 1 and neither played nor step change (D-306)
      player only (D-180): track.grafts++, round[round−1] |= RoundFlag.Grafted, families ∪= family
      emit Grafted{…}; dispatch onGraft (Counterfeit; D-065). A Graft does not dispatch onSummon.
 graftCancel (any stage)    → pending = null (nothing was applied)
@@ -514,17 +527,96 @@ graftCancel (any stage)    → pending = null (nothing was applied)
 
 `engine.previewGraft(state)` (facade method, §8.7) returns the Chimera that the current pending choices would create (family, element, stats incl. Ascend/Unstable, keyword options, expiry) — the UI's confirm screen.
 
+Bond-rule additions to Graft (D-306, D-308): with `FLAGS.BOND_ACTION` on, `graftBegin` is legal while `bond === 0` (not `!played`), and with `BOND_ACTION` on the number of **hand** materials in a Graft is at most `BOND_GRAFT_MAX_HAND_MATERIALS` (filter in `mat1/mat2/ascend` candidates; default 3 = no limit). A board monster with `sym >= 0` is **not an eligible material** (`isBaseMonster` host check in `eligibleMaterials`).
+
+### 5.6a Split (`bond.ts › split`) — D-307, `FLAGS.SPLIT`
+
+```
+split m                       // legal: §6.2. One action, atomic, no pending state
+  c = inst[m].chimera; parts = c.materials (stored order); slot0 = slot of m; pos = m.pos
+  remove m from the board; drop the Chimera instance from play (no zone; NOT the discard)       // dissolved, no hooks (D-307)
+  for each part p (stored order): zoneRemove(owner, 'discard', p)
+       slot = (index 0) ? slot0 : leftmost free slot          // lane = slot (D-281); no lane parameter
+       slot found → setSlot(makeMonster(p, { pos, entered: turn, attacked: turn, permP: SPLIT_PART_PERM_P }))   // fresh record, sym -1
+       none       → zonePush(owner, 'hand', p)                // never lost; hand may exceed HAND_SIZE
+  FLAGS.BOND_ACTION ? bondUsed(run) : playUsed(run)
+  emit Split{ side, iid: m, parts, slots }                    // slot −1 = went to hand
+  no onSummon, no onGraft, no onDestroyed. Track unchanged. run.flush()
+```
+
+`attacked: turn` is what makes the part unable to attack in both `SICKNESS_MODE`s (Swift cannot override it); `entered: turn` blocks reposition and lane moves (D-282). Cost is O(materials).
+
+### 5.6b Symbiosis (`bond.ts › symbiose`, `release`) — D-308, `FLAGS.SYMBIOSIS`
+
+```
+symbiose c, host              // legal: §6.2. One action, atomic
+  zoneRemove(owner, 'hand', c)
+  host' = { ...host, sym: c }                                  // c is now "attached" (no zone array)
+  FLAGS.BOND_ACTION ? bondUsed(run) : playUsed(run)
+  emit Bonded{ side, host, symbiote: c, kw: activeKeywords(host'), guard: effectiveGuard(host') }
+  no onSummon; Track unchanged. run.flush()
+
+release(run, hostLKI, slot, side, cause)    // called by destroyBatch (§5.5), by any board→hand effect, and nowhere else
+  s = hostLKI.sym; if s < 0 return
+  setSlot(side, slot, makeMonster(s, { pos: hostLKI.pos, entered: turn, appraised: side !== inst[s].owner }))
+  emit SymbioteEmerged{ iid: s, host, side, slot, cause }
+Covetous sacrifice of a host: the symbiote goes to its owner's discard with the host (Sacrificed, reason 'covetous', from 'board').
+Appraisal (§5.7): the host's record keeps `sym` on his board; to the vault, the symbiote is pushed to the vault after the host.
+```
+
+Stats and keywords read `sym` in `stats.ts` only: `guard(m) += SYMBIOSIS_GUARD_BONUS`; `activeKw(m) |= keywordBits(printedKw(sym))` when `popcount(hostKw) < MAX_INHERITED_KEYWORDS`. The LKI snapshot of §8.1 gains `sym: Iid` and its `kw` already contains the granted bits (so Haunt and Echo on a symbiote keyword work).
+
+### 5.6c Options preview (`bond-preview.ts › bondOptions`) — D-313
+
+```ts
+export type BondKind = 'graft' | 'split' | 'symbiosis';
+export interface AppraisalExposure {       // for the board AFTER the option, against the next Appraisal round
+  readonly nextRound: number;              // next round in APPRAISAL_ROUNDS at or after the Collector's coming turn, -1 none left
+  readonly turnsAway: number;              // own turns before it fires, 0 = at the start of his next turn
+  readonly target: Iid;                    // monster the §5.7 rule would take, -1 none
+  readonly targetPower: number;
+  readonly cardsLost: 0 | 1 | 2;           // 2 = host with a symbiote
+}
+export interface BondResultMonster {       // each own monster the option creates or changes
+  readonly iid: Iid; readonly def: DefIdx; readonly element: ElemIdx;
+  readonly power: number; readonly guard: number; readonly kw: KwMask;
+  readonly slot: number;                   // -1 = in hand
+  readonly pos: Pos; readonly canAttackThisTurn: boolean; readonly unstableUntil: number;
+  readonly symbiote: Iid;                  // -1 none
+}
+export interface BondOption {
+  readonly kind: BondKind;
+  readonly id: string;                     // stable, e.g. "split:12", "symb:c7>h12", "graft:3,9" (ordered materials, kw mask)
+  readonly steps: readonly Action[];       // applying them in order performs it; graft: up to but excluding position (positionFree)
+  readonly positionFree: boolean;          // graft only: pos and lane chosen at graftPosition
+  readonly usesPlay: boolean;              // BOND_ACTION off
+  readonly handCardsAfter: number;
+  readonly result: readonly BondResultMonster[];
+  readonly boardAfter: readonly (BondResultMonster | null)[];   // whole own board
+  readonly boardPowerDelta: number; readonly boardGuardDelta: number; readonly bodiesDelta: number;
+  readonly exposure: AppraisalExposure;
+}
+export interface BondPreview {
+  readonly available: boolean;             // some bond action is legal now
+  readonly baseline: { readonly exposure: AppraisalExposure; readonly boardPower: number; readonly boardGuard: number; readonly bodies: number };
+  readonly options: readonly BondOption[]; // fixed order: graft, split, symbiosis (the §6.2 order), then legal-action order
+}
+```
+
+Pure: it applies each option on a `Tx` draft of `s` (no deep clone) and reads the result through the same stats functions, so it cannot drift from the rules. It states facts only. The "best" hint is `ai/bots/rank-bonds.ts` (D-313). A property test applies each option's `steps` through `applyAction` and compares `boardAfter`.
+
 ### 5.7 Appraisal (`appraisal.ts`) — D-075…D-079
 
 ```
 appraisal.attempts++
 candidates = player board monsters: !faceDown && !(turn < shroudUntil) && power(m) >= APPRAISAL_MIN_POWER
 if none: emit AppraisalFailed; return
-pick highest power, tie leftmost
+pick highest power, tie leftmost                       // power(m) excludes the symbiosis Guard bonus (D-308)
 remove from player board; m' = { ...m, entered: turn, appraised: true,
                                   pos: FLAGS.APPRAISED_ENTERS_GUARD ? guard : m.pos }   // lever M-03 (D-184)
 slot = leftmost free on Collector board → place m', emit Appraised{to:'board', toSlot}
 else vault.push(iid), emit Appraised{to:'vault', toSlot: -1}
+a host's symbiote (m.sym ≥ 0, D-308): m' keeps sym on his board; to the vault, vault.push(sym) after the host. Appraised.sym = m.sym. appraisal.taken lists the host only
 appraisal.successes++, taken.push(iid); track.round[round−1] |= RoundFlag.Appraised; track.appraisedLost++
 ```
 
@@ -559,6 +651,8 @@ export type Action =
   | { readonly t: 'graftKeywords'; readonly kw: KwMask }             // exactly MAX_INHERITED_KEYWORDS bits
   | { readonly t: 'graftPosition'; readonly pos: Pos; readonly lane?: number }  // commits the Graft; lane as for summon (D-284)
   | { readonly t: 'graftCancel' }
+  | { readonly t: 'split'; readonly m: Iid }                          // FLAGS.SPLIT: unbind own face-up Chimera m (D-307)
+  | { readonly t: 'symbiose'; readonly c: Iid; readonly host: Iid }   // FLAGS.SYMBIOSIS: attach hand monster c under face-up own host (D-308)
   | { readonly t: 'attack'; readonly a: Iid; readonly target: Iid | -1 } // -1 = direct
   | { readonly t: 'endTurn' };
 ```
@@ -590,6 +684,13 @@ main (and !played):
    cast c, target         per legal target from the spell's TargetSpec (≥1 needed if targeted; D-067)
    setTrap c              if a trap slot is free
    graftBegin             if canGraft(side) && ≥2 eligible materials && some mat1 candidate (D-057, D-180)
+   split m                FLAGS.SPLIT, side 0: own face-up Chimera, m.entered !== turn, no sym on it, every stored
+                          material currently in own discard; slot order (D-307)
+   symbiose c, host       FLAGS.SYMBIOSIS, side 0: c a base monster in hand (hand order) × host a face-up own monster
+                          with sym === -1 (slot order); host-major inside each c (D-308)
+   // "slot" gate for the three bond actions above: BOND_ACTION off → step 'main' && !played (they are plays);
+   // BOND_ACTION on → bond === 0 && step ∈ {main, attack} (D-306). Same position in the order either way, so the
+   // enumeration is identical in shape under both settings. A pending Graft blocks everything but its own stages (as today).
 main or attack:
    attack a, target       for own a: pos=atk, !faceDown, a.attacked !== turn,
                           perm = attackPermission(a) ≠ 'none';
@@ -645,7 +746,7 @@ export type GameEvent =
   | { e: 'IntentSet'; intent: Intent }
   | { e: 'MoodChanged'; from: Mood; to: Mood }
   | { e: 'AppraisalAttempt'; round: number }
-  | { e: 'Appraised'; iid: Iid; fromSlot: number; to: 'board' | 'vault'; toSlot: number }
+  | { e: 'Appraised'; iid: Iid; fromSlot: number; to: 'board' | 'vault'; toSlot: number; sym?: Iid }   // sym: attached symbiote that went with it (D-308)
   | { e: 'AppraisalFailed'; round: number; reason: 'noTarget' }
   | { e: 'Repositioned'; iid: Iid; pos: Pos }
   | { e: 'Revealed'; iid: Iid; side: Side }           // combat reveal, or reposition flip (then Repositioned, D-161)
@@ -655,6 +756,9 @@ export type GameEvent =
   | { e: 'GraftStarted' } | { e: 'GraftStep'; stage: GraftStage; mats: readonly Iid[] } | { e: 'GraftCancelled' }
   | { e: 'Grafted'; side: Side; iid: Iid; family: DefIdx; element: ElemIdx; materials: readonly Iid[];
       kw: KwMask; ascended: boolean; unstable: boolean; slot: number; pos: Pos }
+  | { e: 'Split'; side: Side; iid: Iid; parts: readonly Iid[]; slots: readonly number[]; pos: Pos }   // slots[i] = -1: part went to the hand (D-307). No Destroyed, no WardBroken
+  | { e: 'Bonded'; side: Side; host: Iid; symbiote: Iid; kw: KwMask; guard: number }                  // kw/guard = the host's after (D-308)
+  | { e: 'SymbioteEmerged'; side: Side; iid: Iid; host: Iid; slot: number; cause: 'destroyed' | 'returned' }   // after Destroyed/ReturnedToHand of the host (D-308)
   | { e: 'SpellCast'; side: Side; iid: Iid; target: Iid | -1 }
   | { e: 'TrapSet'; side: Side; iid: Iid; slot: number }
   | { e: 'TrapTriggered'; side: Side; iid: Iid; slot: number }
@@ -678,6 +782,8 @@ export type GameEvent =
 ```
 
 There is no fizzle event. An attack whose combatant leaves the board before resolution just ends (D-157).
+
+Bond events (D-305…D-316): Split is not a destruction and a symbiote is not a summon, so `Split`, `Bonded` and `SymbioteEmerged` are their own events, with no `Summoned`, `Destroyed` or `onSummon` for the parts or the symbiote. Order for a destroyed host: `Destroyed` (host) → `SymbioteEmerged` → onDestroyed effects. `redactEvent` leaves all three as they are (the attached card is public). The sim derives its bond counters from these events and `Appraised.sym` (D-314). `Sacrificed.reason: 'covetous'` also covers an attached symbiote that leaves with its host.
 
 ---
 
@@ -908,6 +1014,7 @@ The root exports types, `createEngine` and a few pure helpers. Everything that n
 | `mustAttack(s, iid)` | facade, query | OR of active `mustAttack` hooks (Vain) |
 | `previewCombat(s, attacker, target \| -1)` | facade, query | `CombatPreview` (§5.4); `{ known: false }` for a face-down target |
 | `previewGraft(s)` | facade, query | `GraftPreview \| null` (§5.6) |
+| `bondOptions(s)` | facade, query | `BondPreview`: every legal bond action with its predicted result and Appraisal exposure (§5.6c, D-313). Facts only; the "best" hint is `ai/bots/rank-bonds.ts` |
 | `redactState(s, viewer)` | root function | Empties the opponent's hand, deck and trap slots and the viewer's own deck; `log: null`. A face-down opponent monster keeps its identity: look-ahead code must not apply an action that targets one (D-209) |
 | `resolveNum`, `deckForSeed`, `hashState`, `replay`, `toActions`, `seedString`, `rerollSeed`, `canonicalJson`, `deepFreeze`, `cyrb128`, `Sfc32`, `defineKeyword`, `EngineError` | root | as in the sections that define them |
 | types: state, actions, events, content, globals, hooks, effects, `CombatPreview`, `CombatOutcome`, `GraftPreview`, `IntentPolicy`, `Engine*` | root | — |
@@ -1316,6 +1423,11 @@ export const DEFAULT_GLOBALS = deepFreeze({
   SICKNESS_MODE: 'classic',      // 'classic' | 'monstersOnly' (D-280)
   SENTINEL_REACH: 1,             // lanes each side of a Sentinel; read only with FLAGS.LANES (D-283)
   LANE_MOVE_RANGE: 1,            // read only with FLAGS.LANES (D-282)
+  // Bond actions of 2026-10-16 (D-305…D-316); today's rules are the default
+  SYMBIOSIS_GUARD_BONUS: 2,      // host Guard while a symbiote is attached; read with FLAGS.SYMBIOSIS (D-308)
+  BOND_GRAFT_MAX_HAND_MATERIALS: 3,   // 3 = MAX_GRAFT_MATERIALS = no limit; read only with FLAGS.BOND_ACTION (D-306)
+  SPLIT_PART_PERM_P: 0,          // permP of each Split part; negative = weaker parts (D-307)
+  BONDS_PER_TURN: 1, SYMBIOTES_PER_HOST: 1,   // pinned (D-205)
   // Graft
   MIN_GRAFT_MATERIALS: 2, MAX_GRAFT_MATERIALS: 3, ASCEND_POWER: 2, ASCEND_GUARD: 1,
   UNSTABLE_BONUS: 3, UNSTABLE_EXPIRY_TURNS: 2,            // destroyed at end of turn + 2 ("your next turn")
@@ -1358,6 +1470,7 @@ export const DEFAULT_GLOBALS = deepFreeze({
     // Recall of Chimeras per D-046/D-068; false = M-12). Changed only for sim A/B until the owner adopts one.
     APPRAISED_ENTERS_GUARD: false, ACE_SET_ASIDE: false, CHIMERA_TO_HAND: true,
     LANES: false, LANE_SWAP: true,   // D-281, D-282: LANES off = free targeting, as today
+    SPLIT: false, SYMBIOSIS: false, BOND_ACTION: false,   // D-305…D-310: all off = Graft is the one play, no Split, no Symbiosis
   },
   // Content numbers (D-171): referenced only as "$NAME" from data or keyword effects, and as {NAME} in text.
   // Open record: add a line here for a new card number. Names must not repeat a core key.
@@ -1387,7 +1500,7 @@ export function withOverrides(base: Globals, sets: readonly string[]): Globals; 
 **Read, pinned or planned (D-205).** Every core global and every flag is in exactly one state, checked by `packages/content/test/globals-readers.test.ts`:
 
 - **Read:** a non-test source in engine, content (incl. `keywords/`), ai, sim or web names it, or the content JSON references it as `"$NAME"`.
-- **Pinned:** the code supports one value only, so `GlobalsSchema` refuses any other with the D-199 message (`pinned()` / `pinnedFlag()`): `WARD_CHARGES`, `PLAYS_PER_TURN`, `REPOSITIONS_PER_TURN`, `ATTACKS_PER_TURN`, `MIN_GRAFT_MATERIALS`, `RELIC_FLAWS` (D-202), `FLAGS.ACE_SET_ASIDE` (D-184). The change that teaches the code a pinned key removes its pin.
+- **Pinned:** the code supports one value only, so `GlobalsSchema` refuses any other with the D-199 message (`pinned()` / `pinnedFlag()`): `WARD_CHARGES`, `PLAYS_PER_TURN`, `REPOSITIONS_PER_TURN`, `ATTACKS_PER_TURN`, `MIN_GRAFT_MATERIALS`, `BONDS_PER_TURN`, `SYMBIOTES_PER_HOST`, `RELIC_FLAWS` (D-202), `FLAGS.ACE_SET_ASIDE` (D-184). The change that teaches the code a pinned key removes its pin.
 - **Planned:** its reader isn't built yet. Listed, not pinned, in `packages/content/src/planned-globals.ts`; any sane value is accepted and takes effect when the reader lands. `content:check` prints the `not yet read` info line (§10.3). The test fails when a planned key becomes read (delete its line), when a key is in no state, and when a key is both pinned and planned.
 
 ```ts
@@ -1407,11 +1520,11 @@ export const PLANNED_GLOBALS: Readonly<Record<string, PlannedGlobal>> = {
 };
 ```
 
-This listing is the launch snapshot. From the D-166 switch, `globals.ts` itself is canonical. Owner-only (a change needs an owner-approved D-entry): `TARGET_*`, the proposal levers (`FLAGS.APPRAISED_ENTERS_GUARD`, `FLAGS.ACE_SET_ASIDE`, `FLAGS.CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`, `SLOW_TURNS`, `SICKNESS_MODE`, `FLAGS.LANES`, `FLAGS.LANE_SWAP`, `SENTINEL_REACH`, `LANE_MOVE_RANGE`) and `WARD_CHARGES`. Everything else is tuning (owner, or balance-analyst with a `BALANCE_LOG.md` entry).
+This listing is the launch snapshot. From the D-166 switch, `globals.ts` itself is canonical. Owner-only (a change needs an owner-approved D-entry): `TARGET_*`, the proposal levers (`FLAGS.APPRAISED_ENTERS_GUARD`, `FLAGS.ACE_SET_ASIDE`, `FLAGS.CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`, `SLOW_TURNS`, `SICKNESS_MODE`, `FLAGS.LANES`, `FLAGS.LANE_SWAP`, `SENTINEL_REACH`, `LANE_MOVE_RANGE`, `FLAGS.SPLIT`, `FLAGS.SYMBIOSIS`, `FLAGS.BOND_ACTION`, `BOND_GRAFT_MAX_HAND_MATERIALS`) and `WARD_CHARGES`. `SYMBIOSIS_GUARD_BONUS` and `SPLIT_PART_PERM_P` are tuning. Everything else is tuning (owner, or balance-analyst with a `BALANCE_LOG.md` entry).
 
 Where things live (D-147): `deepFreeze` is in `packages/engine/src/freeze.ts` and exported from the engine root. It and `canonical.ts › canonicalJson` (sorted keys, D-191) are the engine's two order-insensitive key iterations, each with a documented lint exception. `GlobalsSchema` is in `packages/content/src/schemas/globals.ts`. `DEFAULT_GLOBALS` and `withOverrides` are in `packages/content/src/globals.ts`, exported from the content root. The engine's `packages/engine/test-utils/globals.ts › TEST_GLOBALS` is an engine-owned **fixture**, deliberately independent of `DEFAULT_GLOBALS` (`CONTENT_VERSION: '0.0.0-fixture'`, its own `CONTENT_NUMBERS`). TypeScript checks its shape, and a content test checks that it passes `GlobalsSchema`. Nothing compares its values with the real globals (D-168, superseding D-143).
 
-`Globals` is an engine-side interface (`packages/engine/src/types/globals.ts`, widened types of the object above), so the engine is typed against it without importing content. The widening (D-126) is: numbers → `number` and strings → `string`. Min/max pairs (`TARGET_*`) → `Range = readonly [number, number]`, with the sanity check `min ≤ max`. `DIFFICULTY_STAR_CUTS` → `StarCuts = readonly [number, number]` (descending cuts, not a range). `APPRAISAL_ROUNDS` → `readonly number[]`. `UNSTABLE_EXPIRY` → `'endOfNextOwnTurn' | 'startOfOwnTurnAfterNext'`. `SICKNESS_MODE` → `'classic' | 'monstersOnly'`. `FLAGS` → `Flags`: 15 booleans, DESIGN's 10, the 3 proposal levers and `LANES`, `LANE_SWAP`. `NumericGlobal` (the keys whose type is `number`) plus the keys of `CONTENT_NUMBERS` (`Readonly<Record<string, number>>`) are the names an effect `Num` ref (`"$NAME"`) or a text placeholder (`{NAME}`) may use (D-120, D-171, D-172). A number that TypeScript reads as a property is a core global, and adding one is an engine change. A number referenced only by name is a content number, and adding one is one line. Globals and content are bound into the engine by `createEngine(compiled, globals, policies, options)`. A hash of both is stored in `state.cfg`: `c.hash + ":" + cyrb128(canonicalJson(g))`, which doesn't depend on key order (D-191). It is checked on replay: `replay(seed, actions, { cfg })` throws `EngineError` on a mismatch, and the web session stores `cfg` with its actions.
+`Globals` is an engine-side interface (`packages/engine/src/types/globals.ts`, widened types of the object above), so the engine is typed against it without importing content. The widening (D-126) is: numbers → `number` and strings → `string`. Min/max pairs (`TARGET_*`) → `Range = readonly [number, number]`, with the sanity check `min ≤ max`. `DIFFICULTY_STAR_CUTS` → `StarCuts = readonly [number, number]` (descending cuts, not a range). `APPRAISAL_ROUNDS` → `readonly number[]`. `UNSTABLE_EXPIRY` → `'endOfNextOwnTurn' | 'startOfOwnTurnAfterNext'`. `SICKNESS_MODE` → `'classic' | 'monstersOnly'`. `FLAGS` → `Flags`: 18 booleans, DESIGN's 10, the 3 proposal levers, `LANES`, `LANE_SWAP`, and `SPLIT`, `SYMBIOSIS`, `BOND_ACTION` (D-310). `NumericGlobal` (the keys whose type is `number`) plus the keys of `CONTENT_NUMBERS` (`Readonly<Record<string, number>>`) are the names an effect `Num` ref (`"$NAME"`) or a text placeholder (`{NAME}`) may use (D-120, D-171, D-172). A number that TypeScript reads as a property is a core global, and adding one is an engine change. A number referenced only by name is a content number, and adding one is one line. Globals and content are bound into the engine by `createEngine(compiled, globals, policies, options)`. A hash of both is stored in `state.cfg`: `c.hash + ":" + cyrb128(canonicalJson(g))`, which doesn't depend on key order (D-191). It is checked on replay: `replay(seed, actions, { cfg })` throws `EngineError` on a mismatch, and the web session stores `cfg` with its actions.
 
 DESIGN numbers that are content rather than globals (with reason, D-074): monster/Relic Power/Guard (card JSON), Chimera family stats (recipes.json), weekly-twist values (twists.json). All are overridable from the sim. After the D-166 switch, these files are canonical too.
 
@@ -1537,6 +1650,8 @@ export interface CollectorView {
 }
 ```
 
+**Bonds (D-311).** `FoeMonster` (public) gains `sym: PublicCard | null` and `OwnMonster` gains `sym` (his Appraised host), because an attached symbiote is face-up and public; `redactState` keeps `Monster.sym`. A face-down monster is never a host, so nothing hidden leaks. The view's `choices` never contain `split`, `symbiose` or a bond-slot `graftBegin` (the Collector never bonds). No rule id changes: Appraisal is not a choice, and `previewAttack` and the look-ahead use engine stats, so the host's Guard, keyword and the symbiote that comes out on a kill are already seen.
+
 `ai/collector/view.ts` builds it from `GameState`. A unit test asserts that two states differing only in hidden information (player hand, deck order, face-down identities, player trap identities) produce identical views. That includes the answers of the look-ahead methods.
 
 **Look-ahead (D-209).** Every look-ahead goes through one helper, `ai/shared/look-ahead.ts`:
@@ -1626,6 +1741,8 @@ All bots see a `PlayerView` (mirror of §13.1: own hand/board/traps, the Collect
 | greedy | One-ply: apply each legal action to `redactState(s, 0)` through the look-ahead helper, score with `evaluate()`, take the best. It keeps its opening hand. A Graft is scored by its first-choice completion. A refused look-ahead (an action on a face-down Collector monster) scores as the current position (D-116, D-222) | diagnostic line |
 | expert | per turn, enumerate turn plans = {reposition subsets} × {play options incl. full Graft variants} × greedy attack ordering; score end-of-turn positions with `evaluate()` (life diff, board power, Appraisal exposure next Collector turn, Unstable timers, trap count, element matchups, Collector Sentinels); hidden Collector hand treated as unknown (no peeking) | target 45–55%; difficulty-check reference with ε-noise (D-094) |
 
+**Bond actions (D-312).** Novice: no change (uniform over the larger legal list). Greedy: `evaluate` terms `symbioteGuard`, `bondedKeyword`, `appraisalExposure`, `boardWidth` (read only when a bond switch is on) and the no-op bond penalty 1e-6. Expert: plan = reposition subsets × play × bond option, both orders, bond options pruned to `maxBondOptions` (6) by single-option greedy score. `ai/bots/rank-bonds.ts › rankBondOptions(preview, weights)` scores an engine `BondPreview` (§5.6c) for the UI's "best" hint.
+
 Weights live in `bots/greedy.weights.json` and `bots/expert.weights.json`, tunable without code (D-222). They are bot settings, not globals, and tests never pin them. The expert's weights feed the difficulty check, which picks the date's reroll `k`, so milestone 2 ties them to the daily setup (D-222). The expert's plan enumeration is bounded (≤ ~400 plans/turn with launch content) and uses `engine.previewCombat`/`engine.previewGraft` (§8.7), not full engine clones, to stay within the performance budget.
 
 ---
@@ -1647,6 +1764,8 @@ sim seed   <YYYY-MM-DD>  [--set K=V]…        # prints the difficulty check, re
 **Difficulty check** (`difficulty-batch.ts` → `ai/difficulty.ts › rateSeed`): for k = 0..SEED_MAX_REROLLS: run `SIM_RUNS_PER_SEED` expert-with-noise duels; accept if `SEED_WINRATE_MIN ≤ wr ≤ SEED_WINRATE_MAX`; stars and par per D-098/D-100; fallback per D-004. `sim full` runs it for `SIM_SEED_CHECK_DATES` consecutive dates and reports rejection rate.
 
 **Proposal A/B runs**: `sim full --ab <proposal-id>` runs the same dates and runs twice: baseline, then with the proposal's lever applied. The levers for DECISIONS §M (M-01…M-16) are `--set` globals/flags, card overrides, or alternate `collector.json` fields. Each lever defaults to the DESIGN-as-written value in `globals.ts` (`FLAGS.APPRAISED_ENTERS_GUARD`, `FLAGS.ACE_SET_ASIDE`, `FLAGS.CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`, `SLOW_TURNS`) and does nothing until the owner adopts it. The report prints the target metrics side by side.
+
+**Bond matrix (D-314).** Cells: baseline, B, S, Y, BS, BY, SY, BSY, BSY+123L (`B` = `FLAGS.BOND_ACTION`, `S` = `FLAGS.SPLIT`, `Y` = `FLAGS.SYMBIOSIS`; `123L` = the D-287 package), plus the lever variants of D-314. Metrics from events: `splitsPerGame`, `symbiosesPerGame`, `bondUseShare`, bond mix, `splitAppraisalDodge`, `splitUnstableEscape`, `symbioteDoubleLoss`, `handMaterialGrafts`. Gate: with all three flags off the run equals the previous baseline exactly.
 
 **Reports** (`report.ts`): `docs/reports/<cmd>-<date>.md` + `.json` with every DESIGN balance metric against its `TARGET_*` global (pass/fail), plus: win rate by bot, round-length histogram, share ending in round 12, grafts per winning game, Appraisal success rate, Unpriced appearance rate, seed rejection rate, intent accuracy, per-card play/win deltas, per-keyword trigger counts, duels/sec, and the exact globals/overrides/content hash used.
 
@@ -1724,7 +1843,7 @@ expect illegal attack P1 > face
 
 The header of `test-utils/board-dsl.ts` is the canonical syntax reference for every `do` and `expect` form (D-193). Defaults: a monster without `new` has `entered = −1`; an unspecified hand is empty; an unspecified deck or `deck *` is 2 × `OPENING_HAND` copies of the reserved inert card `dsl-filler` (player pool, first element and kind, 1/1, no keywords), which `withDeclared` (engine) and `scenarioContent` (content) always add; an `appraised` monster is owned by the player; `expect event <Name> <slot>` resolves the slot against the board at setup.
 
-Monster token: `[<card-id> <A|G|D> flags…]` where `D` = face-down guard. Flags: `new` (entered this turn), `moved` (repositioned this turn), `done` (attacked this turn), `ward-used`, `p±N` / `g±N` (permanent), `p+N@T` (timed until end of turn T), `unstable@T`, `shroud@T`, `appraised`, `chimera(<family>,<element>,<kw,kw>[,asc][,grafted@T])` (`grafted` defaults to the monster's entered turn, D-139). Slots are addressed `P0..P2`, `C0..C2`; `face` = direct.
+Monster token: `[<card-id> <A|G|D> flags…]` where `D` = face-down guard. Flags: `new` (entered this turn), `moved` (repositioned this turn), `done` (attacked this turn), `ward-used`, `p±N` / `g±N` (permanent), `p+N@T` (timed until end of turn T), `unstable@T`, `shroud@T`, `appraised`, `sym(<card-id>)` (attached symbiote, D-308), `chimera(<family>,<element>,<kw,kw>[,asc][,grafted@T])` (`grafted` defaults to the monster's entered turn, D-139). Slots are addressed `P0..P2`, `C0..C2`; `face` = direct.
 
 ---
 
@@ -1876,6 +1995,12 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | GR-11 | Family stat table | `recipes.json` (canonical after the switch) | D-166 |
 | GR-12 | Every pair can graft | validator (missing kind-pair recipe) | — |
 | GR-13 | Most Chimeras 7+ → Appraisal targets | emergent; sim report (Appraisal targets by source) | D-076 |
+| GR-14 | Split: unbind your face-up Chimera into its materials (`FLAGS.SPLIT`) | `bond.ts › split` (§5.6a), `legal.ts`, `globals` (`SPLIT_PART_PERM_P`) | D-307 |
+| GR-15 | Symbiosis: attach a hand monster under a face-up host; +Guard and keyword; emerges on host leaving; Appraisal takes both (`FLAGS.SYMBIOSIS`) | `bond.ts › symbiose, release` (§5.6b), `stats.ts`, `destroy.ts`, `appraisal.ts`, `globals` (`SYMBIOSIS_GUARD_BONUS`) | D-308, D-309 |
+| GR-16 | One card play + one bond action per turn (`FLAGS.BOND_ACTION`); the first attack closes it | `turn.ts`, `combat.ts › declare`, `graft.ts › bondUsed`, `legal.ts`, `GameState.bond` | D-306 |
+| GR-17 | Options preview of every bond action | `bond-preview.ts › bondOptions` (§5.6c), `ai/bots/rank-bonds.ts` | D-313 |
+| GR-18 | Collector never bonds; symbiote is public; AI reads engine stats | `legal.ts › canBond`, `ai/collector/view.ts` | D-305, D-311 |
+| GR-19 | Bots use bond actions; sim A/B cells and metrics | `ai/bots/*`, `sim` matrix | D-312, D-314 |
 
 ### Player card pool
 

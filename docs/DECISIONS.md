@@ -2631,6 +2631,182 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: Only columns with a DESIGN target. Greedy win rate, vault-sealed share, Unstable rate and damage per round are information only.
 - Reason: no invented targets.
 
+**D-305 · Bond actions: Graft, Split and Symbiosis as the main chess pieces (owner picks, 2026-10-16)**
+- Date: 2026-10-16
+- Question: Games are getting shorter, so each turn must matter more. How do Graft, Split and Symbiosis become three real options whose value depends on the board?
+- Decision (owner picks, fixed): the three are **bond actions**, each with one job.
+  - **Graft = power**: one big body, but 2 cards for 1 and an Appraisal magnet (unchanged, D-056…D-065).
+  - **Split = tempo and evasion** (D-307): unbind your own face-up Chimera into its stored materials.
+  - **Symbiosis = staying power and protection** (D-308): attach a base monster from your hand under a face-up board monster.
+  - **Turn shape** (D-306): one card play plus one bond action per turn, either order, behind `FLAGS.BOND_ACTION`. Today's rule (Graft is your one play) stays the default.
+- Decision (judgment): three independent switches, all default off, each A/B-able alone (D-310): `FLAGS.SPLIT`, `FLAGS.SYMBIOSIS`, `FLAGS.BOND_ACTION`. With a switch off the engine is byte-for-byte today's: same legal actions, same outcomes. Only `state.cfg` changes (new globals), so saved sessions fail the replay check once shipped (D-287).
+- Decision (judgment): **Split and Symbiosis are player-only.** The Collector never grafts, splits or symbiotes (DESIGN, locked). `canBond(side) = side === 0` is hardcoded in the engine, like `canGraft` for the Collector is data in `collector.json`; here there is no data switch because the rule cannot change without a DESIGN edit. An Appraised Chimera or host on his board is never split or bonded by anyone.
+- Decision (judgment): when a bond switch is on but `BOND_ACTION` is off, Split and Symbiosis are **plays** (they set `played`, move `step` to `'attack'`), like Graft today. So `SPLIT` alone means "Split competes with summoning for the one play"; that is the cell the sim needs.
+- Reason: three options with different jobs, chosen by the board, is the owner's goal. Independent switches let the sim separate "more actions per turn" from "new action kinds".
+
+**D-306 · Turn shape: one card play plus one bond action (`FLAGS.BOND_ACTION`)**
+- Date: 2026-10-16
+- Question: What does a bond action cost, when can it be taken, and what does Graft's hand-material use do to the play?
+- Decision (owner pick): with `BOND_ACTION` on, a turn has **one card play** (summon, Covetous, cast, set trap) **and one bond action** (Graft, Split or Symbiosis), in either order. Off (default): Graft is a play, and Split and Symbiosis, if enabled, are plays too.
+- Decision (judgment), with `BOND_ACTION` on:
+  1. **Max one bond action per turn.** `BONDS_PER_TURN` is a pinned global = 1 (D-205 pinned pattern). Ascend is the second step of the same Graft (pending), so it is one bond action.
+  2. **A Graft never consumes the card play, even when its materials come from the hand.** The player may therefore use up to 3 hand cards (Ascend) plus the play card in one turn. This is the "3 cards in one turn" problem. It is bounded by the lever `BOND_GRAFT_MAX_HAND_MATERIALS` (default 3 = no limit; the sim also runs 1 and 2). The cost is real: 5-card hand, 2 draws a turn.
+  3. **State:** `GameState.bond: 0 | 1 | 2` (0 open, 1 used, 2 closed), reset to 0 in `startTurn`. It is only written when `BOND_ACTION` is on; with it off it stays 0, so default play is unchanged. Bond actions are legal while `bond === 0` and `step` is `'main'` or `'attack'`.
+  4. **The first attack closes the bond** (`bond = 2`), as it closes the play and the reposition step (D-014, D-155, D-190). Reason: otherwise "attack with X, then graft X away" is a free extra attack, and Split after an attack would be strictly better than before. Playing a card moves `step` to `'attack'` as today and does not close the bond.
+  5. **A bond action does not close the reposition step** and does not set `played`; only a play or an attack does. Graft's commit calls `bondUsed(run)` instead of `playUsed(run)` and leaves `step` alone.
+  6. The `played` guard on `graftBegin` becomes the `bond === 0` guard. A Graft cancelled at any stage leaves `bond` at 0.
+- Reason: simplest reading of "1 card play + 1 bond action". Closing at the first attack keeps D-014's idea (attacking ends the planning part of the turn) and costs one three-valued field.
+
+**D-307 · Split: unbind a Chimera (`FLAGS.SPLIT`)**
+- Date: 2026-10-16
+- Question: How does a Chimera come apart?
+- Decision (owner pick): your own face-up Chimera on the board comes apart into its stored materials (`ChimeraInfo.materials`, in stored order; Ascended = 3). Base monsters cannot split. New action `{ t: 'split'; m: Iid }`, one step, no pending state.
+- Facts about storage (checked in `graft.ts`): Graft sends hand and board materials to the owner's **discard** and keeps their iids in `ChimeraInfo.materials`. So Split takes them back out of the discard.
+- Decision (judgment), legality: `FLAGS.SPLIT`; side is the player; `m` is a face-up Chimera on the player's board with `chimera !== null`; `m.entered !== turn` (a Chimera that entered this turn cannot split: no free "graft then unbind", no Echo-summon then unbind); **every stored material is currently in the owner's discard** (a material taken back by Grave Recall makes the Chimera unsplittable; this also prevents two cards with one iid); `m` carries no symbiote (D-308); the bond is open (D-306) or, with `BOND_ACTION` off, the play is unused.
+- Decision (judgment), resolution:
+  1. The Chimera record leaves the board. The Chimera **instance is dissolved**: it goes to no zone (not discard), so Grave Recall and Echo cannot bring back a Chimera whose parts are also in play. Card conservation gets one more exception (ARCHITECTURE §4). No `Destroyed`, no `onDestroyed` hooks (no Echo, Haunt, Last Rites, Insurance Claim), no Ward check: it is not destruction.
+  2. **Placement.** The first material takes the Chimera's slot (so the lane is kept). Each other material, in stored order, takes the leftmost free slot. A material with no free slot goes to the **hand** (never lost; the hand may exceed `HAND_SIZE`, which only limits drawing, D-011). With `LANES` on there is no lane choice, so there is no new action fan-out; a moved part can use `moveLane` later.
+  3. **Position and state.** Every part enters face-up in the Chimera's current position. Each part is a fresh record: `wardUsed = false` (a used Ward comes back), `permP/permG = 0` (plus `SPLIT_PART_PERM_P`, default 0), no timed mods, `unstableUntil = -1` (this is how Split escapes the Unstable self-destruct), `shroudUntil = -1`, `appraised = false`, `sym = -1`.
+  4. **Sickness.** Each part has `entered = turn` (it is "summoned", D-280) **and** `attacked = turn`, so it **cannot attack this turn in either `SICKNESS_MODE`, and Swift does not help** (owner pick: parts enter unable to attack). No new field: `attacked === turn` already makes `attack` illegal. A part may not reposition or move lanes this turn (`entered === turn`). On the next own turn it is free.
+  5. Parts dispatch **no `onSummon`** (D-065 pattern) and no `onGraft`. `Track` is unchanged.
+  6. A split Chimera that was Ascended gives 3 parts; the Ascend bonus is gone with the Chimera.
+  7. Chimera that came back via Echo or Grave Recall and was summoned again: `ChimeraInfo` is on the instance, so it splits like any other as long as its materials are still in the discard. With `FLAGS.CHIMERA_TO_HAND` false (M-12) this case does not occur.
+  8. Unstable Chimera: may split (escape). Parts are not Unstable. Re-grafting the parts in another order or element later makes a new Chimera.
+- Uses (for the preview): dodge Appraisal in rounds 3, 6, 9 when the Chimera is the target; recover board width or lanes; re-graft in another order or element; escape Unstable; refresh a used Ward. Costs: the Chimera's stats, Ascend and Unstable bonuses; parts cannot attack this turn; with a full board, parts go to the hand.
+- Reason: the owner's pick, with the least new state (none) and one deterministic placement rule.
+
+**D-308 · Symbiosis: host and symbiote (`FLAGS.SYMBIOSIS`)**
+- Date: 2026-10-16
+- Question: How does attaching a card work, and what is its state?
+- Decision (owner pick): attach a base monster from your hand under one of your face-up board monsters (the host). The host gets `+SYMBIOSIS_GUARD_BONUS` Guard (2) and the symbiote's keyword. The symbiote uses no slot. When the host is destroyed, the symbiote comes out in the host's slot (lane). If the host is Appraised, the Collector gets both. New action `{ t: 'symbiose'; c: Iid; host: Iid }`, one step, no pending state.
+- Decision (judgment), state: `Monster.sym: Iid` (−1 none) on the host record; ARCHITECTURE §4. The symbiote instance is in no zone array while attached (a new "attached" location: `locate` returns it, card conservation counts it). It keeps its owner (D-047). **Public information**: the attached card is face-up, so its identity is public (D-311).
+- Decision (judgment), eligibility: player only; `c` is a base monster in the hand (not a Chimera card in the hand, not a spell or trap); `host` is a **face-up** monster on the player's board, Chimera or base, with `sym === -1` (**one symbiote per host**, pinned global `SYMBIOTES_PER_HOST = 1`); bond open or play unused (D-306). A face-down host is not eligible (it would hide an attachment; the owner said face-up). Hosts per turn are not limited beyond one bond.
+- Decision (judgment), effect:
+  - Guard: `effectiveGuard(host) += SYMBIOSIS_GUARD_BONUS` while `sym >= 0`, floored at `STAT_FLOOR`. **Power is unchanged**, so Appraisal's 7-Power check and "highest Power" ignore the bonus. The symbiote's own Power and Guard are unused while attached.
+  - Keywords: `active(host) = hostKw | (popcount(hostKw) < MAX_INHERITED_KEYWORDS ? keywordBits(symbiote) : 0)`, keyword bits only, never Flaws. So a base host (≤1) takes the symbiote's keyword; a Chimera host with 2 keywords takes only the Guard. A face-down or Ward-used host is masked by the existing rules (Ward used removes the Ward bit whichever card gave it). A keyword the host already has adds nothing.
+  - The bonus keyword is read wherever keywords are read: hooks, Sentinel cover, Pierce, Haunt/Echo in the LKI snapshot (D-122), `attackPermission`.
+- Decision (judgment), when the host leaves the board:
+  - **Destroyed (combat, effect, Unstable expiry)** or **returned to hand by any effect**: after the removal and `Destroyed` (or `ReturnedToHand`) and **before** `onDestroyed` dispatch, the symbiote becomes a fresh monster in the host's slot, in the host's position (face-up), with `entered = turn` (it is "summoned", D-280; `attacked` unchanged, so on its owner's next turn it attacks freely and on the foe's turn it simply stands), `wardUsed = false`, no mods, no `onSummon`. Its slot is always free at that moment, so no fallback rule is needed. A Ward on the host that prevents the destruction leaves the symbiote attached. Echo on the host returns the host to the hand and the symbiote still comes out.
+  - **Appraised**: the Collector takes the host. If it goes to his board, the record keeps `sym` (attached on his side, public to him, with the Guard and keyword). If it goes to his vault, the symbiote goes to the vault as a second card. When a Collector-side host is later destroyed, the symbiote comes out on **his** side in that slot with `appraised = true` (he acquired it by Appraisal; it is a legal Covetous sacrifice) and goes to the player's discard when it dies (D-047). `appraisal.taken` lists the host only; `Track.appraisedLost` counts one Appraisal (host); the symbiote shows in `Appraised.sym`.
+  - **Sacrificed as a Covetous sacrifice** (his host): the symbiote goes to the player's discard with it (`Sacrificed`, reason `covetous`, from `board`).
+  - **Graft material and Split**: a host with a symbiote is **not an eligible Graft material and cannot split.** Bonding commits the host. (Simplest rule; the alternatives need an extra state or placement rule. See D-316 Q5.)
+- Uses and costs (for the preview): resilience (a second body behind the host, +2 Guard, a borrowed keyword), works on a full board (no slot), makes a Sentinel or Ward host. Bad: Appraisal costs two cards; the attached card is not attacking; a kill on the host costs the foe nothing extra but the symbiote then stands in a lane it did not choose.
+- Reason: owner's pick. One field on the host record is the least state; the "emerges where the host stood" rule is one destroy-path call.
+
+**D-309 · Interactions table (bond rules with existing rules; D-280…D-293, D-056…D-079)**
+- Date: 2026-10-16
+- Question: What does each existing rule do with the new actions, with the lanes, sickness and ring switches both on and off?
+- Decision (judgment):
+
+| Rule | Behavior |
+| --- | --- |
+| Appraisal (D-075…D-079) | Candidate test unchanged: face-up, not Shrouded, **Power** ≥ 7 (Guard bonus ignored), highest Power, tie leftmost. Host taken: symbiote follows (D-308). Shrouded host or Chimera is safe and may still split or bond. Split parts are base monsters: a Wyrm with Power ≥ 7 is a target again. |
+| Appraisal + Shroud | Shroud is per host record; the symbiote has none. A Shrouded Chimera that splits loses its Shroud (parts are fresh), so splitting a Shrouded Chimera is rarely wise. |
+| `SICKNESS_MODE` classic / monstersOnly | Split parts: cannot attack this turn in both modes, no Swift exception (D-307). Emerging symbiote: `entered = turn`, so a new record under D-280; Swift/Slow behave as for any entry. |
+| `LANES` off | Split: first part in the Chimera's slot, the others leftmost free. Symbiote: host's slot. |
+| `LANES` on | Same: the first part keeps the lane, the others take the leftmost free lane, no lane parameter on `split` (D-307). The emerging symbiote takes the host's lane. `symbiose` has no lane. Sentinel cover (D-283) is recomputed from the host's active keywords, so a Sentinel symbiote makes the host a Sentinel. |
+| Sentinel (symbiote-granted) | The host is a Sentinel while face-up; `restrictTargets` reads active keywords. |
+| Swift / Pierce / Ward / Haunt / Echo (symbiote-granted) | Active keywords of the host. Haunt and Echo use the LKI snapshot at destruction (D-122), which already includes the granted bits. Ward is the host's `wardUsed`; the symbiote's own Ward is intact when it emerges. |
+| Slow / Vain / Brittle / Tethered / Covetous | Flaws are never granted by a symbiote (keyword bits only). |
+| Unstable (D-061, D-152) | Chimera host: allowed. At expiry the host is destroyed and the symbiote comes out. Split is the other escape. Counts the +3 only while the Chimera lives. |
+| Last Rites, Insurance Claim (D-073) | Trigger once for the host's destruction. The emerging symbiote is not a destruction and does not trigger them. |
+| Counterfeit (Collector trap: a Chimera grafted this turn loses 3 Power) | Fires on `onGraft` only. Split parts are not a Chimera. Split also removes a `permP` malus the Chimera carried. |
+| Haunt on a split Chimera | No Haunt, no Echo: Split is not destruction. |
+| Echo / Grave Recall / Restoration | Grave Recall returning a stored material makes its Chimera unsplittable (D-307). A Chimera in the discard is not affected by Split of a different Chimera. A returned host's symbiote has already come out. |
+| Covetous summon (D-054) | Sacrificing an Appraised host with a symbiote sends both to the player's discard (D-308). The AI's sacrifice pick stays "weakest, vault before board" (D-213). |
+| Thornwall | Unchanged. |
+| Forfeit, Unmake, Bloodlust, Gilt Frame, Shroud | Target hosts normally. A destroyed host brings out its symbiote. Timed mods on a host do not pass to the symbiote. |
+| Vault sealed, Track | No change. Sim counters come from events (D-314). |
+| Hand overflow | Split parts that find no slot go to the hand; the hand may exceed `HAND_SIZE`. |
+
+- Reason: each row follows from "fresh record on entry, keyword bits only, Power untouched".
+
+**D-310 · Globals and flags for the bond rules**
+- Date: 2026-10-16
+- Question: Which switches and numbers does the engine need, and where do they live (D-166, D-205)?
+- Decision (judgment): `FLAGS` goes from 15 to 18 booleans. All new keys are in `globals.ts`; every number is one edit.
+
+| Key | Default | Kind | Read when |
+| --- | --- | --- | --- |
+| `FLAGS.SPLIT` | `false` | flag, owner-only | `split` is legal |
+| `FLAGS.SYMBIOSIS` | `false` | flag, owner-only | `symbiose` is legal; stats read `sym` |
+| `FLAGS.BOND_ACTION` | `false` | flag, owner-only | bond is its own slot (D-306) |
+| `SYMBIOSIS_GUARD_BONUS` | `2` | core number | `sym >= 0` |
+| `BOND_GRAFT_MAX_HAND_MATERIALS` | `3` | core number (3 = `MAX_GRAFT_MATERIALS`, no limit) | `BOND_ACTION` only |
+| `SPLIT_PART_PERM_P` | `0` | core number | each part's `permP` (negative = "weaker parts" lever) |
+| `BONDS_PER_TURN` | `1` | core number, **pinned** | — |
+| `SYMBIOTES_PER_HOST` | `1` | core number, **pinned** | — |
+
+- The pinned two follow D-205 (`PLAYS_PER_TURN` pattern): the schema refuses another value until a change teaches the code. The keyword cap on a host reuses `MAX_INHERITED_KEYWORDS`. Parts' sickness is a rule, not a number.
+- Owner-only levers (add to the ARCHITECTURE §11 list): `FLAGS.SPLIT`, `FLAGS.SYMBIOSIS`, `FLAGS.BOND_ACTION`, `BOND_GRAFT_MAX_HAND_MATERIALS`. Tuning: `SYMBIOSIS_GUARD_BONUS`, `SPLIT_PART_PERM_P`.
+- All are reachable by `--set` (`--set FLAGS.SPLIT=true`, `--set SYMBIOSIS_GUARD_BONUS=3`).
+- Reason: today's behavior is the default of every key; one value is one edit.
+
+**D-311 · Collector AI and the redacted view under bonds**
+- Date: 2026-10-16
+- Question: How does the Collector react, given he never bonds?
+- Decision (judgment): no new play or attack rule. The AI's inputs change in three places only.
+  1. **Appraisal is not a choice** (highest Power at 7 or more, tie leftmost, DESIGN and D-075); it is unchanged. With a symbiote he gets both cards; the AI needs no rule for that.
+  2. **Attack evaluation.** `previewAttack` and `winningAttacks` already use the engine's stats, which include the host's `+Guard` and keyword. A symbiote on a foe host is **public** (it is attached face-up), so `FoeMonster` (PublicMonster) gains `sym: PublicCard | null`, and `redactState` keeps `Monster.sym` for the viewer's opponent. Hidden information is unchanged: hand, deck, set traps and face-down identities. A face-down host cannot hold a symbiote (D-308), so no face-down information is exposed.
+  3. **Kills that release a symbiote.** `killWithoutLoss` ranks by what the kill leaves. Ranking and look-ahead use the engine on the redacted copy, so a destroyed foe host brings out its symbiote in the look-ahead and the follow-up attacks are seen. No rule text changes; ai-dev adds one tie-break only if the sim shows it matters (kill the host with no symbiote first). His own Appraised host's `sym` appears on `OwnMonster` (public to him).
+- The AI never sees `bond`; his `getLegalActions` never contains `split`, `symbiose` or a bond-slot `graftBegin`. `intentPolicy` forecasts with `endTurn` on the redacted copy and is unaffected.
+- Reason: Appraisal and attack choice are already functions of public stats. Making the symbiote public needs one field and no new hidden information.
+
+**D-312 · Bot brief: bonds in the novice, greedy and expert bots (ai-dev)**
+- Date: 2026-10-16
+- Question: How do the bots use the new actions so the sim measures them?
+- Decision (judgment), brief for ai-dev; weights live in the bot weight files (D-222), nothing in globals:
+  - **Novice** stays uniform over `getLegalActions`, which now includes `split` and `symbiose` and a bond-slot `graftBegin`. No code change. It is the "random" baseline.
+  - **Greedy** (one ply on `evaluate`) works through the look-ahead helper with no new code. `evaluate` gets terms, read only when a bond switch is on: `symbioteGuard` (plus per bonded host: Guard bonus and keyword value), `bondedKeyword`, `appraisalExposure` (minus: the Power and card count that the next Appraisal would take, where the next Appraisal round is the next Collector turn or the one after; a host counts 2 cards), `unstableTimer` (existing: an Unstable Chimera at its last turn is worth less), `boardWidth` (plus per body, so Split's width and overflow cards register). Greedy penalizes a no-op bond that changes nothing by 1e-6, so ties favor ending the turn (as D-298).
+  - **Expert**: add the bond slot to the plan: plan = reposition subsets × play option × bond option (none, Graft variants, Split, Symbiosis), applied in both orders when both exist and keeping legal, de-duplicated end-of-turn states. Bound the bond options with a bot setting `maxBondOptions` (6, by the greedy score of each option alone), so the ~400-plan bound stays. Split is a candidate only when it changes Appraisal exposure, escapes an Unstable timer, or frees a lane/slot; Symbiosis only on hosts whose Guard or keyword helps. Under `BOND_ACTION` off the options compete with plays as today.
+  - Heuristic summary: split the Chimera that the next Appraisal would take; split an Unstable Chimera on its last turn; split to get width back on a thin board; bond a Ward/Sentinel symbiote under the host that will be attacked; do not bond a host that is the Appraisal target (two-card loss) unless the host is Shrouded.
+  - Re-run the node and plan budget check after the change (D-299); report duels/sec per bot.
+- Reason: gives the sim its measurements without changing the novice, and keeps the expert's plan count bounded.
+
+**D-313 · Options preview: `engine.bondOptions(state)` (pure helper for the UI)**
+- Date: 2026-10-16
+- Question: The owner wants "check options, see the best". What data does the engine hand the UI?
+- Decision (judgment): a pure facade query `bondOptions(s): BondPreview` in `packages/engine/src/bond-preview.ts`, exported from the root next to `previewGraft` (ARCHITECTURE §8.7). For the player's turn it lists every legal bond action with its predicted result, applies each on a transaction draft (never touching `s`), and returns facts only. Data shape in ARCHITECTURE §5.6c.
+  - It returns facts (stats, keywords, slots, cards, Appraisal exposure), **not a verdict**. The "best" marker is `ai/bots/rank-bonds.ts › rankBondOptions(preview, weights)`, which scores each option's result with the bot `evaluate` terms (D-312); the UI uses it as a hint and the look is decided later with the owner (UI design gate).
+  - Graft options are one per (ordered materials, keyword choice), with position and lane left open (`positionFree`), so the list stays at most a few dozen; `steps` are the actions to apply up to the commit.
+  - Cost: one draft per option, no deep clone (structural sharing); not for use in the hot sim loop. The bots use the look-ahead helper instead.
+- Reason: one source of truth for "what would this do", testable against the real actions (a property test applies each `steps` list and compares).
+
+**D-314 · Sim A/B plan for the bond rules (playtest-runner)**
+- Date: 2026-10-16
+- Question: Which cells are added to the D-287 matrix?
+- Decision (judgment): `sim quick` 2000 games, expert, greedy and novice, with Collector `reposition` as shipped. Cells (flags as `--set FLAGS.X=true`): **baseline**; **B** (`BOND_ACTION`); **S** (`SPLIT`); **Y** (`SYMBIOSIS`); **BS**; **BY**; **SY**; **BSY** (all three); **BSY+123L** (all three plus `SICKNESS_MODE=monstersOnly`, `LANES`, ring A, the full R1+R2+R3 package of D-303). Variants on the best of BSY and BSY+123L: `BOND_GRAFT_MAX_HAND_MATERIALS=1` and `=2`; `SYMBIOSIS_GUARD_BONUS=1` and `=3`; `SPLIT_PART_PERM_P=-1`; `CHIMERA_TO_HAND=false`. `sim full` for the three closest cells plus BSY+123L (D-303 finalist rule).
+- New metrics (information only, no invented targets, D-304): per bot `splitsPerGame`, `symbiosesPerGame`, `graftsPerGame`, `bondUseShare` (turns with a bond action over own turns); **bond mix** (share of Graft / Split / Symbiosis among bond actions; a healthy meta has no single kind above about 70%, reported as a note, not a mark); `splitAppraisalDodge` (splits of the Appraisal target on the round before an Appraisal round); `splitUnstableEscape`; `symbioteDoubleLoss` (Appraisals that took a host with a symbiote); `symbioteEmerged` per game; `handMaterialGrafts` (Grafts using 2+ hand cards in a turn that also played a card); median rounds and damage per round (existing). Existing definitions unchanged (D-302). Counters come from events (`Split`, `Bonded`, `SymbioteEmerged`, `Appraised.sym`), not from new state.
+- Prerequisite: bots and AI per D-311/D-312 first; without them the matrix measures nothing (as D-287 said for lanes). Default-equivalence gate: with all three off, the sim equals the previous baseline run exactly (same seeds, same outcomes).
+- Reason: separates "more actions" from "new kinds"; keeps each switch measured alone.
+
+**D-315 · Rollout and flip notes**
+- Date: 2026-10-16
+- Question: What ships, in what order, and what changes at the flip?
+- Decision (judgment):
+  1. **Implementation order:** engine (state, actions, legality, pipelines, preview) with all switches off and the default-equivalence test green; then content (globals, schema, planned text drafts); then ai/bots; then sim metrics; then the matrix; then the web logic. Each package's size is in the report of this task.
+  2. **Texts follow the content-draft pattern** (`docs/reports/rules-flip-content-draft.md`): content-author writes `docs/reports/bond-flip-content-draft.md`; nothing in live JSON or DESIGN changes until the switch flips, and then in the same commit. One sentence each: Split "Unbind your Chimera into the monsters it was grafted from."; Symbiosis "Attach a monster from your hand under one of yours: it gains +{SYMBIOSIS_GUARD_BONUS} Guard and the attached monster's keyword."; the Graft line "It is your one play for the turn" changes under `BOND_ACTION`. These are howto/rules texts, not card text; no card changes.
+  3. **State fields:** `Monster.sym` and `GameState.bond` are always present with default values (−1 and 0). Test fixtures that build Monster literals need `sym: -1`; `makeMonster` supplies it. Board-state DSL (ARCHITECTURE §17) gains a `sym(<card-id>)` flag and a `bond@used` flag.
+  4. **`state.cfg`** changes with the new globals, so saved sessions fail replay when the defaults flip: bump `CONTENT_VERSION`, start a fresh duel with a notice, regenerate `seeds.json` (`sim seeds`), as D-287.
+  5. **DESIGN.md** is edited by the owner at the flip, never by the architect: Graft ("your one play"), Keywords table (no change), a new "Bond actions" section.
+  6. **UI** logic only until the owner picks the visual design (design gate): the store reads `bondOptions` and the action list; no component work.
+- Reason: same discipline as D-287; texts change only at flip time.
+
+**D-316 · Owner questions open after D-305…D-315 (recommended defaults)**
+- Date: 2026-10-16
+- Question: Which items are undecided?
+- Decision: each default below is the recommended answer and is already in D-305…D-315; the sim can test the alternative as a lever.
+  1. **Graft with hand materials under `BOND_ACTION`** (D-306): it does not use the card play; up to 3 hand cards plus the play card in a turn. Default yes, lever `BOND_GRAFT_MAX_HAND_MATERIALS` 3 (sim 1 and 2).
+  2. **Bond closes at the first attack** (D-306): default yes, so a bond is a pre-combat choice; the alternative (bond any time) makes attack-then-graft or attack-then-split free value.
+  3. **Split placement** (D-307): first part keeps the Chimera's slot and lane, the rest take the leftmost free slots, overflow to the hand, no player choice. Default as written; a placement choice would need a `PendingSplit` stage.
+  4. **Parts are no weaker than their printed stats** (D-307): `SPLIT_PART_PERM_P = 0`. The Chimera's loss of bonuses is the cost. The lever is there if the sim shows Split is free.
+  5. **Hosts with a symbiote** (D-308): cannot be Graft materials or split; Chimera hosts are allowed; a face-down host is not. Default as written.
+  6. **Keyword cap** (D-308): the symbiote's keyword is added only while the host has fewer than `MAX_INHERITED_KEYWORDS`. Default as written.
+  7. **Appraisal with a symbiote** (D-308): the Collector gets both; in the vault they are two cards; the symbiote is a legal Covetous sacrifice. Default as written.
+  8. **A Chimera that entered this turn cannot split** (D-307): default yes. And the symbiote is public to the Collector (D-311): default yes.
+- Reason: none is decided silently; the owner has accepted recommended defaults so far (D-288).
+- Owner ruling (2026-10-16, night): the owner asked the main session to finish and ship the whole change without waiting for them, so all eight defaults above are accepted as written. The UI follows the current D-237/D-271 style instead of new mockups, and the main session updates DESIGN.md at the flip (owner's request, an exception to D-315's "edited by the owner").
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
