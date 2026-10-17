@@ -763,3 +763,64 @@
     opacity: 0;
   }
 }
+
+/* ---- lanes (D-281..D-284): the three columns face each other; every mark is an icon plus a word or a color ---- */
+.slot-note {
+  position: absolute;
+  inset: auto 0 5px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+.empty-slot[data-blocked] {
+  color: var(--flaw);
+  border: 2px dashed rgb(255 106 94 / 0.55);
+}
+.empty-slot[data-blocked='active'] {
+  border-color: var(--flaw);
+  background: repeating-linear-gradient(135deg, rgb(255 106 94 / 0.14) 0 6px, transparent 6px 12px);
+}
+.cover-mark {
+  position: absolute;
+  top: -7px;
+  right: -5px;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 18px;
+  border-radius: 9px;
+  background: #101820;
+  border: 1.5px solid var(--gold-hi);
+  color: var(--gold-hi);
+  pointer-events: none;
+}
+.niche[data-covered] {
+  border-color: var(--gold-lo);
+}
+.tag[data-sick] {
+  color: var(--flaw);
+  border-color: var(--flaw);
+}
+.tag[data-moved] {
+  color: var(--bone-dim);
+  border-color: var(--bone-dim);
+}
+
+/* status marks that must show on every card size (sickness, moved): top centre, outside the corner columns */
+.mini-status {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 2;
+  display: flex;
+  gap: 2px;
+}
+@container (max-width: 56px) {
+  .mini-status .tag[data-moved] {
+    display: none;
+  }
+}

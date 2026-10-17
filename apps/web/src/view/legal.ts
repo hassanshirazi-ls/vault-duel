@@ -16,6 +16,8 @@ export interface LegalGroups {
   readonly setTraps: ReadonlyMap<Iid, Action>;
   /** board monster -> reposition / attacks */
   readonly repositions: ReadonlyMap<Iid, Action>;
+  /** board monster -> its lane moves, one per destination lane (FLAGS.LANES only, D-282) */
+  readonly moveLanes: ReadonlyMap<Iid, readonly Extract<Action, { t: 'moveLane' }>[]>;
   readonly attacks: ReadonlyMap<Iid, readonly Extract<Action, { t: 'attack' }>[]>;
   readonly graftPicks: ReadonlyMap<Iid, Action>;
   readonly graftKeywords: readonly Extract<Action, { t: 'graftKeywords' }>[];
@@ -40,6 +42,7 @@ export function groupLegal(legal: readonly Action[]): LegalGroups {
   const casts = new Map<Iid, Extract<Action, { t: 'cast' }>[]>();
   const setTraps = new Map<Iid, Action>();
   const repositions = new Map<Iid, Action>();
+  const moveLanes = new Map<Iid, Extract<Action, { t: 'moveLane' }>[]>();
   const attacks = new Map<Iid, Extract<Action, { t: 'attack' }>[]>();
   const graftPicks = new Map<Iid, Action>();
   const graftKeywords: Extract<Action, { t: 'graftKeywords' }>[] = [];
@@ -57,6 +60,7 @@ export function groupLegal(legal: readonly Action[]): LegalGroups {
       case 'cast': push(casts, a.c, a); break;
       case 'setTrap': setTraps.set(a.c, a); break;
       case 'reposition': repositions.set(a.m, a); break;
+      case 'moveLane': push(moveLanes, a.m, a); break;
       case 'attack': push(attacks, a.a, a); break;
       case 'graftPick': graftPicks.set(a.m, a); break;
       case 'graftKeywords': graftKeywords.push(a); break;
@@ -64,7 +68,7 @@ export function groupLegal(legal: readonly Action[]): LegalGroups {
     }
   }
   return {
-    keep, redraw, endTurn, graftBegin, graftCancel, graftSkipAscend, summons, summonCovetous, casts, setTraps, repositions,
+    keep, redraw, endTurn, graftBegin, graftCancel, graftSkipAscend, summons, summonCovetous, casts, setTraps, repositions, moveLanes,
     attacks, graftPicks, graftKeywords, graftPositions,
   };
 }

@@ -9,7 +9,7 @@ import type { Cue } from './cues';
 
 /** What the Collector is about to do, as ids; the screen turns them into highlights and one line of text. */
 export interface Telegraph {
-  readonly kind: 'attack' | 'summon' | 'summonDown' | 'cast' | 'trap' | 'reposition';
+  readonly kind: 'attack' | 'summon' | 'summonDown' | 'cast' | 'trap' | 'reposition' | 'moveLane';
   /** the monster that acts (lit) */
   readonly actor?: Iid;
   /** the card played from his hand */
@@ -59,6 +59,8 @@ export function telegraphOf(f: Frame): Telegraph | null {
     }
     case 'reposition':
       return { kind: 'reposition', actor: a.m };
+    case 'moveLane':
+      return { kind: 'moveLane', actor: a.m, slot: { side: 1 as const, kind: 'monster' as const, index: a.to } };
     default:
       return null;
   }

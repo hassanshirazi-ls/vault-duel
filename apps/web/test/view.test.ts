@@ -40,7 +40,7 @@ describe('legal grouping', () => {
     const g = groupLegal(legal);
     let count = (g.endTurn ? 1 : 0) + (g.graftBegin ? 1 : 0) + (g.graftCancel ? 1 : 0) + g.graftKeywords.length + g.graftPositions.length;
     for (const m of [g.summons, g.summonCovetous, g.casts, g.attacks]) for (const list of m.values()) count += list.length;
-    count += g.setTraps.size + g.repositions.size + g.graftPicks.size + (g.graftSkipAscend ? 1 : 0) + (g.keep ? 1 : 0) + (g.redraw ? 1 : 0);
+    count += g.setTraps.size + g.repositions.size + [...g.moveLanes.values()].reduce((n, l) => n + l.length, 0) + g.graftPicks.size + (g.graftSkipAscend ? 1 : 0) + (g.keep ? 1 : 0) + (g.redraw ? 1 : 0);
     expect(count).toBe(legal.length);
   });
   it('builds a card view for a hand card', async () => {

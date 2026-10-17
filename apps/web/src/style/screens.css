@@ -405,6 +405,64 @@
   justify-content: center;
   gap: 8px;
 }
+/* lanes on: the two monster rows and the track sit in one block, with three gilt rails running through them so slot i
+   visibly faces slot i (D-281). The rails are drawn behind the cards and take no tap. */
+.lanes {
+  position: relative;
+  flex: 3;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 4px;
+}
+.lanes > .row,
+.lanes > .track-wrap {
+  position: relative;
+  z-index: 1;
+}
+.lane-rails {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  grid-template-columns: repeat(3, calc(var(--cw) + 16px));
+  gap: 0;
+  justify-content: center;
+  pointer-events: none;
+}
+.lane-rails.labels {
+  z-index: 8;
+}
+.lane-rails.labels .rail {
+  border: 0;
+  background: none;
+}
+.rail {
+  position: relative;
+  border-inline: 1px dashed var(--gold-lo);
+  background: linear-gradient(rgb(210 178 106 / 0.07), rgb(210 178 106 / 0.02) 50%, rgb(210 178 106 / 0.07));
+}
+.rail[data-active] {
+  border-inline: 2px solid var(--gold-hi);
+  background: linear-gradient(rgb(210 178 106 / 0.2), rgb(210 178 106 / 0.08) 50%, rgb(210 178 106 / 0.2));
+}
+.rail b {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 7;
+  padding: 1px 6px;
+  border-radius: 2px;
+  background: #0d0a0b;
+  border: 1px solid var(--gold-lo);
+  color: var(--gold-hi);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
 .row.monsters {
   grid-template-columns: repeat(3, auto);
   justify-items: center;
@@ -1304,6 +1362,26 @@ button.life[data-glow='target']::after {
 .bench-actions .btn {
   flex: 1;
   min-height: 48px;
+}
+/* Graft's last step with lanes on: pick the position (two square toggles), then the lane, in one row (D-284) */
+.lane-pos,
+.lane-pick {
+  display: flex;
+  gap: 6px;
+}
+.lane-pick {
+  flex: 1;
+}
+.lane-pos .toggle.sq {
+  width: 52px;
+  min-height: 48px;
+}
+.lane-pick .btn {
+  flex: 1;
+  gap: 4px;
+  padding: 0 8px;
+  white-space: nowrap;
+  font-size: 18px;
 }
 
 /* ---------- result: bill of sale ---------- */

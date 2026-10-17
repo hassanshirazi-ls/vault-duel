@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { hashState } from '@vault-duel/engine';
 import type { Action } from '@vault-duel/engine';
-import { RESTART_NOTICE } from '../src/store/game';
+import { RESTART_NOTICE, RULES_NOTICE } from '../src/store/game';
 import { loadSession, saveSession, sessionKey } from '../src/daily/session';
 import { memoryStorage } from '../src/persistence/storage';
 import { makeStore, simplePick, started } from './helpers';
@@ -129,7 +129,7 @@ describe('save and resume (D-108, D-191)', () => {
     const again = makeStore(DATE, storage);
     await again.store.getState().boot();
     const s = again.store.getState();
-    expect(s.notice).toBe(RESTART_NOTICE);
+    expect(s.notice).toBe(RULES_NOTICE);
     expect(s.phase.name).toBe('duel');
     expect(s.actions).toEqual([]);
     expect(loadSession(storage, DATE)?.actions).toEqual([]);

@@ -2820,6 +2820,17 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 **D-320 · `bondOptions` lists every ordered Graft tuple** (engine-dev, 2026-10-16)
 - Decision: one option per ordered material tuple (up to 155 for 8 materials, about 1.5 ms). A Graft result is shown in attack position in the leftmost lane. Appraisal exposure is judged at the Collector turn of the next Appraisal round and ignores an Unstable expiry before then. Under `BOND_ACTION` the hand-material limit applies to both sides. A Covetous sacrifice of a host emits `Sacrificed` for the host, then the symbiote (discard order host, symbiote). `SPLIT_PART_PERM_P` is the only global allowed below 0.
 
+**D-321 · The in-duel compass becomes an element strip** (ui-dev, 2026-10-16; changes the D-271 compass C placement)
+- Decision: with three lanes, the 116 px compass couldn't sit off the board at 360 px and stay legible. A strip above the player's row shows the picked monster's element gem, "Beats [gems] +N" and "Weak to [gems]", read from `elements.json` and `ELEMENT_BONUS`. The full wheel (A) stays in How to play. The strip is used with lanes on and off.
+- Owner review: flagged in the 2026-10-17 morning report; the owner picked compass C on 2026-10-16.
+
+**D-322 · Lane choice in the web UI** (ui-dev, 2026-10-16)
+- Decision: under `FLAGS.LANES`, a summon is pick card → pick mode → tap an empty lane; Graft's last step shows the position toggles plus Lane 1–3 buttons in the sheet; Covetous picks the sacrifice, then a lane. Every lane tap maps to an action from `getLegalActions`; no extra confirm. A monster whose lane is empty and uncovered shows "No hit"; Sentinel cover shows as a badge; the sickness badge appears only with `SICKNESS_MODE = monstersOnly`.
+- Lane moves: select your monster, then tap a lit "Move" or "Swap" slot. The hint reads "A lane move or a switch: once per turn."
+
+**D-323 · Saved duels under other rules restart with a notice** (ui-dev, 2026-10-16)
+- Decision: a cfg or `CONTENT_VERSION` mismatch on resume restarts the duel and shows `RULES_NOTICE`: "The rules changed since this duel was saved; it starts over." The dev hot-reload notice is unchanged.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

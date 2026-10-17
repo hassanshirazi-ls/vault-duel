@@ -21,6 +21,8 @@ import { UNDO_WHY, undoStatus } from '../view/undo';
 import type { ActionRecord } from '../view/undo';
 
 export const RESTART_NOTICE = 'content changed, duel restarted';
+/** A duel saved by an older build (other rules or content) starts over, with this notice. */
+export const RULES_NOTICE = 'The rules changed since this duel was saved; it starts over.';
 
 export type Phase =
   | { readonly name: 'booting' }
@@ -242,7 +244,7 @@ export function createGameStore(deps: GameDeps) {
         // Replay failed (cfg mismatch, illegal action, new content version): restart instead of losing it silently.
         clearSession(deps.storage, date);
         clearSession(deps.storage, date, 'practice');
-        beginDuel(opts.restartNotice ?? RESTART_NOTICE);
+        beginDuel(opts.restartNotice ?? (resumed.rules ? RULES_NOTICE : RESTART_NOTICE));
       },
 
       start() {

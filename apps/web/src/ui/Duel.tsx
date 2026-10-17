@@ -10,6 +10,7 @@ import { MOOD_NAMES } from '@vault-duel/ai';
 import { roundOfState } from '../duel/turn';
 import { cardView } from '../view/cards';
 import { monsterSlotKeys } from '../view/keys';
+import { attackNote, coveredLanes, lanesOn, monstersOnly, movedThisTurn } from '../view/lanes';
 import { groupLegal } from '../view/legal';
 import { duelLog, undoLabel } from '../view/log';
 import { boardActionable, planFor, summonMode } from '../view/selection';
@@ -25,7 +26,7 @@ import { useStepFx } from './useStepFx';
 import { useGame } from './context';
 import { DuelMenu } from './DuelMenu';
 import type { UndoTile } from './DuelMenu';
-import { ElementWheel } from './ElementWheel';
+import { ElementStrip } from './ElementStrip';
 import { GraftSheet } from './GraftSheet';
 import { useWide } from './hooks';
 import { Inspect } from './Inspect';
@@ -84,6 +85,14 @@ export function Duel() {
   };
   const hintFor = (iid: Iid): string | undefined => (sel?.t === 'board' && pending === null ? combatHint(sel.iid, iid) : undefined);
 
+  // lanes (D-281..D-284): display only. What may be played, moved or attacked is whatever `groups` offers.
+  const L = lanesOn(g);
+  const sentinelBit = ctx.content.kwBit['sentinel'];
+  const covers = [coveredLanes(g, rt.engine, sentinelBit, S, 0), coveredLanes(g, rt.engine, sentinelBit, S, 1)] as const;
+  const selSlot = sel?.t === 'board' ? S.sides[0].board.findIndex((m) => m !== null && m.iid === sel.iid) : -1;
+  const noLifeLane = pending === null && selSlot >= 0 && plan.direct === null && plan.targets.size === 0 ? attackNote(g, S, selSlot) : null;
+  const selMonster = sel?.t === 'board' ? (S.sides[0].board[selSlot] ?? null) : null;
+
   // The Collector's telegraph: never name a face-down card of his before it is turned up.
   const nameOf = (iid: Iid): string => {
     const hidden = S.sides[1].board.some((m) => m !== null && m.iid === iid && m.faceDown);
@@ -92,7 +101,7 @@ export function Duel() {
   const tgLine = telegraph === null ? null : telegraphLine(telegraph, nameOf);
   const markOf = (iid: Iid): { icon: string; label: string } | undefined => {
     if (telegraph === null) return undefined;
-    if (telegraph.actor === iid) return { icon: telegraph.kind === 'reposition' ? 'swap' : 'sword', label: 'Acts' };
+    if (telegraph.actor === iid) return { icon: telegraph.kind === 'reposition' || telegraph.kind === 'moveLane' ? 'swap' : 'sword', label: 'Acts' };
     if (telegraph.target === iid) return { icon: 'pos', label: 'Target' };
     return undefined;
   };
@@ -106,6 +115,16 @@ export function Duel() {
     if (hit !== undefined) return doAct(hit);
     if (picked(m.iid)) return unpick(m.iid);
     if (pending !== null) return setInspected(m.iid);
+    const slot = mine ? me.board.findIndex((x) => x !== null && x.iid === m.iid) : -1;
+    // a lane swap: the selected monster trades places with this one of yours
+    const swap = mine && sel?.t === 'board' && sel.iid !== m.iid ? plan.moves.get(slot) : undefined;
+    if (swap !== undefined) return doAct(swap);
+    // Covetous with lanes: pick the sacrifice, then (it frees its own lane) a lane
+    if (mine && sel?.t === 'hand' && plan.sacs.has(m.iid)) {
+      const lane = sel.sac === m.iid ? plan.lanes.get(slot) : undefined;
+      if (lane !== undefined) return doAct(lane);
+      return setSel({ ...sel, sac: m.iid });
+    }
     if (mine && boardActionable(groups, m.iid)) return setSel(sel?.t === 'board' && sel.iid === m.iid ? null : { t: 'board', iid: m.iid });
     setSel(null);
     setInspected(m.iid);
@@ -120,15 +139,22 @@ export function Duel() {
       <div className="row monsters" data-side={mine ? 'me' : 'them'}>
         {s.board.map((m, i) => {
           const key = keys[i] as string;
+          const guarded = covers[side].has(i);
           const niche = (child: ReactNode) => (
-            <div key={key} className="niche">
+            <div key={key} className="niche" data-lane={L ? i : undefined} data-covered={guarded ? '' : undefined}>
               {child}
+              {guarded && (
+                <span className="cover-mark" title="Guarded by a Sentinel: attacks here must target it" aria-label="Guarded by a Sentinel">
+                  <Glyph id="barrier" size={12} />
+                </span>
+              )}
             </div>
           );
           if (m === null) {
             const ghost = ghosts.find((gh) => gh.side === side && gh.slot === i);
             if (ghost !== undefined) return niche(<GhostCard ghost={ghost} />);
-            const open = mine && plan.summon !== null;
+            const play = mine ? (plan.summon ?? plan.lanes.get(i) ?? null) : null;
+            const move = mine ? (plan.moves.get(i) ?? null) : null;
             if (slotMarked(side, 'monster', i)) {
               return niche(
                 <div className="empty-slot" data-glow="slot" aria-label="Empty monster slot, the Collector plays here">
@@ -136,19 +162,37 @@ export function Duel() {
                 </div>,
               );
             }
-            return niche(
-              open ? (
-                <button type="button" className="empty-slot" data-glow="slot" aria-label="Empty monster slot, summon here" onClick={() => doAct(plan.summon as Action)}>
+            if (play !== null) {
+              return niche(
+                <button type="button" className="empty-slot" data-glow="slot" aria-label={L ? `Empty lane ${i + 1}, summon here` : 'Empty monster slot, summon here'} onClick={() => doAct(play)}>
                   <Glyph id="pos" size={22} />
-                </button>
-              ) : (
-                <div className="empty-slot" aria-label="Empty monster slot" />
-              ),
-            );
+                </button>,
+              );
+            }
+            if (move !== null) {
+              return niche(
+                <button type="button" className="empty-slot" data-glow="slot" aria-label={`Empty lane ${i + 1}, move here`} onClick={() => doAct(move)}>
+                  <Glyph id="swap" size={22} />
+                  <span className="slot-note">Move</span>
+                </button>,
+              );
+            }
+            if (!mine && !blocked && me.board[i] !== null && attackNote(g, S, i) !== null && !guarded) {
+              return niche(
+                <div className="empty-slot" data-blocked={i === selSlot ? 'active' : ''} aria-label="Empty lane across: this monster cannot attack, and cannot hit his life while he has monsters">
+                  <Glyph id="shield" size={20} />
+                  <span className="slot-note">No hit</span>
+                </div>,
+              );
+            }
+            return niche(<div className="empty-slot" aria-label={L ? `Empty lane ${i + 1}` : 'Empty monster slot'} />);
           }
           const mark = markOf(m.iid);
           const lit = telegraph?.actor === m.iid;
-          const glow = targets.has(m.iid) || telegraph?.target === m.iid ? 'target' : null;
+          const moveHere = mine && sel?.t === 'board' && sel.iid !== m.iid && plan.moves.has(i);
+          const sac = mine && plan.sacs.has(m.iid);
+          const glow = targets.has(m.iid) || telegraph?.target === m.iid || moveHere || sac ? 'target' : null;
+          const note = moveHere ? 'Swap' : sac ? (sel?.t === 'hand' && sel.sac === m.iid ? 'Here' : 'Sacrifice') : undefined;
           if (m.faceDown && !mine) {
             return niche(
               <CardBack
@@ -162,7 +206,7 @@ export function Duel() {
             );
           }
           const c = view(m.iid);
-          const isSel = (sel?.t === 'board' && sel.iid === m.iid) || picked(m.iid) || lit;
+          const isSel = (sel?.t === 'board' && sel.iid === m.iid) || picked(m.iid) || lit || (sel?.t === 'hand' && sel.sac === m.iid);
           const dim = (sel !== null || pending !== null) && glow === null && !isSel;
           return niche(
             <MiniCard
@@ -173,8 +217,10 @@ export function Duel() {
               selected={isSel}
               dim={dim}
               cue={cueFor(m.iid)}
-              preview={glow === null || telegraph !== null ? undefined : hintFor(m.iid)}
+              preview={glow === null || telegraph !== null ? undefined : (note ?? hintFor(m.iid))}
               mark={mark}
+              monstersOnly={monstersOnly(g, rt.engine, S, m)}
+              moved={movedThisTurn(g, S, m)}
               onTap={() => tapBoard(m, mine)}
               onLong={() => setInspected(m.iid)}
               onHover={(on) => setHovered(on ? m.iid : null)}
@@ -260,16 +306,33 @@ export function Duel() {
     if (sel?.t === 'hand') {
       if (!plan.anything) return 'This cannot be played right now.';
       const bits: string[] = [];
-      if (plan.summon !== null) bits.push(`Tap an empty slot to summon it ${summonMode(sel) === 'down' ? 'face-down' : summonMode(sel) === 'grd' ? 'in Guard' : 'in Attack'}.`);
+      const how = summonMode(sel) === 'down' ? 'face-down' : summonMode(sel) === 'grd' ? 'in Guard' : 'in Attack';
+      if (plan.summon !== null) bits.push(`Tap an empty slot to summon it ${how}.`);
+      if (plan.lanes.size > 0) bits.push(`Tap a lit lane to summon it ${how}.`);
+      else if (plan.sacs.size > 0) bits.push('Tap a glowing card to sacrifice, then a lane.');
       if (plan.targets.size > 0) bits.push('Tap a glowing target.');
       if (plan.setTrap !== null) bits.push('Tap an empty trap slot.');
       return bits.join(' ');
     }
-    return plan.direct !== null || plan.targets.size > 0 ? 'Tap a glowing target to attack.' : 'No attack available.';
+    const bits: string[] = [];
+    if (L && plan.direct !== null) bits.push('His board is empty: tap his life to attack it.');
+    else if (plan.direct !== null || plan.targets.size > 0) bits.push('Tap a glowing target to attack.');
+    else if (noLifeLane !== null) bits.push('Empty lane: it cannot hit his life while he has monsters.');
+    else if (plan.moves.size === 0) bits.push('No attack available.');
+    if (plan.moves.size > 0) bits.push('A lane move or a switch: once per turn.');
+    if (selMonster !== null && monstersOnly(g, rt.engine, S, selMonster)) bits.push('Summoned this turn: it can hit monsters, not life.');
+    return bits.join(' ');
   })();
 
-  // the element compass (D-272): for the picked monster, an attacker on the board or one to summon from the hand
+  // the element compass (D-272), now a strip over the round track so it never covers a lane: for the picked monster,
+  // an attacker on the board or one to summon from the hand
   const compassId = pending === null && !blocked && selView !== null && selView.element !== null && selView.power !== null ? selView.element.id : null;
+  const track = (
+    <div className="track-wrap">
+      <RoundTrack globals={g} round={roundOfState(S)} />
+      {compassId !== null && <ElementStrip focus={compassId} />}
+    </div>
+  );
   const maxLife = g.PLAYER_LIFE;
   const myDamage = cues.find((c) => c.kind === 'damage' && c.side === 0);
   const moodLabel = moodName(g, S);
@@ -312,15 +375,32 @@ export function Duel() {
       />
 
       <div className="board-area">
-        {compassId !== null && (
-          <div className="compass-box">
-            <ElementWheel variant="compass" focus={compassId} />
-          </div>
-        )}
         {trapRow(1)}
-        {monsterRow(1)}
-        <RoundTrack globals={g} round={roundOfState(S)} />
-        {monsterRow(0)}
+        {L ? (
+          <div className="lanes">
+            <div className="lane-rails" aria-hidden="true">
+              {S.sides[0].board.map((_, i) => (
+                <span key={`rail-${i}`} className="rail" data-active={selSlot === i ? '' : undefined} />
+              ))}
+            </div>
+            <div className="lane-rails labels" aria-hidden="true">
+              {S.sides[0].board.map((_, i) => (
+                <span key={`label-${i}`} className="rail">
+                  <b>Lane {i + 1}</b>
+                </span>
+              ))}
+            </div>
+            {monsterRow(1)}
+            {track}
+            {monsterRow(0)}
+          </div>
+        ) : (
+          <>
+            {monsterRow(1)}
+            {track}
+            {monsterRow(0)}
+          </>
+        )}
         {trapRow(0)}
       </div>
 
@@ -370,7 +450,8 @@ export function Duel() {
               ) : (
                 <>
                   <p>
-                    <b>{selView.name}</b> {hint}
+                    {!(L && sel?.t === 'board') && <b>{selView.name} </b>}
+                    {hint}
                   </p>
                   <div className="hint-buttons">
                     {plan.cast !== null && (
@@ -378,11 +459,22 @@ export function Duel() {
                         <Glyph id="spell" size={18} /> Cast
                       </button>
                     )}
-                    {plan.reposition !== null && (
-                      <button type="button" className="btn" onClick={() => doAct(plan.reposition as Action)}>
-                        <Glyph id="swap" size={18} /> Reposition
-                      </button>
-                    )}
+                    {plan.reposition !== null &&
+                      (L ? (
+                        <button
+                          type="button"
+                          className="btn icon"
+                          aria-label={selMonster?.pos === 0 ? 'Switch to Guard position' : 'Switch to Attack position'}
+                          title={selMonster?.pos === 0 ? 'Switch to Guard' : 'Switch to Attack'}
+                          onClick={() => doAct(plan.reposition as Action)}
+                        >
+                          <Glyph id={selMonster?.pos === 0 ? 'shield' : 'sword'} size={20} />
+                        </button>
+                      ) : (
+                        <button type="button" className="btn" onClick={() => doAct(plan.reposition as Action)}>
+                          <Glyph id="swap" size={18} /> Reposition
+                        </button>
+                      ))}
                     <button type="button" className="btn ghost icon" aria-label="Inspect" onClick={() => setInspected(sel?.iid ?? null)}>
                       <Glyph id="info" size={20} />
                     </button>

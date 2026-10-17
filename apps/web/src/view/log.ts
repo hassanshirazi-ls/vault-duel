@@ -45,6 +45,9 @@ export function logLines(ctx: GameCtx, state: GameState, events: readonly GameEv
       case 'AttackDeclared':
         out.push({ text: e.target === -1 ? `${name(e.attacker)} attacks directly` : `${name(e.attacker)} attacks ${name(e.target)}`, icon: 'sword', side: null });
         break;
+      case 'LaneMoved':
+        out.push({ text: e.swapped === -1 ? `${name(e.iid)} moved to lane ${e.to + 1}` : `${name(e.iid)} and ${name(e.swapped)} swapped lanes`, icon: 'swap', side: null });
+        break;
       case 'Damage':
         out.push({ text: `${who(e.side)} took ${e.amount} damage`, icon: 'heart', side: sideOf(e.side) });
         break;
@@ -104,6 +107,7 @@ export function undoLabel(ctx: GameCtx, state: GameState, records: readonly { re
   };
   for (const r of records) {
     if (r.action.t === 'reposition') return `Reposition ${name(r.action.m)}`;
+    if (r.action.t === 'moveLane') return `Move ${name(r.action.m)} to lane ${r.action.to + 1}`;
     for (const e of r.events) {
       if (e.e === 'Summoned') return e.faceDown ? 'Set a card face-down' : `Summon ${name(e.iid)}`;
       if (e.e === 'Grafted') return `Graft ${name(e.iid)}`;

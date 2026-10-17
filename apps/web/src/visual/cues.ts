@@ -44,6 +44,10 @@ export function cuesFromEvents(events: readonly GameEvent[]): Cue[] {
     switch (e.e) {
       case 'Summoned': add({ kind: 'enter', iid: e.iid }); break;
       case 'Grafted': add({ kind: 'graft', iid: e.iid }); break;
+      case 'LaneMoved':
+        if (e.swapped >= 0) add({ kind: 'flash', iid: e.swapped }, false);
+        add({ kind: 'flash', iid: e.iid });
+        break;
       case 'Appraised': add({ kind: 'taken', iid: e.iid }, false); add({ kind: 'flash', iid: e.iid }, true, 3); break;
       case 'Destroyed': add({ kind: 'burn', iid: e.iid, side: e.side }); break;
       case 'AttackDeclared': add({ kind: 'lunge', iid: e.attacker }); break;

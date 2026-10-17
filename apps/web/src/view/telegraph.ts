@@ -23,5 +23,7 @@ export function telegraphLine(t: Telegraph, nameOf: (iid: Iid) => string): Teleg
       return { icon: 'trap', text: 'The Collector sets a trap' };
     case 'reposition':
       return { icon: 'swap', text: `${of(t.actor)} changes position` };
+    case 'moveLane':
+      return { icon: 'swap', text: `${of(t.actor)} moves to lane ${(t.slot?.index ?? 0) + 1}` };
   }
 }

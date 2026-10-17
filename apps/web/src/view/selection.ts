@@ -4,12 +4,18 @@ import type { Action, Iid, SummonMode } from '@vault-duel/engine';
 import type { LegalGroups } from './legal';
 
 export type Selection =
-  | { readonly t: 'hand'; readonly iid: Iid; readonly faceDown: boolean; readonly guard: boolean }
+  | { readonly t: 'hand'; readonly iid: Iid; readonly faceDown: boolean; readonly guard: boolean; readonly sac?: Iid }
   | { readonly t: 'board'; readonly iid: Iid };
 
 export interface Plan {
-  /** summon: tapping an empty monster slot plays this */
+  /** summon without a lane (lanes off): tapping any empty monster slot plays this */
   readonly summon: Action | null;
+  /** lane -> the action that plays the selected card there (lanes on: a summon, or a Covetous summon with the chosen sacrifice) */
+  readonly lanes: ReadonlyMap<number, Action>;
+  /** Covetous sacrifices that still need a lane: tapping one picks it, then the lanes light up */
+  readonly sacs: ReadonlySet<Iid>;
+  /** destination lane -> the lane move of the selected board monster */
+  readonly moves: ReadonlyMap<number, Action>;
   /** monster-targeting actions (attack, targeted cast, covetous sacrifice), by the board card to tap */
   readonly targets: ReadonlyMap<Iid, Action>;
   /** attack straight at the Collector's life */
@@ -29,6 +35,9 @@ export const summonMode = (s: Extract<Selection, { t: 'hand' }>): SummonMode => 
 export function planFor(groups: LegalGroups, sel: Selection | null): Plan {
   const targets = new Map<Iid, Action>();
   const modes = new Set<SummonMode>();
+  const lanes = new Map<number, Action>();
+  const sacs = new Set<Iid>();
+  const moves = new Map<number, Action>();
   let summon: Action | null = null;
   let direct: Action | null = null;
   let setTrap: Action | null = null;
@@ -38,11 +47,18 @@ export function planFor(groups: LegalGroups, sel: Selection | null): Plan {
     const want = summonMode(sel);
     for (const a of groups.summons.get(sel.iid) ?? []) {
       modes.add(a.mode);
-      if (a.mode === want) summon = a;
+      if (a.mode !== want) continue;
+      if (a.lane === undefined) summon = a;
+      else lanes.set(a.lane, a);
     }
     for (const a of groups.summonCovetous.get(sel.iid) ?? []) {
       modes.add(a.mode);
-      if (a.mode === want) targets.set(a.sac, a);
+      if (a.mode !== want) continue;
+      if (a.lane === undefined) targets.set(a.sac, a);
+      else {
+        sacs.add(a.sac);
+        if (sel.sac === a.sac) lanes.set(a.lane, a);
+      }
     }
     for (const a of groups.casts.get(sel.iid) ?? []) {
       if (a.target >= 0) targets.set(a.target, a);
@@ -55,12 +71,13 @@ export function planFor(groups: LegalGroups, sel: Selection | null): Plan {
       else direct = a;
     }
     reposition = groups.repositions.get(sel.iid) ?? null;
+    for (const a of groups.moveLanes.get(sel.iid) ?? []) moves.set(a.to, a);
   }
-  const anything = summon !== null || targets.size > 0 || direct !== null || setTrap !== null || cast !== null || reposition !== null;
-  return { summon, targets, direct, setTrap, cast, reposition, modes, anything };
+  const anything = summon !== null || lanes.size > 0 || sacs.size > 0 || moves.size > 0 || targets.size > 0 || direct !== null || setTrap !== null || cast !== null || reposition !== null;
+  return { summon, lanes, sacs, moves, targets, direct, setTrap, cast, reposition, modes, anything };
 }
 
 /** Does a board monster have anything to do (so tapping it selects it instead of inspecting)? */
 export function boardActionable(groups: LegalGroups, iid: Iid): boolean {
-  return (groups.attacks.get(iid)?.length ?? 0) > 0 || groups.repositions.has(iid);
+  return (groups.attacks.get(iid)?.length ?? 0) > 0 || groups.repositions.has(iid) || (groups.moveLanes.get(iid)?.length ?? 0) > 0;
 }

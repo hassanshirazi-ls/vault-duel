@@ -60,6 +60,7 @@ const STROKE: Readonly<Record<string, ReactNode>> = {
       <path d="M12 4v5M12 15v5M4 12h5M15 12h5" />
     </>
   ),
+  nolife: <path d="M12 20s-8-5-8-11a4.5 4.5 0 0 1 8-2.5A4.5 4.5 0 0 1 20 9c0 6-8 11-8 11zM4 4l16 16" />,
   heart: <path d="M12 20s-8-5-8-11a4.5 4.5 0 0 1 8-2.5A4.5 4.5 0 0 1 20 9c0 6-8 11-8 11z" />,
   swap: <path d="m7 4-4 4 4 4M3 8h14M17 20l4-4-4-4M21 16H7" />,
   check: <path d="m5 12 5 5 9-10" />,

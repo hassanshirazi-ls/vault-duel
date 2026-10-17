@@ -48,11 +48,15 @@ export interface MiniCardProps {
   readonly mark?: { readonly icon: string; readonly label: string } | undefined;
   readonly style?: CSSProperties;
   readonly label?: string;
+  /** can hit monsters but not life this turn (D-280) */
+  readonly monstersOnly?: boolean;
+  /** already used this turn's reposition: a position switch or a lane move (D-282) */
+  readonly moved?: boolean;
   /** a mouse entered or left the card; touch and pen never call this */
   readonly onHover?: ((on: boolean) => void) | undefined;
 }
 
-export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, mark, style, label, onHover }: MiniCardProps) {
+export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, mark, style, label, onHover, monstersOnly = false, moved = false }: MiniCardProps) {
   const press = useLongPress(onTap, onLong);
   const frame = frameFor(view.keywords);
   const flaw = view.keywords.find((k) => k.flaw);
@@ -61,7 +65,7 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
   const cueStyle = cue === undefined ? undefined : ({ '--b': cue.beat } as CSSProperties);
   const classes = ['mini', large ? 'large' : '', cue === undefined ? '' : `cue cue-${cue.kind}`].filter(Boolean).join(' ');
   const stat = (base: number | null): string => (base === null ? '' : String(base));
-  const status = [monster === undefined ? '' : monster.pos === 0 ? 'Attack position' : 'Guard position', view.ascended ? 'Ascended' : '', unstable ? 'Unstable' : ''].filter(Boolean);
+  const status = [monster === undefined ? '' : monster.pos === 0 ? 'Attack position' : 'Guard position', view.ascended ? 'Ascended' : '', unstable ? 'Unstable' : '', monstersOnly ? 'Can attack monsters, not life, this turn' : '', moved ? 'Already moved this turn' : ''].filter(Boolean);
   return (
     <button
       type="button"
@@ -116,6 +120,20 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
           </span>
         )}
       </span>
+      {(monstersOnly || moved) && (
+        <span className="mini-status">
+          {monstersOnly && (
+            <span className="tag" data-sick="" title="Can attack monsters, not life, this turn">
+              <Glyph id="nolife" size={12} />
+            </span>
+          )}
+          {moved && (
+            <span className="tag" data-moved="" title="Already moved this turn">
+              <Glyph id="swap" size={12} />
+            </span>
+          )}
+        </span>
+      )}
       <span className="mini-col r">
         {frame.glyphs.map((k) => (
           <span key={k.id} className="kw-glyph" data-flaw={k.flaw ? '' : undefined} title={k.name}>

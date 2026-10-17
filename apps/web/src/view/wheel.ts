@@ -133,3 +133,14 @@ export function wheelSummary(layout: WheelLayout): string {
     })
     .join(', ');
 }
+
+/** What the in-duel strip shows for one element: the element, what it beats and what beats it (both from the matrix). */
+export function stripFor(layout: WheelLayout, focus: string): { readonly me: ElementInfo; readonly beats: readonly ElementInfo[]; readonly weakTo: readonly ElementInfo[] } | null {
+  const me = layout.order.find((e) => e.id === focus);
+  if (me === undefined) return null;
+  return {
+    me,
+    beats: layout.order.filter((e) => e.id !== me.id && me.beats.includes(e.id)),
+    weakTo: layout.order.filter((e) => e.id !== me.id && e.beats.includes(me.id)),
+  };
+}

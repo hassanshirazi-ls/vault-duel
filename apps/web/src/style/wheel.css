@@ -26,15 +26,6 @@
   stroke: var(--gold);
   stroke-width: 2.4;
 }
-.wheel-arrow.foe {
-  stroke: var(--flaw);
-  stroke-width: 2;
-  stroke-dasharray: 4 3;
-}
-.wheel-arrow.dim {
-  stroke: var(--iron-hi);
-  stroke-width: 1.4;
-}
 .wheel-tracer {
   fill: none;
   stroke: var(--bone);
@@ -67,17 +58,6 @@
   font-size: 15px;
   font-weight: 700;
 }
-.wheel-node[data-state='dim'] {
-  opacity: 0.5;
-}
-.wheel-node[data-state='lit'] circle {
-  stroke: var(--bone);
-  stroke-width: 3;
-}
-.wheel-node[data-state='foe'] circle {
-  stroke: var(--flaw);
-  stroke-width: 2.5;
-}
 .wheel-cap {
   fill: var(--bone-dim);
   font-size: 12px;
@@ -90,39 +70,53 @@
   font-weight: 700;
 }
 
-/* the compass: a small disc beside the picked card; it overlays the board and never takes a tap (D-270) */
-.wheel.compass {
-  width: 100%;
-  max-width: none;
+/* the in-duel compass strip (D-272): lies over the round track, never over a lane; no tap, no motion */
+.track-wrap {
+  position: relative;
 }
-.compass-box {
+.compass-strip {
   position: absolute;
+  inset: 0;
   z-index: 6;
-  top: 2px;
-  right: 6px;
-  width: 116px;
-  height: 116px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 8px;
   pointer-events: none;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgb(13 10 11 / 0.92) 0 62%, rgb(13 10 11 / 0.6) 100%);
-  box-shadow: 0 0 0 1.5px var(--gold-lo), 0 6px 14px rgb(0 0 0 / 0.7);
-}
-.wheel.compass .wheel-tracer {
-  stroke: #fff6cf;
-  stroke-width: 3.2;
-  stroke-opacity: 0.5;
-  animation-duration: calc(var(--beat) * 8);
-  animation-delay: calc(var(--beat) * -8 * var(--k, 0));
-}
-.wheel.compass .wheel-arrow.gold {
-  stroke-width: 2.8;
-}
-.wheel-bonus {
-  fill: var(--good);
-  font-size: 11px;
+  background: linear-gradient(#1c1213, #0d0a0b);
+  border-block: 3px double var(--gold);
+  box-shadow: 0 0 0 1px #000, 0 4px 10px rgb(0 0 0 / 0.6);
+  color: var(--bone);
+  font-size: 13px;
   font-weight: 700;
-  paint-order: stroke;
-  stroke: var(--soot);
-  stroke-width: 3px;
-  stroke-linejoin: round;
+}
+.compass-strip .gem.lg {
+  flex: none;
+}
+.cs-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.cs-group[data-dir='out'] > svg {
+  color: var(--gold-hi);
+}
+.cs-group[data-dir='in'] {
+  padding-left: 6px;
+  border-left: 1px dashed var(--flaw);
+}
+.cs-group[data-dir='in'] > svg {
+  color: var(--flaw);
+}
+.cs-word {
+  white-space: nowrap;
+}
+.cs-none {
+  color: var(--bone-dim);
+  font-weight: 400;
+}
+.cs-bonus {
+  color: var(--good);
 }

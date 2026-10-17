@@ -64,6 +64,7 @@ export function GraftSheet({ onInspect }: { readonly onInspect: (iid: Iid) => vo
   const swap = useGame((s) => s.graftSwap);
   const unpick = useGame((s) => s.graftUnpick);
   const [chips, setChips] = useState<readonly string[]>([]);
+  const [wantPos, setWantPos] = useState<0 | 1>(0);
   if (ctx === null || rt === null || state === null || groups === null || state.pending === null) return null;
   const { pending } = state;
   const g = ctx.globals;
@@ -82,6 +83,10 @@ export function GraftSheet({ onInspect }: { readonly onInspect: (iid: Iid) => vo
   const picked = chips.filter((id) => available.has(id));
   const chosen: Extract<Action, { t: 'graftKeywords' }> | undefined =
     picked.length === maxKw ? groups.graftKeywords.find((a) => a.kw === maskOf(picked)) : undefined;
+  // the last step with lanes on (D-284): graftPosition carries a lane, so pick the position, then the lane
+  const laned = groups.graftPositions.filter((a) => a.lane !== undefined);
+  const lanedPos = new Set(laned.map((a) => a.pos));
+  const pos: 0 | 1 = lanedPos.has(wantPos) || lanedPos.size === 0 ? wantPos : lanedPos.has(0) ? 0 : 1;
   const toggle = (id: string): void =>
     setChips((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id].slice(-maxKw)));
 
@@ -194,7 +199,7 @@ export function GraftSheet({ onInspect }: { readonly onInspect: (iid: Iid) => vo
 
         </div>
 
-        <div className="bench-actions">
+        <div className="bench-actions" data-lanes={laned.length > 0 ? '' : undefined}>
           {pending.stage === 'ascend' && groups.graftSkipAscend !== null && (
             <button type="button" className="btn primary" onClick={() => act(groups.graftSkipAscend as Action)}>
               <Glyph id="check" size={18} /> Graft
@@ -205,8 +210,37 @@ export function GraftSheet({ onInspect }: { readonly onInspect: (iid: Iid) => vo
               <Glyph id="check" size={18} /> Keep these
             </button>
           )}
+          {pending.stage === 'position' && laned.length > 0 && (
+            <>
+              <div className="lane-pos" role="group" aria-label="Position">
+                {([0, 1] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className="toggle sq"
+                    aria-pressed={pos === p}
+                    aria-label={POSITION_LABEL[p]}
+                    title={POSITION_LABEL[p]}
+                    disabled={!lanedPos.has(p)}
+                    onClick={() => setWantPos(p)}
+                  >
+                    <Glyph id={p === 0 ? 'sword' : 'shield'} size={22} />
+                  </button>
+                ))}
+              </div>
+              <div className="lane-pick" role="group" aria-label="Lane">
+                {laned
+                  .filter((a) => a.pos === pos)
+                  .map((a) => (
+                    <button key={`${a.pos}-${a.lane}`} type="button" className="btn primary" aria-label={`Graft into lane ${(a.lane ?? 0) + 1}`} onClick={() => act(a)}>
+                      <Glyph id="pos" size={16} /> {(a.lane ?? 0) + 1}
+                    </button>
+                  ))}
+              </div>
+            </>
+          )}
           {pending.stage === 'position' &&
-            groups.graftPositions.map((a) => (
+            groups.graftPositions.filter((a) => a.lane === undefined).map((a) => (
               <button key={a.pos} type="button" className="btn primary" onClick={() => act(a)}>
                 <Glyph id={a.pos === 0 ? 'sword' : 'shield'} size={18} /> Graft · {POSITION_LABEL[a.pos].replace(' position', '')}
               </button>

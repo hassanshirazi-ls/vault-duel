@@ -211,6 +211,7 @@ b,
   display: flex;
   align-items: center;
   gap: 10px;
+  width: max-content;
   max-width: calc(100% - 16px);
   padding: 6px 6px 6px 14px;
   border-radius: 3px;
@@ -218,6 +219,11 @@ b,
   border: 2px solid var(--gold);
   box-shadow: 0 6px 16px rgb(0 0 0 / 0.7);
   color: var(--bone);
+}
+.toast .btn {
+  flex: none;
+  white-space: nowrap;
+  padding: 0 12px;
 }
 .center-screen {
   min-height: 100dvh;

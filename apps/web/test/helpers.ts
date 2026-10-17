@@ -9,19 +9,19 @@ import type { GameStore } from '../src/store/game';
 /** A fixed rating stands in for the difficulty check: the store only needs a k. */
 export const RATING = { k: 0, winRate: 0.5, stars: 2, par: 6, check: 'accepted' } as const;
 
-export function makeStore(date: string, storage = memoryStorage()): { store: GameStore; storage: typeof storage } {
+export function makeStore(date: string, storage = memoryStorage(), overrides: readonly string[] = []): { store: GameStore; storage: typeof storage } {
   const store = createGameStore({
     storage,
     dev: true,
-    loadContent: () => loadGameContent(content),
+    loadContent: () => loadGameContent(content, overrides),
     today: () => date,
     resolveSetup: (ctx, d) => Promise.resolve({ setup: daySetupFor(ctx, d, RATING), source: 'manifest' as const }),
   });
   return { store, storage };
 }
 
-export async function started(date: string, storage = memoryStorage()): Promise<ReturnType<typeof makeStore>> {
-  const h = makeStore(date, storage);
+export async function started(date: string, storage = memoryStorage(), overrides: readonly string[] = []): Promise<ReturnType<typeof makeStore>> {
+  const h = makeStore(date, storage, overrides);
   await h.store.getState().boot();
   h.store.getState().start();
   return h;

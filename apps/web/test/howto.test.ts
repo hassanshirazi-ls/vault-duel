@@ -41,6 +41,16 @@ describe('How to play copy', () => {
     expect(graft).not.toContain('Unstable');
     expect(graft).not.toContain('Ascend');
   });
+  it('teaches lanes and sickness only when those rules are on', () => {
+    const text = (o: readonly string[]) => howToPages(ctxFor(o)).flatMap((p) => p.lines).join('\n');
+    expect(text([])).not.toMatch(/lane|just summoned/);
+    const on = text(['FLAGS.LANES=true', 'SICKNESS_MODE=monstersOnly']);
+    expect(on).toContain('only attack the monster across');
+    expect(on).toContain('up to 1 lane sideways');
+    expect(on).toContain('just summoned may attack monsters but not life');
+    expect(text(['FLAGS.LANES=true', 'LANE_MOVE_RANGE=2'])).toContain('up to 2 lanes sideways');
+    expect(on).not.toMatch(/[{}|]/);
+  });
   it('joins lists', () => {
     expect(joinList([3, 6, 9])).toBe('3, 6 and 9');
     expect(joinList([5])).toBe('5');
