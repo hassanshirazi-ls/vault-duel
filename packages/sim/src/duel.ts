@@ -49,7 +49,9 @@ export interface DuelPlayer {
 export function createDuelPlayer(ctx: SimContext): DuelPlayer {
   const { content, globals } = ctx;
   const collector: Collector = createCollector({ content, globals });
-  const engine: Engine = createEngine(content, globals, { intent: collector.intentPolicy }, { events: false, log: false, trusted: true });
+  // Events are only collected when a bond rule is on (they feed the bond metrics); with all three off nothing changes.
+  const bondEvents = globals.FLAGS.SPLIT || globals.FLAGS.SYMBIOSIS;
+  const engine: Engine = createEngine(content, globals, { intent: collector.intentPolicy }, { events: bondEvents, log: false, trusted: true });
   const kwNames: string[] = [];
   for (const k of content.keywords) kwNames[content.kwBit[k.id] as number] = k.id;
   const bins = globals.MAX_ROUNDS + 2; // rounds 0..MAX_ROUNDS, and one overflow bin that must stay empty
@@ -75,6 +77,13 @@ export function createDuelPlayer(ctx: SimContext): DuelPlayer {
         let dmgToCollector = 0;
         let dmgToPlayer = 0;
         let directDmg = 0;
+        let splits = 0;
+        let symbioses = 0;
+        let emerged = 0;
+        let doubleLoss = 0;
+        let ownTurns = 0;
+        let bondTurns = 0;
+        let bondedThisTurn = false;
 
         while (s.result === null) {
           if (actions >= ACTION_CAP) break;
@@ -106,7 +115,22 @@ export function createDuelPlayer(ctx: SimContext): DuelPlayer {
           }
           const lifeBefore = [s.sides[0].life, s.sides[1].life] as const;
           const unstableBefore = a.t === 'graftPosition' ? unstableChimeras(s) : 0;
-          s = engine.applyAction(s, a).state;
+          const applied = engine.applyAction(s, a);
+          s = applied.state;
+          if (mine) {
+            if (a.t === 'split') { splits++; bondedThisTurn = true; }
+            else if (a.t === 'symbiose') { symbioses++; bondedThisTurn = true; }
+            else if (a.t === 'graftBegin' && globals.FLAGS.BOND_ACTION) bondedThisTurn = true;
+            if (a.t === 'endTurn') {
+              ownTurns++;
+              if (bondedThisTurn) bondTurns++;
+              bondedThisTurn = false;
+            }
+          }
+          for (const e of applied.events) {
+            if (e.e === 'SymbioteEmerged' && e.side === 0) emerged++;
+            else if (e.e === 'Appraised' && e.sym !== undefined) doubleLoss++;
+          }
           actions++;
           if (a.t === 'graftPosition' && unstableChimeras(s) > unstableBefore) unstableGrafts++;
           const lostPlayer = Math.max(0, lifeBefore[0] - s.sides[0].life);
@@ -141,6 +165,12 @@ export function createDuelPlayer(ctx: SimContext): DuelPlayer {
           bump(agg, 'graftsInWins', s.track.grafts);
         }
         bump(agg, 'graftsAll', s.track.grafts);
+        bump(agg, 'splits', splits);
+        bump(agg, 'symbioses', symbioses);
+        bump(agg, 'symbioteEmerged', emerged);
+        bump(agg, 'symbioteDoubleLoss', doubleLoss);
+        bump(agg, 'ownTurns', ownTurns);
+        bump(agg, 'bondTurns', bondTurns);
         bump(agg, 'appraisalAttempts', s.appraisal.attempts);
         bump(agg, 'appraisalSuccesses', s.appraisal.successes);
         if (s.track.unpriced) bump(agg, 'unpriced');

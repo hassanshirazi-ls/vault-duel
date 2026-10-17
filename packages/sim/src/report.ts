@@ -58,6 +58,13 @@ export interface BotSummary {
   readonly damageToPlayerPerRound: number | null;
   /** share of that damage dealt by direct attacks (the rest is spillover and effects) */
   readonly directDamageShare: number | null;
+  /** bond metrics per finished game (D-314); graftsPerGame counts all Grafts, bondUseShare is own turns with a Graft/Split/Symbiosis start (Graft counted only under BOND_ACTION) */
+  readonly graftsPerGame: number | null;
+  readonly splitsPerGame: number | null;
+  readonly symbiosesPerGame: number | null;
+  readonly symbioteEmergedPerGame: number | null;
+  readonly symbioteDoubleLossPerGame: number | null;
+  readonly bondUseShare: number | null;
 }
 
 export interface CardRow {
@@ -196,6 +203,12 @@ export function summariseBot(bot: string, a: Aggregate, g: Globals): BotSummary 
     damageToCollectorPerRound: ratio(num(a, 'dmgToCollector'), num(a, 'roundSum')),
     damageToPlayerPerRound: ratio(num(a, 'dmgToPlayer'), num(a, 'roundSum')),
     directDamageShare: ratio(num(a, 'directDmg'), num(a, 'dmgToCollector') + num(a, 'dmgToPlayer')),
+    graftsPerGame: ratio(num(a, 'graftsAll'), finished),
+    splitsPerGame: ratio(num(a, 'splits'), finished),
+    symbiosesPerGame: ratio(num(a, 'symbioses'), finished),
+    symbioteEmergedPerGame: ratio(num(a, 'symbioteEmerged'), finished),
+    symbioteDoubleLossPerGame: ratio(num(a, 'symbioteDoubleLoss'), finished),
+    bondUseShare: ratio(num(a, 'bondTurns'), num(a, 'ownTurns')),
   };
 }
 
@@ -403,6 +416,11 @@ export function renderMarkdown(r: Report): string {
   L.push('## Damage, Unstable Chimeras, vault', '', '| Bot | Vault sealed | Median winning round | Unstable per game | Games with Unstable | Damage per round | To Collector | To player | Direct share |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
   for (const b of r.results.bots) {
     L.push(`| ${b.bot} | ${pct(b.vaultSealedShare)} | ${dec(b.medianWinRound, 1)} | ${dec(b.unstablePerGame)} | ${pct(b.unstableGameShare)} | ${dec(b.damagePerRound)} | ${dec(b.damageToCollectorPerRound)} | ${dec(b.damageToPlayerPerRound)} | ${pct(b.directDamageShare)} |`);
+  }
+  L.push('');
+  L.push('## Bond usage (per finished game)', '', '| Bot | Grafts | Splits | Symbioses | Symbiote emerged | Symbiote double loss | Bond-turn share |', '| --- | --- | --- | --- | --- | --- | --- |');
+  for (const b of r.results.bots) {
+    L.push(`| ${b.bot} | ${dec(b.graftsPerGame)} | ${dec(b.splitsPerGame)} | ${dec(b.symbiosesPerGame)} | ${dec(b.symbioteEmergedPerGame)} | ${dec(b.symbioteDoubleLossPerGame)} | ${pct(b.bondUseShare)} |`);
   }
   L.push('');
   for (const b of r.results.bots) {

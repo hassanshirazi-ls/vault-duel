@@ -2850,6 +2850,12 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 **D-329 · Bond copy lives in `view/howto.ts`** (ui-dev + content-author, 2026-10-16)
 - Decision: the Split and Symbiosis How to play pages appear only with their flags. The play, Graft, quiz and Appraisal lines follow `docs/reports/bond-flip-content-draft.md`, one constant per sentence, numbers rendered from globals. A `rules-text.json` content file is the long-term home (a schema change), not done now.
 
+**D-330 · Sim metrics for the bond rules** (playtest-runner, 2026-10-16)
+- Decision: per-bot `graftsPerGame`, `splitsPerGame`, `symbiosesPerGame`, `symbioteEmergedPerGame`, `symbioteDoubleLossPerGame` and `bondUseShare`, plus a "Bond usage" table in the markdown report. Events are collected only with `FLAGS.SPLIT` or `FLAGS.SYMBIOSIS` on, so flags-off runs do the same work and every earlier field is identical. Not built: Appraisal-dodge, Unstable-escape and hand-material Graft counts.
+
+**D-331 · Bond matrix result** (playtest-runner, 2026-10-16; docs/reports/bond-matrix-2026-10-16.md)
+- Result: on 123L, adding all three bond rules keeps every round-length target failing, drops Appraisal success to 15% and Unpriced to 8% (Split dodges the target; Symbiosis replaces Grafts), and puts the expert at 62.8% (full run). `BOND_GRAFT_MAX_HAND_MATERIALS` is the strength lever: 2 gives expert 53.4% with grafts/win 1.65 (both in band), 1 gives 49.2% with grafts/win 1.25 (fail). `SPLIT_PART_PERM_P = -1` and `SYMBIOSIS_GUARD_BONUS = 1` showed no visible effect on win rate. Expert speed with lanes + bonds: 37–52 duels/s/core. No value was changed by the sim.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
