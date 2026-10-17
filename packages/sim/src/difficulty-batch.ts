@@ -3,7 +3,7 @@
 // cache lacks, the runner throws; the driver then plays that whole candidate (SIM_RUNS_PER_SEED duels) on the pool for
 // every date that is waiting, stores the outcomes, and re-runs prepareDay. Dates therefore advance together, one reroll
 // per round, and all the cores stay busy. The cache key carries expertHash (D-225), so a cache never outlives the weights.
-import { expertHash, prepareDay } from '@vault-duel/ai';
+import { checkKey, prepareDay } from '@vault-duel/ai';
 import type { DailySetup, DuelJob, DuelOutcome, DuelRunner } from '@vault-duel/ai';
 import type { Pool, RunStats } from './pool';
 import type { SimContext } from './world';
@@ -86,7 +86,7 @@ export async function checkDates(
   dates: readonly string[],
   onProgress?: CheckProgress,
 ): Promise<SeedCheck> {
-  const hash = expertHash();
+  const hash = checkKey(ctx).expertHash;
   const runs = ctx.globals.SIM_RUNS_PER_SEED;
   const key = (seedString: string, k: number, runIndex: number): string => `${hash}|${seedString}|${k}|${runIndex}`;
   const cache = new Map<string, DuelOutcome>();

@@ -19,6 +19,7 @@ import type { Noise } from './noise';
 import type { PublicMonster } from '../shared/cards';
 import type { Bot, PlayerView } from './player-view';
 import weights from './expert.weights.json';
+import bond from './bond.weights.json';
 
 /** Everything in expert.weights.json: the evaluation terms, the attack and Graft heuristics, and the search bounds. */
 export interface ExpertWeights extends EvalWeights, ExpertTerms {
@@ -42,9 +43,26 @@ export interface ExpertWeights extends EvalWeights, ExpertTerms {
   readonly graftPairs: number;
   /** complete Graft variants kept per turn */
   readonly graftVariants: number;
+  /** D-312 bond settings, in bond.weights.json (absent: the defaults below): bond options kept per node (by their own score) */
+  readonly maxBondOptions?: number;
+  /** a Split is a candidate on a Chimera that is not exposed or Unstable only when the board has at most this many bodies */
+  readonly splitThinBoard?: number;
+  /** the best this many plays are combined with the bond options (both orders) when bonds use their own slot */
+  readonly bondCombos?: number;
+  /** hand cards tried under each host (the others are ranked out by a cheap worth before any look-ahead) */
+  readonly symbiotesPerHost?: number;
+  /** material pairs expanded and complete variants kept per Graft when Graft is a bond (BOND_ACTION); absent: the plain numbers */
+  readonly bondGraftPairs?: number;
+  readonly bondGraftVariants?: number;
+  /** Graft materials tried per pick when more are legal (hand materials under BOND_ACTION) */
+  readonly graftMaterials?: number;
 }
 
+/** expert.weights.json exactly: its hash is the seed check's cache key (D-222), so the bond settings are kept out of it. */
 export const EXPERT_WEIGHTS: ExpertWeights = weights;
+
+/** The expert's defaults with the bond terms and settings (bond.weights.json); the hash covers them only when a bond switch is on. */
+export const EXPERT_BOND_WEIGHTS: ExpertWeights = { ...weights, ...bond.expert };
 
 export interface ExpertStats {
   /** turns planned, plans enumerated in the last and in the largest planning, and in total */
@@ -79,6 +97,10 @@ function sameAction(a: Action, b: Action): boolean {
       return b.t === 'cast' && a.c === b.c && a.target === b.target;
     case 'setTrap':
       return b.t === 'setTrap' && a.c === b.c;
+    case 'split':
+      return b.t === 'split' && a.m === b.m;
+    case 'symbiose':
+      return b.t === 'symbiose' && a.c === b.c && a.host === b.host;
     case 'graftPick':
       return b.t === 'graftPick' && a.m === b.m;
     case 'graftKeywords':
@@ -109,7 +131,10 @@ const isPlay = (a: Action): boolean =>
   a.t === 'summon' || a.t === 'summonCovetous' || a.t === 'cast' || a.t === 'setTrap';
 
 export function createExpert(options: ExpertOptions = {}): ExpertBot {
-  const w = options.weights ?? EXPERT_WEIGHTS;
+  const w = options.weights ?? EXPERT_BOND_WEIGHTS;
+  const maxBond = w.maxBondOptions ?? 4;
+  const thinBoard = w.splitThinBoard ?? 2;
+  const combos = w.bondCombos ?? 2;
   const noise = options.noise;
   const fallback = createGreedy(GREEDY_WEIGHTS);
   const stats: ExpertStats = { planned: 0, lastPlans: 0, maxPlans: 0, totalPlans: 0 };
@@ -131,12 +156,28 @@ export function createExpert(options: ExpertOptions = {}): ExpertBot {
       return card === undefined ? 0 : w.handCard + w.graftMaterialShare * (w.power * card.power + w.guard * card.guard);
     };
     const pairs: { actions: Action[]; view: PlayerView; h: number }[] = [];
-    for (let i = 0; i < p1.legal.length; i++) {
+    // With hand materials (BOND_ACTION, D-306) up to eight cards can be picked: only the `graftMaterials` strongest are tried
+    // (by printed or board stats, a cheap proxy for the Chimera they make). With few candidates nothing is dropped.
+    const worth = (iid: number): number => {
+      const onBoard = v.board.find((m) => m !== null && m.card.iid === iid);
+      if (onBoard !== undefined && onBoard !== null) return value(onBoard.power, onBoard.guard, true);
+      const card = v.hand.find((c) => c.iid === iid);
+      return card === undefined ? 0 : value(card.power, card.guard, true);
+    };
+    const picks = (pv: PlayerView): number[] => {
+      const all: number[] = [];
+      for (let i = 0; i < pv.legal.length; i++) if (pv.legal[i]?.t === 'graftPick') all.push(i);
+      const cap = w.graftMaterials ?? 5;
+      if (all.length <= cap) return all;
+      const rankedIdx = [...all].sort((x, y) => worth((pv.legal[y] as { m: number }).m) - worth((pv.legal[x] as { m: number }).m) || x - y);
+      return rankedIdx.slice(0, cap).sort((x, y) => x - y);
+    };
+    for (const i of picks(p1)) {
       const a1 = p1.legal[i];
       if (a1 === undefined || a1.t !== 'graftPick') continue;
       const p2 = p1.after(i);
       if (p2 === null) continue;
-      for (let j = 0; j < p2.legal.length; j++) {
+      for (const j of picks(p2)) {
         const a2 = p2.legal[j];
         if (a2 === undefined || a2.t !== 'graftPick') continue;
         const p3 = p2.after(j);
@@ -160,8 +201,10 @@ export function createExpert(options: ExpertOptions = {}): ExpertBot {
         if (next !== null) finish(next, [...actions, a]);
       }
     };
-    for (const pair of pairs.slice(0, w.graftPairs)) finish(pair.view, pair.actions);
-    return rank(out).slice(0, w.graftVariants);
+    // Graft in the bond slot is searched on every turn, so it gets a smaller search (D-312)
+    const slot = v.bondAction;
+    for (const pair of pairs.slice(0, slot ? (w.bondGraftPairs ?? w.graftPairs) : w.graftPairs)) finish(pair.view, pair.actions);
+    return rank(out).slice(0, slot ? (w.bondGraftVariants ?? w.graftVariants) : w.graftVariants);
   }
 
   const score = (l: Line): number => evaluate(l.view, w) + l.bonus;
@@ -176,15 +219,108 @@ export function createExpert(options: ExpertOptions = {}): ExpertBot {
 
   // ---- plays -----------------------------------------------------------------------------------------------------
 
-  /** The play options at `node` (no play included), each as a Line starting from node's position. */
-  function playLines(node: Line): Line[] {
+  /** End-of-turn identity of a position: two orders of the same plays reach the same key. */
+  function viewKey(v: PlayerView): string {
+    let k = '';
+    for (const m of v.board) k += m === null ? '-;' : `${m.card.iid}.${m.slot}.${m.pos}.${m.faceDown ? 1 : 0}.${m.sym === null ? '' : m.sym.id}.${m.power}.${m.guard};`;
+    k += '|';
+    const hand = v.hand.map((c) => c.iid).sort((x, y) => x - y);
+    return k + hand.join(',');
+  }
+
+  /** Is the Split/Symbiosis `a` worth considering at all (D-312 heuristics)? */
+  function bondCandidate(v: PlayerView, a: Action): boolean {
+    const target = v.appraisalTarget;
+    if (a.t === 'split') {
+      const m = v.board.find((x) => x !== null && x.card.iid === a.m);
+      if (m === undefined || m === null) return false;
+      if (target !== null && target.card.iid === a.m) return true; // the next Appraisal would take it
+      if (m.unstableUntil >= 0) return true; // escape the timer
+      return v.board.reduce((n, x) => n + (x === null ? 0 : 1), 0) <= thinBoard; // width back on a thin board
+    }
+    if (a.t === 'symbiose') return target === null || target.card.iid !== a.host; // never under the Appraisal target (two cards)
+    return true;
+  }
+
+  /** Cheap worth of attaching hand card `c` under `host`: the keyword it adds and the body it keeps in reserve. */
+  function symbioteWorth(v: PlayerView, c: number, host: number): number {
+    const card = v.hand.find((x) => x.iid === c);
+    const h = v.board.find((x) => x !== null && x.card.iid === host);
+    if (card === undefined || h === undefined || h === null) return Number.NEGATIVE_INFINITY;
+    const gained = card.keywords.filter((k) => !h.card.keywords.includes(k)).length;
+    return (w.bondedKeyword ?? 0) * gained + (w.symbioteReserve ?? 0) * monsterValue(w, card.power, card.guard, true);
+  }
+
+  /** The (card, host) pairs worth a look-ahead: per host only its `symbiotesPerHost` best cards (leftmost on a tie). */
+  function symbiosePairs(v: PlayerView): Set<number> {
+    const keep = new Set<number>();
+    const byHost = new Map<number, { i: number; worth: number }[]>();
+    for (let i = 0; i < v.legal.length; i++) {
+      const a = v.legal[i];
+      if (a === undefined || a.t !== 'symbiose' || !bondCandidate(v, a)) continue;
+      const list = byHost.get(a.host) ?? [];
+      list.push({ i, worth: symbioteWorth(v, a.c, a.host) });
+      byHost.set(a.host, list);
+    }
+    for (const list of byHost.values()) {
+      list.sort((x, y) => y.worth - x.worth || x.i - y.i);
+      for (const e of list.slice(0, w.symbiotesPerHost ?? 1)) keep.add(e.i);
+    }
+    return keep;
+  }
+
+  /** Split and Symbiosis lines from `node`'s position: the candidates of D-312, the best `limit` by their own score. */
+  function lightBonds(node: Line, limit: number): Line[] {
+    const v = node.view;
+    const symb = symbiosePairs(v);
+    const out: Line[] = [];
+    for (let i = 0; i < v.legal.length; i++) {
+      const a = v.legal[i];
+      if (a === undefined || (a.t !== 'split' && a.t !== 'symbiose')) continue;
+      if (a.t === 'split' ? !bondCandidate(v, a) : !symb.has(i)) continue;
+      const next = v.after(i);
+      if (next !== null) out.push({ actions: [...node.actions, a], view: next, bonus: node.bonus });
+    }
+    return rank(out).slice(0, limit);
+  }
+
+  /** The Graft lines from `node`'s position (a Graft is a bond when BOND_ACTION is on, a play otherwise). */
+  function graftsAt(node: Line): Line[] {
+    const v = node.view;
+    const out: Line[] = [];
+    for (let i = 0; i < v.legal.length; i++) {
+      if (v.legal[i]?.t !== 'graftBegin') continue;
+      for (const g of graftLines(v, i)) out.push({ actions: [...node.actions, ...g.actions], view: g.view, bonus: node.bonus });
+    }
+    return out;
+  }
+
+  /** Replays `tail` from `from` through the legal lists; null if an action stops being legal or the look-ahead refuses it. */
+  function replay(from: PlayerView, tail: readonly Action[]): PlayerView | null {
+    let cur: PlayerView | null = from;
+    for (const a of tail) cur = cur === null ? null : step(cur, a);
+    return cur;
+  }
+
+  /**
+   * The play options at `node` (no play included), each as a Line starting from node's position. `plain` are the options a
+   * node can replay (the plays); `combos` are the bonds and the play + bond pairs, tried only where they are made (they are
+   * the costly ones, and a reposition rarely changes which is best).
+   *
+   * With the bond in its own slot (BOND_ACTION, D-306) a turn can hold a play and a bond. The bond is searched on the position
+   * after each of the best `bondCombos` plays, so a Symbiosis can go under the monster just summoned; a Graft is searched
+   * once (it is the costly one) and combined with the plays in both orders, since it can free the board slot a summon needs.
+   * Pairs reaching the same position are kept once.
+   */
+  function playLines(node: Line): { plain: Line[]; combos: Line[] } {
     const v = node.view;
     const out: Line[] = [{ actions: node.actions, view: v, bonus: node.bonus }];
+    const slot = v.bondAction;
     for (let i = 0; i < v.legal.length; i++) {
       const a = v.legal[i];
       if (a === undefined) continue;
       if (a.t === 'graftBegin') {
-        for (const g of graftLines(v, i)) out.push({ actions: [...node.actions, ...g.actions], view: g.view, bonus: node.bonus });
+        if (!slot) for (const g of graftLines(v, i)) out.push({ actions: [...node.actions, ...g.actions], view: g.view, bonus: node.bonus });
         continue;
       }
       if (!isPlay(a)) continue;
@@ -193,7 +329,37 @@ export function createExpert(options: ExpertOptions = {}): ExpertBot {
       const drawn = a.t === 'cast' && v.hand.some((c) => c.iid === a.c && c.drawOnly);
       out.push({ actions: [...node.actions, a], view: next, bonus: node.bonus + (drawn ? w.drawSpell : 0) });
     }
-    return out;
+    if (!slot) {
+      return { plain: out, combos: lightBonds(node, maxBond) }; // bond-as-play: the best few compete with the plays
+    }
+    const grafts = rank(graftsAt(node)).slice(0, maxBond);
+    const singles = [...grafts, ...lightBonds(node, maxBond)];
+    const plain = out;
+    const combined: Line[] = rank(singles).slice(0, maxBond);
+    const seen = new Set<string>([...plain, ...combined].map((l) => viewKey(l.view)));
+    const add = (actions: readonly Action[], view: PlayerView, bonus: number): void => {
+      const key = viewKey(view);
+      if (seen.has(key)) return;
+      seen.add(key);
+      combined.push({ actions, view, bonus });
+    };
+    const skip = node.actions.length;
+    const comboGrafts = grafts.slice(0, 1);
+    let firstPlay = true;
+    for (const p of rank(out.slice(1)).slice(0, combos)) {
+      for (const b of lightBonds(p, maxBond)) add(b.actions, b.view, p.bonus); // the bond after the play
+      const pTail = p.actions.slice(skip);
+      for (const g of comboGrafts) {
+        const gTail = g.actions.slice(skip);
+        const after = replay(p.view, gTail);
+        if (after !== null) add([...p.actions, ...gTail], after, p.bonus);
+        if (!firstPlay) continue;
+        const first = replay(g.view, pTail);
+        if (first !== null) add([...g.actions, ...pTail], first, p.bonus);
+      }
+      firstPlay = false;
+    }
+    return { plain, combos: combined };
   }
 
   // ---- attacks ---------------------------------------------------------------------------------------------------
@@ -257,6 +423,7 @@ export function createExpert(options: ExpertOptions = {}): ExpertBot {
 
   /** The finalist plans of the turn from `v0`, best first. */
   function rankedPlans(v0: PlayerView): Line[] {
+
     // Reposition subsets: one node per subset, each built from the subset without its lowest member.
     const repos = v0.legal.filter((a) => a.t === 'reposition');
     const nodes: (Line | null)[] = [{ actions: [], view: v0, bonus: 0 }];
@@ -282,7 +449,8 @@ export function createExpert(options: ExpertOptions = {}): ExpertBot {
 
     // Plays: ranked at the first node, the best (maxPlans / nodes) of them are tried at every node.
     const perNode = Math.max(1, Math.floor(w.maxPlans / (live.length + moveNodes.length)));
-    const base = rank(playLines(live[0] as Line)).slice(0, perNode);
+    const first = playLines(live[0] as Line);
+    const base = rank(first.plain).slice(0, perNode);
     const plans: Line[] = [...base];
     for (let n = 1; n < live.length; n++) {
       const node = live[n] as Line;
@@ -293,7 +461,8 @@ export function createExpert(options: ExpertOptions = {}): ExpertBot {
         if (view !== null) plans.push({ actions: [...node.actions, ...tail], view, bonus: p.bonus });
       }
     }
-    for (const node of moveNodes) plans.push(...rank(playLines(node)).slice(0, perNode));
+    for (const node of moveNodes) plans.push(...rank(playLines(node).plain).slice(0, perNode));
+    plans.push(...first.combos.slice(0, Math.max(0, w.maxPlans - plans.length))); // bond lines, within the plan bound
     stats.planned++;
     stats.lastPlans = plans.length;
     stats.totalPlans += plans.length;

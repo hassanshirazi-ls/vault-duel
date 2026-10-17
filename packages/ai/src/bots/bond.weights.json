@@ -1,0 +1,25 @@
+{
+  "greedy": {
+    "symbioteReserve": 0.5,
+    "bondedKeyword": 1,
+    "boardWidth": 1,
+    "unstableLast": 1,
+    "bondAppraisalPower": 1,
+    "bondAppraisalCard": 1.5
+  },
+  "expert": {
+    "symbioteReserve": 0.5,
+    "bondedKeyword": 1,
+    "boardWidth": 1,
+    "unstableLast": 1,
+    "bondAppraisalPower": 0,
+    "bondAppraisalCard": 1.5,
+    "maxBondOptions": 4,
+    "splitThinBoard": 2,
+    "bondCombos": 2,
+    "symbiotesPerHost": 1,
+    "graftMaterials": 5,
+    "bondGraftPairs": 2,
+    "bondGraftVariants": 4
+  }
+}

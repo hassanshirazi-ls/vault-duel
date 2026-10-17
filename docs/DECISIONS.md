@@ -2831,6 +2831,16 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 **D-323 · Saved duels under other rules restart with a notice** (ui-dev, 2026-10-16)
 - Decision: a cfg or `CONTENT_VERSION` mismatch on resume restarts the duel and shows `RULES_NOTICE`: "The rules changed since this duel was saved; it starts over." The dev hot-reload notice is unchanged.
 
+**D-324 · Bond weights live in `bond.weights.json`** (ai-dev, 2026-10-16)
+- Decision: the bots' bond weights and caps are in `packages/ai/src/bots/bond.weights.json`, not in `expert.weights.json`. `expertHash(bonds)` covers the bond file only when a bond flag is on, so the seed manifest key is unchanged while all bond flags are off.
+
+**D-325 · Expert bond search caps** (ai-dev, 2026-10-16; narrows D-312)
+- Decision: `maxBondOptions` = 4 (D-312 said 6), 2 combo plays, 1 card per host, 5 Graft materials per pick, and a Graft search of 2 pairs × 4 variants when Graft is the bond action. Bond lines are tried only on the unrepositioned node. A Split is a candidate only when the Chimera is the Appraisal target, is Unstable, or the board has 2 or fewer bodies. The bots plan the bond before attacking only. Symbiosis is never placed on the Appraisal target.
+- Reason: keeps expert speed within about 30% of the flags-off speed (sim, all three bond flags on: 62 vs 81–91 duels/s per core; lanes + bonds 45–46).
+
+**D-326 · The "best option" ranking** (ai-dev, 2026-10-16)
+- Decision: `rankBondOptions(preview, ctx?, weights?)` in `packages/ai/src/bots/rank-bonds.ts` scores each `bondOptions` entry with the expert weights and returns `{ best, scores[i] = { index, id, kind, score, reason }, order }`. `best` is -1 unless an option scores above 0.5 (better than doing nothing). Reasons are short phrases such as "dodges Appraisal", "fills a lane", "+2 Guard and Ward", "puts 2 cards under Appraisal". `bondRankContext(engine, content, state)` builds the optional context.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

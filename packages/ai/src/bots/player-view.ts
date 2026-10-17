@@ -6,7 +6,7 @@ import { activeSide, redactState, roundOf } from '@vault-duel/engine';
 import type { Action, CombatPreview, GameState, GraftPreview, Intent, Mood, Side } from '@vault-duel/engine';
 import type { Brain } from '../shared/brain';
 import { lookAhead } from '../shared/look-ahead';
-import { foeMonster, ownCard, ownMonster, typeOf } from '../shared/cards';
+import { foeMonster, ownCard, ownMonster, publicCard } from '../shared/cards';
 import type { FoeMonster, OwnCard, OwnMonster, PublicCard } from '../shared/cards';
 
 const PLAYER: Side = 0;
@@ -54,6 +54,10 @@ export interface PlayerView {
   previewGraft(): GraftPreview | null;
   /** FLAGS.LANES: monsters face the enemy monster in the same slot (D-281). The lane terms of `evaluate` read only these. */
   readonly lanes: boolean;
+  /** FLAGS.SPLIT or FLAGS.SYMBIOSIS is on: the bond terms of `evaluate` are read (D-312) */
+  readonly bonds: boolean;
+  /** FLAGS.BOND_ACTION: bond actions use the bond slot beside the one play (D-306) */
+  readonly bondAction: boolean;
   /** SENTINEL_REACH (D-283), meaningful with `lanes` */
   readonly sentinelReach: number;
   /** ELEMENT_BONUS, for the lane terms' quick arithmetic */
@@ -70,11 +74,6 @@ export interface BotContext {
 
 /** Chooses an index into `ctx.legal`. */
 export type Bot = (ctx: BotContext) => number;
-
-function publicCard(b: Brain, s: GameState, iid: number): PublicCard {
-  const def = (s.inst[iid] as GameState['inst'][number]).def;
-  return { id: b.content.ids[def] as string, type: typeOf(b, def) };
-}
 
 /** Element id to table index, built once per Brain. */
 const ELEMENT_INDEX = new WeakMap<Brain, ReadonlyMap<string, number>>();
@@ -108,7 +107,7 @@ function once<T>(make: () => T): () => T {
 export function playerView(b: Brain, s: GameState): PlayerView {
   const mine = s.sides[PLAYER];
   const foe = s.sides[COLLECTOR];
-  const legal = b.engine.getLegalActions(s);
+  const legalOf = once(() => b.engine.getLegalActions(s)); // most look-ahead views are only scored: their legal list is never read
   const ahead = lookAhead(b, s, PLAYER);
   const hand = once(() => mine.hand.map((iid) => ownCard(b, s, iid)));
   const board = once(() => mine.board.map((m, slot) => (m === null ? null : ownMonster(b, s, m, slot))));
@@ -157,14 +156,18 @@ export function playerView(b: Brain, s: GameState): PlayerView {
     get appraisalTarget() {
       return appraisalTarget();
     },
-    legal,
+    get legal() {
+      return legalOf();
+    },
     after(index) {
-      const a = legal[index];
+      const a = legalOf()[index];
       if (a === undefined) return null;
       const next = ahead.after(a);
       return next === null ? null : playerView(b, next);
     },
     lanes: b.globals.FLAGS.LANES,
+    bonds: b.globals.FLAGS.SPLIT || b.globals.FLAGS.SYMBIOSIS,
+    bondAction: b.globals.FLAGS.BOND_ACTION,
     sentinelReach: b.globals.SENTINEL_REACH,
     elementBonus: b.globals.ELEMENT_BONUS,
     previewCombat: (attacker, target) => b.engine.previewCombat(redacted(), attacker, target),

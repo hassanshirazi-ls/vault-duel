@@ -3,6 +3,7 @@
 // settings of a measuring instrument, not game rules: they live in bots/greedy.weights.json and bots/expert.weights.json,
 // not in globals, and no test pins them (D-222).
 import weights from './greedy.weights.json';
+import bond from './bond.weights.json';
 import type { PlayerView } from './player-view';
 
 export interface EvalWeights {
@@ -24,6 +25,20 @@ export interface EvalWeights {
   readonly laneFace?: number;
   /** Lanes only: per own occupied lane a face-up own Sentinel covers (D-283). Absent means 0. */
   readonly sentinelCover?: number;
+  /**
+   * Bond terms (D-312), read only when a bond switch is on (`v.bonds`); each absent weight is 0.
+   * `symbioteReserve`: per host, this share of the symbiote's printed board value (the body that comes out when the host dies).
+   * `bondedKeyword`: per keyword a symbiote gives its host. `boardWidth`: per own body (Split's width, a thin board's risk).
+   * `unstableLast`: share of an Unstable monster's board value lost when this is its last turn (Split escapes it).
+   * `bondAppraisalPower`: per Power of the monster the next Appraisal would take. `bondAppraisalCard`: per card it would take
+   * (a host with a symbiote is 2).
+   */
+  readonly symbioteReserve?: number;
+  readonly bondedKeyword?: number;
+  readonly boardWidth?: number;
+  readonly unstableLast?: number;
+  readonly bondAppraisalPower?: number;
+  readonly bondAppraisalCard?: number;
 }
 
 /** The expert's extra terms (ARCHITECTURE.md §14). Each is optional in `evaluate`; the expert's weights file has all of them. */
@@ -44,7 +59,11 @@ export interface ExpertTerms {
   readonly foeFaceDown: number;
 }
 
-export const GREEDY_WEIGHTS: EvalWeights = weights;
+/**
+ * The greedy bot's weights. The bond terms are in bond.weights.json, not in greedy.weights.json or expert.weights.json,
+ * so that the expert's hash (the seed check's cache key, D-222, D-236) stays the same while the bond switches are off.
+ */
+export const GREEDY_WEIGHTS: EvalWeights = { ...weights, ...bond.greedy };
 
 const SENTINEL = 'sentinel';
 
@@ -88,6 +107,27 @@ export function evaluate(v: PlayerView, w: EvalWeights & Partial<ExpertTerms> = 
   }
   if (w.sentinel !== undefined) for (const f of v.foeBoard) if (f !== null && !f.faceDown && f.keywords.includes(SENTINEL)) score -= w.sentinel;
   if (v.lanes) score += laneTerms(v, w);
+  if (v.bonds) score += bondTerms(v, w);
+  return score;
+}
+
+/** The bond terms (D-312): what a symbiote, a Split's width and the Appraisal's second card are worth. */
+function bondTerms(v: PlayerView, w: EvalWeights): number {
+  let score = 0;
+  const reserve = w.symbioteReserve ?? 0;
+  const kw = w.bondedKeyword ?? 0;
+  const width = w.boardWidth ?? 0;
+  const last = w.unstableLast ?? 0;
+  for (const m of v.board) {
+    if (m === null) continue;
+    score += width;
+    if (m.sym !== null) score += reserve * monsterValue(w, m.sym.power, m.sym.guard, true) + kw * m.bondedKeywords.length;
+    if (last !== 0 && m.unstableUntil >= 0 && m.unstableUntil <= v.turn) {
+      score -= last * monsterValue(w, m.power, m.guard, m.pos === 'atk');
+    }
+  }
+  const target = v.appraisalTarget;
+  if (target !== null) score -= (w.bondAppraisalPower ?? 0) * target.power + (w.bondAppraisalCard ?? 0) * (target.sym === null ? 1 : 2);
   return score;
 }
 

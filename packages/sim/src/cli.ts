@@ -3,7 +3,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkKey, expertHash } from '@vault-duel/ai';
+import { checkKey } from '@vault-duel/ai';
 import { OverridesError } from '@vault-duel/content';
 import { ContentOverrideError } from './overrides';
 import type { ContentOverrides } from './overrides';
@@ -183,7 +183,7 @@ async function main(argv: readonly string[]): Promise<number> {
       globalsHash: checkKey(ctx).globalsHash,
       contentHash: ctx.content.hash,
       contentVersion: ctx.content.version,
-      expertHash: expertHash(),
+      expertHash: checkKey(ctx).expertHash,
       aggregate: balance.aggregate,
       bots: opts.bots,
       perf,

@@ -17,8 +17,10 @@ import type { GameContent } from '@vault-duel/content';
 // The same checks run under the classic rules and under lanes + monsters-only sickness with the lane-aware reposition (D-286).
 const LANE_GLOBALS: Globals = { ...GLOBALS, FLAGS: { ...GLOBALS.FLAGS, LANES: true }, SICKNESS_MODE: 'monstersOnly' };
 const LANE_CONTENT: GameContent = { ...CONTENT, collector: { ...CONTENT.collector, ai: { ...CONTENT.collector.ai, reposition: 'laneAware' } } };
+const BOND_GLOBALS: Globals = { ...GLOBALS, FLAGS: { ...GLOBALS.FLAGS, SPLIT: true, SYMBIOSIS: true, BOND_ACTION: true } };
 const CONFIGS: readonly (readonly [string, Globals, GameContent])[] = [
   ['classic rules', GLOBALS, CONTENT],
+  ['bond rules (split, symbiosis, bond action)', BOND_GLOBALS, CONTENT],
   ['lanes and monsters-only sickness', LANE_GLOBALS, LANE_CONTENT],
 ];
 
@@ -37,13 +39,13 @@ const PLAYER_VIEW_FIELDS: Record<keyof PlayerView, true> = {
   hand: true, board: true, traps: true, discard: true, deckCount: true,
   foeHandCount: true, foeDeckCount: true, foeBoard: true, foeTrapCount: true, foeDiscard: true, foeVault: true,
   pendingGraft: true, winner: true, appraisalTarget: true, legal: true, after: true, previewCombat: true, previewGraft: true, beats: true,
-  lanes: true, sentinelReach: true, elementBonus: true,
+  lanes: true, sentinelReach: true, elementBonus: true, bonds: true, bondAction: true,
 };
 
 describe('the view types', () => {
   it('list their fields explicitly', () => {
     expect(Object.keys(COLLECTOR_VIEW_FIELDS).length).toBe(23);
-    expect(Object.keys(PLAYER_VIEW_FIELDS).length).toBe(28);
+    expect(Object.keys(PLAYER_VIEW_FIELDS).length).toBe(30);
   });
 
   it('have no field for hidden information', () => {

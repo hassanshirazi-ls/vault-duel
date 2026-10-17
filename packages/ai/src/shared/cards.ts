@@ -39,6 +39,10 @@ export interface OwnMonster {
   readonly unstableUntil: number;
   /** Shroud protects it from Appraisal while the turn index is below this */
   readonly shroudUntil: number;
+  /** the attached symbiote (FLAGS.SYMBIOSIS, D-308), or null. It is face-up, so it is public (D-311). */
+  readonly sym: OwnCard | null;
+  /** keywords the symbiote gives the host right now (active minus printed, flaws never), empty without one */
+  readonly bondedKeywords: readonly string[];
 }
 
 /** What anyone can see of a card (a discard pile entry). */
@@ -59,6 +63,8 @@ export interface PublicMonster {
   readonly guard: number;
   readonly pos: 'atk' | 'grd';
   readonly wardActive: boolean;
+  /** the attached symbiote, or null (D-311). A face-down monster is never a host, so this leaks nothing hidden. */
+  readonly sym: PublicCard | null;
 }
 
 export type FoeMonster = PublicMonster | { readonly faceDown: true; readonly slot: number };
@@ -107,6 +113,7 @@ export function ownCard(b: Brain, s: GameState, iid: Iid): OwnCard {
 
 export function ownMonster(b: Brain, s: GameState, m: Monster, slot: number): OwnMonster {
   const mask = b.engine.activeKeywords(s, m.iid);
+  const bonded = m.sym >= 0 ? keywordIds(b, mask & ~b.engine.printedKeywords(s, m.iid)).keywords : [];
   return {
     slot,
     card: ownCard(b, s, m.iid),
@@ -121,6 +128,8 @@ export function ownMonster(b: Brain, s: GameState, m: Monster, slot: number): Ow
     appraised: m.appraised,
     unstableUntil: m.unstableUntil,
     shroudUntil: m.shroudUntil,
+    sym: m.sym >= 0 ? ownCard(b, s, m.sym) : null,
+    bondedKeywords: bonded,
   };
 }
 
@@ -142,6 +151,13 @@ export function foeMonster(b: Brain, s: GameState, m: Monster, slot: number): Fo
     guard: b.engine.effectiveGuard(s, m.iid),
     pos: m.pos === 0 ? 'atk' : 'grd',
     wardActive: (mask & b.content.hookMask.beforeDestroy) !== 0,
+    sym: m.sym >= 0 ? publicCard(b, s, m.sym) : null,
   };
+}
+
+/** What anyone can see of a card (id and type). */
+export function publicCard(b: Brain, s: GameState, iid: Iid): PublicCard {
+  const def = (s.inst[iid] as GameState['inst'][number]).def;
+  return { id: b.content.ids[def] as string, type: typeOf(b, def) };
 }
 

@@ -5,7 +5,7 @@
 import { activeSide, canonicalJson, createEngine, cyrb128, deckForSeed, rerollSeed, seedString, Sfc32, signatureForSeed } from '@vault-duel/engine';
 import type { Engine, GameState, Globals } from '@vault-duel/engine';
 import type { GameContent } from '@vault-duel/content';
-import { createExpert, EXPERT_WEIGHTS } from './bots/expert';
+import { createExpert, EXPERT_BOND_WEIGHTS, EXPERT_WEIGHTS } from './bots/expert';
 import { createNoise, noiseKey } from './bots/noise';
 import { botAction } from './bots/player-view';
 import { createCollector } from './collector/policy';
@@ -91,10 +91,16 @@ export function expertRunner(ctx: Pick<DayContext, 'content' | 'globals'>): Duel
   };
 }
 
-/** A hash of everything in expert.weights.json, as hex. */
-export function expertHash(): string {
-  return cyrb128(canonicalJson(EXPERT_WEIGHTS)).map((w) => w.toString(16).padStart(8, '0')).join('');
+/**
+ * A hash of everything in expert.weights.json, as hex. With `bonds` (a bond switch is on, D-312) it also covers the bond
+ * settings of bond.weights.json; without, it is the same value as before they existed, so a shipped manifest stays valid.
+ */
+export function expertHash(bonds = false): string {
+  return cyrb128(canonicalJson(bonds ? EXPERT_BOND_WEIGHTS : EXPERT_WEIGHTS)).map((w) => w.toString(16).padStart(8, '0')).join('');
 }
+
+/** Is any bond switch on (FLAGS.SPLIT, FLAGS.SYMBIOSIS, FLAGS.BOND_ACTION)? */
+const bondsOn = (g: Pick<Globals, 'FLAGS'>): boolean => g.FLAGS.SPLIT || g.FLAGS.SYMBIOSIS || g.FLAGS.BOND_ACTION;
 
 /** D-236: what a day's rating depends on besides the date. A shipped seeds manifest or a cached rating is valid only when all three match. */
 export interface CheckKey {
@@ -105,7 +111,7 @@ export interface CheckKey {
 
 export function checkKey(ctx: Pick<DayContext, 'content' | 'globals'>): CheckKey {
   const globalsHash = cyrb128(canonicalJson(ctx.globals)).map((w) => w.toString(16).padStart(8, '0')).join('');
-  return { contentHash: ctx.content.hash, globalsHash, expertHash: expertHash() };
+  return { contentHash: ctx.content.hash, globalsHash, expertHash: expertHash(bondsOn(ctx.globals)) };
 }
 
 /** D-098: win rate at or above the first cut is easy (1 star), at or above the second is 2, below is 3. */
@@ -237,7 +243,7 @@ export function daySetupFor(ctx: DayContext, date: string, rating: Pick<SeedRati
     signature: content.ids[signatureForSeed(content, deck, seed)] as string,
     objectives: pickObjectives(ctx.objectiveIds, globals.OBJECTIVES_PER_DAY, seed),
     twist,
-    expertHash: expertHash(),
+    expertHash: expertHash(bondsOn(globals)),
     difficulty: { winRate: rating.winRate, stars: rating.stars, par: rating.par, check: rating.check },
   };
 }

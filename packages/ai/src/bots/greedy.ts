@@ -3,7 +3,8 @@
 // value are what evaluate() measures. Ties go to the earliest legal action, and endTurn is last, so a tie never
 // ends the turn early. It keeps its opening hand; a Graft is valued by the position after its first-choice completion
 // (a Graft has no value until it commits, so one ply cannot see it otherwise); a look-ahead that the helper refuses (an
-// action on a face-down Collector monster) scores as the current position.
+// action on a face-down Collector monster) scores as the current position. Split and Symbiosis are ordinary one-ply
+// actions whose worth comes from evaluate()'s bond terms (D-312).
 import { evaluate, GREEDY_WEIGHTS } from './evaluate';
 import type { EvalWeights } from './evaluate';
 import type { Bot, PlayerView } from './player-view';
@@ -11,12 +12,16 @@ import type { Bot, PlayerView } from './player-view';
 /** Longest Graft is begin + 3 materials + keywords + position; the cap only guards a loop. */
 const MAX_GRAFT_STEPS = 12;
 
-/** A lane move that changes nothing the evaluation sees must lose to ending the turn (it would otherwise come first). */
+/**
+ * A lane move or a bond (Split, Symbiosis) that changes nothing the evaluation sees must lose to ending the turn (it would
+ * otherwise come first; D-298, D-312).
+ */
 const MOVE_COST = 1e-6;
+const costly = (t: string): boolean => t === 'moveLane' || t === 'split' || t === 'symbiose';
 
 function scoreAfter(v: PlayerView, index: number, w: EvalWeights): number {
   const next = v.after(index);
-  return evaluate(next ?? v, w) - (v.legal[index]?.t === 'moveLane' ? MOVE_COST : 0);
+  return evaluate(next ?? v, w) - (costly(v.legal[index]?.t ?? '') ? MOVE_COST : 0);
 }
 
 /** Index of the best action in `v`, the first of equals; `graftCancel` only when nothing else is legal. */
