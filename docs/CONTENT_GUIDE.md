@@ -90,7 +90,7 @@ Values live in data. Rules live in the design document.
 | Balance targets (`TARGET_*`) | `packages/content/src/globals.ts` | Owner only, with a decision entry first (D-166) |
 | Proposal switches (`FLAGS.APPRAISED_ENTERS_GUARD`, `FLAGS.ACE_SET_ASIDE`, `FLAGS.CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`, `SLOW_TURNS`) | `packages/content/src/globals.ts` | Owner only, with a decision entry first (D-166) |
 | Objectives and weekly twists | `packages/content/objectives.json`, `twists.json` | Owner |
-| Art briefs (one line per card) | `packages/content/art-briefs.json` | Owner and artist |
+| Art briefs (one line per card; the style, shape and file rules are in `docs/ART_BRIEF.md`) | `packages/content/art-briefs.json` | Owner and artist |
 | Keyword and Flaw rules | `packages/content/keywords/<id>.ts` (code) | Engineering (section 11, later) |
 | Rules and mechanics | `docs/DESIGN.md` | Owner |
 
@@ -180,7 +180,7 @@ Add this to `cards/player-monsters.json`:
 Add this line to `art-briefs.json`, inside the object:
 
 ```text
-"example-beast": "feral · lunging · ember red",
+"example-beast": "feral · lunging · solid black shadow",
 ```
 
 The check prints one warning to the error stream, then the success line `content:check OK: <N> files parsed`, and
@@ -275,7 +275,7 @@ messages keep the engine's names (Collector, Relic, Appraisal), because that is 
 | `cards/player-monsters.json › example-beast › "slow" is a Flaw, not a keyword › use one of: …` | A Flaw is in a monster's keyword list. Move it to a Courtier's `flaw` field. |
 | `cards/relics.json › example-relic › Flaw "frail" is not registered › use one of: …, or add packages/content/keywords/frail.ts` | The Flaw id is not known. Fix the spelling. Adding a Flaw is section 11. |
 | `warning: cards/player-monsters.json › example-beast › budget 11 (P7+G3+1kw) outside 8–10 › lower Power or Guard by 1 if this is not intended` | The stat budget is out of range. A warning only. Adjust Power or Guard, or leave it if you meant it (section 4). |
-| `warning: art-briefs.json › example-beast › missing art brief › add a one-line "mood · pose · palette"` | A card has no art brief. A warning only. Add one line (section 5). |
+| `warning: art-briefs.json › example-beast › missing art brief › add a one-line "mood · pose · ink"` | A card has no art brief. A warning only. Add one line (section 5). |
 | `warning: art-briefs.json › example-purge › orphan brief, no card or Chimera family has this id › delete the entry` | A brief has no card left. A warning only. Delete the line. |
 | `cards/player-spells.json › example-draw › text: bare number "2" while the card uses $DRAW_CARDS › write {DRAW_CARDS} instead of 2` | The card text has a typed number where a global is used. Write the placeholder (section 6). |
 | `cards/player-spells.json › example-draw › text has 2 sentences › shorten to one sentence` | Card text has two sentences. Shorten it (section 6). |
@@ -464,10 +464,10 @@ casts, add one entry to his AI (below).
 
 ### Template: an art brief
 
-One line in `packages/content/art-briefs.json`, inside the object. The text is "mood · pose · palette".
+One line in `packages/content/art-briefs.json`, inside the object. The text is "mood · pose · ink": the ink part says how the black and white fall (D-360; the shared style rules are in `docs/ART_BRIEF.md`).
 
 ```text
-"example-beast": "feral · lunging · ember red",
+"example-beast": "feral · lunging · solid black shadow",
 ```
 
 The brief is a warning if it is missing. Missing it never blocks a change (D-174).
@@ -588,7 +588,7 @@ Add the monster template from section 4 to `cards/player-monsters.json`, and its
 is clean: no errors and no warnings. Without the brief, the same card gets one warning:
 
 ```text
-warning: art-briefs.json › example-beast › missing art brief › add a one-line "mood · pose · palette"
+warning: art-briefs.json › example-beast › missing art brief › add a one-line "mood · pose · ink"
 ```
 
 ### Worked example: add a spell, a trap and a Courtier
@@ -747,7 +747,7 @@ and the AI still names it. Two warnings follow, because the new id has no brief 
 ```text
 collector.json › deck[16] › "forfeit" no longer exists › remove the reference
 collector.json › ai › params.castHighValueSpell.forfeit: "forfeit" is not a Collector spell in the deck › use a spell id from collector.json › deck
-warning: art-briefs.json › forfeit-2 › missing art brief › add a one-line "mood · pose · palette"
+warning: art-briefs.json › forfeit-2 › missing art brief › add a one-line "mood · pose · ink"
 warning: art-briefs.json › forfeit › orphan brief, no card or Chimera family has this id › delete the entry
 ```
 

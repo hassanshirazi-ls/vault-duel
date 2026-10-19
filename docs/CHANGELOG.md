@@ -3,6 +3,18 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-19 · The card face: art first
+
+No rule changed. The art briefs changed, and they are part of the content hash, so a duel saved before this update
+starts over and the seeds manifest is regenerated (2026-10-19 to 2027-01-16).
+
+- **The art fills the card** (D-360): the shade over the bottom of the art is gone. The name runs across the top, the element and keyword icons sit top right, Power and Guard bottom right, and turn marks top left. All of them are lettered straight onto the art in black with a white outline.
+- **Whole names, one line** (D-360): a name is never cut off with "…". A long one shrinks a little and is squeezed sideways to fit its bar, like the name line on a Yu-Gi-Oh card.
+- **No Attack/Guard badge** (D-360): the number in play is reversed instead, white with a black outline. Power in Attack, Guard in Guard.
+- **Inspect shows the card large** (D-360): the card face itself, the full width of the sheet, above its rules text.
+- **Art briefs in ink** (D-360): every line in `art-briefs.json` now ends in an ink treatment instead of a colour palette. `cinderjaw-hound` was "feral and hungry · lunging low over cracked stone · ember red, soot black, orange glow" and is now "feral and hungry · lunging low over cracked stone · solid black hide, cracked-stone hatching, white sparks". The format is "mood · pose · ink", and the `content:check` hint for a missing brief says so.
+- **Art brief** (D-360): `docs/ART_BRIEF.md` sets the style, the 4:5 shape, the size, the quiet areas and the file names for the commissioned art. A file at `apps/web/public/art/<card-id>.webp` replaces that card's placeholder, with no code change.
+
 ## 2026-10-19 · A clearer How to play
 
 No rule or content changed. Saved duels keep working.

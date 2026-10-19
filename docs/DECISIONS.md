@@ -2999,6 +2999,18 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - The Your turn demo's labelled pips sit two by two (they overflowed the demo box at 390px and below) and name the bond Graft when it is the only bond, as the duel does.
 - `HOWTO_VERSION` 4 → 5, so returning players see the guide once more.
 
+**D-360 · The card face: art fills the card, lettering on top** (owner choices, 2026-10-19)
+- Question: how should the card look once the commissioned black-and-white, Junji Ito-inspired art arrives, with fewer stats on the face? Options were drawn at real phone sizes on a review page (round 1: A name on top and stats along the bottom, B stats down a side rail, C art filling the card; round 2: four ways to put text on the art).
+- Owner's answers:
+  1. **The art fills the whole card** (C). Today's shade over the bottom of the art is gone.
+  2. **Board cards always show the whole name on one line**, never shortened and never wrapped (owner: "one line only like Yu-Gi-Oh"). A name wider than its bar first shrinks to 82% of its size, then is squeezed sideways until it fits (`CardName` in `MiniCard.tsx`, re-measured when the card resizes and when the fonts load). Measured over all 70 names: the longest, Velvet Moth Sovereign, is squeezed to 91% on a 102px board card, 81% at 76px and 57% on the 54px primer pictures.
+  3. **Inspect shows a larger card**: the card face itself at the top of the sheet, the full sheet width, up to 320px. The text below still repeats everything it shows.
+  4. **The stat in play replaces the Attack/Guard badge.** Power is reversed in Attack, Guard in Guard (and for a face-down card). A card with no position (hand, Bestiary, primer) reverses neither. The position stays in the card's spoken label.
+  5. **Lettering, no plates** (round 2, option 1): the name, element badge, keyword glyphs, turn marks and stats are black ink with a solid paper outline, straight on the art. The reversed stat is paper with an ink outline.
+  6. **The art brief** in `docs/ART_BRIEF.md`: 4:5 portrait, 1600×2000 or larger, black ink on white, the quiet areas listed there, one file per card named by id.
+- Layout (all sized from the card's width): name across the top; under it, element and keywords on the right and turn marks (crowned, Ascended, Unstable, can't hit life, moved, attacked) on the left, at most three on a card under 72px; Power and Guard bottom right. On a card with a Flaw the name starts after the chipped corner. Keyword frames, Flaw cracks, the face-down mark, the symbiote tab and preview badges are unchanged.
+- Owner approved (2026-10-19): every per-card line in `art-briefs.json` drops its colour palette for an ink treatment, so the format is now "mood · pose · ink" (the `content:check` hint and CONTENT_GUIDE say so). The mood and pose of each card are unchanged. The briefs are part of the content hash, so the seeds manifest is regenerated with this change.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
