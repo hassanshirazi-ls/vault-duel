@@ -334,7 +334,8 @@ export function Duel() {
       if (plan.discard.size > 0) bits.push('Choose from your discard.');
       if (plan.setTrap !== null) bits.push('Tap an empty trap slot.');
       if (plan.canAttach) bits.push('Or Attach it under a monster.');
-      return { lead: bits.join(' '), rest: '' };
+      const placing = plan.modes.size > 0 && (plan.summon !== null || plan.lanes.size > 0 || plan.sacs.size > 0);
+      return { lead: bits.join(' '), rest: placing ? 'The buttons choose Attack or Guard, face-up or face-down.' : '' };
     }
     const bits: string[] = [];
     const rest: string[] = [];
@@ -349,7 +350,7 @@ export function Duel() {
     else if (plan.moves.size === 0) bits.push('No attack available.');
     if (g.FLAGS.AMBUSH && selMonster !== null && selMonster.faceDown && plan.reposition !== null) rest.push(`Flip it to attack for an Ambush: +${g.AMBUSH_POWER} Power this turn.`);
     if (g.FLAGS.RIPOSTE && plan.targets.size > 0) rest.push('Riposte: a held guard destroys the attacker.');
-    if (plan.moves.size > 0) rest.push(slots ? 'Move or switch once per turn, before it attacks.' : 'A lane move or a switch: once per turn.');
+    if (plan.moves.size > 0) rest.push(slots ? 'Move or switch once per turn, before it attacks. It uses no summon, spell or Graft.' : 'A lane move or a switch: once per turn.');
     if (selMonster !== null && monstersOnly(g, rt.engine, S, selMonster)) rest.push('Summoned this turn: it can hit monsters, not life.');
     return { lead: bits.join(' '), rest: rest.join(' ') };
   })();

@@ -141,14 +141,14 @@ describe('element ink patterns (D-351)', () => {
 
 describe('words and look (D-350, D-351, D-353)', () => {
   const OLD = /Collector|Apprais|Relic|Unpriced|Binder|Signature|auction|catalog|gavel|Insurance Claim|Bill of sale|Forfeit/;
-  it('How to play uses only the court words and the crown sentence, at version 4', () => {
+  it('How to play uses only the court words and the crown sentence, at version 5', () => {
     const pages = howToPages(ctx);
     const text = JSON.stringify(pages);
     expect(text).not.toMatch(OLD);
     const levy = pages.find((p) => p.id === 'appraisal');
     expect(levy?.title).toBe('Levy');
     expect(levy?.summary).toContain(`+${ctx.globals.CROWN_POWER} Power while it serves him`);
-    expect(HOWTO_VERSION).toBe(4);
+    expect(HOWTO_VERSION).toBe(5);
   });
   it('the web manifest and the page carry the tagline', () => {
     const manifest = JSON.parse(readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8')) as { description: string; name: string };

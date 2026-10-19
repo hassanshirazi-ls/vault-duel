@@ -4,6 +4,7 @@
 // Illustrations are the game's own components (MiniCard, Gem, RoundTrack, Seal) plus CSS; nothing here is raster art.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent } from 'react';
+import type { Monster, Pos } from '@vault-duel/engine';
 import type { GameCtx } from '../content/load';
 import { howToPages, howToQuiz, howToSamples, keywordGlossary } from '../view/howto';
 import type { HowToArtId, HowToPage, HowToSamples, Quiz } from '../view/howto';
@@ -18,13 +19,37 @@ import { Seal } from './Seal';
 const noop = (): void => undefined;
 
 /** A card drawn for display only: no tap, no focus (inert), hidden from assistive tech. */
-function Exhibit({ view, symbiote, side = 'me' }: { readonly view: HowToSamples['monsters'][number]; readonly symbiote?: HowToSamples['monsters'][number] | undefined; readonly side?: 'me' | 'them' }) {
+function Exhibit({ view, symbiote, side = 'me', monster }: { readonly view: HowToSamples['monsters'][number]; readonly symbiote?: HowToSamples['monsters'][number] | undefined; readonly side?: 'me' | 'them'; readonly monster?: Monster | undefined }) {
   return (
     <div className="ht-card" inert aria-hidden="true">
-      <MiniCard view={view} side={side} symbiote={symbiote ?? null} onTap={noop} onLong={noop} />
+      <MiniCard view={view} monster={monster} side={side} symbiote={symbiote ?? null} onTap={noop} onLong={noop} />
     </div>
   );
 }
+
+/** A stand-in board monster for the positions demo, so the card draws its sword, shield or face-down mark. */
+const exhibitMonster = (pos: Pos, faceDown: boolean): Monster => ({
+  iid: -1,
+  pos,
+  faceDown,
+  entered: -1,
+  repositioned: -1,
+  attacked: -1,
+  wardUsed: false,
+  permP: 0,
+  permG: 0,
+  timed: [],
+  unstableUntil: -1,
+  shroudUntil: -1,
+  appraised: false,
+  sym: -1,
+});
+
+const POSITION_DEMO: readonly { readonly label: string; readonly icon: string; readonly pos: Pos; readonly faceDown: boolean }[] = [
+  { label: 'Attack', icon: 'sword', pos: 0, faceDown: false },
+  { label: 'Guard', icon: 'shield', pos: 1, faceDown: false },
+  { label: 'Face-down', icon: 'facedown', pos: 1, faceDown: true },
+];
 
 /** A looping demo built from the game's own views (D-275). Its resting state is the finished picture, so with animations off it is a still. */
 function Illustration({ id, ctx, samples }: { readonly id: HowToArtId; readonly ctx: GameCtx; readonly samples: HowToSamples }) {
@@ -79,6 +104,23 @@ function Illustration({ id, ctx, samples }: { readonly id: HowToArtId; readonly 
           </div>
         </div>
       );
+    case 'positions': {
+      const v = samples.monsters[0];
+      return (
+        <div className="ht-row ht-positions" aria-hidden="true">
+          {POSITION_DEMO.map((d) => (
+            <span key={d.label} className="ht-position">
+              <span className="ht-niche">{v !== undefined && <Exhibit view={v} monster={exhibitMonster(d.pos, d.faceDown)} />}</span>
+              <small>
+                <Glyph id={d.icon} size={14} /> {d.label}
+              </small>
+            </span>
+          ))}
+        </div>
+      );
+    }
+    case 'faq':
+      return <Glyph id="info" size={40} />;
     case 'combat':
       return (
         <>
@@ -135,18 +177,20 @@ function Illustration({ id, ctx, samples }: { readonly id: HowToArtId; readonly 
     }
     case 'bonds':
       if (g.FLAGS.TURN_SLOTS) {
+        // D-336: with Graft the only bond, the duel's button and dot say Graft, so the demo does too
+        const bondName = g.FLAGS.SPLIT || g.FLAGS.SYMBIOSIS ? 'Bond' : 'Graft';
         return (
           <div className="ht-bonds" inert aria-hidden="true">
             <div className="ht-bond-step">
-              <Budget played={false} bond={0} slots={{ spell: 0, attacks: 2 }} />
+              <Budget played={false} bond={0} slots={{ spell: 0, attacks: 2 }} bondName={bondName} />
               <small>Your turn starts: all open</small>
             </div>
             <div className="ht-bond-step">
-              <Budget played bond={0} slots={{ spell: 0, attacks: 1 }} />
+              <Budget played bond={0} slots={{ spell: 0, attacks: 1 }} bondName={bondName} />
               <small>Summoned and attacked once: the rest is still open</small>
             </div>
             <div className="ht-bond-step">
-              <Budget played bond={1} slots={{ spell: 1, attacks: 0 }} />
+              <Budget played bond={1} slots={{ spell: 1, attacks: 0 }} bondName={bondName} />
               <small>All used: end your turn</small>
             </div>
           </div>
@@ -414,15 +458,33 @@ export function HowToPlay() {
                 <Illustration id={p.id} ctx={ctx} samples={samples} />
               </div>
               <p className="ht-summary">{p.summary}</p>
-              {quizzes[i] !== null && quizzes[i] !== undefined && <TryIt quiz={quizzes[i] as Quiz} />}
-              <details className="ht-more" open={p.open}>
-                <summary>All the rules</summary>
-                <ul className="ht-lines">
-                  {p.lines.map((line, j) => (
+              {p.keys !== undefined && p.keys.length > 0 && (
+                <ul className="ht-lines ht-keys" aria-label="Key rules">
+                  {p.keys.map((line, j) => (
                     <li key={j}>{line}</li>
                   ))}
                 </ul>
-              </details>
+              )}
+              {quizzes[i] !== null && quizzes[i] !== undefined && <TryIt quiz={quizzes[i] as Quiz} />}
+              {p.qa !== undefined ? (
+                <dl className="ht-qa">
+                  {p.qa.map((x) => (
+                    <div key={x.q}>
+                      <dt>{x.q}</dt>
+                      <dd>{x.a}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <details className="ht-more" open={p.open}>
+                  <summary>All the rules</summary>
+                  <ul className="ht-lines">
+                    {p.lines.map((line, j) => (
+                      <li key={j}>{line}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </section>
           ))}
         </div>
