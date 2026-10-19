@@ -1,8 +1,8 @@
-// Home as an auction catalogue (D-238, D-273 menu A): the title and the lot's date, the big Daily duel plate (date,
-// difficulty stars, Enter the vault / Resume / Today's result), then engraved plates with a one-line italic subtitle:
-// Practice (after today's duel), How to play, Binder, Stats (D-265). Everything about the day sits below them in a
-// folding "Today's lot": the signature card on its plinth, the weekly twist, the Appraisal rounds, the bonus objectives
-// and the deck list. The footer has the feedback link and the countdown to the next duel (local midnight).
+// Home as the Monarch's decree (D-238, D-273 menu A, D-350, D-351): the title, the tagline (D-353) and the decree's date,
+// the big Daily duel plate (date, difficulty stars, Enter the vault / Resume / Today's result), then ink plates with a
+// one-line italic subtitle: Practice (after today's duel), How to play, Bestiary, Stats (D-265). Everything about the day
+// sits below them in a folding "Today's decree": the champion on its plinth, the weekly twist, the levy rounds, the bonus
+// objectives and the deck list. The footer has the feedback link and the countdown to the next duel (local midnight).
 import { deckLine, definitionView } from '../view/cards';
 import { Glyph } from '../visual/glyphs';
 import { useGame } from './context';
@@ -11,6 +11,9 @@ import { Gem } from './Gem';
 import { MiniCard } from './MiniCard';
 import { useEffect, useState } from 'react';
 import { formatCountdown, minutesToNextDuel } from '../daily/date';
+
+/** Under the title (D-353); the web manifest and the page meta description carry the same words. */
+const TAGLINE = 'Defy the Monarch, a few minutes a day.';
 
 function lotDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
@@ -75,8 +78,9 @@ export function Home() {
         <button type="button" className="btn ghost help" onClick={openHowTo} aria-label="How to play" title="How to play">
           <span aria-hidden="true">?</span>
         </button>
-        <p className="eyebrow">Lot of {lotDate(setup.date)}</p>
+        <p className="eyebrow">Decree of {lotDate(setup.date)}</p>
         <h1>Vault Duel</h1>
+        <p className="tagline">{TAGLINE}</p>
       </header>
 
       <button type="button" className="daily-plate" onClick={enterDaily}>
@@ -108,21 +112,21 @@ export function Home() {
           { disabled: !dailyDone },
         )}
         {plate('scroll', 'How to play', 'Rules, elements and a demo duel', openHowTo)}
-        {plate('deck', 'Binder', "Every card and Chimera you've met", () => openScreen('binder'))}
+        {plate('deck', 'Bestiary', "Every champion and Chimera you've met", () => openScreen('binder'))}
         {plate('scales', 'Stats', 'Streak, wins, best rounds', () => openScreen('stats'))}
       </nav>
 
       <details className="lot">
         <summary>
-          <Glyph id="gavel" size={20} />
+          <Glyph id="crown" size={20} />
           <span className="plate-text">
-            <span className="plate-title">Today's lot</span>
-            <span className="plate-sub">Signature card, bonuses and your deck</span>
+            <span className="plate-title">Today's decree</span>
+            <span className="plate-sub">Champion, bonuses and your deck</span>
           </span>
         </summary>
         {sig !== null && (
-          <section className="plinth" aria-label="Signature card of the day">
-            <p className="eyebrow">Today's signature</p>
+          <section className="plinth" aria-label="Champion of the day">
+            <p className="eyebrow">Today's champion</p>
             <div className="plinth-card">
               <MiniCard view={sig} side="me" large onTap={() => setInspect((v) => !v)} onLong={() => setInspect((v) => !v)} />
             </div>
@@ -145,9 +149,9 @@ export function Home() {
           )}
           {g.FLAGS.APPRAISAL && (
             <li>
-              <Glyph id="gavel" size={18} />
+              <Glyph id="crown" size={18} />
               <span>
-                <b>Appraisal rounds</b> {g.APPRAISAL_ROUNDS.join(' · ')}
+                <b>Levy rounds</b> {g.APPRAISAL_ROUNDS.join(' · ')}
               </span>
             </li>
           )}

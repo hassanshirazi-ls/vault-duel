@@ -1,18 +1,19 @@
-/* Mini card (D-237, D-238, D-240): a gilt-framed exhibit with art, name, Power/Guard, element gem set in metal, keyword
-   frame and corner glyphs. Corner icons size from the card's own width (container query units), so they never collide. */
+/* Mini card (D-237, D-238, D-351): a paper card with a hard ink edge and an offset shadow, a hatched art panel, name,
+   Power/Guard, the element's ink-pattern badge, keyword frame and corner glyphs. Corner icons size from the card's own
+   width (container query units), so they never collide. */
 .mini {
   --w: 84px;
-  --frame: var(--gilt);
+  --frame: var(--ink);
   --ic: clamp(13px, 24cqw, 24px);
   position: relative;
   display: block;
   width: var(--w);
   aspect-ratio: 4 / 5;
-  border: 3px solid transparent;
-  border-radius: 3px;
-  background: linear-gradient(var(--soot-2), var(--soot-2)) padding-box, var(--frame) border-box;
-  box-shadow: 0 3px 8px rgb(0 0 0 / 0.75), 0 0 0 1px #000;
-  color: var(--bone);
+  border: 2px solid var(--frame);
+  border-radius: 0;
+  background: var(--card);
+  box-shadow: var(--offset);
+  color: var(--ink);
   text-align: left;
   container-type: inline-size;
   transition: transform var(--beat) var(--ease), box-shadow var(--beat), opacity var(--beat), filter var(--beat);
@@ -21,13 +22,6 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-}
-.mini-clip::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  box-shadow: inset 0 0 12px 2px rgb(0 0 0 / 0.85);
-  pointer-events: none;
 }
 .mini.large {
   --w: 120px;
@@ -52,31 +46,25 @@
   }
 }
 
-/* placeholder art: dark kind silhouette on a radial glow in the element color, under cracked lacquer */
+/* placeholder art: an ink kind silhouette on a hatched panel, with a faint ghost of the element's pattern behind it */
 .art {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 100%, #0c080c 0%, #14101a 100%);
-}
-.art::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--crack);
-  pointer-events: none;
+  background: var(--hatching);
 }
 .art-glow {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 50% 46%, color-mix(in srgb, var(--el) 85%, transparent) 0%, color-mix(in srgb, var(--el) 35%, transparent) 42%, transparent 72%);
+  background: var(--elp, var(--el-pat-neutral));
+  opacity: 0.16;
+  mask-image: radial-gradient(circle at 50% 46%, #000 0%, transparent 72%);
 }
 .art-sil {
   position: absolute;
   inset: 10% 8% 26%;
   width: 84%;
   height: 64%;
-  color: #0b070c;
-  filter: drop-shadow(0 0 3px rgb(0 0 0 / 0.6));
+  color: var(--ink);
 }
 .art-img {
   position: absolute;
@@ -93,7 +81,7 @@
 .mini-shade {
   position: absolute;
   inset: 42% 0 0;
-  background: linear-gradient(transparent, rgb(8 5 6 / 0.94) 60%);
+  background: linear-gradient(transparent, rgb(251 249 244 / 0.96) 58%);
 }
 .mini-name {
   position: absolute;
@@ -101,10 +89,9 @@
   right: 4px;
   bottom: 21px;
   font-family: var(--font-body);
-  font-weight: 700;
+  font-weight: 600;
   font-size: clamp(10px, 15cqw, 15px);
   line-height: 1;
-  text-shadow: 0 1px 2px #000, 0 0 3px #000;
   display: -webkit-box;
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
@@ -113,7 +100,8 @@
 @container (min-width: 88px) {
   .mini-name {
     font-family: var(--font-display);
-    font-size: clamp(9px, 10.5cqw, 14px);
+    font-weight: 700;
+    font-size: clamp(11px, 12.5cqw, 16px);
     line-height: 1.05;
     -webkit-line-clamp: 2;
     bottom: 24px;
@@ -138,19 +126,13 @@
 .mini-stats .stat {
   font-size: inherit;
   padding: 1px 3px;
-  border-radius: 2px;
-  background: rgb(0 0 0 / 0.62);
-  border: 1px solid var(--gold-lo);
+  border-radius: 0;
+  background: var(--card);
+  border: 1.5px solid var(--ink);
 }
 .mini-stats .stat svg {
   width: 0.8em;
   height: 0.8em;
-}
-.stat.p {
-  color: #ffb08a;
-}
-.stat.g {
-  color: #a9d4ff;
 }
 .stat[data-mod='up'] b {
   color: var(--good);
@@ -159,7 +141,7 @@
   color: var(--bad);
 }
 
-/* corner columns: element gem, then position and Unstable on the left; keyword glyphs, then Ascended on the right */
+/* corner columns: element badge, then position and Unstable on the left; keyword glyphs, then Ascended on the right */
 .mini-col {
   position: absolute;
   top: 2px;
@@ -189,10 +171,10 @@
   place-items: center;
   width: 20px;
   height: 20px;
-  border-radius: 2px;
-  background: rgb(10 7 8 / 0.88);
-  border: 1px solid var(--gold);
-  color: var(--gold-hi);
+  border-radius: 0;
+  background: var(--card);
+  border: 1.5px solid var(--ink);
+  color: var(--ink);
 }
 .mini .kw-glyph {
   width: var(--ic);
@@ -208,11 +190,11 @@
   min-width: 18px;
   height: 18px;
   padding: 0 3px;
-  border-radius: 2px;
-  background: rgb(10 7 8 / 0.88);
-  border: 1px solid var(--gold);
+  border-radius: 0;
+  background: var(--card);
+  border: 1.5px solid var(--ink);
   font-size: 11px;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .mini .tag {
   width: var(--ic);
@@ -221,53 +203,58 @@
   padding: 0;
 }
 .mini[data-down] .art {
-  filter: saturate(0.4) brightness(0.65);
+  filter: grayscale(1) contrast(0.8);
 }
 .mini .down-mark {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  color: var(--bone);
+  color: var(--ink);
   opacity: 0.85;
 }
 
-/* back of a hidden card (the Collector's traps and face-down monsters): oxblood velvet, gilt lattice */
+/* back of a hidden card (the Monarch's traps and face-down monsters): solid ink with concentric rings */
+.mini.back {
+  background: var(--ink);
+}
 .mini.back .mini-clip {
-  background:
-    radial-gradient(circle at 50% 50%, var(--gold) 0 5px, var(--oxblood-lo) 6px 8px, transparent 9px),
-    repeating-linear-gradient(45deg, transparent 0 7px, rgb(156 124 60 / 0.35) 7px 8px),
-    repeating-linear-gradient(-45deg, transparent 0 7px, rgb(156 124 60 / 0.35) 7px 8px),
-    var(--moth),
-    linear-gradient(var(--oxblood), var(--oxblood-lo));
-  background-size: auto, auto, auto, var(--moth-size), auto;
+  background: var(--rings);
+  opacity: 0.9;
+  outline: 2px solid var(--paper);
+  outline-offset: -5px;
 }
 .mini.back .back-icon {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  color: var(--soot);
+  color: var(--ink);
+}
+.mini.back .back-icon svg {
+  padding: 2px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-sizing: content-box;
 }
 
-/* ---- keyword frame treatments, keyed by KeywordDef.visual (D-195). Unknown ids get the plain gilt frame. ---- */
+/* ---- keyword frame treatments, keyed by KeywordDef.visual (D-195). Unknown ids get the plain ink frame. Each one is a
+   different drawing in ink, never a color. ---- */
 .fx {
   position: absolute;
   pointer-events: none;
   border-radius: inherit;
 }
 .mini[data-frame='iron-shield-border'] {
-  --frame: linear-gradient(135deg, #e4e8ec 0%, #6b727a 40%, #2e3338 58%, #aeb5bd 100%);
   border-width: 4px;
-  box-shadow: 0 3px 8px #000, 0 0 0 1px #000;
 }
 .mini[data-frame='iron-shield-border'] .fx-a {
   inset: -3px;
   background:
-    radial-gradient(circle at 5px 5px, #e9edf2 0 2px, transparent 2.5px),
-    radial-gradient(circle at calc(100% - 5px) 5px, #e9edf2 0 2px, transparent 2.5px),
-    radial-gradient(circle at 5px calc(100% - 5px), #e9edf2 0 2px, transparent 2.5px),
-    radial-gradient(circle at calc(100% - 5px) calc(100% - 5px), #e9edf2 0 2px, transparent 2.5px);
+    radial-gradient(circle at 5px 5px, var(--card) 0 2px, transparent 2.5px),
+    radial-gradient(circle at calc(100% - 5px) 5px, var(--card) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 5px calc(100% - 5px), var(--card) 0 2px, transparent 2.5px),
+    radial-gradient(circle at calc(100% - 5px) calc(100% - 5px), var(--card) 0 2px, transparent 2.5px);
 }
 .mini[data-frame='spear-notch-on-frame'] .fx-a {
   top: -8px;
@@ -275,32 +262,32 @@
   width: 18px;
   height: 18px;
   translate: -50% 0;
-  background: var(--soot);
+  background: var(--paper);
   rotate: 45deg;
-  border: 2px solid var(--gold-hi);
+  border: 2px solid var(--ink);
   border-right-color: transparent;
   border-bottom-color: transparent;
   border-radius: 0;
 }
 .mini[data-frame='pale-barrier'] {
-  --frame: linear-gradient(135deg, #f4fbff, #8cc4e8 50%, #e8f6ff);
-  box-shadow: 0 0 10px 2px rgb(190 230 255 / 0.6), inset 0 0 12px 3px rgb(190 230 255 / 0.5), 0 0 0 1px #000;
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 .mini[data-frame='pale-barrier'] .fx-a {
   inset: 0;
-  border: 1px solid rgb(255 255 255 / 0.8);
-  background: linear-gradient(135deg, rgb(255 255 255 / 0.18), transparent 40%);
+  border: 1px solid var(--paper);
+  background: linear-gradient(135deg, rgb(251 249 244 / 0.4), transparent 40%);
 }
 .mini[data-frame='ghost-wisps'] {
-  --frame: linear-gradient(135deg, #e0d4f3, #8b72b8 50%, #cdbde8);
-  box-shadow: 0 0 10px 2px rgb(185 166 216 / 0.5), 0 0 0 1px #000;
+  outline: 2px dotted var(--ink);
+  outline-offset: 3px;
 }
 .mini[data-frame='ghost-wisps'] .fx-a {
   inset: -9px;
   background:
-    radial-gradient(ellipse 5px 11px at 4px 30%, rgb(220 205 245 / 0.85), transparent),
-    radial-gradient(ellipse 5px 9px at calc(100% - 4px) 62%, rgb(220 205 245 / 0.8), transparent),
-    radial-gradient(ellipse 4px 8px at 20% 4px, rgb(220 205 245 / 0.7), transparent);
+    radial-gradient(ellipse 5px 11px at 4px 30%, rgb(17 17 17 / 0.55), transparent),
+    radial-gradient(ellipse 5px 9px at calc(100% - 4px) 62%, rgb(17 17 17 / 0.5), transparent),
+    radial-gradient(ellipse 4px 8px at 20% 4px, rgb(17 17 17 / 0.45), transparent);
   animation: drift calc(var(--beat) * 12) ease-in-out infinite alternate;
 }
 @keyframes drift {
@@ -312,7 +299,7 @@
 .mini[data-frame='faded-double-image'] .fx-a {
   inset: 0;
   translate: 4px -3px;
-  border: 2px solid var(--gold-hi);
+  border: 2px solid var(--ink);
   opacity: 0.45;
   z-index: -1;
 }
@@ -321,11 +308,11 @@
   bottom: 20%;
   left: -12px;
   width: 16px;
-  background: repeating-linear-gradient(0deg, rgb(210 178 106 / 0.85) 0 2px, transparent 2px 7px);
+  background: repeating-linear-gradient(0deg, rgb(17 17 17 / 0.85) 0 2px, transparent 2px 7px);
   mask-image: linear-gradient(90deg, transparent, #000);
 }
 
-/* Flaw B (D-271): the gilt frame cracks and a chip is missing from one corner; the art stays whole. The plate with the
+/* Flaw B (D-271): the ink frame cracks and a chip is missing from one corner; the art stays whole. The plate with the
    Flaw's name hangs on the bottom edge of large cards and Inspect only. Unstable is a different thing (a cold, pulsing
    dashed halo around the card), so the two are never confused. */
 .mini .flaw-crack {
@@ -345,7 +332,7 @@
   vector-effect: non-scaling-stroke;
 }
 .mini .flaw-crack .chip {
-  fill: var(--soot);
+  fill: var(--paper);
   stroke: none;
 }
 .flaw-plate {
@@ -359,8 +346,8 @@
   gap: 4px;
   max-width: 100%;
   padding: 2px 10px 2px 8px;
-  background: var(--oxblood-lo);
-  color: var(--bad);
+  background: var(--ink);
+  color: var(--paper);
   font-family: var(--font-display);
   font-size: 10px;
   font-weight: 700;
@@ -368,7 +355,6 @@
   text-transform: uppercase;
   white-space: nowrap;
   clip-path: polygon(0 50%, 7% 0, 93% 6%, 100% 46%, 95% 100%, 5% 94%);
-  box-shadow: inset 0 0 0 1px var(--flaw);
 }
 .mini.large .flaw-plate,
 .inspect-art .flaw-plate {
@@ -380,8 +366,7 @@
 .mini[data-unstable] .fx-b {
   inset: -5px;
   border: 2px dashed var(--unstable);
-  border-radius: 6px;
-  box-shadow: 0 0 10px 2px color-mix(in srgb, var(--unstable) 55%, transparent), inset 0 0 8px 1px color-mix(in srgb, var(--unstable) 35%, transparent);
+  border-radius: 0;
   animation: unstable-pulse calc(var(--beat) * 6) ease-in-out infinite alternate;
 }
 @keyframes unstable-pulse {
@@ -399,11 +384,13 @@
 
 /* ---- states ---- */
 .mini[data-selected] {
-  box-shadow: 0 0 0 3px var(--gold-hi), 0 6px 18px rgb(0 0 0 / 0.8);
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+  box-shadow: var(--offset-lg);
 }
 /* glowing targets: a static ring plus a pulsing halo (opacity only, so it stays cheap) */
 .mini[data-glow='target'] {
-  box-shadow: 0 0 0 2px var(--gold-hi), 0 0 14px 3px rgb(210 178 106 / 0.6);
+  box-shadow: var(--offset-lg);
 }
 .mini[data-glow='target']::after,
 .empty-slot[data-glow='slot']::after,
@@ -411,9 +398,8 @@
   content: '';
   position: absolute;
   inset: -5px;
-  border: 2px solid var(--gold-hi);
-  border-radius: 5px;
-  box-shadow: 0 0 12px 2px rgb(210 178 106 / 0.7);
+  border: 3px dashed var(--ink);
+  border-radius: 0;
   pointer-events: none;
   animation: ring calc(var(--beat) * 6) ease-in-out infinite alternate;
 }
@@ -430,7 +416,7 @@
 }
 @media (hover: hover) and (pointer: fine) {
   .mini:hover:not(:disabled) {
-    filter: brightness(1.14);
+    transform: translate(-1px, -1px);
   }
 }
 .preview-badge {
@@ -441,27 +427,24 @@
   z-index: 3;
   padding: 2px 6px;
   border-radius: 2px;
-  background: rgb(10 7 8 / 0.94);
-  border: 1px solid var(--gold-hi);
-  color: var(--gold-hi);
+  background: var(--card);
+  border: 1.5px solid var(--ink);
+  box-shadow: 1px 2px 0 var(--ink);
+  color: var(--ink);
   font-size: 13px;
   font-weight: 700;
   pointer-events: none;
 }
 
-/* ---- carved display niches (D-240): an arch cut into stone, cards stand inside ---- */
+/* ---- slots (D-351): a dashed paper cut-out, cards stand inside ---- */
 .niche {
   position: relative;
   display: grid;
   place-items: center;
   padding: 4px;
-  border: 2px solid #3d312c;
-  border-radius: calc(var(--w, 84px) * 0.4) calc(var(--w, 84px) * 0.4) 3px 3px / calc(var(--w, 84px) * 0.3) calc(var(--w, 84px) * 0.3) 3px 3px;
-  background:
-    var(--moth),
-    radial-gradient(ellipse at 50% 15%, #000 0%, #140e0e 75%);
-  background-size: var(--moth-size), auto;
-  box-shadow: inset 0 8px 16px #000, inset 0 -2px 0 rgb(210 178 106 / 0.2), 0 1px 0 rgb(255 255 255 / 0.05);
+  border: 1.5px dashed var(--line);
+  border-radius: 0;
+  background: var(--wash);
 }
 .empty-slot {
   --w: 84px;
@@ -470,15 +453,14 @@
   aspect-ratio: 4 / 5;
   display: grid;
   place-items: center;
-  border-radius: 2px;
-  border: 1px solid rgb(0 0 0 / 0.6);
-  box-shadow: inset 0 0 14px #000;
-  color: var(--gold-lo);
+  border-radius: 0;
+  border: 0;
+  color: var(--line);
 }
 .empty-slot[data-glow='slot'] {
-  border: 2px solid var(--gold-hi);
-  color: var(--gold-hi);
-  background: radial-gradient(circle, rgb(210 178 106 / 0.2), transparent 70%);
+  border: 2px solid var(--ink);
+  color: var(--ink);
+  background: var(--hatching);
 }
 
 /* ---- engine-event cues (cues.ts), delayed by beat index; zero --beat makes them instant ---- */
@@ -513,21 +495,21 @@
 .cue-bond {
   animation-name: cue-bond;
 }
-/* Split: the parts break away from where the Chimera stood and settle with a flash; Symbiosis: the host takes a gilt pulse */
+/* Split: the parts break away from where the Chimera stood and settle with a flash; Symbiosis: the host takes an ink-inverted pulse */
 @keyframes cue-split {
   from {
     transform: scale(1.25) rotate(-3deg);
-    filter: brightness(2.2);
+    filter: invert(1);
     opacity: 0;
   }
   50% {
-    filter: brightness(1.6);
+    filter: invert(1);
   }
 }
 @keyframes cue-bond {
   30% {
     transform: translateY(-5px) scale(1.05);
-    filter: brightness(1.8) sepia(0.6) saturate(2);
+    filter: invert(1);
   }
 }
 @keyframes cue-enter {
@@ -551,7 +533,7 @@
 @keyframes cue-hit {
   20% {
     transform: translateX(-4px);
-    filter: brightness(1.8);
+    filter: invert(1);
   }
   50% {
     transform: translateX(4px);
@@ -562,12 +544,12 @@
 }
 @keyframes cue-flash {
   40% {
-    filter: brightness(2) saturate(1.3);
+    filter: invert(1);
   }
 }
 @keyframes cue-ward {
   40% {
-    filter: brightness(1.7) hue-rotate(160deg);
+    filter: invert(1);
   }
 }
 
@@ -586,7 +568,7 @@
   width: 70%;
   aspect-ratio: 1;
   border-radius: 50%;
-  background: radial-gradient(circle, rgb(196 178 214 / 0.65), transparent 68%);
+  background: radial-gradient(circle, rgb(17 17 17 / 0.45), transparent 68%);
   opacity: 0;
   animation: smoke calc(var(--cue) * 3.4) ease-out calc(var(--cue) * (var(--b, 0) + var(--i))) both;
 }
@@ -616,7 +598,7 @@
 }
 .fx-stitch {
   fill: none;
-  stroke: var(--gold-hi);
+  stroke: var(--ink);
   stroke-width: 2.5;
   stroke-linejoin: round;
   width: 100%;
@@ -662,11 +644,11 @@
     opacity: 1;
   }
   35% {
-    filter: brightness(1.7) sepia(1) saturate(4);
+    filter: invert(1);
     opacity: 1;
   }
   100% {
-    filter: brightness(0.15) sepia(1);
+    filter: grayscale(1) contrast(3);
     opacity: 0;
     transform: scale(0.93);
   }
@@ -684,7 +666,7 @@
   right: 0;
   top: 0;
   height: 100%;
-  background: linear-gradient(0deg, transparent 0%, rgb(255 90 20 / 0.95) 30%, rgb(255 190 80 / 0.9) 42%, rgb(30 10 6 / 0.9) 55%, rgb(20 8 6 / 0.95) 100%);
+  background: linear-gradient(0deg, transparent 0%, rgb(17 17 17 / 0.55) 30%, rgb(17 17 17 / 0.8) 42%, rgb(17 17 17 / 0.95) 55%, var(--ink) 100%);
   animation: char-rise calc(var(--cue) * 2) ease-in calc(var(--cue) * var(--b, 0)) both;
 }
 @keyframes char-rise {
@@ -702,8 +684,8 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #ffb04a;
-  box-shadow: 0 0 4px 1px #ff6a1a;
+  background: var(--ink);
+  box-shadow: 0 0 0 1px var(--paper);
   opacity: 0;
   z-index: 4;
   animation: ember calc(var(--cue) * 2.4) ease-out calc(var(--cue) * (var(--b, 0) + 0.4)) both;
@@ -754,7 +736,7 @@
   100% {
     transform: translateY(-140%) scale(0.8);
     opacity: 0;
-    filter: brightness(0.3);
+    filter: grayscale(1);
   }
 }
 .shadow-hand {
@@ -763,8 +745,8 @@
   width: 120%;
   top: -10%;
   z-index: 5;
-  color: #05030a;
-  filter: drop-shadow(0 0 6px #7a4fb8);
+  color: var(--ink);
+  filter: drop-shadow(2px 3px 0 var(--paper));
   opacity: 0;
   animation: hand-grab calc(var(--cue) * 3) ease-in-out calc(var(--cue) * var(--b, 0)) both;
 }
@@ -799,11 +781,11 @@
 }
 .empty-slot[data-blocked] {
   color: var(--flaw);
-  border: 2px dashed rgb(255 106 94 / 0.55);
+  border: 2px dashed var(--flaw);
 }
 .empty-slot[data-blocked='active'] {
   border-color: var(--flaw);
-  background: repeating-linear-gradient(135deg, rgb(255 106 94 / 0.14) 0 6px, transparent 6px 12px);
+  background: repeating-linear-gradient(135deg, rgb(163 25 31 / 0.16) 0 6px, transparent 6px 12px);
 }
 .cover-mark {
   position: absolute;
@@ -814,22 +796,23 @@
   place-items: center;
   width: 22px;
   height: 18px;
-  border-radius: 9px;
-  background: #101820;
-  border: 1.5px solid var(--gold-hi);
-  color: var(--gold-hi);
+  border-radius: 0;
+  background: var(--card);
+  border: 1.5px solid var(--ink);
+  color: var(--ink);
   pointer-events: none;
 }
 .niche[data-covered] {
-  border-color: var(--gold-lo);
+  border-color: var(--ink);
+  border-style: solid;
 }
 .tag[data-sick] {
   color: var(--flaw);
   border-color: var(--flaw);
 }
 .tag[data-moved] {
-  color: var(--bone-dim);
-  border-color: var(--bone-dim);
+  color: var(--mid);
+  border-color: var(--mid);
 }
 
 /* status marks that must show on every card size (sickness, moved): top centre, outside the corner columns */
@@ -848,7 +831,7 @@
   }
 }
 
-/* ---- Symbiosis (D-308): the attached card hangs under its host as a small gilt tab, with a link glyph, its gem and its
+/* ---- Symbiosis (D-308): the attached card hangs under its host as a small ink tab, with a link glyph, its gem and its
    name. It is part of the host's button, so a tap or a hold on it is a tap or a hold on the host. ---- */
 .sym-tab {
   position: absolute;
@@ -862,12 +845,12 @@
   width: calc(100% + 4px);
   height: 17px;
   padding: 0 4px;
-  border-radius: 0 0 4px 4px;
-  border: 1px solid var(--gold);
+  border-radius: 0;
+  border: 1.5px solid var(--ink);
   border-top-width: 2px;
-  background: var(--iron-plate);
-  box-shadow: 0 2px 4px rgb(0 0 0 / 0.8);
-  color: var(--gold-hi);
+  background: var(--card);
+  box-shadow: var(--offset-sm);
+  color: var(--ink);
   pointer-events: none;
 }
 .sym-tab .gem {
@@ -898,17 +881,17 @@
   display: grid;
   gap: 4px;
   padding: 8px 10px;
-  border-radius: 3px;
-  border: 1px solid var(--gold-lo);
-  background: linear-gradient(#0f0a0a, #170f10);
-  box-shadow: inset 0 3px 8px #000;
+  border-radius: 0;
+  border: 1.5px solid var(--ink);
+  background: var(--card);
+  box-shadow: var(--offset-sm);
 }
 .attached h3 {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .attached-name {
   display: flex;
@@ -939,8 +922,8 @@
 }
 /* a monster of yours that has attacked this turn (TURN_SLOTS): done until your next turn */
 .tag[data-attacked] {
-  color: var(--bone-dim);
-  border-color: var(--bone-dim);
+  color: var(--mid);
+  border-color: var(--mid);
 }
 .mini[data-side='me'][data-attacked] .mini-clip {
   filter: saturate(0.55) brightness(0.8);

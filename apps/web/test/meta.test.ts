@@ -151,12 +151,12 @@ describe('share text', () => {
   it('builds the round row, rounds against par, life and stars', () => {
     const row = roundRow(track, 4).join('');
     const text = shareText({ date: '2026-10-15', won: true, rounds: 4, par: 6, life: 9, stars: 2, starsMax: 3, row, url: 'https://example.test/' });
-    expect(text).toBe(`Vault Duel 2026-10-15 · Acquired\n4 rounds (par 6) · Life 9 · ★★☆\n${row}\nhttps://example.test/`);
-    expect(row).toBe('⚔️🧬🛡️🔨');
+    expect(text).toBe(`Vault Duel 2026-10-15 · Defied\n4 rounds (par 6) · Life 9 · ★★☆\n${row}\nhttps://example.test/`);
+    expect(row).toBe('⚔️🧬🛡️👑');
   });
-  it('a loss says Sealed and never shows negative life', () => {
+  it('a loss says Bound and never shows negative life', () => {
     const text = shareText({ date: 'd', won: false, rounds: 12, par: 6, life: -3, stars: 0, starsMax: 3, row: '', url: 'u' });
-    expect(text).toContain('Sealed');
+    expect(text).toContain('Bound');
     expect(text).toContain('Life 0');
     expect(text).toContain('☆☆☆');
     expect(text).toContain('12 rounds (par 6)');

@@ -1,4 +1,4 @@
-// The one line that announces the Collector's next move (D-266). Names come from the cards; nothing is hardcoded.
+// The one line that announces the Monarch's next move (D-266). Names come from the cards; nothing is hardcoded.
 import type { Iid } from '@vault-duel/engine';
 import type { Telegraph } from '../visual/playback';
 
@@ -14,13 +14,13 @@ export function telegraphLine(t: Telegraph, nameOf: (iid: Iid) => string): Teleg
     case 'attack':
       return { icon: 'sword', text: `${of(t.actor)} attacks ${t.direct === true ? 'you directly' : of(t.target)}` };
     case 'summon':
-      return { icon: 'pos', text: `The Collector plays ${of(t.card)}${t.target !== undefined ? `, sacrificing ${of(t.target)}` : ''}` };
+      return { icon: 'pos', text: `The Monarch plays ${of(t.card)}${t.target !== undefined ? `, sacrificing ${of(t.target)}` : ''}` };
     case 'summonDown':
-      return { icon: 'facedown', text: 'The Collector sets a card face-down' };
+      return { icon: 'facedown', text: 'The Monarch sets a card face-down' };
     case 'cast':
-      return { icon: 'spell', text: `The Collector casts ${of(t.card)}${t.target !== undefined ? ` on ${of(t.target)}` : ''}` };
+      return { icon: 'spell', text: `The Monarch casts ${of(t.card)}${t.target !== undefined ? ` on ${of(t.target)}` : ''}` };
     case 'trap':
-      return { icon: 'trap', text: 'The Collector sets a trap' };
+      return { icon: 'trap', text: 'The Monarch sets a trap' };
     case 'reposition':
       return { icon: 'swap', text: `${of(t.actor)} changes position` };
     case 'moveLane':

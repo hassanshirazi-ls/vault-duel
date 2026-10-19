@@ -1,4 +1,4 @@
-// Engraved glyphs and kind silhouettes, keyed by the icon / silhouette ids that content carries (elements.json
+// Ink glyphs and kind silhouettes, keyed by the icon / silhouette ids that content carries (elements.json
 // `icon`, KeywordDef `icon`, kinds.json `silhouette`). Adding one is one entry in a table; an id with no entry
 // draws the plain fallback glyph (D-238), so a content edit never breaks the UI.
 import type { CSSProperties, ReactNode } from 'react';
@@ -52,7 +52,7 @@ const STROKE: Readonly<Record<string, ReactNode>> = {
   sword: <path d="M5 19 17 7M14 4h6v6M7 17l-3 3M6 14l4 4" />,
   scales: <path d="M12 4v16M5 8h14M5 8l-3 7h6zM19 8l-3 7h6zM8 20h8" />,
   scroll: <path d="M7 4h11v13a3 3 0 0 1-3 3H6a3 3 0 0 0 3-3V6a2 2 0 0 0-2-2zM10 9h5M10 13h5" />,
-  gavel: <path d="m13 4 7 7-3 3-7-7zM10 10l-6 6 4 4 6-6M3 21h8" />,
+  crown: <path d="M4 18 3 7l5 4 4-7 4 7 5-4-1 11zM4 21h16" />,
   vault: (
     <>
       <circle cx="12" cy="12" r="8" />
@@ -192,7 +192,7 @@ export function Silhouette({ id, className }: { readonly id: string; readonly cl
   );
 }
 
-/** A blood-ink blot, drawn over the life seal when damage lands (D-240). */
+/** An ink blot, drawn over the life seal when damage lands (D-240). */
 export function InkSplash({ className, style }: { readonly className?: string; readonly style?: CSSProperties }) {
   return (
     <svg className={className} style={style} viewBox="0 0 100 100" fill="currentColor" aria-hidden="true" focusable="false">
@@ -205,7 +205,7 @@ export function InkSplash({ className, style }: { readonly className?: string; r
   );
 }
 
-/** The shadow hand that takes a card on an Appraisal (D-240). Dark with a violet rim, drawn from the top. */
+/** The shadow hand that takes a card on a Levy (D-240). Solid ink, drawn from the top. */
 export function ShadowHand({ className }: { readonly className?: string }) {
   return (
     <svg className={className} viewBox="0 0 100 120" fill="currentColor" aria-hidden="true" focusable="false">

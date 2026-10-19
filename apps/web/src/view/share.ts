@@ -16,7 +16,7 @@ export interface ShareInput {
 export function shareText(i: ShareInput): string {
   const stars = '★'.repeat(i.stars) + '☆'.repeat(Math.max(0, i.starsMax - i.stars));
   return [
-    `Vault Duel ${i.date} · ${i.won ? 'Acquired' : 'Sealed'}`,
+    `Vault Duel ${i.date} · ${i.won ? 'Defied' : 'Bound'}`,
     `${i.rounds} ${i.rounds === 1 ? 'round' : 'rounds'} (par ${i.par}) · Life ${Math.max(0, i.life)} · ${stars}`,
     i.row,
     i.url,

@@ -1,4 +1,4 @@
-// Small derived displays: Appraisal countdown, Collector mood and intent, Graft preview model.
+// Small derived displays: levy countdown, Monarch mood and intent, Graft preview model.
 import type { Engine, GameState, Globals, Intent } from '@vault-duel/engine';
 import { MOOD_NAMES } from '@vault-duel/ai';
 import type { ElementInfo, GameCtx } from '../content/load';
@@ -6,7 +6,7 @@ import { roundOfState } from '../duel/turn';
 import type { KeywordView } from './cards';
 import { keywordViews } from './cards';
 
-/** Appraisal happens on the Collector's turn of each round in APPRAISAL_ROUNDS (D-075). */
+/** The levy (engine: Appraisal) happens on the Monarch's turn of each round in APPRAISAL_ROUNDS (D-075, D-350). */
 export function appraisalCountdown(g: Globals, s: GameState): { readonly round: number; readonly roundsAway: number } | null {
   if (!g.FLAGS.APPRAISAL) return null;
   const now = roundOfState(s);
@@ -16,7 +16,7 @@ export function appraisalCountdown(g: Globals, s: GameState): { readonly round: 
 
 export const INTENT_LABEL: Readonly<Record<Intent, { icon: string; label: string }>> = {
   attack: { icon: 'sword', label: 'He will attack' },
-  appraise: { icon: 'scales', label: 'He will appraise' },
+  appraise: { icon: 'scales', label: 'He will levy' },
   guard: { icon: 'shield', label: 'He will guard' },
   scheme: { icon: 'scroll', label: 'He is scheming' },
 };

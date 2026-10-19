@@ -1,4 +1,4 @@
-// The mini card (D-237, D-240): art, name, Power/Guard, element gem, keyword frame and corner glyphs. Also used for the
+// The mini card (D-237, D-240, D-351): art, name, Power/Guard, the element's ink-pattern badge, keyword frame and corner glyphs. Also used for the
 // hand. Tap and long-press are handled by the caller's callbacks; this component draws and nothing else. A mouse
 // hovering over it only reports `onHover` (a preview), never an action.
 import type { CSSProperties } from 'react';
@@ -12,8 +12,8 @@ import { Gem } from './Gem';
 import { useLongPress } from './hooks';
 
 /**
- * How a Flaw shows on a card (D-271, Flaw B): fracture lines through the gilt frame and a chip missing from the top-left
- * corner; the art is untouched. On large cards and Inspect a jagged oxblood plate with the Flaw's name hangs on the
+ * How a Flaw shows on a card (D-271, Flaw B): fracture lines through the ink frame and a chip missing from the top-left
+ * corner; the art is untouched. On large cards and Inspect a jagged black plate with the Flaw's name hangs on the
  * bottom edge (CSS shows it only there). The card must be `position: relative` (`.mini` is).
  */
 export function FlawMark({ flaw }: { readonly flaw: KeywordView }) {
@@ -46,7 +46,7 @@ export interface MiniCardProps {
   readonly preview?: string | undefined;
   /** a glyph beside the preview text (Riposte shows a shield, a hidden Guard an eye), so the warning is never text alone */
   readonly previewIcon?: string | undefined;
-  /** a labelled marker with an icon, for the Collector's telegraph (D-266) */
+  /** a labelled marker with an icon, for the Monarch's telegraph (D-266) */
   readonly mark?: { readonly icon: string; readonly label: string } | undefined;
   readonly style?: CSSProperties;
   readonly label?: string;
@@ -56,13 +56,15 @@ export interface MiniCardProps {
   readonly moved?: boolean;
   /** already attacked this turn (FLAGS.TURN_SLOTS, D-335: it can no longer move or switch either) */
   readonly attacked?: boolean;
+  /** a monster the Monarch took by levy, crowned while it serves him (D-349): a small crown badge */
+  readonly crowned?: boolean;
   /** the card attached under this monster (FLAGS.SYMBIOSIS, D-308): drawn as a small tab under the card */
   readonly symbiote?: CardView | null | undefined;
   /** a mouse entered or left the card; touch and pen never call this */
   readonly onHover?: ((on: boolean) => void) | undefined;
 }
 
-export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, previewIcon, mark, style, label, onHover, monstersOnly = false, moved = false, attacked = false, symbiote = null }: MiniCardProps) {
+export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, previewIcon, mark, style, label, onHover, monstersOnly = false, moved = false, attacked = false, crowned = false, symbiote = null }: MiniCardProps) {
   const press = useLongPress(onTap, onLong);
   const frame = frameFor(view.keywords);
   const flaw = view.keywords.find((k) => k.flaw);
@@ -71,7 +73,7 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
   const cueStyle = cue === undefined ? undefined : ({ '--b': cue.beat } as CSSProperties);
   const classes = ['mini', large ? 'large' : '', cue === undefined ? '' : `cue cue-${cue.kind}`].filter(Boolean).join(' ');
   const stat = (base: number | null): string => (base === null ? '' : String(base));
-  const status = [monster === undefined ? '' : monster.pos === 0 ? 'Attack position' : 'Guard position', view.ascended ? 'Ascended' : '', unstable ? 'Unstable' : '', monstersOnly ? 'Can attack monsters, not life, this turn' : '', moved ? 'Already moved this turn' : '', attacked ? 'Already attacked this turn' : '', symbiote === null ? '' : `${symbiote.name} attached`].filter(Boolean);
+  const status = [monster === undefined ? '' : monster.pos === 0 ? 'Attack position' : 'Guard position', view.ascended ? 'Ascended' : '', unstable ? 'Unstable' : '', monstersOnly ? 'Can attack monsters, not life, this turn' : '', moved ? 'Already moved this turn' : '', attacked ? 'Already attacked this turn' : '', crowned ? 'Crowned' : '', symbiote === null ? '' : `${symbiote.name} attached`].filter(Boolean);
   return (
     <button
       type="button"
@@ -148,6 +150,11 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
         </span>
       )}
       <span className="mini-col r">
+        {crowned && (
+          <span className="tag" data-crown="" role="img" aria-label="Crowned" title="Crowned">
+            <Glyph id="crown" size={12} filled />
+          </span>
+        )}
         {frame.glyphs.map((k) => (
           <span key={k.id} className="kw-glyph" data-flaw={k.flaw ? '' : undefined} title={k.name}>
             <Glyph id={k.icon} size={14} cracked={k.flaw} />
@@ -220,7 +227,7 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
   );
 }
 
-/** The back of a card the player cannot see (the Collector's traps and face-down monsters). */
+/** The back of a card the player cannot see (the Monarch's traps and face-down monsters). */
 export function CardBack({ icon, label, onTap, glow = null, selected = false, mark, preview, previewIcon }: { readonly preview?: string | undefined; readonly previewIcon?: string | undefined; readonly icon: string; readonly label: string; readonly onTap?: (() => void) | undefined; readonly glow?: Glow; readonly selected?: boolean; readonly mark?: { readonly icon: string; readonly label: string } | undefined }) {
   return (
     <button type="button" className="mini back" aria-label={label} data-glow={glow ?? undefined} data-selected={selected ? '' : undefined} onClick={onTap} disabled={onTap === undefined}>

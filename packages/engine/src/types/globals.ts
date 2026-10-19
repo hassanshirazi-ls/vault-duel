@@ -29,6 +29,8 @@ export interface Flags {
   readonly RIPOSTE: boolean;
   /** D-338: flipping a face-down monster to attack gives +AMBUSH_POWER Power until the end of the turn */
   readonly AMBUSH: boolean;
+  /** D-349: a monster the Collector took by Appraisal gets +CROWN_POWER Power while it is on his board */
+  readonly CROWNED: boolean;
 }
 
 export type Range = readonly [number, number];
@@ -84,6 +86,8 @@ export interface Globals {
   readonly SYMBIOSIS_GUARD_BONUS: number;
   /** D-338: Power an Ambush flip gives; read only with FLAGS.AMBUSH */
   readonly AMBUSH_POWER: number;
+  /** D-349: Power a crowned (Appraised) monster gets on the Collector's board; read only with FLAGS.CROWNED */
+  readonly CROWN_POWER: number;
   /** D-306: most hand cards a Graft may use as materials; read only with FLAGS.BOND_ACTION (= MAX_GRAFT_MATERIALS: no limit) */
   readonly BOND_GRAFT_MAX_HAND_MATERIALS: number;
   /** D-307: extra permanent Power on each part of a split Chimera (negative = weaker parts); read only with FLAGS.SPLIT */

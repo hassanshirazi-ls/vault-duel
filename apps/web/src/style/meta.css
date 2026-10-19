@@ -1,18 +1,15 @@
-/* W2 meta screens (D-247, D-240): Binder, Stats ledger, Practice, debug overlay, loading seal. Same tokens as the rest. */
+/* W2 meta screens (D-247, D-351): Bestiary, Stats ledger, Practice, debug overlay, loading seal. Same tokens as the rest. */
 
 /* ---------- loading seal ---------- */
 .seal-mark {
   width: 96px;
   height: 96px;
   margin: 0 auto;
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px #000, 0 6px 18px rgb(0 0 0 / 0.7);
   animation: seal-breathe 2.2s ease-in-out infinite;
 }
 @keyframes seal-breathe {
   50% {
     transform: scale(1.04);
-    filter: brightness(1.12);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -39,9 +36,9 @@
   gap: 12px;
 }
 .page-head h1 {
-  font-size: 22px;
-  color: var(--gold-hi);
-  text-shadow: 0 2px 0 #000, 0 0 14px rgb(156 124 60 / 0.35);
+  font-size: 28px;
+  color: var(--ink);
+  text-shadow: 2px 2px 0 var(--hatch);
 }
 .page-head .back {
   padding: 0;
@@ -65,31 +62,29 @@
   display: grid;
   gap: 14px;
   padding: 20px 18px 28px;
-  border-radius: 2px;
-  color: var(--paper-ink);
-  background:
-    var(--crack),
-    repeating-linear-gradient(0deg, transparent 0 27px, rgb(90 60 30 / 0.2) 27px 28px),
-    radial-gradient(ellipse at 50% 40%, #e8dcbc 0%, var(--paper) 55%, #bfae82 100%);
-  box-shadow: inset 0 0 36px rgb(110 70 20 / 0.45), inset 8px 0 0 #3a0d11, 0 10px 30px rgb(0 0 0 / 0.7);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--card);
+  border: 2px solid var(--ink);
+  box-shadow: var(--offset-lg);
 }
 .ledger header {
   text-align: center;
 }
 .ledger .eyebrow {
-  color: #6b4a12;
+  color: var(--mid);
 }
 .ledger h2 {
-  font-size: 21px;
+  font-size: 26px;
   line-height: 1.15;
   margin-top: 4px;
 }
 .ledger h3 {
-  font-size: 15px;
+  font-size: 18px;
   margin-bottom: 6px;
 }
 .ledger .muted {
-  color: #5a4a2c;
+  color: var(--mid);
 }
 .figs {
   display: grid;
@@ -102,14 +97,14 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 8px;
-  border-bottom: 1px solid rgb(90 70 40 / 0.45);
+  border-bottom: 1px solid var(--ink);
   padding: 3px 0;
   min-width: 0;
 }
 .fig dt {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 12px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 13px;
   line-height: 1.15;
 }
 .fig dd {
@@ -118,7 +113,7 @@
   align-items: center;
   gap: 4px;
   font-family: var(--font-num);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 22px;
 }
 .fig[data-red] dd,
@@ -139,8 +134,8 @@
   border-radius: 2px;
 }
 .chart li[data-today] {
-  background: rgb(140 26 26 / 0.14);
-  outline: 2px solid #8c1a1a;
+  background: var(--wash);
+  outline: 2px solid var(--ink);
   outline-offset: -2px;
 }
 .row-label {
@@ -165,10 +160,10 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 11px;
-  color: #8c1a1a;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--blood);
 }
 .tally {
   display: flex;
@@ -186,8 +181,8 @@
 .tally-gate i {
   width: 2.5px;
   height: 18px;
-  border-radius: 1px;
-  background: #1f1810;
+  border-radius: 0;
+  background: var(--ink);
   rotate: 2deg;
 }
 .tally-gate b {
@@ -196,16 +191,16 @@
   right: -3px;
   top: 8px;
   height: 2.5px;
-  background: #1f1810;
+  background: var(--ink);
   rotate: -24deg;
   border-radius: 1px;
 }
 .lost-row .tally-gate i,
 .lost-row .tally-gate b {
-  background: #7d0f17;
+  background: var(--blood);
 }
 
-/* ---------- binder ---------- */
+/* ---------- bestiary ---------- */
 .tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -217,19 +212,20 @@
   justify-content: center;
   gap: 6px;
   min-height: var(--tap);
-  border: 2px solid var(--gold-lo);
-  border-radius: 3px;
-  background: linear-gradient(#2a2321, #171211);
-  color: var(--bone-dim);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--card);
+  box-shadow: var(--offset-sm);
+  color: var(--ink);
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 18px;
 }
 .tab[aria-selected='true'] {
-  border-color: var(--gold-hi);
-  color: var(--gold-hi);
-  background: linear-gradient(var(--oxblood), var(--oxblood-lo));
-  box-shadow: inset 0 0 14px rgb(0 0 0 / 0.5), 0 0 0 1px #000;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: none;
+  transform: translate(2px, 3px);
 }
 .month-nav {
   display: flex;
@@ -239,8 +235,8 @@
   margin-bottom: 8px;
 }
 .month-nav h2 {
-  font-size: 17px;
-  color: var(--gold-hi);
+  font-size: 22px;
+  color: var(--ink);
   text-align: center;
 }
 .month-nav .btn {
@@ -254,25 +250,25 @@
 }
 .cal-wd {
   text-align: center;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
+  font-weight: 600;
   font-size: 12px;
-  color: var(--bone-dim);
+  color: var(--mid);
 }
 .cal-day {
   position: relative;
   min-height: 56px;
-  border-radius: 3px;
+  border-radius: 0;
 }
 .cal-day.dark {
   display: grid;
   place-items: center;
-  background: var(--moth), linear-gradient(#171112, #0d0a0b);
-  background-size: var(--moth-size), auto;
-  border: 1px solid #2a1f20;
-  color: #7c7060;
+  background: var(--wash);
+  border: 1px dashed var(--line);
+  color: var(--mid);
 }
 .cal-day[data-today] {
-  outline: 2px solid var(--gold-hi);
+  outline: 2px solid var(--ink);
   outline-offset: 1px;
 }
 .cal-n {
@@ -287,10 +283,10 @@
   min-width: var(--tap);
   min-height: var(--tap);
   overflow: hidden;
-  border-radius: 3px;
-  border: 2px solid var(--gold);
-  background: #000;
-  box-shadow: 0 0 0 1px #000;
+  border-radius: 0;
+  border: 2px solid var(--ink);
+  background: var(--card);
+  box-shadow: var(--offset-sm);
 }
 .cal-art {
   position: absolute;
@@ -302,17 +298,20 @@
 }
 .cal-btn .cal-n {
   position: absolute;
-  left: 3px;
-  bottom: 1px;
-  color: var(--bone);
-  text-shadow: 0 1px 2px #000, 0 0 4px #000, 0 0 6px #000;
+  left: 0;
+  bottom: 0;
+  padding: 0 4px;
+  background: var(--card);
+  border: 1.5px solid var(--ink);
+  border-width: 1.5px 1.5px 0 0;
+  color: var(--ink);
 }
 .tri-count {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-bottom: 10px;
-  color: var(--bone-dim);
+  color: var(--mid);
   font-size: 15px;
 }
 .tri {
@@ -327,10 +326,10 @@
   align-content: center;
   gap: 1px;
   min-height: 44px;
-  color: var(--gold-hi);
+  color: var(--ink);
   font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 9.5px;
+  font-weight: 600;
+  font-size: 10px;
   letter-spacing: 0;
   text-transform: uppercase;
   line-height: 1.1;
@@ -339,7 +338,7 @@
 .tri-sil {
   width: 22px;
   height: 22px;
-  color: var(--gold);
+  color: var(--ink);
 }
 .tri-cell {
   position: relative;
@@ -351,18 +350,17 @@
   min-height: 66px;
   min-width: var(--tap);
   padding: 4px 1px;
-  border-radius: 3px;
-  border: 1px solid #2a1f20;
-  background: var(--moth), linear-gradient(#171112, #0d0a0b);
-  background-size: var(--moth-size), auto;
-  color: #8a7e6c;
+  border-radius: 0;
+  border: 1px dashed var(--line);
+  background: var(--wash);
+  color: var(--mid);
   overflow: hidden;
 }
 .tri-cell[data-known] {
-  border: 2px solid var(--gold);
-  background: radial-gradient(circle at 50% 35%, #7a2a30 0%, #3a0f13 70%, #1b0709 100%);
-  color: var(--bone);
-  box-shadow: inset 0 0 12px rgb(0 0 0 / 0.5), 0 0 0 1px #000;
+  border: 2px solid var(--ink);
+  background: var(--hatching-fine);
+  color: var(--ink);
+  box-shadow: var(--offset-sm);
 }
 .tri-fig {
   width: 30px;
@@ -374,14 +372,16 @@
 }
 .tri-name {
   font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 10px;
+  font-weight: 600;
+  font-size: 11px;
   line-height: 1.05;
   text-align: center;
   /* long family names ("Clockwork") would touch the frame in a 50 px cell */
   hyphens: auto;
   overflow-wrap: break-word;
   max-width: 100%;
+  background: var(--card);
+  padding: 0 2px;
 }
 .tri-lock {
   position: absolute;
@@ -401,10 +401,11 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border: 2px solid var(--gold-lo);
-  border-radius: var(--radius);
-  background: linear-gradient(90deg, #2a1719, #150c0d);
-  color: var(--gold-hi);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--card);
+  box-shadow: var(--offset-sm);
+  color: var(--ink);
   font-size: 15px;
 }
 /* Narrow phones: uppercase "CONSTRUCT" is wider than a 50 px column, so kind heads go to normal case here. */
@@ -462,17 +463,13 @@
   padding-bottom: 28px;
 }
 .result[data-practice] .receipt {
-  filter: saturate(0.8);
+  border-style: dashed;
 }
 
-/* ---------- Practice: unrecorded ribbon, gold dimmed a notch (D-247) ---------- */
-.app[data-mode='practice'] {
-  --gold: #85693a;
-  --gold-hi: #b99d62;
-  --gold-lo: #4d3c1d;
-  --brass: #8f7640;
-  --gilt: linear-gradient(135deg, #bfa56e 0%, #85693a 30%, #4d3c1d 55%, #9a7f40 80%, #594622 100%);
-  --brass-plate: linear-gradient(#b99f63 0%, #8f7640 42%, #67501f 100%);
+/* ---------- Practice: unrecorded ribbon, the paper greyed a notch (D-247, D-351) ---------- */
+body:has(.app[data-mode='practice']) {
+  --paper: #e7e3d8;
+  --wash: #dcd7c9;
 }
 .ribbon {
   position: relative;
@@ -484,14 +481,12 @@
   height: 16px;
   flex: none;
   line-height: 1;
-  background: linear-gradient(#7a2a30, #4a1217);
-  border-block: 1px solid #1b0709;
-  box-shadow: 0 2px 4px rgb(0 0 0 / 0.5);
-  color: #f2dfc4;
-  font-family: var(--font-display);
-  font-weight: 700;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-body);
+  font-weight: 600;
   font-size: 10.5px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 @media (min-width: 1024px) and (orientation: landscape) {

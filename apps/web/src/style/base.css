@@ -10,12 +10,8 @@ body,
   margin: 0;
 }
 body {
-  background:
-    radial-gradient(120% 70% at 50% 0%, #2a1416 0%, transparent 62%),
-    radial-gradient(90% 60% at 50% 120%, #1c0d0f 0%, transparent 70%),
-    var(--moth), var(--weave), var(--soot);
-  background-size: auto, auto, var(--moth-size), auto, auto;
-  color: var(--bone);
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--font-body);
   font-size: 17px;
   line-height: 1.32;
@@ -40,9 +36,9 @@ button {
 button:disabled {
   cursor: default;
 }
-/* focus: a bright gilt ring, offset so it reads on soot, gilt and brass alike */
+/* focus: a heavy ink ring, offset so it reads on paper and on ink fills alike */
 :focus-visible {
-  outline: 3px solid var(--gold-hi);
+  outline: 3px solid var(--ink);
   outline-offset: 2px;
 }
 h1,
@@ -51,7 +47,7 @@ h3 {
   font-family: var(--font-display);
   font-weight: 700;
   margin: 0;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
 }
 p {
   margin: 0;
@@ -66,7 +62,7 @@ svg {
   display: block;
   flex: none;
 }
-/* bold lining serif figures for every number */
+/* bold lining figures for every number */
 b,
 .stat b,
 .life b,
@@ -75,8 +71,16 @@ b,
 .tag,
 .count b {
   font-family: var(--font-num);
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: lining-nums tabular-nums;
+}
+/* flavour and the Monarch's own words are set in the book serif */
+.quip,
+.plate-sub,
+.tile-sub,
+.flavour,
+.inspect-flavour {
+  font-family: var(--font-flavour);
 }
 
 .app {
@@ -101,7 +105,7 @@ b,
   }
 }
 
-/* thorned filigree: a divider drawn from a tiled inline SVG, fading at both ends */
+/* a divider under headers: a hard double rule, fading at both ends */
 .filigree::after,
 .collector::after,
 .lot-head::after,
@@ -110,14 +114,14 @@ b,
 .panel-title::after {
   content: '';
   display: block;
-  height: 12px;
+  height: 5px;
   margin-top: 4px;
-  background: var(--thorns) repeat-x center / 48px 12px;
-  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  border-block: 1px solid var(--ink);
+  mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
   pointer-events: none;
 }
 
-/* buttons: iron-and-brass plaques with rivets */
+/* buttons: paper plates with a hard ink edge and an offset shadow; the primary one is solid ink */
 .btn {
   position: relative;
   display: inline-flex;
@@ -127,44 +131,34 @@ b,
   min-height: var(--tap);
   min-width: var(--tap);
   padding: 0 20px;
-  border-radius: 3px;
-  border: 2px solid var(--gold);
-  background: var(--iron-plate);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14), inset 0 -2px 0 rgb(0 0 0 / 0.55), 0 0 0 1px #000, 0 3px 6px rgb(0 0 0 / 0.6);
-  color: var(--gold-hi);
-  font-family: var(--font-display);
-  font-weight: 700;
+  border-radius: 0;
+  border: 2px solid var(--ink);
+  background: var(--card);
+  box-shadow: var(--offset-sm);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-weight: 600;
   font-size: 15px;
-  letter-spacing: 0.03em;
-  text-shadow: 0 1px 0 #000;
-  transition: transform var(--beat) var(--ease), filter var(--beat);
-}
-.btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--rivets);
-  pointer-events: none;
+  letter-spacing: 0.04em;
+  transition: transform var(--beat) var(--ease), box-shadow var(--beat) var(--ease);
 }
 .btn:active:not(:disabled) {
-  transform: translateY(1px);
-  box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.7), 0 0 0 1px #000;
+  transform: translate(2px, 3px);
+  box-shadow: 0 0 0 var(--ink);
 }
 .btn.primary {
-  background: var(--brass-plate);
-  color: #1a1206;
-  border-color: #e3c77f;
-  text-shadow: 0 1px 0 rgb(255 255 255 / 0.3);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45), inset 0 -2px 0 rgb(0 0 0 / 0.35), 0 0 0 1px #000, 0 3px 10px rgb(156 124 60 / 0.35);
+  background: var(--ink);
+  color: var(--paper);
 }
 .btn.ghost {
-  background: linear-gradient(#2a2321, #171211);
-  border-color: var(--gold-lo);
+  background: var(--paper);
   font-size: 14px;
 }
 .btn:disabled {
-  opacity: 0.55;
-  filter: grayscale(0.5);
+  color: var(--mid);
+  border-color: var(--line);
+  box-shadow: none;
+  background: var(--wash);
 }
 .btn.large {
   min-height: 56px;
@@ -172,29 +166,32 @@ b,
   width: 100%;
 }
 .soon {
-  font-family: var(--font-body);
+  font-family: var(--font-flavour);
   font-size: 12px;
   font-weight: 400;
   font-style: italic;
-  letter-spacing: 0.04em;
-  opacity: 0.85;
+  letter-spacing: 0.02em;
 }
 
-/* element gem: set in a gilt bezel, with a gem fill, a catch-light and an engraved icon; the icon always accompanies the color */
+/* element badge (D-351): a ring of the element's ink pattern around a paper disc with the icon. Pattern and icon always
+   come together, so the element never depends on color. --elp is set from the element id (visual/elements.ts). */
 .gem {
   display: inline-grid;
   place-items: center;
   width: 22px;
   height: 22px;
-  border: 2px solid transparent;
+  border: 1.5px solid var(--ink);
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 26%, rgb(255 255 255 / 0.6) 0 7%, transparent 22%) padding-box,
-    radial-gradient(circle at 36% 32%, color-mix(in srgb, var(--el) 70%, white) 0%, var(--el) 52%, color-mix(in srgb, var(--el) 50%, black) 100%) padding-box,
-    var(--gilt) border-box;
-  color: var(--el-on);
-  box-shadow: 0 0 0 1px #000, 0 2px 4px rgb(0 0 0 / 0.7);
+  background: var(--elp, var(--el-pat-neutral));
+  color: var(--ink);
+  box-shadow: 1px 1px 0 var(--ink);
   flex: none;
+}
+.gem svg {
+  box-sizing: border-box;
+  padding: 1px;
+  border-radius: 50%;
+  background: var(--card);
 }
 .gem.lg {
   width: 30px;
@@ -214,11 +211,11 @@ b,
   width: max-content;
   max-width: calc(100% - 16px);
   padding: 6px 6px 6px 14px;
-  border-radius: 3px;
-  background: linear-gradient(var(--brass-dark), #1b1409);
-  border: 2px solid var(--gold);
-  box-shadow: 0 6px 16px rgb(0 0 0 / 0.7);
-  color: var(--bone);
+  border-radius: 0;
+  background: var(--card);
+  border: 2px solid var(--ink);
+  box-shadow: var(--offset);
+  color: var(--ink);
 }
 .toast .btn {
   flex: none;
@@ -234,8 +231,8 @@ b,
   text-align: center;
 }
 .center-screen h1 {
-  color: var(--gold-hi);
-  font-size: 26px;
+  color: var(--ink);
+  font-size: 28px;
 }
 .center-screen code {
   display: block;
@@ -244,20 +241,24 @@ b,
   font-size: 12px;
   white-space: pre-wrap;
   color: var(--bad);
+  background: var(--card);
+  border: 1.5px solid var(--ink);
+  box-shadow: var(--offset-sm);
+  padding: 6px 8px;
 }
 .error-list {
   display: grid;
   gap: 8px;
   max-width: 100%;
 }
-/* the loading ring is a turning brass ring with a gap */
+/* the loading ring is a turning ink spiral ring with a gap */
 .spinner {
   width: 40px;
   height: 40px;
   margin: 0 auto;
   border-radius: 50%;
-  border: 4px double var(--gold-lo);
-  border-top-color: var(--gold-hi);
+  border: 4px double var(--line);
+  border-top-color: var(--ink);
   animation: spin 1s linear infinite;
 }
 @keyframes spin {
@@ -272,91 +273,4 @@ b,
 }
 [data-anim='off'] .spinner {
   animation: none;
-}
-
-/* idle atmosphere (D-240): two candle glows and a few drifting ash specks, transform and opacity only.
-   It stops under reduced motion or when the animations flag is off. */
-.atmos {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-  z-index: 50;
-}
-.candle {
-  position: absolute;
-  top: -12vmin;
-  width: 70vmin;
-  height: 70vmin;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgb(255 168 72 / 0.11) 0%, rgb(255 120 40 / 0.04) 40%, transparent 68%);
-  animation: flicker 3.3s ease-in-out infinite;
-  z-index: -1;
-}
-.candle.c1 {
-  left: -22vmin;
-}
-.candle.c2 {
-  right: -22vmin;
-  animation-duration: 4.1s;
-  animation-delay: -1.3s;
-}
-@keyframes flicker {
-  0%,
-  100% {
-    opacity: 0.9;
-    transform: scale(1);
-  }
-  18% {
-    opacity: 0.55;
-    transform: scale(0.97);
-  }
-  34% {
-    opacity: 1;
-    transform: scale(1.02);
-  }
-  57% {
-    opacity: 0.65;
-    transform: scale(0.98);
-  }
-  78% {
-    opacity: 0.95;
-    transform: scale(1.01);
-  }
-}
-.ash {
-  position: absolute;
-  top: -12px;
-  left: var(--x);
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: #c7bba2;
-  opacity: 0;
-  animation: ash-fall var(--t) linear var(--d) infinite;
-  will-change: transform, opacity;
-}
-@keyframes ash-fall {
-  0% {
-    transform: translate3d(0, 0, 0);
-    opacity: 0;
-  }
-  10% {
-    opacity: 0.42;
-  }
-  90% {
-    opacity: 0.2;
-  }
-  100% {
-    transform: translate3d(var(--dx), 108dvh, 0);
-    opacity: 0;
-  }
-}
-[data-anim='off'] .atmos {
-  display: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .atmos {
-    display: none;
-  }
 }

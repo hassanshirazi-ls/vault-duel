@@ -1,14 +1,14 @@
-// The duel screen (D-237 mirrored layout, quiet table D-339): the Collector's one-row header, his monsters, the round strip,
+// The duel screen (D-237 mirrored layout, quiet table D-339): the Monarch's one-row header, his monsters, the round strip,
 // your monsters, the hint bar, your fanned hand and the bar with your life, traps, slot dots, Graft and End turn. Interaction is "tap card, tap target":
 // everything offered comes from `getLegalActions` through view/legal.ts and view/selection.ts, and every change goes
-// through the store's `act`. A step plays stage by stage (visual/playback.ts): your action, then the Collector's moves
+// through the store's `act`. A step plays stage by stage (visual/playback.ts): your action, then the Monarch's moves
 // one at a time, each behind a telegraph. Any tap skips to the end of it. Tapping a chosen card again deselects it.
 import { useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { Action, Iid, Monster, Side } from '@vault-duel/engine';
 import { MOOD_NAMES } from '@vault-duel/ai';
 import { roundOfState } from '../duel/turn';
-import { cardView } from '../view/cards';
+import { cardView, isCrowned } from '../view/cards';
 import { monsterSlotKeys } from '../view/keys';
 import { attackNote, coveredLanes, lanesOn, monstersOnly, movedThisTurn } from '../view/lanes';
 import { groupLegal } from '../view/legal';
@@ -39,7 +39,7 @@ import { CardBack, MiniCard } from './MiniCard';
 import { RoundTrack } from './RoundTrack';
 
 const CARD_CUES = new Set(['enter', 'graft', 'split', 'bond', 'lunge', 'hit', 'ward', 'flash', 'riposte', 'ambush']);
-/** while the Collector's moves play, nothing is offered */
+/** while the Monarch's moves play, nothing is offered */
 const NO_GROUPS = groupLegal([]);
 
 export function Duel() {
@@ -110,7 +110,7 @@ export function Duel() {
   const noLifeLane = pending === null && selSlot >= 0 && plan.direct === null && plan.targets.size === 0 ? attackNote(g, S, selSlot) : null;
   const selMonster = sel?.t === 'board' ? (S.sides[0].board[selSlot] ?? null) : null;
 
-  // The Collector's telegraph: never name a face-down card of his before it is turned up.
+  // The Monarch's telegraph: never name a face-down card of his before it is turned up.
   const nameOf = (iid: Iid): string => {
     const hidden = S.sides[1].board.some((m) => m !== null && m.iid === iid && m.faceDown);
     return hidden ? 'A face-down card' : view(iid).name;
@@ -160,7 +160,9 @@ export function Duel() {
           const guarded = coverFrom !== undefined;
           const niche = (child: ReactNode) => (
             <div key={key} className="niche" data-lane={L ? i : undefined} data-covered={guarded ? '' : undefined}>
-              {child}
+              <span className="drift" style={{ '--di': i + (mine ? 0 : 1) * 1.5 } as CSSProperties}>
+                {child}
+              </span>
               {coverFrom !== undefined && (
                 <span
                   className="cover-mark"
@@ -181,7 +183,7 @@ export function Duel() {
             const move = mine ? (plan.moves.get(i) ?? null) : null;
             if (slotMarked(side, 'monster', i)) {
               return niche(
-                <div className="empty-slot" data-glow="slot" aria-label="Empty monster slot, the Collector plays here">
+                <div className="empty-slot" data-glow="slot" aria-label="Empty monster slot, the Monarch plays here">
                   <Glyph id="pos" size={22} />
                 </div>,
               );
@@ -250,6 +252,7 @@ export function Duel() {
               monstersOnly={monstersOnly(g, rt.engine, S, m)}
               moved={movedThisTurn(g, S, m)}
               attacked={mine && slots && m.attacked === S.turn}
+              crowned={isCrowned(g, side, m)}
               symbiote={m.sym >= 0 ? view(m.sym) : null}
               onTap={() => tapBoard(m, mine)}
               onLong={() => setInspected(m.iid)}
@@ -269,7 +272,7 @@ export function Duel() {
       if (t === null) {
         const open = mine && plan.setTrap !== null;
         if (open) return { state: 'open', label: 'Empty trap slot, set trap here', onTap: () => doAct(plan.setTrap as Action) };
-        return { state: 'empty', marked, label: marked ? 'Empty trap slot, the Collector sets a trap here' : 'Empty trap slot' };
+        return { state: 'empty', marked, label: marked ? 'Empty trap slot, the Monarch sets a trap here' : 'Empty trap slot' };
       }
       if (!mine) return { state: 'set', marked, label: 'Set trap' };
       return { state: 'set', label: `Set trap: ${view(t.iid).name}`, onTap: () => setInspected(t.iid) };
@@ -352,8 +355,8 @@ export function Duel() {
   })();
 
   // the element wheel now lives in Inspect and the side panel only (D-339)
-  const appraisalGavel = cues.find((c) => c.kind === 'gavel');
-  const track = <RoundTrack globals={g} round={roundOfState(S)} appraisal={appraisal === null ? null : { ...appraisal, flashBeat: appraisalGavel?.beat }} />;
+  const levyCue = cues.find((c) => c.kind === 'gavel');
+  const track = <RoundTrack globals={g} round={roundOfState(S)} appraisal={appraisal === null ? null : { ...appraisal, flashBeat: levyCue?.beat }} />;
   const recallChoices = [...plan.discard.values()].map((action) => ({ view: view(action.target), action }));
   const openSplit = (m: Iid): void => {
     setInspected(null);
@@ -364,7 +367,7 @@ export function Duel() {
   const moodLabel = moodName(g, S);
   const canUndo = !blocked && undoNow.ok;
   const undoTile: UndoTile = blocked
-    ? { enabled: false, sub: 'Wait for the Collector' }
+    ? { enabled: false, sub: 'Wait for the Monarch' }
     : undoNow.ok
       ? { enabled: true, sub: undoLabel(ctx, state, trail.slice(undoNow.to)) }
       : { enabled: false, sub: UNDO_WHY[undoNow.why] };
@@ -428,7 +431,7 @@ export function Duel() {
           {blocked ? (
             <div className="hintbar" aria-live="polite">
               <p className="muted">
-                <Glyph id="eye" size={16} /> The Collector is acting. Tap to skip.
+                <Glyph id="eye" size={16} /> The Monarch is acting. Tap to skip.
               </p>
             </div>
           ) : mulligan ? (

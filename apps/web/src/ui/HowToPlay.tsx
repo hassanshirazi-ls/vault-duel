@@ -37,7 +37,7 @@ function Illustration({ id, ctx, samples }: { readonly id: HowToArtId; readonly 
           <div className="demo-foe">
             <span className="ht-life foe">
               <Glyph id="heart" size={22} filled /> <b>{g.COLLECTOR_LIFE}</b>
-              <small>The Collector</small>
+              <small>The Monarch</small>
             </span>
             {hero?.power != null && (
               <span className="demo-float" aria-hidden="true">
@@ -253,7 +253,7 @@ function Illustration({ id, ctx, samples }: { readonly id: HowToArtId; readonly 
               </span>
             )}
             <span className="ht-gavel gavel">
-              <Glyph id="gavel" size={44} />
+              <Glyph id="crown" size={44} filled />
             </span>
           </div>
         </div>
@@ -407,7 +407,7 @@ export function HowToPlay() {
               tabIndex={i === index ? 0 : -1}
             >
               <p className="eyebrow">
-                Lot {i + 1} of {pages.length}
+                Page {i + 1} of {pages.length}
               </p>
               <h3>{p.title}</h3>
               <div className="ht-art">

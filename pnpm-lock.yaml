@@ -199,10 +199,13 @@ importers:
 
   apps/web:
     dependencies:
-      '@fontsource/cinzel-decorative':
+      '@fontsource/grenze-gotisch':
         specifier: 5.3.0
         version: 5.3.0
-      '@fontsource/eb-garamond':
+      '@fontsource/ibm-plex-sans-condensed':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource/spectral':
         specifier: 5.3.0
         version: 5.3.0
       '@vault-duel/ai':
@@ -539,11 +542,14 @@ packages:
     resolution: {integrity: sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
 
-  '@fontsource/cinzel-decorative@5.3.0':
-    resolution: {integrity: sha512-9T6Fsv6l+5CUjvKWcTlMtkAYR/C8p2ll0bgT5krOU+DTLJRmaZYpXzcRoxPvENA6+uApa+Yyn0Ft/hdq083iVA==}
+  '@fontsource/grenze-gotisch@5.3.0':
+    resolution: {integrity: sha512-hIgb3TJWnwjiaf8FWMYfPe5PvHHnSv+VYUJI40Fj0KhjWhBhBl4LTsGrkr4MSjo6mG+znR2tBz5L++4wkEgI1A==}
 
-  '@fontsource/eb-garamond@5.3.0':
-    resolution: {integrity: sha512-VplwHpB8FLuzl+4G5LDci1b3Z4SghiuXH8XEgaxjnOb5aue5mEt1njmDKeO6iyLeGa73LffU7PC7hzncLRx0ZA==}
+  '@fontsource/ibm-plex-sans-condensed@5.3.0':
+    resolution: {integrity: sha512-fQyBpwbkguP4azjq7Cw8h/J3C/d8MFAzXOiSoFxyKCUK4x0XKrWEh3tGdTxhDM0HctVRQilQo1zGoyxDHLm5jQ==}
+
+  '@fontsource/spectral@5.3.0':
+    resolution: {integrity: sha512-2TL5WWGOZj4SIsBmPFEzKeA60tXXd1Qp1OqaaVEWkJL8IfSGLk6YmiusmC441iFkdJDIuFelu1r8lhCmQUU3mw==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -1672,9 +1678,11 @@ snapshots:
       '@eslint/core': 1.2.1
       levn: 0.4.1
 
-  '@fontsource/cinzel-decorative@5.3.0': {}
+  '@fontsource/grenze-gotisch@5.3.0': {}
 
-  '@fontsource/eb-garamond@5.3.0': {}
+  '@fontsource/ibm-plex-sans-condensed@5.3.0': {}
+
+  '@fontsource/spectral@5.3.0': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

@@ -13,7 +13,7 @@ export interface TrapIcon {
 
 export function TrapIcons({ traps, side }: { readonly traps: readonly TrapIcon[]; readonly side: 'me' | 'them' }) {
   return (
-    <div className="traps" data-side={side} role="group" aria-label={side === 'me' ? 'Your trap slots' : "The Collector's trap slots"}>
+    <div className="traps" data-side={side} role="group" aria-label={side === 'me' ? 'Your trap slots' : "The Monarch's trap slots"}>
       {traps.map((t, i) => {
         const glow = t.state === 'open' || t.marked === true ? 'slot' : undefined;
         const face = (

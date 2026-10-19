@@ -1,4 +1,4 @@
-/* Screens: home catalogue, duel, sheets, result receipt, wide-screen panels (D-240). Mobile first, 360 px up,
+/* Screens: home, duel, sheets, result edict, wide-screen panels (D-240, D-351). Mobile first, 360 px up,
    44 px minimum tap targets. Wide landscape (>= 1024 px) is the last block. */
 .sr-only {
   position: absolute;
@@ -9,15 +9,16 @@
   white-space: nowrap;
 }
 .muted {
-  color: var(--bone-dim);
+  color: var(--mid);
   font-size: 15px;
 }
 .eyebrow {
-  font-family: var(--font-display);
-  font-size: 11px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--gold-hi);
+  color: var(--mid);
 }
 .chip {
   display: inline-flex;
@@ -26,27 +27,27 @@
   min-height: 28px;
   padding: 2px 9px 2px 4px;
   margin: 2px 4px 2px 0;
-  border-radius: 2px;
-  border: 1px solid var(--gold-lo);
-  background: linear-gradient(#2a2220, #181312);
+  border-radius: 0;
+  border: 1.5px solid var(--ink);
+  background: var(--card);
   font-size: 15px;
   white-space: nowrap;
 }
 .chip.kw {
   padding-left: 8px;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .chip.pick {
   min-height: var(--tap);
   padding: 0 14px;
   font-size: 17px;
   border-width: 2px;
-  border-color: var(--gold);
+  border-color: var(--ink);
 }
 .chip.pick[data-on] {
-  background: var(--brass-plate);
-  color: #1a1206;
-  border-color: #e3c77f;
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
 }
 .stat {
   font-size: 16px;
@@ -56,10 +57,10 @@
   right: -4px;
   top: -10px;
   z-index: 4;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 22px;
-  color: #ff9d94;
-  text-shadow: 0 1px 3px #000, 0 0 6px var(--blood);
+  color: var(--blood);
+  text-shadow: 1px 1px 0 var(--paper), -1px -1px 0 var(--paper), 1px -1px 0 var(--paper), -1px 1px 0 var(--paper);
   pointer-events: none;
 }
 .cue-float {
@@ -94,25 +95,25 @@
   text-align: center;
 }
 .lot-head h1 {
-  font-size: 36px;
+  font-size: 40px;
   line-height: 1.05;
-  color: var(--gold-hi);
-  margin: 4px 0 4px;
-  text-shadow: 0 2px 0 #000, 0 0 14px rgb(156 124 60 / 0.35);
+  color: var(--ink);
+  margin: 4px 0 2px;
+  text-shadow: 3px 3px 0 var(--hatch);
 }
 .stars {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  color: var(--gold-lo);
+  color: var(--line);
 }
 .stars [data-on] {
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .par {
   margin-left: 10px;
-  color: var(--bone-dim);
+  color: var(--mid);
   font-size: 15px;
 }
 .plinth {
@@ -120,11 +121,10 @@
   justify-items: center;
   gap: 4px;
   padding: 14px 0 0;
-  border: 1px solid var(--gold-lo);
-  border-radius: var(--radius);
-  background: var(--moth), radial-gradient(ellipse at 50% 60%, #5a1a1f 0%, #2a0c10 55%, #150809 100%);
-  background-size: var(--moth-size), auto;
-  box-shadow: inset 0 0 40px rgb(0 0 0 / 0.65);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--hatching-fine);
+  box-shadow: var(--offset);
 }
 .plinth-card {
   position: relative;
@@ -133,20 +133,23 @@
 }
 .plinth-base {
   width: 70%;
-  height: 22px;
-  border-radius: 2px;
-  background: linear-gradient(#4a403d, #1d1716);
-  border-top: 3px solid var(--gold);
-  box-shadow: 0 8px 18px rgb(0 0 0 / 0.8), inset 0 1px 0 rgb(255 255 255 / 0.12);
+  height: 14px;
+  border-radius: 0;
+  background: var(--ink);
 }
 .plinth-name {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 17px;
+  font-size: 19px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-bottom: 10px;
+  padding: 8px 8px 10px;
+  margin-top: -2px;
+  width: 100%;
+  justify-content: center;
+  background: var(--card);
+  border-top: 2px solid var(--ink);
 }
 .brass-lines {
   display: grid;
@@ -158,33 +161,25 @@
   gap: 10px;
   align-items: center;
   min-height: var(--tap);
-  padding: 6px 22px;
-  border-radius: 3px;
-  background: linear-gradient(#352a14, #1d160a);
-  border: 2px solid var(--gold);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 0 0 1px #000, 0 2px 5px rgb(0 0 0 / 0.6);
-  color: var(--bone);
+  padding: 6px 12px;
+  border-radius: 0;
+  background: var(--card);
+  border: 2px solid var(--ink);
+  box-shadow: var(--offset-sm);
+  color: var(--ink);
   font-size: 16px;
 }
-.brass-lines li::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--rivets);
-  pointer-events: none;
-}
 .brass-lines b {
-  color: var(--gold-hi);
+  color: var(--ink);
   margin-right: 6px;
   font-family: var(--font-display);
-  font-size: 13px;
+  font-size: 15px;
 }
 .deck {
-  border: 2px solid var(--gold-lo);
-  border-radius: var(--radius);
-  background: var(--moth), linear-gradient(#211718, #140f10);
-  background-size: var(--moth-size), auto;
-  box-shadow: inset 0 0 24px rgb(0 0 0 / 0.55);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--card);
+  box-shadow: var(--offset-sm);
 }
 .deck summary {
   display: flex;
@@ -211,7 +206,7 @@
   align-items: center;
   gap: 4px 8px;
   padding: 7px 0;
-  border-top: 1px solid rgb(156 124 60 / 0.3);
+  border-top: 1px solid rgb(17 17 17 / 0.3);
   font-size: 15px;
 }
 .deck-name {
@@ -220,12 +215,12 @@
   font-size: 13px;
 }
 .deck-type {
-  color: var(--bone-dim);
+  color: var(--mid);
   text-transform: capitalize;
 }
 .deck-text {
   flex-basis: 100%;
-  color: var(--bone-dim);
+  color: var(--mid);
 }
 
 /* the Daily duel plate (D-273): the one big call to action */
@@ -234,14 +229,16 @@
   gap: 8px;
   padding: 16px 18px;
   text-align: left;
-  color: var(--bone);
-  border: 1px solid var(--gold);
-  border-radius: var(--radius);
-  background: var(--iron-plate);
-  box-shadow: inset 0 0 0 3px var(--iron-2), inset 0 0 0 4px var(--gold-lo), 0 10px 24px rgb(0 0 0 / 0.6);
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--card);
+  box-shadow: var(--offset-lg);
+  transition: transform var(--beat) var(--ease), box-shadow var(--beat) var(--ease);
 }
 .daily-plate:active {
-  filter: brightness(1.12);
+  transform: translate(3px, 4px);
+  box-shadow: 1px 2px 0 var(--ink);
 }
 .daily-row {
   display: flex;
@@ -251,13 +248,13 @@
 }
 .daily-title {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .daily-date {
   font-size: 15px;
-  color: var(--bone-dim);
+  color: var(--mid);
 }
 .stars-row {
   align-items: center;
@@ -271,15 +268,13 @@
   gap: 10px;
   min-height: 48px;
   margin-top: 2px;
-  border-radius: 3px;
-  background: var(--brass-plate);
-  color: var(--paper-ink);
+  border-radius: 0;
+  background: var(--ink);
+  color: var(--paper);
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-shadow: 0 1px 0 rgb(255 255 255 / 0.3);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45), inset 0 -2px 0 rgb(0 0 0 / 0.35);
+  letter-spacing: 0.06em;
 }
 .par {
   margin-left: 0;
@@ -298,20 +293,22 @@
   min-height: 60px;
   padding: 0 16px;
   text-align: left;
-  color: var(--gold-hi);
-  background: var(--soot-2);
-  border: 1px solid var(--gold-lo);
-  border-radius: var(--radius);
-  box-shadow: inset 0 0 0 1px #000;
+  color: var(--ink);
+  background: var(--card);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  box-shadow: var(--offset-sm);
 }
 .plate:disabled {
-  color: var(--bone-dim);
-  border-color: var(--iron-hi);
-  opacity: 0.75;
+  color: var(--mid);
+  border-color: var(--line);
+  background: var(--wash);
+  box-shadow: none;
 }
 .plate:not(:disabled):active,
 .lot > summary:active {
-  filter: brightness(1.2);
+  transform: translate(2px, 3px);
+  box-shadow: none;
 }
 .plate svg,
 .lot > summary svg {
@@ -324,18 +321,19 @@
 }
 .plate-title {
   font-family: var(--font-display);
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 700;
-  color: var(--bone);
+  line-height: 1.05;
+  color: var(--ink);
 }
 .plate:disabled .plate-title {
-  color: var(--bone-dim);
+  color: var(--mid);
 }
 .plate-sub {
   font-size: 15px;
   font-style: italic;
   line-height: 1.15;
-  color: var(--bone-dim);
+  color: var(--mid);
 }
 .lot {
   display: grid;
@@ -350,7 +348,7 @@
 }
 .lot[open] > summary {
   margin-bottom: 0;
-  border-color: var(--gold);
+  background: var(--wash);
 }
 .home-foot {
   display: flex;
@@ -360,13 +358,13 @@
   margin-top: auto;
   padding-top: 4px;
   font-size: 15px;
-  color: var(--bone-dim);
+  color: var(--mid);
 }
 .feedback-link {
   display: inline-flex;
   align-items: center;
   min-height: var(--tap);
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 
 /* ---------- duel ---------- */
@@ -402,7 +400,7 @@
   justify-content: center;
   gap: 8px;
 }
-/* lanes on: the two monster rows and the track sit in one block, with three gilt rails running through them so slot i
+/* lanes on: the two monster rows and the track sit in one block, with three ink rails running through them so slot i
    visibly faces slot i (D-281). The rails are drawn behind the cards and take no tap. */
 .lanes {
   position: relative;
@@ -430,12 +428,12 @@
 }
 .rail {
   position: relative;
-  border-inline: 1px dashed var(--gold-lo);
-  background: linear-gradient(rgb(210 178 106 / 0.07), rgb(210 178 106 / 0.02) 50%, rgb(210 178 106 / 0.07));
+  border-inline: 1px dashed var(--line);
+  background: linear-gradient(rgb(17 17 17 / 0.07), rgb(17 17 17 / 0.02) 50%, rgb(17 17 17 / 0.07));
 }
 .rail[data-active] {
-  border-inline: 2px solid var(--gold-hi);
-  background: linear-gradient(rgb(210 178 106 / 0.2), rgb(210 178 106 / 0.08) 50%, rgb(210 178 106 / 0.2));
+  border-inline: 2px solid var(--ink);
+  background: linear-gradient(rgb(17 17 17 / 0.2), rgb(17 17 17 / 0.08) 50%, rgb(17 17 17 / 0.2));
 }
 
 .row.monsters {
@@ -447,17 +445,15 @@
 /* Nothing below changes the board's size when a selection changes (D-265): the mode toggles and the error line float over
    the board, the hint bar and the status line have fixed heights, and the Graft workbench has a fixed height. */
 
-/* Collector header: portrait in a gilt frame, name, mood, life seal, intent plaque, Appraisal countdown, quip */
+/* Monarch header: portrait in an ink frame, name, mood, life seal, intent plaque, levy countdown, speech */
 .collector {
   position: relative;
   z-index: 2;
   display: flex;
   gap: 10px;
   padding: 8px 10px;
-  border-bottom: 2px solid var(--gold-lo);
-  background: var(--moth), linear-gradient(#2a1719, #170d0f);
-  background-size: var(--moth-size), auto;
-  box-shadow: 0 4px 10px rgb(0 0 0 / 0.5);
+  border-bottom: 2px solid var(--ink);
+  background: var(--paper);
 }
 .collector::after {
   position: absolute;
@@ -471,22 +467,15 @@
   flex: none;
   width: 64px;
   height: 64px;
-  overflow: hidden;
-  border: 3px solid transparent;
-  border-radius: 3px;
-  background: var(--gilt) border-box;
-  box-shadow: 0 0 0 1px #000, 0 0 12px rgb(156 124 60 / 0.3);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--card);
+  box-shadow: var(--offset-sm);
   transition: filter var(--beat);
 }
 .portrait > svg {
   width: 100%;
   height: 100%;
-}
-.portrait[data-mood='1'] {
-  box-shadow: 0 0 0 1px #000, 0 0 14px rgb(200 120 60 / 0.55);
-}
-.portrait[data-mood='2'] {
-  box-shadow: 0 0 0 1px #000, 0 0 16px rgb(255 90 82 / 0.65);
 }
 .collector-main {
   flex: 1;
@@ -501,30 +490,31 @@
   gap: 8px;
 }
 .collector-name {
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.1;
-  color: var(--gold-hi);
-  text-shadow: 0 1px 0 #000;
+  color: var(--ink);
 }
 .mood {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 1px 8px;
-  border-radius: 2px;
-  border: 1px solid var(--gold-lo);
-  background: linear-gradient(#2a2220, #141010);
+  border-radius: 0;
+  border: 1.5px solid var(--ink);
+  background: var(--card);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
 }
 .mood[data-mood='1'] {
-  color: #ffb57a;
-  border-color: #c07a3a;
+  color: var(--ink);
+  border-style: dashed;
 }
 .mood[data-mood='2'] {
   color: var(--flaw);
   border-color: var(--flaw);
+  border-style: double;
+  border-width: 3px;
 }
 .pips {
   display: inline-flex;
@@ -533,7 +523,7 @@
 .pips i {
   width: 6px;
   height: 10px;
-  background: #3a2d2d;
+  background: var(--hatch);
   transform: skewX(-12deg);
 }
 .pips i[data-on] {
@@ -557,16 +547,15 @@
   align-content: center;
   width: 42px;
   height: 42px;
-  border-radius: 48% 52% 50% 50% / 52% 48% 52% 48%;
-  background: radial-gradient(circle at 35% 28%, #b8343e 0%, #7a1a22 48%, #3a0a0f 100%);
-  border: 2px solid #2a0508;
-  box-shadow: inset 0 2px 3px rgb(255 170 160 / 0.35), inset 0 -3px 5px rgb(0 0 0 / 0.55), inset 0 0 0 4px rgb(0 0 0 / 0.12), 0 2px 5px #000;
-  color: var(--bone);
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid var(--ink);
+  box-shadow: var(--offset-sm);
+  color: var(--paper);
   line-height: 1;
 }
 .seal b {
   font-size: 19px;
-  text-shadow: 0 1px 0 #000;
 }
 .seal svg {
   width: 11px;
@@ -574,13 +563,14 @@
 }
 .life-max {
   font-size: 15px;
-  color: var(--bone-dim);
+  color: var(--mid);
 }
 button.life[data-glow='target'] {
   min-height: var(--tap);
 }
 button.life[data-glow='target'] .seal {
-  box-shadow: 0 0 0 2px var(--gold-hi), 0 0 14px 3px rgb(210 178 106 / 0.6), inset 0 -3px 5px rgb(0 0 0 / 0.55), 0 2px 5px #000;
+  outline: 3px dashed var(--ink);
+  outline-offset: 3px;
 }
 button.life[data-glow='target']::after {
   content: '';
@@ -589,8 +579,8 @@ button.life[data-glow='target']::after {
   top: 0;
   width: 50px;
   height: 100%;
-  border: 2px solid var(--gold-hi);
-  border-radius: 6px;
+  border: 2px dashed var(--ink);
+  border-radius: 0;
   pointer-events: none;
   animation: ring calc(var(--beat) * 6) ease-in-out infinite alternate;
 }
@@ -599,7 +589,7 @@ button.life[data-glow='target']::after {
   gap: 3px;
   align-items: center;
   font-size: 14px;
-  color: var(--gold-hi);
+  color: var(--ink);
   font-weight: 700;
 }
 .splash {
@@ -609,11 +599,10 @@ button.life[data-glow='target']::after {
   width: 78px;
   height: 78px;
   margin: -39px 0 0 -39px;
-  color: #b3202b;
+  color: var(--ink);
   pointer-events: none;
   z-index: 3;
   opacity: 0;
-  filter: drop-shadow(0 0 3px #000);
   animation: splash calc(var(--cue) * 2.5) ease-out calc(var(--cue) * var(--b, 0)) both;
 }
 @keyframes splash {
@@ -631,62 +620,51 @@ button.life[data-glow='target']::after {
   }
 }
 
-/* intent: a brass plaque with rivets */
+/* intent: a solid ink plaque */
 .plaque {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 18px;
-  border-radius: 2px;
-  background: var(--brass-plate);
-  border: 1px solid #e3c77f;
-  color: #1a1206;
-  font-weight: 700;
+  padding: 3px 14px;
+  border-radius: 0;
+  background: var(--ink);
+  border: 1.5px solid var(--ink);
+  color: var(--paper);
+  font-weight: 600;
   font-size: 16px;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.4), 0 0 0 1px #000, 0 2px 4px #000;
-  text-shadow: 0 1px 0 rgb(255 255 255 / 0.25);
 }
-.plaque::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--rivets);
-  background-size: 100% 100%;
-  opacity: 0.8;
-  pointer-events: none;
-}
-/* the gavel strike: the head swings down on the portrait, then a flash */
+/* the levy: a crown drops onto the portrait and settles, then fades */
 .gavel-fx {
   position: absolute;
-  left: 38px;
-  top: 22px;
+  left: 17px;
+  top: 0;
   z-index: 6;
-  color: var(--gold-hi);
-  filter: drop-shadow(0 2px 3px #000);
+  color: var(--ink);
+  filter: drop-shadow(2px 2px 0 var(--paper));
   pointer-events: none;
-  transform-origin: 80% 90%;
+  transform-origin: 50% 100%;
   animation-name: gavel-strike;
   animation-duration: calc(var(--cue) * 3);
 }
 @keyframes gavel-strike {
   0% {
-    transform: rotate(-70deg) scale(1.3);
+    transform: translateY(-34px) scale(1.7);
     opacity: 0;
   }
-  20% {
+  22% {
     opacity: 1;
   }
   50% {
-    transform: rotate(18deg) scale(1.3);
+    transform: translateY(2px) scale(1.25);
     opacity: 1;
   }
   62% {
-    transform: rotate(8deg) scale(1.3);
+    transform: translateY(-3px) scale(1.4);
     opacity: 1;
   }
   100% {
-    transform: rotate(8deg) scale(1.3);
+    transform: translateY(0) scale(1.3);
     opacity: 0;
   }
 }
@@ -694,7 +672,7 @@ button.life[data-glow='target']::after {
   font-style: italic;
   font-size: 17px;
   line-height: 1.12;
-  color: var(--bone);
+  color: var(--ink);
   animation: quip-fade 6s ease-in forwards;
 }
 .duel[data-graft] .quip {
@@ -725,16 +703,16 @@ button.life[data-glow='target']::after {
   grid-auto-columns: 1fr;
   gap: 2px;
   padding: 2px;
-  border-block: 3px double var(--gold-lo);
-  background: linear-gradient(90deg, transparent, rgb(156 124 60 / 0.12), transparent);
+  border-block: 2px solid var(--ink);
+  background: transparent;
 }
 .track li {
   display: grid;
   justify-items: center;
   align-content: end;
   min-height: 32px;
-  border-radius: 2px;
-  color: var(--bone-dim);
+  border-radius: 0;
+  color: var(--mid);
   font-size: 14px;
   transition: background var(--beat), color var(--beat);
 }
@@ -742,22 +720,23 @@ button.life[data-glow='target']::after {
   display: grid;
   place-items: center;
   height: 16px;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .track li[data-mark='vault'] .track-mark {
-  color: var(--bone);
+  color: var(--ink);
 }
 .track li[data-past] {
-  opacity: 0.5;
+  text-decoration: line-through;
 }
 .track li[data-current] {
-  background: var(--brass-plate);
-  color: #1a1206;
-  box-shadow: 0 0 12px 2px rgb(210 178 106 / 0.55), 0 0 0 1px #000;
+  background: var(--ink);
+  color: var(--paper);
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
   opacity: 1;
 }
 .track li[data-current] .track-mark {
-  color: #1a1206;
+  color: var(--paper);
 }
 
 /* bottom: hint bar, fanned hand, player bar */
@@ -767,7 +746,6 @@ button.life[data-glow='target']::after {
   grid-template-columns: minmax(0, 1fr);
   gap: 2px;
   padding-top: 4px;
-  background: linear-gradient(transparent, rgb(0 0 0 / 0.55));
 }
 .hintbar {
   display: flex;
@@ -817,9 +795,12 @@ button.life[data-glow='target']::after {
   z-index: 35;
   pointer-events: none;
   padding: 6px 10px;
-  border-radius: 2px;
-  background: #3b1513;
+  border-radius: 0;
+  background: var(--card);
   border: 2px solid var(--flaw);
+  box-shadow: var(--offset-sm);
+  color: var(--flaw);
+  font-weight: 600;
   font-size: 15px;
 }
 .hand {
@@ -868,17 +849,17 @@ button.life[data-glow='target']::after {
   gap: 0;
   width: 84px;
   min-height: var(--tap);
-  border-radius: 3px;
-  border: 2px solid var(--gold);
-  background: var(--iron-plate);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 0 0 1px #000;
-  color: var(--gold-hi);
+  border-radius: 0;
+  border: 2px solid var(--ink);
+  background: var(--card);
+  box-shadow: var(--offset-sm);
+  color: var(--ink);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .toggle[aria-pressed='true'] {
-  background: var(--brass-plate);
-  color: #1a1206;
+  background: var(--ink);
+  color: var(--paper);
 }
 .toggle:disabled {
   opacity: 0.4;
@@ -933,19 +914,18 @@ button.life[data-glow='target']::after {
 .sheet-backdrop {
   position: absolute;
   inset: 0;
-  background: rgb(5 3 4 / 0.7);
+  background: rgb(17 17 17 / 0.55);
   animation: fade-in var(--beat) both;
 }
 .sheet {
   position: relative;
   width: 100%;
   max-width: 560px;
-  border-radius: 6px 6px 0 0;
-  border: 2px solid var(--gold);
+  border-radius: 0;
+  border: 2px solid var(--ink);
   border-bottom: 0;
-  background: var(--moth), linear-gradient(#2a1719, #150c0d);
-  background-size: var(--moth-size), auto;
-  box-shadow: 0 -8px 30px rgb(0 0 0 / 0.8), inset 0 0 0 1px #000, inset 0 0 40px rgb(0 0 0 / 0.5);
+  background: var(--paper);
+  box-shadow: 0 -5px 0 var(--ink);
   padding-bottom: var(--safe-bottom);
   animation: slide-up calc(var(--beat) * 1.4) var(--ease) both;
   transition: transform var(--beat) var(--ease);
@@ -965,9 +945,8 @@ button.life[data-glow='target']::after {
 .sheet-handle {
   width: 44px;
   height: 5px;
-  border-radius: 1px;
-  background: var(--gilt);
-  box-shadow: 0 0 0 1px #000;
+  border-radius: 0;
+  background: var(--ink);
 }
 @keyframes slide-up {
   from {
@@ -1011,17 +990,16 @@ button.life[data-glow='target']::after {
   align-content: start;
 }
 .inspect-title h2 {
-  font-size: 19px;
+  font-size: 22px;
   line-height: 1.1;
-  color: var(--gold-hi);
-  text-shadow: 0 1px 0 #000;
+  color: var(--ink);
 }
 .inspect-sub {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  color: var(--bone-dim);
+  color: var(--mid);
   text-transform: capitalize;
 }
 .inspect-asc {
@@ -1029,7 +1007,7 @@ button.life[data-glow='target']::after {
   align-items: center;
   gap: 3px;
   margin-left: 6px;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .inspect-stats {
   display: flex;
@@ -1074,9 +1052,9 @@ button.life[data-glow='target']::after {
   flex-wrap: wrap;
   gap: 4px 14px;
   font-size: 15px;
-  color: var(--bone-dim);
+  color: var(--mid);
   padding-top: 8px;
-  border-top: 1px solid rgb(156 124 60 / 0.4);
+  border-top: 1.5px solid var(--ink);
 }
 .inspect-close {
   flex: none;
@@ -1094,7 +1072,7 @@ button.life[data-glow='target']::after {
   flex-direction: column;
   height: min(52dvh, 360px);
   max-height: 52dvh;
-  border-radius: 6px 6px 0 0;
+  border-radius: 0;
 }
 .bench {
   display: flex;
@@ -1112,7 +1090,7 @@ button.life[data-glow='target']::after {
 }
 .bench-head h2 {
   font-size: 15px;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .bench-head .btn {
   min-height: var(--tap);
@@ -1144,19 +1122,20 @@ button.life[data-glow='target']::after {
   min-width: 0;
   min-height: 52px;
   padding: 6px 6px 6px 24px;
-  border-radius: 3px;
-  border: 2px solid #3d312c;
-  background: linear-gradient(#0c0808, #181111);
-  box-shadow: inset 0 4px 10px #000;
+  border-radius: 0;
+  border: 2px dashed var(--line);
+  background: var(--wash);
   text-align: left;
 }
 .slot[data-filled] {
-  border-color: var(--gold);
-  background: linear-gradient(#2a1a1c, #170d0f);
+  border: 2px solid var(--ink);
+  background: var(--card);
+  box-shadow: var(--offset-sm);
 }
 .slot[data-active] {
-  border-color: var(--gold-hi);
-  box-shadow: inset 0 4px 10px #000, 0 0 10px rgb(210 178 106 / 0.5);
+  border-color: var(--ink);
+  outline: 2px dashed var(--ink);
+  outline-offset: 2px;
 }
 .slot-n {
   position: absolute;
@@ -1167,14 +1146,13 @@ button.life[data-glow='target']::after {
   width: 17px;
   height: 17px;
   border-radius: 50%;
-  background: var(--brass-plate);
-  color: #1a1206;
+  background: var(--ink);
+  color: var(--paper);
   font-size: 13px;
-  box-shadow: 0 0 0 1px #000;
 }
 .slot-empty {
   font-size: 15px;
-  color: var(--bone-dim);
+  color: var(--mid);
 }
 .slot-card {
   display: grid;
@@ -1207,11 +1185,11 @@ button.life[data-glow='target']::after {
   width: var(--tap);
   height: var(--tap);
   align-self: center;
-  border-radius: 3px;
-  border: 2px solid var(--gold);
-  background: var(--iron-plate);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 0 0 1px #000;
-  color: var(--gold-hi);
+  border-radius: 0;
+  border: 2px solid var(--ink);
+  background: var(--card);
+  box-shadow: var(--offset-sm);
+  color: var(--ink);
 }
 .swap:disabled {
   opacity: 0.4;
@@ -1221,14 +1199,14 @@ button.life[data-glow='target']::after {
   gap: 4px;
   min-height: 60px;
   padding: 8px 10px;
-  border-radius: 3px;
-  background: linear-gradient(#0f0a0a, #170f10);
-  border: 1px solid var(--gold-lo);
-  box-shadow: inset 0 3px 8px #000;
+  border-radius: 0;
+  background: var(--card);
+  border: 1.5px solid var(--ink);
+  box-shadow: var(--offset-sm);
 }
 .preview h3 {
   font-size: 15px;
-  color: var(--bone);
+  color: var(--ink);
 }
 .preview-row {
   display: flex;
@@ -1241,12 +1219,12 @@ button.life[data-glow='target']::after {
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  border-radius: 2px;
-  background: #0f2630;
+  border-radius: 0;
+  background: var(--card);
   border: 2px dashed var(--unstable);
-  color: #d6f4ff;
+  color: var(--unstable);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .kw-pick {
   display: flex;
@@ -1303,29 +1281,24 @@ button.life[data-glow='target']::after {
 .receipt {
   position: relative;
   padding: 22px 20px 26px;
-  border-radius: 2px;
-  background:
-    var(--crack),
-    repeating-linear-gradient(0deg, rgb(120 90 40 / 0.07) 0 1px, transparent 1px 4px),
-    radial-gradient(ellipse at 50% 50%, #eadfc4 0%, var(--paper) 60%, #c4b48a 100%);
-  color: var(--paper-ink);
-  box-shadow: inset 0 0 36px rgb(110 70 20 / 0.4), 0 10px 30px rgb(0 0 0 / 0.7);
+  border-radius: 0;
+  background: var(--card);
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  box-shadow: var(--offset-lg);
   display: grid;
   gap: 12px;
-  /* torn lower edge */
-  -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 14px 100%;
-  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 14px 100%;
-  padding-bottom: 34px;
+  padding-bottom: 20px;
 }
 .receipt header {
   text-align: center;
   padding-bottom: 6px;
 }
 .receipt .eyebrow {
-  color: #6b4a12;
+  color: var(--mid);
 }
 .receipt h1 {
-  font-size: 24px;
+  font-size: 30px;
   line-height: 1.1;
   margin-top: 4px;
 }
@@ -1333,7 +1306,7 @@ button.life[data-glow='target']::after {
 .receipt-reason {
   font-size: 16px;
   text-align: center;
-  color: #4a3b24;
+  color: var(--ink-2);
 }
 .receipt-lines {
   display: grid;
@@ -1344,13 +1317,13 @@ button.life[data-glow='target']::after {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  border-bottom: 1px solid rgb(90 70 40 / 0.45);
+  border-bottom: 1px solid var(--ink);
   padding: 3px 0;
 }
 .receipt-lines dt {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 17px;
 }
 .receipt-lines dd {
   margin: 0;
@@ -1361,7 +1334,7 @@ button.life[data-glow='target']::after {
   font-size: 18px;
 }
 .receipt .muted {
-  color: #5a4a2c;
+  color: var(--mid);
 }
 .receipt-objectives {
   display: grid;
@@ -1373,11 +1346,11 @@ button.life[data-glow='target']::after {
   gap: 8px;
   min-height: 32px;
   font-size: 16px;
-  color: #7a1d17;
+  color: var(--flaw);
 }
 .receipt-objectives li[data-met] {
-  color: #17501f;
-  font-weight: 700;
+  color: var(--good);
+  font-weight: 600;
 }
 .receipt-row {
   text-align: center;
@@ -1385,9 +1358,9 @@ button.life[data-glow='target']::after {
   letter-spacing: 2px;
   word-break: break-all;
   padding: 8px;
-  background: rgb(60 40 10 / 0.1);
-  border: 1px solid rgb(90 70 40 / 0.4);
-  border-radius: 2px;
+  background: var(--wash);
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
 }
 .stamp {
   justify-self: end;
@@ -1404,19 +1377,20 @@ button.life[data-glow='target']::after {
   text-align: center;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 11px;
-  line-height: 1.1;
-  letter-spacing: 0.05em;
-  color: #fbe9d2;
-  background: radial-gradient(circle at 35% 30%, #b8343e, #6a1018 68%, #3a0a0f);
-  border: 3px solid #3a0a0f;
-  box-shadow: inset 0 0 0 4px rgb(255 200 180 / 0.25), inset 0 -4px 8px rgb(0 0 0 / 0.5), 0 3px 8px rgb(0 0 0 / 0.5);
+  font-size: 20px;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  color: var(--paper);
+  background: var(--ink);
+  border: 3px solid var(--ink);
+  box-shadow: inset 0 0 0 3px var(--ink), inset 0 0 0 4.5px var(--paper), var(--offset);
   rotate: -9deg;
   animation: stamp-in calc(var(--beat) * 2) var(--ease) both;
 }
 .receipt.lost .stamp {
-  background: radial-gradient(circle at 35% 30%, #4a3a52, #1d1422 70%);
-  color: #e6d9f0;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 3px var(--card), inset 0 0 0 4.5px var(--ink), var(--offset);
 }
 @keyframes stamp-in {
   from {
@@ -1429,11 +1403,10 @@ button.life[data-glow='target']::after {
   align-items: center;
   gap: 14px;
   padding: 12px;
-  border-radius: var(--radius);
-  border: 2px solid var(--gold);
-  background: var(--moth), linear-gradient(90deg, #2a1719, #150c0d);
-  background-size: var(--moth-size), auto;
-  box-shadow: inset 0 0 24px rgb(0 0 0 / 0.5);
+  border-radius: 0;
+  border: 2px solid var(--ink);
+  background: var(--hatching-fine);
+  box-shadow: var(--offset);
 }
 .binder-strip .mini {
   --w: 64px;
@@ -1441,9 +1414,12 @@ button.life[data-glow='target']::after {
 }
 .binder-strip p {
   font-family: var(--font-display);
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 700;
-  color: var(--gold-hi);
+  color: var(--ink);
+  background: var(--card);
+  padding: 4px 8px;
+  border: 1.5px solid var(--ink);
 }
 .binder-strip .muted {
   font-family: var(--font-body);
@@ -1495,15 +1471,14 @@ button.life[data-glow='target']::after {
 .panel {
   position: relative;
   padding: 12px 14px;
-  border: 2px solid var(--gold-lo);
-  border-radius: var(--radius);
-  background: var(--moth), linear-gradient(#251718, #140c0d);
-  background-size: var(--moth-size), auto;
-  box-shadow: inset 0 0 0 1px #000, inset 0 0 30px rgb(0 0 0 / 0.55), 0 4px 12px rgb(0 0 0 / 0.5);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--card);
+  box-shadow: var(--offset-sm);
 }
 .panel-title {
   font-size: 13px;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .sidepanel {
   display: grid;
@@ -1528,12 +1503,12 @@ button.life[data-glow='target']::after {
 }
 .count b {
   font-size: 22px;
-  color: var(--bone);
+  color: var(--ink);
 }
 .count small {
   grid-column: 1 / -1;
   font-size: 13px;
-  color: var(--bone-dim);
+  color: var(--mid);
 }
 .panel-scroll {
   min-height: 0;
@@ -1570,15 +1545,15 @@ button.life[data-glow='target']::after {
   gap: 6px;
   align-items: flex-start;
   padding-bottom: 3px;
-  border-bottom: 1px solid rgb(156 124 60 / 0.2);
+  border-bottom: 1px solid var(--hatch);
   line-height: 1.15;
 }
 .log li svg {
   margin-top: 2px;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .log li[data-side='them'] {
-  color: var(--bone-dim);
+  color: var(--mid);
 }
 
 @media (min-width: 1024px) and (orientation: landscape) {
@@ -1605,9 +1580,9 @@ button.life[data-glow='target']::after {
     align-self: stretch;
     gap: 12px;
     padding: 16px;
-    border: 2px solid var(--gold-lo);
+    border: 2px solid var(--line);
     border-radius: var(--radius);
-    box-shadow: inset 0 0 0 1px #000, inset 0 0 30px rgb(0 0 0 / 0.55), 0 4px 12px rgb(0 0 0 / 0.5);
+    box-shadow: var(--offset-sm);
     overflow-y: auto;
   }
   .duel > .collector::after {
@@ -1641,8 +1616,9 @@ button.life[data-glow='target']::after {
     text-align: center;
   }
   .gavel-fx {
-    left: 170px;
-    top: 150px;
+    left: 50%;
+    margin-left: -17px;
+    top: 4px;
   }
   .duel > .board-area {
     grid-column: 2;
@@ -1692,7 +1668,7 @@ button.life[data-glow='target']::after {
   font-size: 16px;
   font-weight: 700;
   line-height: 1.15;
-  color: var(--gold-hi);
+  color: var(--ink);
   animation: fade-in var(--beat) both;
 }
 .telegraph svg {
@@ -1725,7 +1701,7 @@ button.life[data-glow='target']::after {
   position: absolute;
   right: 3px;
   top: 3px;
-  color: var(--bone-dim);
+  color: var(--mid);
 }
 .slot {
   position: relative;
@@ -1755,7 +1731,7 @@ button.life[data-glow='target']::after {
   overflow: hidden;
   font-size: 18px;
   line-height: 1.2;
-  color: var(--gold-hi);
+  color: var(--ink);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -1766,7 +1742,7 @@ button.life[data-glow='target']::after {
   width: var(--tap);
   height: var(--tap);
   padding: 0;
-  color: var(--bone-dim);
+  color: var(--mid);
   background: none;
   border: 0;
 }
@@ -1785,50 +1761,50 @@ button.life[data-glow='target']::after {
   min-height: 64px;
   padding: 10px 12px;
   text-align: left;
-  color: var(--bone);
-  background: var(--soot);
-  border: 1px solid var(--gold-lo);
-  border-radius: var(--radius);
-}
-.tile:not(:disabled) {
-  border-color: var(--gold);
+  color: var(--ink);
+  background: var(--card);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  box-shadow: var(--offset-sm);
 }
 .tile:disabled {
-  color: var(--bone-dim);
-  border-color: var(--iron-hi);
-  opacity: 0.7;
+  color: var(--mid);
+  border-color: var(--line);
+  box-shadow: none;
+  background: var(--wash);
 }
 .tile:not(:disabled):active {
-  filter: brightness(1.25);
+  transform: translate(2px, 3px);
+  box-shadow: none;
 }
 .tile[data-confirm] {
-  background: var(--brass-plate);
-  color: var(--paper-ink);
+  background: var(--ink);
+  color: var(--paper);
 }
 .tile[data-confirm] .tile-sub {
-  color: var(--paper-ink);
+  color: var(--paper);
 }
 .tile-title {
   display: flex;
   align-items: center;
   gap: 6px;
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 700;
 }
 .tile-sub {
   font-size: 14px;
   font-style: italic;
   line-height: 1.15;
-  color: var(--bone-dim);
+  color: var(--mid);
 }
 .log-peek {
   display: grid;
   gap: 4px;
   padding: 10px 12px;
-  background: var(--soot);
-  border: 1px solid var(--iron-hi);
-  border-radius: var(--radius);
+  background: var(--card);
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
 }
 .log-peek header {
   display: flex;
@@ -1836,9 +1812,9 @@ button.life[data-glow='target']::after {
   justify-content: space-between;
 }
 .log-peek h3 {
-  font-size: 14px;
-  letter-spacing: 0.08em;
-  color: var(--gold);
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
 }
 .log-peek .log {
   margin-top: 0;
@@ -1856,7 +1832,7 @@ button.life[data-glow='target']::after {
   min-height: var(--tap);
   margin: -8px -4px;
   padding: 0 4px;
-  color: var(--gold-hi);
+  color: var(--ink);
   background: none;
   border: 0;
   font-size: 15px;
@@ -1896,18 +1872,18 @@ button.life[data-glow='target']::after {
   gap: 3px;
   min-height: 28px;
   padding: 0 6px 0 4px;
-  border-radius: 2px;
-  border: 1px solid var(--gold);
-  background: linear-gradient(#2a2220, #181312);
-  color: var(--gold-hi);
+  border-radius: 0;
+  border: 1.5px solid var(--ink);
+  background: var(--card);
+  color: var(--ink);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
 }
 .pip[data-state='used'] {
-  border-color: var(--gold-lo);
-  color: var(--bone-dim);
-  background: linear-gradient(#171211, #100c0c);
+  border-color: var(--line);
+  color: var(--mid);
+  background: var(--wash);
 }
 .pip[data-state='closed'] {
   border-style: dashed;
@@ -1924,7 +1900,7 @@ button.life[data-glow='target']::after {
 }
 .pip[data-state='open'] .mark {
   background: currentColor;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .pip[data-state='open'] .mark svg {
   display: none;
@@ -1941,8 +1917,8 @@ button.life[data-glow='target']::after {
   gap: 6px;
 }
 .btn.bonds-btn[data-hot] {
-  border-color: var(--gold-hi);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14), 0 0 0 1px #000, 0 0 10px rgb(210 178 106 / 0.5);
+  outline: 2px dashed var(--ink);
+  outline-offset: 2px;
 }
 
 .sheet-layer.modal .sheet.bonds {
@@ -1983,10 +1959,11 @@ button.life[data-glow='target']::after {
   min-height: var(--tap);
   text-align: left;
   padding: 6px 8px;
-  border-radius: 3px;
-  border: 1px solid var(--gold-hi);
-  background: linear-gradient(#2a1d0c, #170f08);
-  color: var(--gold-hi);
+  border-radius: 0;
+  border: 2px solid var(--ink);
+  background: var(--card);
+  box-shadow: var(--offset-sm);
+  color: var(--ink);
   font-size: 15px;
 }
 .bond-group {
@@ -2002,18 +1979,18 @@ button.life[data-glow='target']::after {
   align-items: center;
   gap: 6px;
   padding: 4px 2px;
-  background: linear-gradient(#241517, #1c1011);
-  border-bottom: 1px solid var(--gold-lo);
-  font-size: 15px;
-  color: var(--gold-hi);
+  background: var(--paper);
+  border-bottom: 2px solid var(--ink);
+  font-size: 17px;
+  color: var(--ink);
 }
 .bond-group h3 .count {
   margin-left: auto;
   min-width: 22px;
   padding: 0 6px;
-  border-radius: 2px;
-  background: #0d0a0b;
-  border: 1px solid var(--gold-lo);
+  border-radius: 0;
+  background: var(--card);
+  border: 1.5px solid var(--ink);
   font-size: 13px;
   text-align: center;
 }
@@ -2024,11 +2001,11 @@ button.life[data-glow='target']::after {
   width: 100%;
   min-height: var(--tap);
   padding: 8px 10px;
-  border-radius: 3px;
-  border: 2px solid var(--gold-lo);
-  background: linear-gradient(#2a1a1c, #170d0f);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 2px 4px rgb(0 0 0 / 0.6);
-  color: var(--bone);
+  border-radius: 0;
+  border: 2px solid var(--ink);
+  background: var(--card);
+  box-shadow: var(--offset-sm);
+  color: var(--ink);
   text-align: left;
   content-visibility: auto;
   contain-intrinsic-size: auto 88px;
@@ -2037,12 +2014,15 @@ button.life[data-glow='target']::after {
   transform: translateY(1px);
 }
 .bond-row[data-best] {
-  border-color: var(--gold-hi);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1), 0 0 10px rgb(210 178 106 / 0.35);
+  border-color: var(--ink);
+  box-shadow: var(--offset);
+  outline: 2px dashed var(--ink);
+  outline-offset: 2px;
 }
 .bond-row[data-nested] {
-  background: linear-gradient(#211517, #130b0d);
-  border-color: var(--gold-lo);
+  background: var(--wash);
+  border-color: var(--line);
+  box-shadow: none;
   padding: 6px 8px;
 }
 .best-badge {
@@ -2053,26 +2033,26 @@ button.life[data-glow='target']::after {
   align-items: center;
   gap: 3px;
   padding: 1px 7px;
-  border-radius: 2px;
-  background: var(--brass-plate);
-  border: 1px solid #e3c77f;
-  color: #1a1206;
+  border-radius: 0;
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  color: var(--paper);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .bond-fam {
   display: grid;
   gap: 4px;
 }
 .bond-fam[data-open] > .fam-head {
-  border-color: var(--gold);
+  border-color: var(--ink);
 }
 .fam-rows {
   display: grid;
   gap: 4px;
   margin-left: 12px;
   padding-left: 8px;
-  border-left: 2px dashed var(--gold-lo);
+  border-left: 2px dashed var(--line);
 }
 .bond-line,
 .bond-part,
@@ -2098,7 +2078,7 @@ button.life[data-glow='target']::after {
   gap: 4px;
 }
 .chip.sm[data-safe] {
-  border-color: #3f6a47;
+  border-color: var(--good);
   color: var(--good);
 }
 .chip.sm[data-exposed] {
@@ -2107,7 +2087,7 @@ button.life[data-glow='target']::after {
 }
 .chip.sm.gain {
   color: var(--unstable);
-  border-color: #3b6a78;
+  border-color: var(--unstable);
 }
 .chip.sm.place[data-hand] {
   border-style: dashed;
@@ -2119,25 +2099,25 @@ button.life[data-glow='target']::after {
   font-size: 15px;
 }
 .bond-mat .plus {
-  color: var(--gold-hi);
+  color: var(--ink);
   font-weight: 700;
 }
 .bond-mat .from {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  color: var(--bone-dim);
+  color: var(--mid);
   font-size: 12px;
 }
 .bond-why {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: var(--bone-dim);
+  color: var(--mid);
   font-size: 13px;
 }
 .bond-why[data-best] {
-  color: var(--gold-hi);
+  color: var(--ink);
   font-weight: 700;
 }
 .bond-parts {
@@ -2146,19 +2126,19 @@ button.life[data-glow='target']::after {
   list-style: none;
   margin: 0;
   padding: 8px 10px;
-  border-radius: 3px;
-  background: linear-gradient(#0f0a0a, #170f10);
-  border: 1px solid var(--gold-lo);
-  box-shadow: inset 0 3px 8px #000;
+  border-radius: 0;
+  background: var(--card);
+  border: 1.5px solid var(--ink);
+  box-shadow: var(--offset-sm);
 }
 .bonds-body > .bench-actions {
   flex: none;
   padding-top: 4px;
 }
 .btn[aria-pressed='true'] {
-  background: var(--brass-plate);
-  color: #1a1206;
-  border-color: #e3c77f;
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
 }
 
 /* ---------- turn slots (D-335): Monster · Spell/Trap · Bond · Attacks, in any order ---------- */
@@ -2178,11 +2158,11 @@ button.life[data-glow='target']::after {
   text-overflow: ellipsis;
 }
 .pip .mark[data-count] {
-  background: var(--gold-hi);
-  color: #1a1206;
-  border-color: var(--gold-hi);
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1;
 }
 @media (max-width: 379px) {
@@ -2211,7 +2191,7 @@ button.life[data-glow='target']::after {
 
 .pip[data-state='used'] .mark[data-count] {
   background: transparent;
-  color: var(--bone-dim);
+  color: var(--mid);
   border-color: currentColor;
 }
 
@@ -2276,9 +2256,11 @@ button.life[data-glow='target']::after {
     max-width: 100%;
     margin-inline: auto;
     padding: 3px 10px;
-    border: 1px solid var(--gold-lo);
-    border-radius: 2px;
-    background: rgb(10 7 8 / 0.92);
+    padding: 3px 10px;
+    border: 1.5px solid var(--ink);
+    border-radius: 0;
+    background: var(--card);
+    box-shadow: var(--offset-sm);
     font-size: 14px;
   }
   .telegraph svg {
@@ -2290,15 +2272,14 @@ button.life[data-glow='target']::after {
     display: inline;
   }
 }
-/* mood is the portrait ring: gilt calm, amber agitated, red desperate; the mood name is in the menu and the wide column */
-.portrait[data-mood='0'] {
-  box-shadow: 0 0 0 1px #000, 0 0 0 3px #5a7a5a, 0 0 10px rgb(120 170 120 / 0.35);
-}
+/* mood is the portrait ring: none when composed, dashed when agitated, double when desperate; the mood name is in the menu and the wide column */
 .portrait[data-mood='1'] {
-  box-shadow: 0 0 0 1px #000, 0 0 0 3px #c07a3a, 0 0 12px rgb(200 120 60 / 0.55);
+  outline: 2px dashed var(--ink);
+  outline-offset: 3px;
 }
 .portrait[data-mood='2'] {
-  box-shadow: 0 0 0 1px #000, 0 0 0 3px var(--flaw), 0 0 14px rgb(255 90 82 / 0.65);
+  outline: 4px double var(--ink);
+  outline-offset: 3px;
 }
 .menu-mood {
   display: flex;
@@ -2306,10 +2287,10 @@ button.life[data-glow='target']::after {
   gap: 6px;
   margin: 0 0 8px;
   font-size: 15px;
-  color: var(--bone-dim);
+  color: var(--mid);
 }
 .menu-mood[data-mood='1'] {
-  color: #ffb57a;
+  color: var(--ink);
 }
 .menu-mood[data-mood='2'] {
   color: var(--flaw);
@@ -2321,8 +2302,8 @@ button.life[data-glow='target']::after {
   align-items: stretch;
   gap: 4px;
   padding-inline: 4px;
-  border-block: 3px double var(--gold-lo);
-  background: linear-gradient(90deg, transparent, rgb(156 124 60 / 0.12), transparent);
+  border-block: 2px solid var(--ink);
+  background: transparent;
 }
 .track-strip .track {
   flex: 1 1 auto;
@@ -2345,17 +2326,17 @@ button.life[data-glow='target']::after {
   gap: 3px;
   align-self: center;
   padding: 2px 6px;
-  border: 1px solid var(--gold-lo);
-  border-radius: 2px;
-  background: rgb(10 7 8 / 0.7);
-  color: var(--gold-hi);
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
+  background: var(--card);
+  color: var(--ink);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
 }
 .track-appraisal[data-soon] {
-  border-color: var(--gold-hi);
-  box-shadow: 0 0 8px rgb(210 178 106 / 0.5);
+  background: var(--ink);
+  color: var(--paper);
 }
 
 /* the idle hint bar holds only Undo; a lifted card or monster fills it with the hint and its buttons */
@@ -2375,7 +2356,7 @@ button.life[data-glow='target']::after {
   gap: 2px;
   width: auto;
   padding-inline: 8px;
-  border-color: var(--gold-hi);
+  border-color: var(--ink);
 }
 .btn-word {
   font-weight: 800;
@@ -2408,20 +2389,20 @@ button.trap-hit {
   place-items: center;
   width: 20px;
   height: 28px;
-  border-radius: 2px;
-  border: 1.5px solid #3d312c;
-  background: linear-gradient(#0c0808, #181111);
-  color: var(--gold-lo);
+  border-radius: 0;
+  border: 1.5px dashed var(--line);
+  background: var(--wash);
+  color: var(--line);
 }
 .trap-icon[data-state='set'] {
-  border-color: var(--gold);
-  background: linear-gradient(#35101a, #1e080d);
-  color: var(--bone);
+  border: 1.5px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
 }
 .trap-icon[data-state='open'],
 .trap-icon[data-glow='slot'] {
-  border-color: var(--gold-hi);
-  color: var(--gold-hi);
+  border-color: var(--ink);
+  color: var(--ink);
 }
 .traps[data-side='me'] .trap-icon {
   width: 24px;
@@ -2441,16 +2422,16 @@ button.trap-hit {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 1.5px solid var(--gold-lo);
-  color: var(--bone-dim);
-  background: #140f0f;
+  border: 1.5px solid var(--ink);
+  color: var(--mid);
+  background: var(--card);
   font-size: 10px;
   line-height: 1;
 }
 .sdot[data-open] {
-  border-color: var(--gold-hi);
-  background: var(--gold);
-  color: #1a1206;
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
 }
 .sdot b {
   font-weight: 800;
@@ -2518,14 +2499,14 @@ button.trap-hit {
   position: absolute;
   z-index: 5;
   pointer-events: none;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .fx-riposte {
   inset: 0;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle, rgb(210 178 106 / 0.45), transparent 70%);
-  filter: drop-shadow(0 0 6px #000);
+  background: radial-gradient(circle, rgb(17 17 17 / 0.3), transparent 70%);
+  filter: drop-shadow(1px 1px 0 var(--paper));
   animation: riposte-flash calc(var(--cue) * 1.6) var(--ease) calc(var(--cue) * var(--b, 0)) both;
 }
 .fx-ambush {
@@ -2535,11 +2516,12 @@ button.trap-hit {
   display: inline-flex;
   gap: 2px;
   padding: 1px 6px;
-  border: 1px solid var(--gold-hi);
-  border-radius: 2px;
-  background: rgb(10 7 8 / 0.94);
+  border: 1.5px solid var(--ink);
+  border-radius: 0;
+  background: var(--card);
+  box-shadow: 1px 2px 0 var(--ink);
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   animation: ambush-spring calc(var(--cue) * 1.8) var(--ease) calc(var(--cue) * var(--b, 0)) both;
 }
 @keyframes riposte-flash {
@@ -2593,22 +2575,22 @@ button.trap-hit {
 /* the lit empty lane is the niche itself: it glows, with no second rectangle drawn inside it */
 .empty-slot[data-glow='slot'] {
   border: 0;
-  background: radial-gradient(circle, rgb(210 178 106 / 0.22), transparent 70%);
+  background: var(--hatching);
 }
 .empty-slot[data-glow='slot']::after {
   display: none;
 }
-.niche:has(> .empty-slot[data-glow='slot']) {
-  border-color: var(--gold-hi);
-  box-shadow: inset 0 8px 16px #000, 0 0 12px 2px rgb(210 178 106 / 0.6);
+.niche:has(.empty-slot[data-glow='slot']) { /* not `>`: the slot sits inside the .drift wrapper (D-355) */
+  border: 2px solid var(--ink);
+  background: var(--card);
   animation: ring-niche calc(var(--beat) * 6) ease-in-out infinite alternate;
 }
 @keyframes ring-niche {
   from {
-    box-shadow: inset 0 8px 16px #000, 0 0 14px 3px rgb(210 178 106 / 0.7);
+    box-shadow: var(--offset);
   }
   to {
-    box-shadow: inset 0 8px 16px #000, 0 0 6px 1px rgb(210 178 106 / 0.3);
+    box-shadow: var(--offset-sm);
   }
 }
 /* the lanes sit together in the middle of the board; rails are two faint dividers, not columns */
@@ -2622,10 +2604,10 @@ button.trap-hit {
 }
 .rail {
   background: none;
-  border-inline-color: rgb(156 124 60 / 0.35);
+  border-inline-color: rgb(17 17 17 / 0.35);
 }
 .rail[data-active] {
-  background: linear-gradient(rgb(210 178 106 / 0.14), rgb(210 178 106 / 0.05) 50%, rgb(210 178 106 / 0.14));
+  background: linear-gradient(rgb(17 17 17 / 0.14), rgb(17 17 17 / 0.05) 50%, rgb(17 17 17 / 0.14));
 }
 
 /* a lifted hand card rises only a little, and the hint bar's buttons always stay above it */
@@ -2676,8 +2658,8 @@ button.trap-hit {
 }
 .sdot:not([data-open]) {
   background: transparent;
-  border-color: var(--bone-dim);
-  color: var(--bone-dim);
+  border-color: var(--mid);
+  color: var(--mid);
 }
 @media (max-width: 399px) {
   .playerbar {

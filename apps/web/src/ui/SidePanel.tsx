@@ -13,11 +13,11 @@ export function SidePanel({ shown, pinned, onUnpin, log, onSplit }: { readonly s
   const counts: readonly { readonly key: string; readonly who: string; readonly icon: string; readonly label: string; readonly n: number }[] = [
     { key: 'md', who: 'Your', icon: 'deck', label: 'deck', n: me.deck.length },
     { key: 'mg', who: 'Your', icon: 'tomb', label: 'graveyard', n: me.discard.length },
-    { key: 'td', who: "Collector's", icon: 'deck', label: 'deck', n: them.deck.length },
-    { key: 'tg', who: "Collector's", icon: 'tomb', label: 'graveyard', n: them.discard.length },
+    { key: 'td', who: "Monarch's", icon: 'deck', label: 'deck', n: them.deck.length },
+    { key: 'tg', who: "Monarch's", icon: 'tomb', label: 'graveyard', n: them.discard.length },
   ];
   return (
-    <aside className="sidepanel" aria-label="Auction ledger" onClick={(e) => e.stopPropagation()}>
+    <aside className="sidepanel" aria-label="Court ledger" onClick={(e) => e.stopPropagation()}>
       <section className="panel">
         <h3 className="panel-title">Ledger</h3>
         <ul className="counts">
@@ -44,7 +44,7 @@ export function SidePanel({ shown, pinned, onUnpin, log, onSplit }: { readonly s
       <section className="panel log-panel" aria-label="Duel log">
         <h3 className="panel-title">Duel log</h3>
         {log.length === 0 ? (
-          <p className="muted">The auction has not begun.</p>
+          <p className="muted">The court has not convened.</p>
         ) : (
           <ol className="log">
             {log.map((l, i) => ({ l, i })).reverse().map(({ l, i }) => (

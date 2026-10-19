@@ -1,6 +1,6 @@
-// Result as a bill of sale (D-238): an ivory receipt with a wax stamp, the date, rounds against par, life left, the
+// Result as a royal edict (D-238, D-350): a paper edict with a wax seal, the date, rounds against par, life left, the
 // bonus objectives with check/cross, and the emoji round row exactly as it will be shared. Practice (D-247) gets a
-// plain receipt instead: no stamp, no Share, and nothing in it was recorded.
+// plain edict instead: no seal, no Share, and nothing in it was recorded.
 import { useEffect, useState } from 'react';
 import { definitionView } from '../view/cards';
 import { objectiveMet, objectivesMet } from '../view/objectives';
@@ -14,7 +14,7 @@ import { Gem } from './Gem';
 import { MiniCard } from './MiniCard';
 
 const REASON: Readonly<Record<string, string>> = {
-  collectorDefeated: 'The Collector is defeated.',
+  collectorDefeated: 'The Monarch is defeated.',
   playerDefeated: 'You fell.',
   vaultSealed: 'The vault sealed before you finished.',
 };
@@ -67,10 +67,10 @@ export function Result() {
   };
   return (
     <main className="result" data-practice={practice ? '' : undefined}>
-      <article className={`receipt ${won ? 'won' : 'lost'} ${practice ? 'plain' : ''}`} aria-label={practice ? 'Practice receipt' : 'Bill of sale'}>
+      <article className={`receipt ${won ? 'won' : 'lost'} ${practice ? 'plain' : ''}`} aria-label={practice ? 'Practice edict' : 'Royal edict'}>
         <header>
-          <p className="eyebrow">{practice ? 'Practice receipt · Unrecorded' : 'Bill of sale'}</p>
-          <h1>{practice ? (won ? 'Practice won' : 'Practice lost') : won ? 'Lot acquired' : 'Lot sealed away'}</h1>
+          <p className="eyebrow">{practice ? 'Practice edict · Unrecorded' : 'Royal edict'}</p>
+          <h1>{practice ? (won ? 'Practice won' : 'Practice lost') : won ? 'The crown yields' : 'You kneel'}</h1>
           <p className="receipt-date">{setup.date}</p>
         </header>
         <p className="receipt-reason">{REASON[result.reason] ?? ''}</p>
@@ -109,9 +109,9 @@ export function Result() {
           {row}
         </p>
         {!practice && (
-          <div className="stamp" role="img" aria-label={won ? 'Acquired' : 'Sealed in the vault'}>
-            <Glyph id={won ? 'gavel' : 'vault'} size={26} />
-            <span>{won ? 'ACQUIRED' : 'SEALED IN THE VAULT'}</span>
+          <div className="stamp" role="img" aria-label={won ? 'Defied' : 'Bound'}>
+            <Glyph id={won ? 'sword' : 'lock'} size={26} />
+            <span>{won ? 'DEFIED' : 'BOUND'}</span>
           </div>
         )}
       </article>
@@ -120,7 +120,7 @@ export function Result() {
         <div className="binder-strip">
           <MiniCard view={sig} side="me" onTap={() => undefined} onLong={() => undefined} />
           <p>
-            <Glyph id="check" size={16} /> Added to your Binder
+            <Glyph id="check" size={16} /> Added to your Bestiary
             <br />
             <span className="muted">
               <Gem element={sig.element} /> {sig.name}
@@ -130,7 +130,7 @@ export function Result() {
       )}
       {!practice && newFamilies.length > 0 && (
         <p className="binder-new">
-          <Glyph id="swap" size={16} /> New Chimera family in your Binder: {newFamilies.map((id) => ctx.cards.get(id)?.name ?? id).join(', ')}
+          <Glyph id="swap" size={16} /> New Chimera family in your Bestiary: {newFamilies.map((id) => ctx.cards.get(id)?.name ?? id).join(', ')}
         </p>
       )}
 
@@ -162,7 +162,7 @@ export function Result() {
             <Glyph id="sword" size={18} /> Practice
           </button>
           <button type="button" className="btn" onClick={() => openScreen('binder')}>
-            <Glyph id="deck" size={18} /> Binder
+            <Glyph id="deck" size={18} /> Bestiary
           </button>
           <button type="button" className="btn" onClick={() => openScreen('stats')}>
             <Glyph id="scales" size={18} /> Stats

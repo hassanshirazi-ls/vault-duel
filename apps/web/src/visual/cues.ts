@@ -82,7 +82,7 @@ export function cuesFromEvents(events: readonly GameEvent[], before?: GameState)
 export const cueDurationMs = (cues: readonly Cue[]): number =>
   cues.length === 0 ? 0 : (Math.max(...cues.map((c) => c.beat)) + 1) * TIMING.BEAT_MS + TIMING.TAIL_MS;
 
-/** The quip trigger: a mood shift, an Appraisal attempt or the start of the duel (D-237). Returns the mood to speak in. */
+/** The speech trigger: a mood shift, a levy attempt (engine: Appraisal) or the start of the duel (D-237). Returns the mood to speak in. */
 export function quipMood(events: readonly GameEvent[], currentMood: number): number | null {
   let mood: number | null = null;
   for (const e of events) {
@@ -90,4 +90,23 @@ export function quipMood(events: readonly GameEvent[], currentMood: number): num
     else if ((e.e === 'AppraisalAttempt' || e.e === 'GameStarted') && mood === null) mood = currentMood;
   }
   return mood;
+}
+
+/**
+ * The lines the Monarch speaks after a step, or undefined when he says nothing. When the step took a monster (an
+ * `Appraised` event) his `levy` list is used if it has lines (D-352); a failed levy, a mood shift and the start of the
+ * duel use the lines of the mood, as does a missing or empty `levy` list. The caller picks one by `nActions`, so the
+ * choice is deterministic.
+ */
+export function quipLines(
+  events: readonly GameEvent[],
+  currentMood: number,
+  dialogue: Readonly<Record<string, readonly string[] | undefined>>,
+  moodNames: readonly string[],
+): readonly string[] | undefined {
+  const levy = events.some((e) => e.e === 'Appraised') ? dialogue['levy'] : undefined;
+  if (levy !== undefined && levy.length > 0) return levy;
+  const mood = quipMood(events, currentMood);
+  const lines = mood === null ? undefined : dialogue[moodNames[mood] ?? 'composed'];
+  return lines !== undefined && lines.length > 0 ? lines : undefined;
 }

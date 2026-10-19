@@ -4,6 +4,7 @@ import { PC, pipeEnv } from '../test-utils/pipeline-fixture';
 import { harness } from '../test-utils/run';
 import { StateBuilder } from '../test-utils/state';
 import { appraisal, appraisalTarget } from './appraisal';
+import { effectivePower } from './stats';
 import { RoundFlag } from './types/state';
 
 // Fixture powers: umbra-beast 5, lumen-seer 4, ember-whelp 3. APPRAISAL_MIN_POWER is lowered to 4.
@@ -111,4 +112,22 @@ describe('appraisal (§5.7, D-075 to D-079)', () => {
     appraisal(h.run);
     expect(h.done().appraisal).toEqual({ attempts: 3, successes: 2, taken: [0, 1] });
   });
+
+  it('crowns the taken monster: +CROWN_POWER Power on his board while FLAGS.CROWNED is on (D-349)', () => {
+    const build = () => setup((b, c) => { b.place(0, 0, c('fx-umbra-beast')); }).build();
+    for (const [crowned, want] of [[true, 6], [false, 5]] as const) {
+      const e = pipeEnv(withGlobals({ APPRAISAL_MIN_POWER: 4, CROWN_POWER: 1, FLAGS: { CROWNED: crowned } }));
+      const h = harness(build(), e);
+      expect(effectivePower(h.run.state, e, 0)).toBe(5); // on the player's board: no crown
+      appraisal(h.run);
+      expect(effectivePower(h.done(), e, 0)).toBe(want);
+    }
+  });
+
+  it("never crowns an appraised monster on the player's board (D-349)", () => {
+    const b = setup((b, c) => { b.place(0, 0, c('fx-umbra-beast'), { appraised: true }); });
+    const e = pipeEnv(withGlobals({ CROWN_POWER: 1, FLAGS: { CROWNED: true } }));
+    expect(effectivePower(b.build(), e, 0)).toBe(5);
+  });
 });
+

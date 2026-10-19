@@ -1,9 +1,10 @@
-// Card inspect (D-238): a bottom sheet on phones and tablets, a card in the ledger panel on wide screens (D-240).
+// Card inspect (D-238): a bottom sheet on phones and tablets, a card in the court-ledger panel on wide screens (D-240).
 // Content: art thumbnail, name, element and kind, Power/Guard, every keyword or Flaw with its
 // rule, and the element's beats/weak-to line. All rule text comes through renderText (the view layer's `ctx.render`).
 import type { Iid } from '@vault-duel/engine';
 import type { ReactNode } from 'react';
-import { cardView, elementMatchups } from '../view/cards';
+import { CROWN_LINE } from '../view/copy';
+import { cardView, elementMatchups, isCrowned } from '../view/cards';
 import type { CardView } from '../view/cards';
 import { Glyph } from '../visual/glyphs';
 import { Art } from './Art';
@@ -22,11 +23,17 @@ export function InspectCard({ iid, onClose, onSplit }: { readonly iid: Iid; read
   const groups = useGame((s) => s.groups);
   if (ctx === null || rt === null || state === null) return null;
   const host = state.sides.flatMap((side) => side.board).find((m) => m !== null && m.iid === iid);
+  const crowned = isCrowned(ctx.globals, 1, state.sides[1].board.find((m) => m !== null && m.iid === iid));
   const attached = host !== undefined && host !== null && host.sym >= 0 ? cardView(ctx, rt.engine, state, host.sym) : null;
   const canSplit = onSplit !== undefined && groups?.splits.has(iid) === true;
   const extra =
-    attached === null && !canSplit ? undefined : (
+    attached === null && !canSplit && !crowned ? undefined : (
       <>
+        {crowned && (
+          <p className="inspect-crown">
+            <Glyph id="crown" size={16} filled /> {ctx.render(CROWN_LINE)}
+          </p>
+        )}
         {attached !== null && <Attached c={attached} />}
         {canSplit && (
           <button type="button" className="btn" onClick={() => onSplit?.(iid)}>

@@ -25,7 +25,7 @@ export interface PartView {
 
 export interface ExposureView {
   readonly safe: boolean;
-  readonly icon: 'check' | 'gavel';
+  readonly icon: 'check' | 'crown';
   readonly text: string;
 }
 
@@ -126,12 +126,12 @@ function partOf(ctx: GameCtx, state: GameState, r: BondResultMonster): PartView 
 
 function exposureOf(ctx: GameCtx, state: GameState, o: BondOption): ExposureView {
   const e = o.exposure;
-  if (e.nextRound < 0) return { safe: true, icon: 'check', text: 'No Appraisal left' };
-  if (e.target < 0) return { safe: true, icon: 'check', text: 'Safe from Appraisal' };
+  if (e.nextRound < 0) return { safe: true, icon: 'check', text: 'No Levy left' };
+  if (e.target < 0) return { safe: true, icon: 'check', text: 'Safe from the Levy' };
   const mine = o.result.some((r) => r.iid === e.target);
-  if (!mine) return { safe: true, icon: 'check', text: `Safe from Appraisal (${nameOf(ctx, state, e.target)} is the target)` };
+  if (!mine) return { safe: true, icon: 'check', text: `Safe from the Levy (${nameOf(ctx, state, e.target)} is the target)` };
   const when = e.turnsAway === 0 ? `round ${e.nextRound}, next` : `round ${e.nextRound}`;
-  return { safe: false, icon: 'gavel', text: `Exposed in ${when}${e.cardsLost === 2 ? ': both cards go' : ''}` };
+  return { safe: false, icon: 'crown', text: `Exposed in ${when}${e.cardsLost === 2 ? ': both cards go' : ''}` };
 }
 
 function rowOf(ctx: GameCtx, engine: Engine, state: GameState, o: BondOption, rank: BondRank | null): BondRowView {

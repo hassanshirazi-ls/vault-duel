@@ -2,14 +2,14 @@
   { "id": "gilded-penitent", "type": "monster", "name": "Gilded Penitent", "element": "lumen", "kind": "knight", "power": 7, "guard": 6, "keywords": ["ward"], "flaw": "slow" },
   { "id": "ossuary-seraph", "type": "monster", "name": "Ossuary Seraph", "element": "lumen", "kind": "spirit", "power": 8, "guard": 3, "keywords": ["pierce"], "flaw": "vain" },
   { "id": "saint-of-brass", "type": "monster", "name": "Saint of Brass", "element": "lumen", "kind": "construct", "power": 6, "guard": 7, "keywords": ["echo"], "flaw": "slow" },
-  { "id": "mourning-cartographer", "type": "monster", "name": "Mourning Cartographer", "element": "gale", "kind": "spirit", "power": 6, "guard": 5, "keywords": ["echo"], "flaw": "tethered" },
+  { "id": "mourning-cartographer", "type": "monster", "name": "Mourning Herald", "element": "gale", "kind": "spirit", "power": 6, "guard": 5, "keywords": ["echo"], "flaw": "tethered" },
   { "id": "stormglass-hydra", "type": "monster", "name": "Stormglass Hydra", "element": "gale", "kind": "wyrm", "power": 8, "guard": 5, "keywords": [], "flaw": "brittle" },
   { "id": "ashen-duchess", "type": "monster", "name": "Ashen Duchess", "element": "ember", "kind": "knight", "power": 7, "guard": 5, "keywords": ["swift"], "flaw": "tethered" },
   { "id": "kiln-born-leviathan", "type": "monster", "name": "Kiln-Born Leviathan", "element": "ember", "kind": "wyrm", "power": 9, "guard": 4, "keywords": [], "flaw": "brittle" },
   { "id": "drowned-choir", "type": "monster", "name": "Drowned Choir", "element": "tide", "kind": "spirit", "power": 6, "guard": 6, "keywords": ["haunt"], "flaw": "tethered" },
-  { "id": "abyssal-curator", "type": "monster", "name": "Abyssal Curator", "element": "tide", "kind": "construct", "power": 5, "guard": 7, "keywords": ["sentinel"], "flaw": "slow" },
+  { "id": "abyssal-curator", "type": "monster", "name": "Abyssal Chamberlain", "element": "tide", "kind": "construct", "power": 5, "guard": 7, "keywords": ["sentinel"], "flaw": "slow" },
   { "id": "reliquary-hound", "type": "monster", "name": "Reliquary Hound", "element": "umbra", "kind": "beast", "power": 6, "guard": 4, "keywords": ["haunt"], "flaw": "vain" },
   { "id": "velvet-moth-sovereign", "type": "monster", "name": "Velvet Moth Sovereign", "element": "umbra", "kind": "beast", "power": 7, "guard": 3, "keywords": ["pierce"], "flaw": "brittle" },
   { "id": "weeping-automaton", "type": "monster", "name": "Weeping Automaton", "element": "umbra", "kind": "construct", "power": 5, "guard": 8, "keywords": ["ward"], "flaw": "slow" },
-  { "id": "the-unpriced", "type": "monster", "name": "The Unpriced", "element": "umbra", "kind": "wyrm", "power": 10, "guard": 8, "keywords": ["ward"], "flaw": "covetous" }
+  { "id": "the-unpriced", "type": "monster", "name": "The Hollow Heir", "element": "umbra", "kind": "wyrm", "power": 10, "guard": 8, "keywords": ["ward"], "flaw": "covetous" }
 ]

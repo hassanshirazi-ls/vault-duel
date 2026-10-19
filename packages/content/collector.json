@@ -47,22 +47,28 @@
   },
   "dialogue": {
     "composed": [
-      "Every piece in my collection has a provenance. Yours will have one too.",
-      "Patience is the first virtue of any true collector.",
-      "Set your monsters down gently. I will take them in good time.",
-      "What fine work. It would look splendid in my vault."
+      "Kneel. Your strongest will serve the crown soon enough.",
+      "I have reigned longer than your bloodline has had a name.",
+      "Set your monsters down. Every subject pays the levy in time.",
+      "Such fine soldiers. They would look splendid at my side."
     ],
     "agitated": [
-      "You are clumsier than I expected. Give me that one.",
-      "Every one of your monsters has a price, and I am running out of patience.",
-      "Your hounds are at my gate. Let them come.",
-      "I will have your strongest, and you will watch me take it."
+      "You forget whose soil you bleed on.",
+      "That one. The crown is owed, and I collect.",
+      "Your rabble is at my gates. Let them come.",
+      "I will take your strongest, and you will watch it bow."
     ],
     "desperate": [
-      "Very well, take your stand. I only want what is mine.",
-      "No more pretense. Everything you own is mine to appraise.",
-      "Your vault is empty and so is your hand. Let us finish this.",
-      "Even ruin makes a fine display case."
+      "A crown does not fall to peasants.",
+      "No more courtesy. Everything in this kingdom is mine to levy.",
+      "Your hand is empty and your banners are torn. Let us finish this.",
+      "Then let the whole court burn with me."
+    ],
+    "levy": [
+      "Your champion swears to me now.",
+      "Rise, soldier. You serve a greater house.",
+      "Kneel, and take my crown upon your brow.",
+      "Another banner for my hall."
     ]
   }
 }

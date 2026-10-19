@@ -1,5 +1,5 @@
 // Card and monster view models, from engine queries and compiled content. Text is rendered through renderText (D-172).
-import type { Engine, GameState, Iid } from '@vault-duel/engine';
+import type { Engine, GameState, Globals, Iid, Monster, Side } from '@vault-duel/engine';
 import type { CardInfo, ElementInfo, GameCtx } from '../content/load';
 
 export interface KeywordView {
@@ -28,6 +28,14 @@ export interface CardView {
   readonly guard: number | null;
   readonly keywords: readonly KeywordView[];
   readonly text: string | null;
+}
+
+/**
+ * D-349: a monster the Monarch took by levy is crowned while it is on his board. The engine already adds the Power
+ * (`effectivePower`); this only decides whether to show the crown badge and the inspect line.
+ */
+export function isCrowned(g: Globals, side: Side, m: Monster | null | undefined): boolean {
+  return g.FLAGS.CROWNED && side === 1 && m !== null && m !== undefined && m.appraised;
 }
 
 /** Keyword and Flaw views for a keyword mask; bit i is `content.keywords[i]` (D-197). */

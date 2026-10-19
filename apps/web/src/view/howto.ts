@@ -56,10 +56,10 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
     {
       id: 'goal',
       title: 'The goal',
-      summary: r('Every day brings one vault and one duel, the same for every player. You start with {PLAYER_LIFE} life and the Collector has {COLLECTOR_LIFE}. Take his life to 0 before round {MAX_ROUNDS} ends.'),
+      summary: r('Every day brings one vault and one duel, the same for every player. You start with {PLAYER_LIFE} life and the Monarch has {COLLECTOR_LIFE}. Take his life to 0 before round {MAX_ROUNDS} ends.'),
       lines: [
         'Every day brings one vault and one duel, the same for every player, with one daily attempt.',
-        r('You start with {PLAYER_LIFE} life. The Collector has {COLLECTOR_LIFE}.'),
+        r('You start with {PLAYER_LIFE} life. The Monarch has {COLLECTOR_LIFE}.'),
         `Your deck holds ${deckSize} cards, and you can read the whole list on the title screen.`,
         r('Take his life to 0 before round {MAX_ROUNDS} ends. A round is your turn, then his.'),
       ],
@@ -94,7 +94,7 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
     {
       id: 'combat',
       title: 'Combat and elements',
-      summary: r('The higher Power wins the fight. An attacker with element advantage gets +{ELEMENT_BONUS} Power: follow the arrows on the wheel, and every element has its icon as well as its color.'),
+      summary: r('The higher Power wins the fight. An attacker with element advantage gets +{ELEMENT_BONUS} Power: follow the arrows on the wheel, and every element has its own ink pattern and icon.'),
       lines: [
         'Attack a monster in attack position: the higher Power destroys the lower, and the loser takes the difference. A tie destroys both.',
         'Attack a monster in guard: Power above its Guard destroys it with no damage. Below it, you take the difference.',
@@ -103,17 +103,17 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
         ...when(f.RIPOSTE, 'A face-down monster\u2019s Guard is hidden, so attacking one can end in a Riposte.'),
         ...when(f.AMBUSH, r('Ambush: flip a face-down monster to attack and it gets +{AMBUSH_POWER} Power until the end of that turn.')),
         ...when(g.SICKNESS_MODE === 'monstersOnly', 'A monster you just summoned may attack monsters but not life until your next turn.'),
-        r('An attacker with element advantage gets +{ELEMENT_BONUS} Power. Colors always come with an icon.'),
-        'On the wheel, each arrow points at the element its tail beats. In a duel, hold a monster to see a small compass for its element: gold arrows to what it beats, red dashed arrows from what beats it.',
+        r('An attacker with element advantage gets +{ELEMENT_BONUS} Power. Every element has its own ink pattern and icon, never color alone.'),
+        'On the wheel, each arrow points at the element its tail beats. In a duel, hold a monster to see a small compass for its element: solid ink arrows to what it beats, dashed red arrows from what beats it.',
       ],
     },
     ...when<HowToPage>(f.LANES, {
       id: 'lanes',
       title: 'Lanes',
-      summary: r("Your {BOARD_SLOTS} monster slots are lanes. A monster attacks only the Collector's monster straight across from it, unless a Sentinel next to that lane pulls the attack to itself. An empty lane across means no hit. A direct hit on his life needs his board to be empty."),
+      summary: r("Your {BOARD_SLOTS} monster slots are lanes. A monster attacks only the Monarch's monster straight across from it, unless a Sentinel next to that lane pulls the attack to itself. An empty lane across means no hit. A direct hit on his life needs his board to be empty."),
       lines: [
-        r("The {BOARD_SLOTS} monster slots are lanes: each of your monsters faces the Collector's slot straight across. You pick the lane when you summon."),
-        'With lanes, a monster can only attack the monster across from it. An empty lane across means no attack, and life can be hit only when the Collector has no monsters at all.',
+        r("The {BOARD_SLOTS} monster slots are lanes: each of your monsters faces the Monarch's slot straight across. You pick the lane when you summon."),
+        'With lanes, a monster can only attack the monster across from it. An empty lane across means no attack, and life can be hit only when the Monarch has no monsters at all.',
         ...when(sentinel, r('A Sentinel guards nearby lanes: attacks in its lane and within {SENTINEL_REACH|lane|lanes} of it must target it. This is the only way an attack goes to the side. A shield badge with an arrow marks each covered lane and points at the Sentinel.')),
         'A direct hit on his life needs his whole monster board to be empty. Then his life glows when you pick an attacker.',
         r("Instead of switching, a monster may move up to {LANE_MOVE_RANGE|lane|lanes} sideways, trading places with your monster there. A move and a switch share one turn's reposition."),
@@ -139,11 +139,11 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
         'Any order: you can attack first and summon or bond afterwards. Attacking closes nothing.',
         'A monster may move a lane or switch position once, before it attacks. After its attack it stays put, and a tick marks it.',
         'Graft joins monsters into a Chimera.',
-        ...when(f.SPLIT, 'Split unbinds a Chimera back into its parts, which can save it from an Appraisal aimed at it.'),
+        ...when(f.SPLIT, 'Split unbinds a Chimera back into its parts, which can save it from a Levy aimed at it.'),
         ...when(f.SYMBIOSIS, 'Symbiosis attaches a monster from your hand under one of yours, as extra Guard and a spare body.'),
         graftOnly
           ? 'The Graft button opens the workbench: pick two monsters and see the result, including Ascend and Unstable, before you confirm.'
-          : 'The Bond button lists every bond you can make right now, with the board it leaves and whether it is exposed to the next Appraisal. The option marked Best is a hint only.',
+          : 'The Bond button lists every bond you can make right now, with the board it leaves and whether it is exposed to the next Levy. The option marked Best is a hint only.',
       ],
     }),
     ...when<HowToPage>(bondTurn && !slots, {
@@ -155,10 +155,10 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
         r(`You also have {BONDS_PER_TURN|bond action|bond actions}: ${orList(bonds)}. A bond does not use up your card play.`),
         'Play and bond in either order, but your first attack closes the bond for the turn.',
         'Graft joins monsters into a Chimera.',
-        ...when(f.SPLIT, 'Split unbinds a Chimera back into its parts, which can save it from an Appraisal aimed at it.'),
+        ...when(f.SPLIT, 'Split unbinds a Chimera back into its parts, which can save it from a Levy aimed at it.'),
         ...when(f.SYMBIOSIS, 'Symbiosis attaches a monster from your hand under one of yours, as extra Guard and a spare body.'),
         'The Play and Bond pips above your hand show what is left this turn: a tick means used, a cross means your attack closed it.',
-        'The Bonds button lists every bond you can make right now, with the board it leaves and whether it is exposed to the next Appraisal.',
+        'The Bonds button lists every bond you can make right now, with the board it leaves and whether it is exposed to the next Levy.',
         'The option marked Best is the one a strong player would likely pick. It is a hint only.',
       ],
     }),
@@ -176,7 +176,7 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
         r('A Chimera inherits up to {MAX_INHERITED_KEYWORDS|keyword|keywords}. If more are available, you choose.'),
         ...when(f.ASCEND, r('Ascend: add one more monster ({MAX_GRAFT_MATERIALS} in all) for +{ASCEND_POWER} Power and +{ASCEND_GUARD} Guard.')),
         ...when(f.UNSTABLE, r("Unstable: if one material's element beats the other's, the Chimera gets +{UNSTABLE_BONUS} Power but is destroyed at the end of your next turn.")),
-        'A preview shows the result before you confirm. A new family is added to your Binder.',
+        'A preview shows the result before you confirm. A new family is added to your Bestiary.',
       ],
     },
     ...when<HowToPage>(
@@ -189,7 +189,7 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
           'Split unbinds a face-up Chimera of yours into the monsters it was grafted from.',
           'The first part keeps its slot; the rest take the nearest free slots, or go to your hand if there is no room.',
           'Parts cannot attack or move that turn. Their materials must still be in your discard, and a Chimera that arrived this turn cannot split.',
-          'Splitting is not destruction, so Echo, Haunt, Last Rites and Insurance Claim do not trigger.',
+          'Splitting is not destruction, so Echo, Haunt, Last Rites and Blood Tithe do not trigger.',
         ],
       },
     ),
@@ -202,7 +202,7 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
         lines: [
           'Symbiosis attaches a base monster from your hand under one of your face-up monsters.',
           r("The host gains +{SYMBIOSIS_GUARD_BONUS} Guard and, if it has room, the attached monster's keyword."),
-          'The attached monster uses no slot. If the host is destroyed, it comes out in its slot as if newly summoned; if the host is Appraised, the Collector takes both.',
+          'The attached monster uses no slot. If the host is destroyed, it comes out in its slot as if newly summoned; if the host is levied, the Monarch takes both.',
           r('A host carries {SYMBIOTES_PER_HOST|attached monster|attached monsters} at most.'),
         ],
       },
@@ -211,13 +211,17 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
       f.APPRAISAL,
       {
         id: 'appraisal',
-        title: 'Appraisal',
-      summary: `At the start of his turn in rounds ${joinList(g.APPRAISAL_ROUNDS)} the Collector takes your highest-Power face-up monster, if its Power is ` + r('{APPRAISAL_MIN_POWER} or more. A countdown on screen always shows the next one.'),
+        title: 'Levy',
+        summary:
+          `At the start of his turn in rounds ${joinList(g.APPRAISAL_ROUNDS)} the Monarch takes your highest-Power face-up monster, if its Power is ` +
+          r('{APPRAISAL_MIN_POWER} or more. A countdown on screen always shows the next one.') +
+          (f.CROWNED ? r(' A monster he levies is crowned: it gets +{CROWN_POWER} Power while it serves him.') : ''),
         lines: [
-          `At the start of his turn in rounds ${joinList(g.APPRAISAL_ROUNDS)}, the Collector takes your highest-Power face-up monster${f.SYMBIOSIS ? ', and any monster attached under it' : ''}.`,
+          `At the start of his turn in rounds ${joinList(g.APPRAISAL_ROUNDS)}, the Monarch takes your highest-Power face-up monster${f.SYMBIOSIS ? ', and any monster attached under it' : ''}.`,
           r('Only a monster with Power {APPRAISAL_MIN_POWER} or more can be taken. Face-down monsters are safe.'),
-          'A countdown on screen always shows the next Appraisal.',
-          ...when(f.INTENTS, 'An icon beside his portrait shows what kind of turn he plans: attack, appraise, guard or scheme. It never shows which card.'),
+          'A countdown on screen always shows the next Levy.',
+          ...when(f.CROWNED, r('A monster he levies is crowned: it gets +{CROWN_POWER} Power while it serves him, and wears a crown badge on its card.')),
+          ...when(f.INTENTS, 'An icon beside his portrait shows what kind of turn he plans: attack, levy, guard or scheme. It never shows which card.'),
           ...when(f.MOODS, r('As his life falls he turns Agitated (at {MOOD_AGITATED_AT} or less) and then Desperate (at {MOOD_DESPERATE_AT} or less), and his play changes.')),
         ],
       },
@@ -225,12 +229,12 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
     {
       id: 'winning',
       title: 'Winning',
-      summary: r('Take the Collector to 0 life to win. You lose at 0 life, or when the vault seals at the end of round {MAX_ROUNDS}. A win adds the day\'s signature card to your Binder.'),
+      summary: r('Take the Monarch to 0 life to win. You lose at 0 life, or when the vault seals at the end of round {MAX_ROUNDS}. A win adds the day\'s champion to your Bestiary.'),
       lines: [
-        r('Win by taking the Collector to 0 life. You lose at 0 life, or when the vault seals at the end of round {MAX_ROUNDS}.'),
+        r('Win by taking the Monarch to 0 life. You lose at 0 life, or when the vault seals at the end of round {MAX_ROUNDS}.'),
         'Your result compares the rounds you used with the day\'s par.',
         ...when(ctx.objectiveIds.length > 0, r('Each day has {OBJECTIVES_PER_DAY|bonus objective|bonus objectives}, with a star for each one you meet.')),
-        'A win adds the day\'s signature card to your Binder. Share your round row with friends.',
+        'A win adds the day\'s champion to your Bestiary. Share your round row with friends.',
         'Practice replays today\'s seed, unrecorded, once your daily attempt is done.',
       ],
     },
@@ -326,10 +330,10 @@ export function howToQuiz(ctx: GameCtx, id: HowToArtId): Quiz | null {
         question: 'Who starts the duel with more life?',
         answers: [
           { label: 'You', right: diff > 0 },
-          { label: 'The Collector', right: diff < 0 },
+          { label: 'The Monarch', right: diff < 0 },
           { label: 'Neither, it is equal', right: diff === 0 },
         ],
-        why: r('You start with {PLAYER_LIFE} life and the Collector with {COLLECTOR_LIFE}.'),
+        why: r('You start with {PLAYER_LIFE} life and the Monarch with {COLLECTOR_LIFE}.'),
       };
     }
     case 'cards': {
@@ -370,7 +374,7 @@ export function howToQuiz(ctx: GameCtx, id: HowToArtId): Quiz | null {
     }
     case 'lanes':
       return {
-        question: "Your monster is in Lane 1. The Collector's Lane 1 is empty, but he has a monster in Lane 2 (no Sentinels). What can your monster attack?",
+        question: "Your monster is in Lane 1. The Monarch's Lane 1 is empty, but he has a monster in Lane 2 (no Sentinels). What can your monster attack?",
         answers: [
           { label: 'His monster in Lane 2', right: false },
           { label: 'His life', right: false },
@@ -428,9 +432,9 @@ export function howToQuiz(ctx: GameCtx, id: HowToArtId): Quiz | null {
     case 'appraisal': {
       const first = g.APPRAISAL_ROUNDS[0];
       if (first === undefined) return null;
-      return { question: 'In which round does the first Appraisal fall?', answers: numberAnswers(first, g.APPRAISAL_ROUNDS), why: `The Collector appraises at the start of his turn in rounds ${joinList(g.APPRAISAL_ROUNDS)}.` };
+      return { question: 'In which round does the first Levy fall?', answers: numberAnswers(first, g.APPRAISAL_ROUNDS), why: `The Monarch levies at the start of his turn in rounds ${joinList(g.APPRAISAL_ROUNDS)}.` };
     }
     case 'winning':
-      return { question: 'After which round does the vault seal?', answers: numberAnswers(g.MAX_ROUNDS), why: r('The vault seals at the end of round {MAX_ROUNDS}. If the Collector still stands, you lose.') };
+      return { question: 'After which round does the vault seal?', answers: numberAnswers(g.MAX_ROUNDS), why: r('The vault seals at the end of round {MAX_ROUNDS}. If the Monarch still stands, you lose.') };
   }
 }

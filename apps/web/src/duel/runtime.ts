@@ -63,7 +63,7 @@ export function playerStep(rt: Runtime, from: GameState, action: Action): Step {
   frames.push({ action, side: 0, before: from, after: r.state, events: r.events });
   let state = r.state;
   while (state.result === null && !isPlayerToAct(state)) {
-    if (applied.length > MAX_COLLECTOR_ACTIONS) throw new Error('the Collector never ended his turn');
+    if (applied.length > MAX_COLLECTOR_ACTIONS) throw new Error('the Monarch never ended his turn');
     const a = rt.collector.act(state);
     applied.push(a);
     r = rt.engine.applyAction(state, a);

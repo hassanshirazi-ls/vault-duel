@@ -1,10 +1,10 @@
-// One emoji per round played, by the D-101 priority: appraised > monster lost > graft > attack > guard.
+// One emoji per round played, by the D-101 priority: levied > monster lost > graft > attack > guard.
 // TODO(W2): meta/share.ts owns the glyph constants and the full share text (ARCHITECTURE.md §16). When it lands, delete
 // this file and have the result screen call it; the glyphs below are placeholders with the same priority.
 import { RoundFlag } from '@vault-duel/engine';
 import type { Track } from '@vault-duel/engine';
 
-export const ROUND_EMOJI = { appraised: '🔨', lost: '💀', graft: '🧬', attack: '⚔️', guard: '🛡️' } as const;
+export const ROUND_EMOJI = { appraised: '👑', lost: '💀', graft: '🧬', attack: '⚔️', guard: '🛡️' } as const;
 
 export function roundEmoji(flags: number): string {
   if (flags & RoundFlag.Appraised) return ROUND_EMOJI.appraised;

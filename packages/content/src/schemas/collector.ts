@@ -98,7 +98,8 @@ export const Collector = z
     canGraft: z.literal(false),
     ai: CollectorAi,
     dialogue: z
-      .object({ composed: z.array(z.string()), agitated: z.array(z.string()), desperate: z.array(z.string()) })
+      // levy (D-352): optional lines for the moment he takes a monster; the mood lines are used when it is missing
+      .object({ composed: z.array(z.string()), agitated: z.array(z.string()), desperate: z.array(z.string()), levy: z.array(z.string()).optional() })
       .strict(),
   })
   .strict();

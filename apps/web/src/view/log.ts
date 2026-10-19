@@ -11,7 +11,7 @@ export interface LogLine {
   readonly side: 'me' | 'them' | null;
 }
 
-const who = (side: Side): string => (side === 0 ? 'You' : 'The Collector');
+const who = (side: Side): string => (side === 0 ? 'You' : 'The Monarch');
 const sideOf = (side: Side): 'me' | 'them' => (side === 0 ? 'me' : 'them');
 
 const joinNames = (names: readonly string[]): string =>
@@ -28,7 +28,7 @@ export function logLines(ctx: GameCtx, state: GameState, events: readonly GameEv
   for (const e of events) {
     switch (e.e) {
       case 'TurnStarted':
-        out.push({ text: e.side === 0 ? `Round ${e.round}: your turn` : `Round ${e.round}: the Collector's turn`, icon: 'scroll', side: null });
+        out.push({ text: e.side === 0 ? `Round ${e.round}: your turn` : `Round ${e.round}: the Monarch's turn`, icon: 'scroll', side: null });
         break;
       case 'Summoned':
         out.push({ text: e.faceDown ? `${who(e.side)} set a card face-down` : `${who(e.side)} summoned ${name(e.iid)}`, icon: e.faceDown ? 'facedown' : 'pos', side: sideOf(e.side) });
@@ -79,17 +79,17 @@ export function logLines(ctx: GameCtx, state: GameState, events: readonly GameEv
         out.push({ text: `${name(e.iid)} lost its ward`, icon: 'barrier', side: null });
         break;
       case 'AppraisalAttempt':
-        out.push({ text: 'The Collector appraises', icon: 'gavel', side: 'them' });
+        out.push({ text: 'The Monarch levies', icon: 'crown', side: 'them' });
         break;
       case 'Appraised':
-        out.push({ text: e.sym !== undefined && e.sym >= 0 ? `${name(e.iid)} and ${name(e.sym)} were taken` : `${name(e.iid)} was taken`, icon: 'gavel', side: 'them' });
+        out.push({ text: e.sym !== undefined && e.sym >= 0 ? `${name(e.iid)} and ${name(e.sym)} were taken` : `${name(e.iid)} was taken`, icon: 'crown', side: 'them' });
         break;
       case 'AppraisalFailed':
-        out.push({ text: 'The appraisal found nothing', icon: 'gavel', side: 'them' });
+        out.push({ text: 'The levy found nothing', icon: 'crown', side: 'them' });
         break;
       case 'MoodChanged': {
         const mood = MOOD_NAMES[e.to];
-        out.push({ text: mood === undefined ? 'The Collector\'s mood shifts' : `The Collector turns ${mood}`, icon: 'eye', side: 'them' });
+        out.push({ text: mood === undefined ? 'The Monarch\'s mood shifts' : `The Monarch turns ${mood}`, icon: 'eye', side: 'them' });
         break;
       }
       case 'VaultSealed':

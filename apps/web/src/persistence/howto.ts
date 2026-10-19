@@ -3,7 +3,9 @@
 import { getJson } from './storage';
 import type { KV } from './storage';
 
-export const HOWTO_VERSION = 3; // 2: the turn slots (D-335); 3: Graft only, quiet table, Riposte and Ambush (D-336..D-339)
+// 2: the turn slots (D-335); 3: Graft only, quiet table, Riposte and Ambush (D-336..D-339);
+// 4: the royal court words (D-350), the crowned levy (D-349) and the Ink Spiral look (D-351)
+export const HOWTO_VERSION = 4;
 export const HOWTO_KEY = 'vd:howto';
 
 export function howToSeen(kv: KV): boolean {

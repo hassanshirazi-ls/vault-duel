@@ -19,12 +19,12 @@
     "effects": [ { "op": "draw", "who": "self", "n": "$SCRYING_DRAW" } ]
   },
   {
-    "id": "shroud", "type": "spell", "name": "Shroud", "text": "One of your monsters cannot be Appraised until your next turn.",
+    "id": "shroud", "type": "spell", "name": "Shroud", "text": "One of your monsters cannot be levied until your next turn.",
     "target": { "side": "ally", "zone": "board" },
     "effects": [ { "op": "preventAppraisal", "target": "chosen", "duration": "untilYourNextTurn" } ]
   },
   {
-    "id": "siphon", "type": "spell", "name": "Siphon", "text": "The Collector loses {SIPHON_DRAIN} life; you gain {SIPHON_GAIN}.",
+    "id": "siphon", "type": "spell", "name": "Siphon", "text": "The Monarch loses {SIPHON_DRAIN} life; you gain {SIPHON_GAIN}.",
     "effects": [ { "op": "damage", "who": "opponent", "n": "$SIPHON_DRAIN" }, { "op": "heal", "who": "self", "n": "$SIPHON_GAIN" } ]
   }
 ]

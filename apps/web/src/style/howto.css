@@ -1,4 +1,4 @@
-/* How to play (D-257): a gothic catalogue in a modal dialog. Scroll-snap strip of pages, dots, plaque buttons.
+/* How to play (D-257, D-351): an ink-on-paper book in a modal dialog. Scroll-snap strip of pages, dots, plaque buttons.
    Mobile first (360 px), centered panel on larger screens. Motion is the browser's own scrolling only. */
 .help {
   position: absolute;
@@ -33,7 +33,7 @@
   grid-template-columns: minmax(0, 1fr);
   justify-items: center;
   align-items: center;
-  background: rgb(5 3 4 / 0.86);
+  background: rgb(17 17 17 / 0.6);
 }
 .ht {
   display: flex;
@@ -44,16 +44,15 @@
   height: 100dvh;
   min-height: 0;
   padding-bottom: var(--safe-bottom);
-  background: radial-gradient(120% 60% at 50% 0%, #2a1416 0%, transparent 70%), var(--moth), var(--soot);
-  background-size: auto, var(--moth-size), auto;
-  color: var(--bone);
+  background: var(--paper);
+  color: var(--ink);
   outline: none;
 }
 @media (min-width: 600px) and (min-height: 700px) {
   .ht {
     height: min(820px, 92dvh);
-    border: 3px double var(--gold-lo);
-    box-shadow: 0 0 0 1px #000, 0 12px 48px rgb(0 0 0 / 0.8);
+    border: 3px double var(--ink);
+    box-shadow: var(--offset-lg);
   }
 }
 .ht-head {
@@ -65,8 +64,8 @@
 }
 .ht-head h2 {
   font-size: 20px;
-  color: var(--gold-hi);
-  text-shadow: 0 2px 0 #000, 0 0 14px rgb(156 124 60 / 0.35);
+  color: var(--ink);
+  text-shadow: 2px 2px 0 var(--hatch);
 }
 .ht-strip {
   flex: 1 1 0;
@@ -90,22 +89,22 @@
   overflow-y: auto;
   padding: 6px 18px 26px;
   outline-offset: -3px;
-  mask-image: linear-gradient(#000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(var(--card) calc(100% - 22px), transparent);
 }
 .ht-page h3 {
   font-size: 22px;
   line-height: 1.15;
   margin: 2px 0 8px;
-  color: var(--gold-hi);
-  text-shadow: 0 2px 0 #000;
+  color: var(--ink);
 }
 .ht-page h3::after {
   content: '';
   display: block;
   height: 12px;
   margin-top: 4px;
-  background: var(--thorns) repeat-x center / 48px 12px;
-  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  height: 5px;
+  border-block: 1px solid var(--ink);
+  mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
 }
 .ht-art {
   display: grid;
@@ -113,10 +112,9 @@
   justify-items: center;
   padding: 12px 8px;
   margin-bottom: 10px;
-  border: 2px solid var(--gold-lo);
-  border-radius: 3px;
-  background: linear-gradient(#1d1517, #120d0f);
-  box-shadow: inset 0 0 18px rgb(0 0 0 / 0.8);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--card);
   overflow: hidden;
 }
 .ht-art .track {
@@ -143,8 +141,7 @@
   width: 7px;
   height: 7px;
   transform: rotate(45deg);
-  background: var(--gold);
-  box-shadow: 0 0 0 1px #000;
+  background: var(--ink);
 }
 
 /* illustrations */
@@ -153,17 +150,17 @@
   align-items: center;
   justify-content: center;
   gap: 18px;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .ht-life {
   display: grid;
   grid-template-columns: auto auto;
   align-items: center;
   gap: 4px 6px;
-  color: var(--bone);
+  color: var(--ink);
 }
 .ht-life.foe svg {
-  color: var(--oxblood-hi);
+  color: var(--ink);
 }
 .ht-life b {
   font-size: 28px;
@@ -172,7 +169,7 @@
 .ht-life small {
   grid-column: 1 / -1;
   font-size: 13px;
-  color: var(--bone-dim);
+  color: var(--mid);
 }
 .ht-board {
   display: grid;
@@ -189,11 +186,10 @@
   place-items: center;
   width: 78px;
   aspect-ratio: 4 / 5;
-  border: 2px solid var(--gold-lo);
-  border-radius: 3px;
-  background: radial-gradient(#050304, #14100f);
-  box-shadow: inset 0 3px 8px #000;
-  color: var(--gold);
+  border: 1.5px dashed var(--line);
+  border-radius: 0;
+  background: var(--wash);
+  color: var(--ink);
 }
 .ht-niche.small {
   width: 56px;
@@ -208,7 +204,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .ht-graft .mini {
   --w: 64px;
@@ -229,14 +225,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .ht-el {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   min-width: 84px;
-  color: var(--bone);
+  color: var(--ink);
   font-size: 16px;
 }
 .ht-targets {
@@ -245,7 +241,7 @@
   gap: 4px 10px;
 }
 .ht-gavel {
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .ht-win {
   display: flex;
@@ -260,7 +256,7 @@
   display: flex;
   gap: 2px;
   margin: 0;
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 
 /* footer: previous, dots, next/done */
@@ -271,7 +267,7 @@
   justify-content: space-between;
   gap: 0 8px;
   padding: 0 16px 10px;
-  border-top: 1px solid var(--gold-lo);
+  border-top: 1px solid var(--line);
 }
 .ht-nav {
   padding: 0 10px;
@@ -302,16 +298,15 @@
   width: 11px;
   height: 11px;
   transform: rotate(45deg);
-  border: 2px solid var(--gold);
-  background: var(--soot);
+  border: 2px solid var(--ink);
+  background: var(--paper);
 }
 .ht-dot[aria-current='step'] i {
-  background: var(--gold-hi);
-  box-shadow: 0 0 8px rgb(210 178 106 / 0.7);
+  background: var(--ink);
 }
 .ht-dot:focus-visible,
 .ht-page:focus-visible {
-  outline: 2px solid var(--gold-hi);
+  outline: 2px solid var(--ink);
   outline-offset: 0;
 }
 @media (max-width: 380px) {
@@ -335,13 +330,13 @@
 }
 .ht-more {
   margin-top: 12px;
-  border-top: 1px solid var(--gold-lo);
+  border-top: 1px solid var(--line);
 }
 .ht-more summary {
   display: flex;
   align-items: center;
   min-height: var(--tap);
-  color: var(--bone-dim);
+  color: var(--mid);
   font-size: 15px;
   cursor: pointer;
 }
@@ -397,8 +392,8 @@
   left: -52px;
   bottom: 8px;
   padding: 1px 8px;
-  background: var(--brass-dark);
-  border: 1px solid var(--good);
+  background: var(--card);
+  border: 1.5px solid var(--good);
   color: var(--good);
   font-family: var(--font-display);
   font-size: 15px;
@@ -534,7 +529,7 @@
   gap: 14px;
 }
 .demo-take .gavel {
-  transform-origin: 70% 80%;
+  transform-origin: 50% 100%;
   animation: demo-gavel calc(var(--beat) * 20) ease-in infinite;
 }
 .demo-take .taken {
@@ -544,13 +539,13 @@
   0%,
   30%,
   100% {
-    transform: rotate(0);
+    transform: none;
   }
   42% {
-    transform: rotate(-24deg);
+    transform: translateY(-14px) scale(1.15);
   }
   50% {
-    transform: rotate(8deg);
+    transform: translateY(2px) scale(1);
   }
 }
 @keyframes demo-taken {
@@ -627,10 +622,10 @@
   display: grid;
   place-items: center;
   width: 100%;
-  border-inline-end: 1px dashed var(--gold-lo);
+  border-inline-end: 1px dashed var(--line);
 }
 .ht-lane-cell:nth-child(3n + 1) {
-  border-inline-start: 1px dashed var(--gold-lo);
+  border-inline-start: 1px dashed var(--line);
 }
 .ht-lanes .ht-niche {
   width: 62px;
@@ -639,7 +634,7 @@
   --w: 54px;
 }
 .ht-lane-name {
-  color: var(--gold-hi);
+  color: var(--ink);
   font-size: 12px;
   letter-spacing: 0.04em;
 }
@@ -647,18 +642,18 @@
   display: grid;
   place-items: center;
   min-height: 24px;
-  color: var(--bone-dim);
+  color: var(--mid);
   font-size: 13px;
   font-weight: 700;
 }
 .ht-lane-mark.hit {
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .ht-lane-mark .miss {
   padding: 0 6px;
   border: 1px dashed var(--flaw);
   border-radius: 2px;
-  color: var(--bone);
+  color: var(--ink);
 }
 .ht-lane-atk {
   position: relative;
@@ -688,7 +683,7 @@
   gap: 2px;
 }
 .ht-bond-step small {
-  color: var(--bone-dim);
+  color: var(--mid);
   font-size: 13px;
 }
 .ht-bond-kinds {
@@ -697,7 +692,7 @@
   justify-content: center;
   gap: 6px 14px;
   margin: 4px 0 0;
-  color: var(--gold-hi);
+  color: var(--ink);
   font-weight: 700;
 }
 .ht-bond-kinds span {
@@ -706,7 +701,7 @@
   gap: 4px;
 }
 
-/* Keywords and Flaws (D-334): every keyword as icon + name; a Flaw in oxblood with a dashed edge */
+/* Keywords and Flaws (D-334): every keyword as icon + name; a Flaw in red ink with a dashed edge */
 .ht-keywords {
   display: flex;
   flex-wrap: wrap;
@@ -722,14 +717,14 @@
   gap: 4px;
   min-height: 30px;
   padding: 0 8px;
-  border: 1px solid var(--gold-lo);
+  border: 1px solid var(--line);
   border-radius: 2px;
-  background: #0d0a0b;
-  color: var(--bone);
+  background: var(--card);
+  color: var(--ink);
   font-size: 14px;
 }
 .ht-keywords li > svg {
-  color: var(--gold-hi);
+  color: var(--ink);
 }
 .ht-keywords li[data-flaw] {
   border: 1px dashed var(--flaw);
@@ -743,16 +738,16 @@
   display: grid;
   gap: 8px;
   padding: 12px;
-  border: 1px solid var(--gold-lo);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--soot-2);
+  background: var(--card);
 }
 .try h4 {
   margin: 0;
   font-family: var(--font-display);
   font-size: 14px;
   letter-spacing: 0.08em;
-  color: var(--gold);
+  color: var(--ink);
 }
 .try-q {
   margin: 0;
@@ -771,9 +766,9 @@
   gap: 6px;
   min-height: 48px;
   padding: 4px 8px;
-  color: var(--bone);
-  background: var(--soot);
-  border: 1px solid var(--gold);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--ink);
   border-radius: var(--radius);
   font-family: var(--font-display);
   font-size: 14px;
@@ -804,4 +799,14 @@
 }
 .sym-host {
   padding-bottom: 14px;
+}
+
+/* the demo's seal is the app icon itself, so it needs none of the result screen's wax disc */
+.ht-win .stamp {
+  width: 96px;
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  rotate: -6deg;
 }

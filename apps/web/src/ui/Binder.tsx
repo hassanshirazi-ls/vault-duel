@@ -1,4 +1,4 @@
-// The Binder (D-238): two tabs. Signatures is a month calendar with a thumbnail of the day's signature card on won days
+// The Bestiary (D-238, D-350; the code still says Binder): two tabs. Champions is a month calendar with a thumbnail of the day's champion on won days
 // (lost and unplayed days stay dark). Chimeras is the kind-pair triangle built from the content's kinds, with discovered
 // families painted and undiscovered ones as labelled silhouettes; tapping a cell shows the card and its recipe.
 import { useState } from 'react';
@@ -32,7 +32,7 @@ function Signatures({ onOpen }: { readonly onOpen: (id: string, date: string) =>
   const isCurrent = shown.year === cur.year && shown.month === cur.month;
   const won = month.days.filter((d) => binder.signatures[d.date] !== undefined).length;
   return (
-    <section aria-label="Signatures">
+    <section aria-label="Champions">
       <div className="month-nav">
         <button type="button" className="btn ghost icon" aria-label="Previous month" onClick={() => setShown(shiftMonth(shown, -1))}>
           <Glyph id="back" size={22} />
@@ -42,7 +42,7 @@ function Signatures({ onOpen }: { readonly onOpen: (id: string, date: string) =>
           <Glyph id="next" size={22} />
         </button>
       </div>
-      <ol className="cal" aria-label={`${title}, ${won} signatures`}>
+      <ol className="cal" aria-label={`${title}, ${won} champions`}>
         {weekdays.map((w, i) => (
           <li key={`w${i}`} className="cal-wd" aria-hidden="true">
             {w}
@@ -163,7 +163,7 @@ function FamilySheet({ cell, onClose }: { readonly cell: FamilyCell; readonly on
               </div>
             </div>
             {recipeLine}
-            <p className="inspect-text">Graft this pair in a counted duel to add it to your Binder.</p>
+            <p className="inspect-text">Graft this pair in a counted duel to add it to your Bestiary.</p>
           </div>
           <button type="button" className="btn ghost inspect-close" onClick={onClose}>
             <Glyph id="cross" /> Close
@@ -183,23 +183,23 @@ export function Binder() {
   if (ctx === null) return null;
   const sigView = sig === null ? null : definitionView(ctx, sig.id);
   return (
-    <Page title="Binder" onBack={close} className="binder-page">
-      <div className="tabs" role="tablist" aria-label="Binder">
+    <Page title="Bestiary" onBack={close} className="binder-page">
+      <div className="tabs" role="tablist" aria-label="Bestiary">
         {(['signatures', 'chimeras'] as const).map((t) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} className="tab" onClick={() => setTab(t)}>
-            <Glyph id={t === 'signatures' ? 'scroll' : 'swap'} size={18} /> {t === 'signatures' ? 'Signatures' : 'Chimeras'}
+            <Glyph id={t === 'signatures' ? 'scroll' : 'swap'} size={18} /> {t === 'signatures' ? 'Champions' : 'Chimeras'}
           </button>
         ))}
       </div>
       {tab === 'signatures' ? <Signatures onOpen={(id, date) => setSig({ id, date })} /> : <Chimeras onOpen={setCell} />}
       {sigView !== null && sig !== null && (
-        <Sheet modal onClose={() => setSig(null)} label={`Signature: ${sigView.name}`}>
+        <Sheet modal onClose={() => setSig(null)} label={`Champion: ${sigView.name}`}>
           <CardDetail
             c={sigView}
             onClose={() => setSig(null)}
             extra={
               <p className="recipe-line">
-                <Glyph id="gavel" size={16} /> <b>Acquired</b> {sig.date}
+                <Glyph id="crown" size={16} /> <b>Defied</b> {sig.date}
               </p>
             }
           />

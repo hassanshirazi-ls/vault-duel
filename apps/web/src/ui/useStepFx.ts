@@ -1,6 +1,6 @@
 // Per-step effects for the duel screen, all derived from the frames of the last step (D-266): the stages to walk through
 // (your action, then the Collector's turn one move at a time, each with a telegraph before it), the animation cues and
-// ghosts of the stage on screen, and the Collector's quip. Nothing here changes game state. A tap anywhere skips to the
+// ghosts of the stage on screen, and the Monarch's speech. Nothing here changes game state. A tap anywhere skips to the
 // end of the step; while the Collector's moves are still coming, that tap is swallowed so it cannot press a button.
 import { useEffect, useMemo, useState } from 'react';
 import type { GameEvent, GameState, Iid, Monster, Side } from '@vault-duel/engine';
@@ -9,7 +9,7 @@ import type { GameCtx } from '../content/load';
 import type { Frame, Runtime } from '../duel/runtime';
 import { cardView } from '../view/cards';
 import type { CardView } from '../view/cards';
-import { quipMood } from '../visual/cues';
+import { quipLines } from '../visual/cues';
 import type { Cue } from '../visual/cues';
 import { blockedAt, stagesOf } from '../visual/playback';
 import type { Stage, Telegraph } from '../visual/playback';
@@ -58,9 +58,8 @@ export function useStepFx(ctx: GameCtx | null, rt: Runtime | null, state: GameSt
       const next = animate ? stagesOf(frames) : [];
       setStages(next);
       setIndex(next.length > 0 ? 0 : null);
-      const mood = quipMood(events, state.collector.mood);
-      const lines = mood === null ? undefined : ctx.dialogue[MOOD_NAMES[mood] ?? 'composed'];
-      if (lines !== undefined && lines.length > 0) setQuip({ key: state.nActions, text: ctx.render(lines[state.nActions % lines.length] as string) });
+      const lines = quipLines(events, state.collector.mood, ctx.dialogue, MOOD_NAMES);
+      if (lines !== undefined) setQuip({ key: state.nActions, text: ctx.render(lines[state.nActions % lines.length] as string) });
     }
   }
 

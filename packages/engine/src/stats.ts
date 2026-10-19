@@ -155,6 +155,7 @@ function statOf(s: GameState, env: Env, iid: Iid, power: boolean, twist: boolean
     if (t !== undefined && s.turn <= t.until) v += power ? t.p : t.g;
   }
   if (power && m.unstableUntil >= 0) v += env.g.UNSTABLE_BONUS;
+  if (power && m.appraised && side === 1 && env.g.FLAGS.CROWNED) v += env.g.CROWN_POWER; // D-349: crowned on the Collector's board only
   if (!power && m.sym >= 0 && env.g.FLAGS.SYMBIOSIS) v += env.g.SYMBIOSIS_GUARD_BONUS; // D-308: Power is untouched
   const mask = activeKwOf(s, env, m) & (power ? env.reg.masks.staticPower : env.reg.masks.staticGuard);
   if (mask !== 0) {

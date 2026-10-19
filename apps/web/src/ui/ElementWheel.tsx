@@ -1,14 +1,14 @@
 // The element wheel (D-271), drawn from the compiled content's element list and `beats` matrix (view/wheel.ts), never
-// hard-coded. `full` is the orrery ring of How to play: every advantage as a gold arrow with a tracer, and the bonus in
-// the middle. `compass` is the small in-duel version (D-272): the selected card's element lit, a gold tracer arrow to
+// hard-coded. `full` is the orrery ring of How to play: every advantage as an ink arrow with a tracer, and the bonus in
+// the middle. `compass` is the small in-duel version (D-272): the selected card's element lit, an ink tracer arrow to
 // each element it beats labelled with the bonus, and a dashed red arrow from each element that beats it. Every node is
-// an element color plus its icon. Tracers are CSS animations timed in beats, so they stop with the animations flag and
+// an element's ink pattern plus its icon. Tracers are CSS animations timed in beats, so they stop with the animations flag and
 // under reduced motion (both set --beat to 0).
 import { useId, useMemo } from 'react';
 import type { CSSProperties } from 'react';
 import { edgePath, nodePoints, outwardBend, wheelLayout, wheelSummary } from '../view/wheel';
 import type { WheelLayout } from '../view/wheel';
-import { elementColorVar, elementInkVar, elementStyle } from '../visual/elements';
+import { elementStyle } from '../visual/elements';
 import { Glyph } from '../visual/glyphs';
 import { useGame } from './context';
 
@@ -22,9 +22,9 @@ function Defs({ uid }: { readonly uid: string }) {
   );
   return (
     <defs>
-      {head('g', 'var(--gold-hi)')}
+      {head('g', 'var(--ink)')}
       {head('r', 'var(--flaw)')}
-      {head('d', 'var(--iron-hi)')}
+      {head('d', 'var(--line)')}
     </defs>
   );
 }
@@ -38,10 +38,12 @@ function Node({ x, y, r, id, icon, name, label, state, outward }: { readonly x: 
   const ly = uy * (r + 8) + (uy > 0.3 ? 12 : uy < -0.3 ? -4 : 5);
   return (
     <g className="wheel-node" data-state={state} transform={`translate(${x} ${y})`}>
-      <circle r={r} style={{ fill: elementColorVar(id) }} />
-      <g transform={`translate(${-size / 2} ${-size / 2})`} style={{ color: elementInkVar(id) }}>
-        <Glyph id={icon} size={size} />
-      </g>
+      <circle className="node-disc" r={r} />
+      <foreignObject x={-r} y={-r} width={2 * r} height={2 * r}>
+        <span className="gem" style={elementStyle(id)} role="img" aria-label={name}>
+          <Glyph id={icon} size={size} />
+        </span>
+      </foreignObject>
       {label && (
         <text x={lx} y={ly} textAnchor={anchor}>
           {name}

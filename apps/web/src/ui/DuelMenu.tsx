@@ -40,7 +40,7 @@ function LogList({ lines, className, refEl }: { readonly lines: readonly LogLine
   );
 }
 
-export function DuelMenu({ log, undo, mood, onClose }: { readonly log: readonly LogLine[]; readonly undo: UndoTile; /** the Collector's mood, in words (D-339: the header shows it only as the portrait ring) */ readonly mood?: string | null | undefined; readonly onClose: () => void }) {
+export function DuelMenu({ log, undo, mood, onClose }: { readonly log: readonly LogLine[]; readonly undo: UndoTile; /** the Monarch's mood, in words (D-339: the header shows it only as the portrait ring) */ readonly mood?: string | null | undefined; readonly onClose: () => void }) {
   const mode = useGame((s) => s.mode);
   const state = useGame((s) => s.state);
   const doUndo = useGame((s) => s.undo);
@@ -69,7 +69,7 @@ export function DuelMenu({ log, undo, mood, onClose }: { readonly log: readonly 
           </header>
           {mood !== undefined && mood !== null && (
             <p className="menu-mood" data-mood={state?.collector.mood}>
-              <Glyph id="eye" size={16} /> The Collector is {mood.toLowerCase()}. The ring around his portrait shows it.
+              <Glyph id="eye" size={16} /> The Monarch is {mood.toLowerCase()}. The ring around his portrait shows it.
             </p>
           )}
           <div className="tiles">
@@ -113,7 +113,7 @@ export function DuelMenu({ log, undo, mood, onClose }: { readonly log: readonly 
                 Full log
               </button>
             </header>
-            {log.length === 0 ? <p className="muted">The auction has not begun.</p> : <LogList lines={recentLog(log, 5)} />}
+            {log.length === 0 ? <p className="muted">The court has not convened.</p> : <LogList lines={recentLog(log, 5)} />}
           </section>
           <p className="muted note">Undo goes back to the start of your turn. It stops at anything that revealed a card.</p>
         </div>
@@ -126,7 +126,7 @@ export function DuelMenu({ log, undo, mood, onClose }: { readonly log: readonly 
             <h2>Duel log</h2>
             {close}
           </header>
-          {log.length === 0 ? <p className="muted">The auction has not begun.</p> : <LogList lines={log} refEl={list} />}
+          {log.length === 0 ? <p className="muted">The court has not convened.</p> : <LogList lines={log} refEl={list} />}
         </div>
       )}
     </Sheet>

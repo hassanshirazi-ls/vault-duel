@@ -21,7 +21,7 @@ describe('screens render (server-side smoke)', () => {
     await booted.store.getState().boot();
     const home = html(booted);
     expect(home).toContain('Enter the vault');
-    expect(home).toContain('Appraisal rounds');
+    expect(home).toContain('Levy rounds');
 
     const h = await started('2026-10-14');
     expect(html(h)).toContain('Keep this hand?');
@@ -30,13 +30,13 @@ describe('screens render (server-side smoke)', () => {
       h.store.getState().act(simplePick(h.store.getState().legal));
       if (steps % 3 === 0) {
         const out = html(h);
-        if (h.store.getState().state?.result === null) expect(out).toContain('The Collector');
+        if (h.store.getState().state?.result === null) expect(out).toContain('The Monarch');
       }
       steps++;
     }
     const result = html(h);
-    expect(result).toContain('Bill of sale');
-    expect(result).toMatch(/ACQUIRED|SEALED IN THE VAULT/);
+    expect(result).toContain('Royal edict');
+    expect(result).toMatch(/DEFIED|BOUND/);
   });
 
   it('renders the Graft workbench and swaps the material order through legal actions', async () => {
@@ -77,7 +77,7 @@ describe('the main menu and the duel menu button (D-265)', () => {
     await booted.store.getState().boot();
     booted.store.getState().closeHowTo();
     const home = html(booted);
-    for (const entry of ['Daily duel', 'Enter the vault', 'Practice', 'How to play', 'Binder', 'Stats']) expect(home).toContain(entry);
+    for (const entry of ['Daily duel', 'Enter the vault', 'Practice', 'How to play', 'Bestiary', 'Stats']) expect(home).toContain(entry);
 
     const h = await started('2026-10-14');
     h.store.getState().act(h.store.getState().groups?.keep as Action);
@@ -122,7 +122,7 @@ describe('menu A, the wheel and Try it (D-273, D-275)', () => {
     booted.store.getState().closeHowTo();
     const home = html(booted);
     expect(home).toContain("Opens after today&#x27;s duel");
-    expect(home).toContain('Today&#x27;s lot');
+    expect(home).toContain('Today&#x27;s decree');
     expect(home).toContain('Next duel in');
   });
 });

@@ -34,6 +34,8 @@ const FLAGS = {
   // D-337: a guard that holds destroys the attacker. D-338: a face-down monster flipped to attack gets +AMBUSH_POWER until end of turn
   RIPOSTE: true,
   AMBUSH: true,
+  // D-349: a monster taken by Appraisal (shown to players as a Levy) is crowned: +CROWN_POWER Power on his board
+  CROWNED: true,
 } as const satisfies Flags;
 
 const GLOBAL_VALUES = {
@@ -80,6 +82,7 @@ const GLOBAL_VALUES = {
   LANE_MOVE_RANGE: 1, // read only with FLAGS.LANES (D-282)
   // Bond rules (D-310)
   AMBUSH_POWER: 2, // D-338; read only with FLAGS.AMBUSH
+  CROWN_POWER: 1, // D-349; read only with FLAGS.CROWNED
   SYMBIOSIS_GUARD_BONUS: 2, // read only with FLAGS.SYMBIOSIS (D-308)
   BOND_GRAFT_MAX_HAND_MATERIALS: 3, // 3 = MAX_GRAFT_MATERIALS = no limit; read only with FLAGS.BOND_ACTION (D-306)
   SPLIT_PART_PERM_P: 0, // read only with FLAGS.SPLIT (D-307)

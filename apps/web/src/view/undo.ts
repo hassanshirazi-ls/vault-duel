@@ -26,7 +26,7 @@ export const UNDO_WHY: Readonly<Record<UndoWhy, string>> = {
   revealed: "Can't undo: a card was revealed.",
   trap: "Can't undo: a trap was revealed.",
   drawn: "Can't undo: cards were drawn.",
-  trapSet: "Can't undo: the Collector has a trap set.",
+  trapSet: "Can't undo: the Monarch has a trap set.",
   mulligan: "Can't undo: the opening hand is settled.",
 };
 

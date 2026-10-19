@@ -71,7 +71,7 @@ export interface GameCtx {
   readonly overrides: readonly string[];
   readonly objectives: ReadonlyMap<string, ObjectiveInfo>;
   /** the Collector's lines per mood name (collector.json › dialogue); templates, render them */
-  readonly dialogue: Readonly<Record<string, readonly string[]>>;
+  readonly dialogue: Readonly<Record<string, readonly string[] | undefined>>;
   readonly objectiveText: ReadonlyMap<string, string>;
   readonly twistText: readonly string[];
   readonly warnings: readonly string[];

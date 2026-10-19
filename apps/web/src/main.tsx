@@ -1,8 +1,8 @@
-import '@fontsource/cinzel-decorative/latin-400.css';
-import '@fontsource/cinzel-decorative/latin-700.css';
-import '@fontsource/eb-garamond/latin-400.css';
-import '@fontsource/eb-garamond/latin-400-italic.css';
-import '@fontsource/eb-garamond/latin-700.css';
+// Self-hosted fonts (D-351), latin subset and only the weights the styles use, so the offline app has them.
+import '@fontsource/grenze-gotisch/latin-700.css';
+import '@fontsource/spectral/latin-400-italic.css';
+import '@fontsource/ibm-plex-sans-condensed/latin-400.css';
+import '@fontsource/ibm-plex-sans-condensed/latin-600.css';
 import './style/tokens.css';
 import './style/base.css';
 import './style/card.css';
@@ -10,6 +10,7 @@ import './style/screens.css';
 import './style/meta.css';
 import './style/howto.css';
 import './style/wheel.css';
+import './style/ink.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initialContentApi, onContentReload } from './content/hot';

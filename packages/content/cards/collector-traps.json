@@ -1,16 +1,16 @@
 [
   {
-    "id": "display-case", "type": "trap", "name": "Display Case", "text": "Cancel an attack and switch the attacker to guard.",
+    "id": "display-case", "type": "trap", "name": "Bend the Knee", "text": "Cancel an attack and switch the attacker to guard.",
     "trigger": "enemyAttack",
     "effects": [ { "op": "cancelAttack" }, { "op": "changePosition", "target": "attacker", "to": "guard" } ]
   },
   {
-    "id": "counterfeit", "type": "trap", "name": "Counterfeit", "text": "A Chimera grafted this turn loses {COUNTERFEIT_PENALTY} Power.",
+    "id": "counterfeit", "type": "trap", "name": "Forbidden Union", "text": "A Chimera grafted this turn loses {COUNTERFEIT_PENALTY} Power.",
     "trigger": "enemyGraft",
     "effects": [ { "op": "modifyStats", "target": "grafted", "power": "-$COUNTERFEIT_PENALTY", "duration": "permanent" } ]
   },
   {
-    "id": "insurance-claim", "type": "trap", "name": "Insurance Claim", "text": "When his monster is destroyed, he gains {INSURANCE_HEAL} life.",
+    "id": "insurance-claim", "type": "trap", "name": "Blood Tithe", "text": "When his monster is destroyed, he gains {INSURANCE_HEAL} life.",
     "trigger": "allyDestroyed", "effects": [ { "op": "heal", "who": "self", "n": "$INSURANCE_HEAL" } ]
   }
 ]

@@ -103,7 +103,7 @@ describe('cues from events', () => {
     expect(cues.map((c) => c.kind)).toEqual(['burn', 'taken', 'flash']);
     expect(cues[1]?.beat).toBe(cues[2]?.beat);
   });
-  it('speaks on a mood shift or an Appraisal, not otherwise', () => {
+  it('speaks on a mood shift or a levy attempt, not otherwise', () => {
     expect(quipMood([{ e: 'MoodChanged', from: 0, to: 2 }], 2)).toBe(2);
     expect(quipMood([{ e: 'AppraisalAttempt', round: 3 }], 1)).toBe(1);
     expect(quipMood([{ e: 'TurnEnded', turn: 1 }], 0)).toBeNull();
@@ -119,7 +119,7 @@ describe('duel log lines', () => {
       { e: 'AppraisalAttempt', round: 3 },
       { e: 'CardDrawn', side: 0, iid: 0, byEffect: false },
     ]);
-    expect(lines.map((l) => l.text)).toEqual(['You took 3 damage', 'The Collector appraises']);
+    expect(lines.map((l) => l.text)).toEqual(['You took 3 damage', 'The Monarch levies']);
     expect(lines.every((l) => hasGlyph(l.icon))).toBe(true);
   });
 });

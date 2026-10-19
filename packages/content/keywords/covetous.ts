@@ -9,7 +9,7 @@ export default defineKeyword({
   kind: 'flaw',
   icon: 'covetous', // not given in DESIGN.md (judgment call)
   visual: 'covetous-frame', // not given in DESIGN.md (judgment call)
-  text: 'Can only be summoned by sacrificing a monster he acquired through Appraisal (ace only).',
+  text: 'Can only be summoned by sacrificing a monster he took with a Levy (ace only).',
   hooks: {
     summonRequirement: () => ({ kind: 'sacrifice', appraised: true, zones: ['board', 'vault'] }),
   },

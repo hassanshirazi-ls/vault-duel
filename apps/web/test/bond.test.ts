@@ -149,7 +149,7 @@ describe('log, cues and undo label for the new events', () => {
         { e: 'Appraised', iid: 1, fromSlot: 0, to: 'vault', toSlot: -1, sym: 2 },
       ),
     );
-    expect(lines.map((l) => l.icon)).toEqual(['split', 'link', 'link', 'gavel']);
+    expect(lines.map((l) => l.icon)).toEqual(['split', 'link', 'link', 'crown']);
     expect(lines[0]?.text).toMatch(/split .* into .* and .*\(1 to hand\)/);
     expect(lines[1]?.text).toMatch(/attached .* under /);
     expect(lines[3]?.text).toMatch(/ and .* were taken/);

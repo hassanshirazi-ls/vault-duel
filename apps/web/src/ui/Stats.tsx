@@ -1,4 +1,4 @@
-// The Collector's Ledger (D-247): an aged ledger page with the played / won / win % / streak figures in engraved serif,
+// The Monarch's Ledger (D-247, D-351): an ink ledger page with the played / won / win % / streak figures,
 // the current streak in red ink, average rounds against par, objective stars, and a rounds-used chart of inked tally
 // bars with a "lost" row and today's row marked. Every number is derived from the per-day records (meta/stats.ts).
 import { summarize } from '../meta/stats';
@@ -55,10 +55,10 @@ export function Stats() {
   const vsPar = sum.avgVsPar === null ? '-' : `${sum.avgVsPar > 0 ? '+' : ''}${sum.avgVsPar}`;
   return (
     <Page title="Ledger" onBack={close} className="stats-page">
-      <article className="ledger" aria-label="The Collector's Ledger">
+      <article className="ledger" aria-label="The Monarch's Ledger">
         <header>
-          <p className="eyebrow">Bound in oxblood</p>
-          <h2>The Collector's Ledger</h2>
+          <p className="eyebrow">Bound in black ink</p>
+          <h2>The Monarch's Ledger</h2>
         </header>
         <dl className="figs">
           {figure('Played', String(sum.played))}
@@ -71,7 +71,7 @@ export function Stats() {
         </dl>
         <section className="chart" aria-label="Rounds used">
           <h3>Rounds used</h3>
-          {sum.played === 0 && <p className="muted">No lots in the ledger yet. Win or lose today's duel to start it.</p>}
+          {sum.played === 0 && <p className="muted">No decrees in the ledger yet. Win or lose today's duel to start it.</p>}
           <ol>
             {rounds.map((r) => {
               const n = sum.byRounds[r] ?? 0;
@@ -83,7 +83,7 @@ export function Stats() {
                   <span className="row-count">{n}</span>
                   {isToday && (
                     <span className="today-mark">
-                      <Glyph id="gavel" size={14} /> Today
+                      <Glyph id="crown" size={14} /> Today
                     </span>
                   )}
                 </li>
@@ -97,7 +97,7 @@ export function Stats() {
               <span className="row-count">{sum.lost}</span>
               {todayRec?.won === false && (
                 <span className="today-mark">
-                  <Glyph id="gavel" size={14} /> Today
+                  <Glyph id="crown" size={14} /> Today
                 </span>
               )}
             </li>
