@@ -1,10 +1,9 @@
-/* Mini card (D-237, D-238, D-351): a paper card with a hard ink edge and an offset shadow, a hatched art panel, name,
-   Power/Guard, the element's ink-pattern badge, keyword frame and corner glyphs. Corner icons size from the card's own
-   width (container query units), so they never collide. */
+/* Mini card (D-237, D-238, D-351, D-360): a paper card with a hard ink edge and an offset shadow. The art fills it; the
+   name, icons, turn marks and stats are lettered on top. Everything sizes from the card's own width (container query
+   units), so the face is the same drawing at 54px in the primer and 320px in Inspect. */
 .mini {
   --w: 84px;
   --frame: var(--ink);
-  --ic: clamp(13px, 24cqw, 24px);
   position: relative;
   display: block;
   width: var(--w);
@@ -27,22 +26,8 @@
   --w: 120px;
 }
 @container (max-width: 72px) {
-  .mini-col > :nth-child(n + 3) {
+  .mini-marks > :nth-child(n + 4) {
     display: none;
-  }
-  .mini .mini-stats {
-    font-size: 10.5px;
-    left: 2px;
-    right: 2px;
-  }
-  .mini .mini-stats .stat {
-    gap: 0;
-    padding: 0 1px;
-    border-width: 0;
-  }
-  .mini .mini-stats .stat svg {
-    width: 8px;
-    height: 8px;
   }
 }
 
@@ -78,93 +63,159 @@
 .art-img[data-loaded] {
   opacity: 1;
 }
-.mini-shade {
+.mini-head,
+.mini-stats {
+  /* D-360 lettering: ink with a solid paper outline, the way manga lettering reads on any art */
+  --o: clamp(1px, 2cqw, 2.6px);
+  --fc: var(--ink);
+  --hc: var(--card);
   position: absolute;
-  inset: 42% 0 0;
-  background: linear-gradient(transparent, rgb(251 249 244 / 0.96) 58%);
+  z-index: 1;
+  color: var(--fc);
+}
+/* the header: the full name first (it wraps, never shortened), then turn marks on the left and icons on the right,
+   always under the name however many lines it takes */
+.mini-head {
+  left: 4cqw;
+  right: 3cqw;
+  top: 3.5cqw;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  row-gap: 2cqw;
+  align-items: start;
+  pointer-events: none;
+}
+.mini-name,
+.mini-stats b {
+  text-shadow:
+    var(--o) 0 0 var(--hc), calc(var(--o) * -1) 0 0 var(--hc), 0 var(--o) 0 var(--hc), 0 calc(var(--o) * -1) 0 var(--hc),
+    calc(var(--o) * 0.71) calc(var(--o) * 0.71) 0 var(--hc), calc(var(--o) * -0.71) calc(var(--o) * 0.71) 0 var(--hc),
+    calc(var(--o) * 0.71) calc(var(--o) * -0.71) 0 var(--hc), calc(var(--o) * -0.71) calc(var(--o) * -0.71) 0 var(--hc),
+    0 0 calc(var(--o) * 2.6) var(--hc);
+}
+.mini-stats svg,
+.mini-icons .kw-glyph svg,
+.mini-marks .tag svg {
+  filter: drop-shadow(calc(var(--o) * 0.6) 0 0 var(--hc)) drop-shadow(calc(var(--o) * -0.6) 0 0 var(--hc)) drop-shadow(0 calc(var(--o) * 0.6) 0 var(--hc)) drop-shadow(0 calc(var(--o) * -0.6) 0 var(--hc));
 }
 .mini-name {
-  position: absolute;
-  left: 4px;
-  right: 4px;
-  bottom: 21px;
+  grid-column: 1 / -1;
+  min-width: 0;
   font-family: var(--font-body);
   font-weight: 600;
-  font-size: clamp(10px, 15cqw, 15px);
-  line-height: 1;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  font-size: clamp(10px, 13cqw, 12px);
+  line-height: 1.05;
+  white-space: nowrap;
+}
+/* one line, never shortened: CardName shrinks a long name a little, then squeezes it sideways from the left edge */
+.mini-name-text {
+  display: inline-block;
+  transform-origin: 0 50%;
+}
+/* a Flaw chips the top-left corner (FlawMark), so the name starts after the chip */
+.mini[data-flaw] .mini-name {
+  padding-left: 11cqw;
 }
 @container (min-width: 88px) {
   .mini-name {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: clamp(11px, 12.5cqw, 16px);
-    line-height: 1.05;
-    -webkit-line-clamp: 2;
-    bottom: 24px;
+    font-size: min(12.5cqw, 21px);
   }
 }
-.mini-stats {
-  position: absolute;
-  left: 3px;
-  right: 3px;
-  bottom: 3px;
+/* element badge and keyword glyphs, top right under the name */
+.mini-icons {
+  grid-column: 3;
+  grid-row: 2;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-size: clamp(12px, 17cqw, 17px);
+  gap: 2cqw;
+}
+.mini .gem {
+  width: clamp(10px, 13cqw, 24px);
+  height: clamp(10px, 13cqw, 24px);
+  border-width: 1.5px;
+  box-shadow: 0 0 0 var(--o) var(--card);
+}
+.mini .gem svg {
+  width: 62%;
+  height: 62%;
+}
+.mini .kw-glyph {
+  width: clamp(10px, 13cqw, 24px);
+  height: clamp(10px, 13cqw, 24px);
+  border: 0;
+  background: none;
+  color: inherit;
+}
+.mini .kw-glyph svg {
+  width: 100%;
+  height: 100%;
+}
+/* turn marks (crowned, Ascended, Unstable, can't hit life, moved, attacked): top left, under the name */
+.mini-marks {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5cqw;
+}
+.mini .mini-marks .tag {
+  width: clamp(10px, 14cqw, 22px);
+  height: clamp(10px, 14cqw, 22px);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+}
+.mini .mini-marks .tag svg {
+  width: 100%;
+  height: 100%;
+}
+.mini .mini-marks .tag[data-moved] {
+  --fc: var(--mid);
+  color: var(--mid);
+}
+/* Power and Guard, bottom right; the stat in play swaps ink and paper */
+.mini-stats {
+  right: 3.5cqw;
+  bottom: 2.5cqw;
+  display: flex;
+  align-items: center;
+  gap: 4cqw;
+  font-family: var(--font-num);
+  font-size: clamp(11px, 16cqw, 34px);
+  font-weight: 700;
   line-height: 1;
+}
+.mini-stats .stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5cqw;
+  font-size: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.mini-stats .stat svg {
+  width: 0.72em;
+  height: 0.72em;
+}
+.mini-stats .stat[data-on] {
+  --fc: var(--card);
+  --hc: var(--ink);
+  color: var(--fc);
+  font-size: 1.14em;
 }
 .stat {
   display: inline-flex;
   align-items: center;
   gap: 2px;
 }
-.mini-stats .stat {
-  font-size: inherit;
-  padding: 1px 3px;
-  border-radius: 0;
-  background: var(--card);
-  border: 1.5px solid var(--ink);
-}
-.mini-stats .stat svg {
-  width: 0.8em;
-  height: 0.8em;
-}
 .stat[data-mod='up'] b {
   color: var(--good);
 }
 .stat[data-mod='down'] b {
   color: var(--bad);
-}
-
-/* corner columns: element badge, then position and Unstable on the left; keyword glyphs, then Ascended on the right */
-.mini-col {
-  position: absolute;
-  top: 2px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.mini-col.l {
-  left: 2px;
-}
-.mini-col.r {
-  right: 2px;
-}
-.mini .gem {
-  width: var(--ic);
-  height: var(--ic);
-  border-width: 1.5px;
-}
-.mini .gem svg,
-.mini .kw-glyph svg,
-.mini .tag svg {
-  width: 62%;
-  height: 62%;
 }
 .kw-glyph {
   display: grid;
@@ -175,10 +226,6 @@
   background: var(--card);
   border: 1.5px solid var(--ink);
   color: var(--ink);
-}
-.mini .kw-glyph {
-  width: var(--ic);
-  height: var(--ic);
 }
 .kw-glyph[data-flaw] {
   color: var(--flaw);
@@ -195,12 +242,6 @@
   border: 1.5px solid var(--ink);
   font-size: 11px;
   color: var(--ink);
-}
-.mini .tag {
-  width: var(--ic);
-  height: var(--ic);
-  min-width: 0;
-  padding: 0;
 }
 .mini[data-down] .art {
   filter: grayscale(1) contrast(0.8);
@@ -356,12 +397,11 @@
   white-space: nowrap;
   clip-path: polygon(0 50%, 7% 0, 93% 6%, 100% 46%, 95% 100%, 5% 94%);
 }
-.mini.large .flaw-plate,
-.inspect-art .flaw-plate {
+.mini.large .flaw-plate {
   display: inline-flex;
 }
-.inspect-art:has(.flaw-plate) {
-  margin-bottom: 10px;
+.inspect-hero:has(.flaw-plate) {
+  padding-bottom: 22px;
 }
 .mini[data-unstable] .fx-b {
   inset: -5px;
@@ -813,22 +853,6 @@
 .tag[data-moved] {
   color: var(--mid);
   border-color: var(--mid);
-}
-
-/* status marks that must show on every card size (sickness, moved): top centre, outside the corner columns */
-.mini-status {
-  position: absolute;
-  top: 2px;
-  left: 50%;
-  translate: -50% 0;
-  z-index: 2;
-  display: flex;
-  gap: 2px;
-}
-@container (max-width: 56px) {
-  .mini-status .tag[data-moved] {
-    display: none;
-  }
 }
 
 /* ---- Symbiosis (D-308): the attached card hangs under its host as a small ink tab, with a link glyph, its gem and its

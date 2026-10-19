@@ -838,10 +838,6 @@ button.life[data-glow='target']::after {
     z-index: 25 !important;
   }
 }
-.hand-slot .mini-stats {
-  justify-content: flex-start;
-  gap: 6px;
-}
 .toggle {
   position: relative;
   display: grid;
@@ -975,10 +971,24 @@ button.life[data-glow='target']::after {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+/* D-360: Inspect shows the card itself, large: the full width of the sheet, up to 320px */
+.inspect-hero {
+  display: grid;
+  justify-items: center;
+  padding: 4px 6px 12px 0;
+}
+.inspect-hero .mini {
+  --w: min(100%, 320px);
+  cursor: default;
+}
+.inspect-hero .flaw-plate {
+  display: inline-flex;
+}
 .inspect-head {
   display: flex;
   gap: 12px;
 }
+/* the small silhouette of an undiscovered Bestiary family */
 .inspect-art {
   --w: 84px;
   flex: none;

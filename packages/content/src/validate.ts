@@ -658,7 +658,7 @@ function checkArtBriefs(ctx: Ctx): void {
   const ids = new Set(lists.flatMap((list) => (list ?? []).map((entry) => entry.id)));
   for (const id of ids) {
     if (!Object.hasOwn(briefs, id)) {
-      warn(sink, { file, id }, 'missing art brief', 'add a one-line "mood · pose · palette"');
+      warn(sink, { file, id }, 'missing art brief', 'add a one-line "mood · pose · ink"');
     }
   }
   for (const id of Object.keys(briefs)) {

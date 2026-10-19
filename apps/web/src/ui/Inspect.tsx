@@ -1,19 +1,19 @@
 // Card inspect (D-238): a bottom sheet on phones and tablets, a card in the court-ledger panel on wide screens (D-240).
-// Content: art thumbnail, name, element and kind, Power/Guard, every keyword or Flaw with its
+// Content: the card drawn large (D-360), name, element and kind, Power/Guard, every keyword or Flaw with its
 // rule, and the element's beats/weak-to line. All rule text comes through renderText (the view layer's `ctx.render`).
-import type { Iid } from '@vault-duel/engine';
+import type { Iid, Monster } from '@vault-duel/engine';
 import type { ReactNode } from 'react';
 import { CROWN_LINE } from '../view/copy';
 import { cardView, elementMatchups, isCrowned } from '../view/cards';
 import type { CardView } from '../view/cards';
 import { Glyph } from '../visual/glyphs';
-import { Art } from './Art';
 import { useGame } from './context';
 import { ElementWheel } from './ElementWheel';
 import { Gem } from './Gem';
-import { FlawMark } from './MiniCard';
+import { MiniCard } from './MiniCard';
 import { Sheet } from './Sheet';
-import { elementStyle } from '../visual/elements';
+
+const noop = (): void => undefined;
 
 /** The card details, without a container: the sheet and the wide-screen ledger panel both draw this. */
 export function InspectCard({ iid, onClose, onSplit }: { readonly iid: Iid; readonly onClose?: (() => void) | undefined; readonly onSplit?: ((iid: Iid) => void) | undefined }) {
@@ -42,7 +42,7 @@ export function InspectCard({ iid, onClose, onSplit }: { readonly iid: Iid; read
         )}
       </>
     );
-  return <CardDetail c={cardView(ctx, rt.engine, state, iid)} onClose={onClose} extra={extra} />;
+  return <CardDetail c={cardView(ctx, rt.engine, state, iid)} monster={host ?? undefined} crowned={crowned} onClose={onClose} extra={extra} />;
 }
 
 /** The card attached under a host (D-308): shown in full, since attaching it is a public act. */
@@ -78,21 +78,18 @@ function Attached({ c }: { readonly c: CardView }) {
 }
 
 /** The detail layout for any card view; the Binder draws it from a definition (no duel instance). `extra` goes under the rule text. */
-export function CardDetail({ c, onClose, extra }: { readonly c: CardView; readonly onClose?: (() => void) | undefined; readonly extra?: ReactNode }) {
+export function CardDetail({ c, monster, crowned = false, onClose, extra }: { readonly c: CardView; readonly monster?: Monster | undefined; readonly crowned?: boolean; readonly onClose?: (() => void) | undefined; readonly extra?: ReactNode }) {
   const ctx = useGame((s) => s.ctx);
   if (ctx === null) return null;
-  const flaw = c.keywords.find((k) => k.flaw);
   const matchups = c.element === null ? null : elementMatchups(ctx, c.element.id);
   return (
       <div className="inspect">
         <div className="inspect-body">
+        {/* D-360: the card itself, large, so the art can be seen; the text below repeats everything it shows */}
+        <div className="inspect-hero" inert aria-hidden="true">
+          <MiniCard view={c} monster={monster} side="me" crowned={crowned} large onTap={noop} onLong={noop} />
+        </div>
         <div className="inspect-head">
-          <div className="inspect-art mini" style={elementStyle(c.element?.id)}>
-            <span className="mini-clip">
-              <Art cardId={c.id} silhouette={c.silhouette} elementId={c.element?.id ?? null} />
-            </span>
-            {flaw !== undefined && <FlawMark flaw={flaw} />}
-          </div>
           <div className="inspect-title">
             <h2>{c.name}</h2>
             <p className="inspect-sub">

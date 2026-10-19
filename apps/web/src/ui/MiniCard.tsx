@@ -1,6 +1,7 @@
-// The mini card (D-237, D-240, D-351): art, name, Power/Guard, the element's ink-pattern badge, keyword frame and corner glyphs. Also used for the
-// hand. Tap and long-press are handled by the caller's callbacks; this component draws and nothing else. A mouse
+// The mini card (D-237, D-240, D-351, D-360): the art fills the card, and the name, the element badge, the keyword glyphs,
+// the turn marks and Power/Guard are lettered onto it, with the stat in play reversed. Also used for the hand. Tap and long-press are handled by the caller's callbacks; this component draws and nothing else. A mouse
 // hovering over it only reports `onHover` (a preview), never an action.
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { Monster } from '@vault-duel/engine';
 import type { CardView, KeywordView } from '../view/cards';
@@ -27,6 +28,58 @@ export function FlawMark({ flaw }: { readonly flaw: KeywordView }) {
         <Glyph id={flaw.icon} size={11} /> {flaw.name}
       </span>
     </>
+  );
+}
+
+/** the smallest the name's font gets before the rest of the fit is a sideways squeeze (D-360) */
+const NAME_MIN_SCALE = 0.82;
+
+/**
+ * The card name on one line, never shortened (D-360, owner: "one line only like Yu-Gi-Oh"). A name wider than its bar
+ * first shrinks to NAME_MIN_SCALE of its size, then is squeezed sideways until it fits. Re-measured when the card
+ * resizes and when the fonts arrive.
+ */
+function CardName({ name }: { readonly name: string }) {
+  const box = useRef<HTMLSpanElement>(null);
+  const text = useRef<HTMLSpanElement>(null);
+  const [fit, setFit] = useState(1);
+  const scaleOf = (f: number): number => Math.max(f, NAME_MIN_SCALE);
+  useLayoutEffect(() => {
+    const b = box.current;
+    const t = text.current;
+    if (b === null || t === null) return undefined;
+    let current = 1;
+    const measure = (): void => {
+      const cs = getComputedStyle(b);
+      const avail = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      // offsetWidth ignores the squeeze but follows the font size, so divide that back out
+      const natural = t.offsetWidth / scaleOf(current);
+      if (avail <= 0 || natural <= 0) return;
+      const next = Math.min(1, (avail - 0.5) / natural);
+      if (Math.abs(next - current) > 0.004) {
+        current = next;
+        setFit(next);
+      }
+    };
+    measure();
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    ro?.observe(b);
+    let alive = true;
+    void document.fonts?.ready.then(() => {
+      if (alive) measure();
+    });
+    return () => {
+      alive = false;
+      ro?.disconnect();
+    };
+  }, [name]);
+  const scale = scaleOf(fit);
+  return (
+    <span className="mini-name" ref={box}>
+      <span className="mini-name-text" ref={text} style={fit < 1 ? { fontSize: `${scale}em`, transform: `scaleX(${fit / scale})` } : undefined}>
+        {name}
+      </span>
+    </span>
   );
 }
 
@@ -105,75 +158,72 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
       {flaw !== undefined && <FlawMark flaw={flaw} />}
       <span className="mini-clip">
         <Art cardId={view.id} silhouette={view.silhouette} elementId={view.element?.id ?? null} />
-        <span className="mini-shade" />
         {faceDown && (
           <span className="down-mark">
             <Glyph id="facedown" size={26} />
           </span>
         )}
       </span>
-      <span className="mini-col l">
-        <Gem element={view.element} />
-        {view.element === null && (
-          <span className="gem" style={elementStyle(null)}>
-            <Glyph id={view.type === 'trap' ? 'trap' : 'spell'} size={14} />
-          </span>
-        )}
-        {monster !== undefined && (
-          <span className="tag" title={monster.pos === 0 ? 'Attack position' : 'Guard position'}>
-            <Glyph id={monster.pos === 0 ? 'sword' : 'shield'} size={12} />
-          </span>
-        )}
-        {unstable && (
-          <span className="tag" data-unstable="" title="Unstable">
-            <Glyph id="spark" size={12} />
-          </span>
-        )}
-      </span>
-      {(monstersOnly || moved || attacked) && (
-        <span className="mini-status">
-          {monstersOnly && (
-            <span className="tag" data-sick="" title="Can attack monsters, not life, this turn">
-              <Glyph id="nolife" size={12} />
+      {/* D-360: the art fills the card. Name, icons and stats are lettered straight onto it (ink with a paper outline).
+          The name is one line, never shortened (CardName squeezes a long one), with the icons and turn marks under it. */}
+      <span className="mini-head">
+        <CardName name={view.name} />
+        <span className="mini-icons">
+          <Gem element={view.element} />
+          {view.element === null && (
+            <span className="gem" style={elementStyle(null)}>
+              <Glyph id={view.type === 'trap' ? 'trap' : 'spell'} size={14} />
             </span>
           )}
-          {moved && (
-            <span className="tag" data-moved="" title="Already moved this turn">
-              <Glyph id="swap" size={12} />
+          {frame.glyphs.map((k) => (
+            <span key={k.id} className="kw-glyph" data-flaw={k.flaw ? '' : undefined} title={k.name}>
+              <Glyph id={k.icon} size={14} cracked={k.flaw} />
             </span>
-          )}
-          {attacked && (
-            <span className="tag" data-attacked="" title="Already attacked this turn">
-              <Glyph id="check" size={12} />
-            </span>
-          )}
+          ))}
         </span>
-      )}
-      <span className="mini-col r">
-        {crowned && (
-          <span className="tag" data-crown="" role="img" aria-label="Crowned" title="Crowned">
-            <Glyph id="crown" size={12} filled />
-          </span>
-        )}
-        {frame.glyphs.map((k) => (
-          <span key={k.id} className="kw-glyph" data-flaw={k.flaw ? '' : undefined} title={k.name}>
-            <Glyph id={k.icon} size={14} cracked={k.flaw} />
-          </span>
-        ))}
-        {view.ascended && (
-          <span className="tag" title="Ascended">
-            <Glyph id="star" size={12} filled />
+        {(crowned || view.ascended || unstable || monstersOnly || moved || attacked) && (
+          <span className="mini-marks">
+            {crowned && (
+              <span className="tag" data-crown="" role="img" aria-label="Crowned" title="Crowned">
+                <Glyph id="crown" size={12} filled />
+              </span>
+            )}
+            {view.ascended && (
+              <span className="tag" title="Ascended">
+                <Glyph id="star" size={12} filled />
+              </span>
+            )}
+            {unstable && (
+              <span className="tag" data-unstable="" title="Unstable">
+                <Glyph id="spark" size={12} />
+              </span>
+            )}
+            {monstersOnly && (
+              <span className="tag" data-sick="" title="Can attack monsters, not life, this turn">
+                <Glyph id="nolife" size={12} />
+              </span>
+            )}
+            {moved && (
+              <span className="tag" data-moved="" title="Already moved this turn">
+                <Glyph id="swap" size={12} />
+              </span>
+            )}
+            {attacked && (
+              <span className="tag" data-attacked="" title="Already attacked this turn">
+                <Glyph id="check" size={12} />
+              </span>
+            )}
           </span>
         )}
       </span>
-      <span className="mini-name">{view.name}</span>
       {view.power !== null && (
         <span className="mini-stats">
-          <span className="stat p" aria-hidden="true">
+          {/* the stat in play is reversed (paper with an ink outline), so no Attack/Guard badge is needed */}
+          <span className="stat p" data-on={monster?.pos === 0 ? '' : undefined} aria-hidden="true">
             <Glyph id="sword" size={12} />
             <b>{view.power}</b>
           </span>
-          <span className="stat g" aria-hidden="true">
+          <span className="stat g" data-on={monster?.pos === 1 ? '' : undefined} aria-hidden="true">
             <Glyph id="shield" size={12} />
             <b>{view.guard}</b>
           </span>

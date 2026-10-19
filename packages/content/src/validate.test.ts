@@ -513,7 +513,7 @@ describe('art briefs (D-110, D-174: warnings)', () => {
     const result = run(data);
     expect(result.errors).toEqual([]);
     expect(result.warnings).toEqual([
-      'art-briefs.json › fixture-stag › missing art brief › add a one-line "mood · pose · palette"',
+      'art-briefs.json › fixture-stag › missing art brief › add a one-line "mood · pose · ink"',
     ]);
   });
 

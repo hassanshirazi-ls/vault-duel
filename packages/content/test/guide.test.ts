@@ -239,7 +239,7 @@ const QUILL_JSON = `{
   "effects": [{ "op": "damage", "who": "opponent", "n": "$QUILL_TOLL" }]
 }`;
 
-const BRIEF_LINE = '"example-beast": "feral · lunging · ember red",';
+const BRIEF_LINE = '"example-beast": "feral · lunging · solid black shadow",';
 const DRAW_NUMBER_LINE = '    DRAW_CARDS: 2,';
 const QUILL_LINE = '    QUILL_TOLL: 2,';
 const DECK_LINE = '"example-collector-purge",';
@@ -265,7 +265,7 @@ const SNIPPETS = [
 // ---- Messages the guide quotes. Lists of ids are written as "…" in the guide, so those are quoted by prefix. --------
 
 const BUDGET_11 = 'warning: cards/player-monsters.json › example-beast › budget 11 (P7+G3+1kw) outside 8–10 › lower Power or Guard by 1 if this is not intended';
-const MISSING_BRIEF = 'warning: art-briefs.json › example-beast › missing art brief › add a one-line "mood · pose · palette"';
+const MISSING_BRIEF = 'warning: art-briefs.json › example-beast › missing art brief › add a one-line "mood · pose · ink"';
 const ORPHAN_BRIEF = 'warning: art-briefs.json › example-purge › orphan brief, no card or Chimera family has this id › delete the entry';
 const NO_EXAMPLES = 'warning: keywords/example-ward.ts › example-ward › no examples › add one board-DSL example with declared cards (D-169)';
 const BARE_NUMBER = 'cards/player-spells.json › example-draw › text: bare number "2" while the card uses $DRAW_CARDS › write {DRAW_CARDS} instead of 2';
@@ -350,7 +350,7 @@ const QUILL_SPELL = JSON.parse(QUILL_JSON) as Json;
 /** Adds the Collector spell of COLLECTOR_SPELL_JSON to collector-spells.json, with its art brief. */
 function addCollectorSpell(root: string): void {
   writeJson(root, 'cards/collector-spells.json', [...readArray(root, 'cards/collector-spells.json'), JSON.parse(COLLECTOR_SPELL_JSON) as Json]);
-  writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-collector-purge': 'feral · lunging · ember red' });
+  writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-collector-purge': 'feral · lunging · solid black shadow' });
 }
 
 /** The collector.json `ai` block with one castHighValueSpell entry set (or replaced), as the owner edits it (D-204). */
@@ -396,7 +396,7 @@ function withText(root: string, text: string, effects?: unknown[]): string {
   const draw: Json = { ...(JSON.parse(DRAW_JSON) as Json), text };
   if (effects !== undefined) draw['effects'] = effects;
   writeJson(root, 'cards/player-spells.json', [...readArray(root, 'cards/player-spells.json'), draw]);
-  writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-draw': 'feral · lunging · ember red' });
+  writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-draw': 'feral · lunging · solid black shadow' });
   addContentNumber(root, DRAW_NUMBER_LINE);
   return root;
 }
@@ -491,7 +491,7 @@ describe('guide §2 · the edit loop', () => {
     setGlobal(root, 'STAT_BUDGET_MAX', '10');
     const beast = { ...(JSON.parse(BEAST_JSON) as Json), power: 7, keywords: ['swift'] };
     writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · solid black shadow' });
 
     const first = runScript(root, 'content-check.ts');
     expect(first.status).toBe(0);
@@ -517,7 +517,7 @@ describe('guide §3 · reading content:check output', () => {
     setGlobal(root, 'MAX_COPIES', '2');
     const beast = { ...(JSON.parse(BEAST_JSON) as Json), power: 7, keywords: ['swift'] };
     writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · solid black shadow' });
     // Keep two player spells, so the pool cannot fill a five-spell deck. The briefs and the card numbers of the deleted
     // spells go with them (section 5 shows what a number left behind looks like).
     keepTwoPlayerSpells(root);
@@ -633,7 +633,7 @@ describe('guide §3 · reading content:check output', () => {
     setGlobal(root, 'STAT_BUDGET_MAX', '10');
     const beast = { ...(JSON.parse(BEAST_JSON) as Json), power: 7, keywords: ['swift'] };
     writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · solid black shadow' });
     const report = await check(root);
     expect(report.errors).toEqual([]);
     expect(report.warnings).toEqual([BUDGET_11]);
@@ -651,7 +651,7 @@ describe('guide §3 · reading content:check output', () => {
 
   it('§3 table · orphan art brief is a warning', async () => {
     const root = makeCopy();
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-purge': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-purge': 'feral · lunging · solid black shadow' });
     const report = await check(root);
     expect(report.errors).toEqual([]);
     expect(report.warnings).toEqual([ORPHAN_BRIEF]);
@@ -688,7 +688,7 @@ describe('guide §3 · reading content:check output', () => {
     const root = makeCopy();
     addContentNumber(root, DRAW_NUMBER_LINE);
     writeJson(root, 'cards/player-spells.json', [...readArray(root, 'cards/player-spells.json'), { ...(JSON.parse(DRAW_JSON) as Json), text: 'Draw 2 cards.' }]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-draw': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-draw': 'feral · lunging · solid black shadow' });
     const report = await check(root);
     expect(report.errors).toEqual([BARE_NUMBER]);
     quoted(BARE_NUMBER);
@@ -797,7 +797,7 @@ describe('guide §3 · reading content:check output', () => {
     const root = makeCopy();
     const relic = { ...(JSON.parse(RELIC_JSON) as Json), flaw: 'covetous' };
     writeJson(root, 'cards/relics.json', [...readArray(root, 'cards/relics.json'), relic]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-relic': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-relic': 'feral · lunging · solid black shadow' });
     const report = await check(root);
     expect(report.errors).toEqual(['cards/relics.json › example-relic › Covetous is ace-only › change flaw or set collector.json ace']);
     quoted('Covetous is ace-only › change flaw or set collector.json ace');
@@ -815,7 +815,7 @@ describe('guide §3 · reading content:check output', () => {
   it('§3 table · the ace must be in the deck list', async () => {
     const root = makeCopy();
     writeJson(root, 'cards/relics.json', [...readArray(root, 'cards/relics.json'), JSON.parse(RELIC_JSON) as Json]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-relic': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-relic': 'feral · lunging · solid black shadow' });
     const collector = readObject(root, 'collector.json');
     // The ace leaves the deck list, and a Relic that is not the ace takes its place, so the deck size does not change.
     const deck = (collector['deck'] as string[]).map((id) => (id === 'the-unpriced' ? 'example-relic' : id));
@@ -830,7 +830,7 @@ describe('guide §3 · reading content:check output', () => {
     const root = makeCopy();
     const trap = { ...(JSON.parse(TRAP_JSON) as Json), effects: [{ op: 'modifyStats', target: 'grafted', power: 1, duration: 'permanent' }] };
     writeJson(root, 'cards/player-traps.json', [...readArray(root, 'cards/player-traps.json'), trap]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-snare': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-snare': 'feral · lunging · solid black shadow' });
     const report = await check(root);
     expect(report.errors).toEqual(['cards/player-traps.json › example-snare › ref "grafted" is not available for trigger "enemyAttack" › use attacker or defender']);
     quoted('is not available for trigger "enemyAttack" › use attacker or defender');
@@ -839,7 +839,7 @@ describe('guide §3 · reading content:check output', () => {
   it('§3 table · cancelAttack outside an attack trap', async () => {
     const root = makeCopy();
     writeJson(root, 'cards/player-spells.json', [...readArray(root, 'cards/player-spells.json'), { ...(JSON.parse(SPELL_JSON) as Json), effects: [{ op: 'cancelAttack' }], text: 'Cancel it.', target: undefined }]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-purge': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-purge': 'feral · lunging · solid black shadow' });
     const report = await check(root);
     expect(report.errors).toEqual(['cards/player-spells.json › example-purge › "cancelAttack" only works in a trap with trigger enemyAttack or enemyDirectAttack › remove it or change the trigger']);
     quoted('"cancelAttack" only works in a trap with trigger enemyAttack or enemyDirectAttack');
@@ -850,7 +850,7 @@ describe('guide §3 · reading content:check output', () => {
     const trap = { id: 'example-last', type: 'trap', name: 'Example Last', text: 'Draw {DRAW_CARDS|card|cards}.', trigger: 'allyDestroyed', when: { powerGte: 3 }, effects: [{ op: 'draw', who: 'self', n: '$DRAW_CARDS' }] };
     addContentNumber(root, DRAW_NUMBER_LINE);
     writeJson(root, 'cards/player-traps.json', [...readArray(root, 'cards/player-traps.json'), trap]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-last': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-last': 'feral · lunging · solid black shadow' });
     const report = await check(root);
     expect(report.errors).toEqual(['cards/player-traps.json › example-last › condition "powerGte" can\'t be checked on a destroyed monster › use type, relic, chimera, element, kind or graftedThisTurn']);
     quoted("condition \"powerGte\" can't be checked on a destroyed monster");
@@ -978,7 +978,7 @@ describe('guide §4 · change a monster or Relic', () => {
     setGlobal(root, 'STAT_BUDGET_MAX', '10');
     const beast = { ...(JSON.parse(BEAST_JSON) as Json), keywords: ['swift'] };
     writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · solid black shadow' });
     expect((await check(root)).warnings).toEqual([]);
     writeJson(root, 'cards/player-monsters.json', readArray(root, 'cards/player-monsters.json').map((card) =>
       card['id'] === 'example-beast' ? { ...card, power: 7 } : card,
@@ -1013,7 +1013,7 @@ describe('guide §4 · change a monster or Relic', () => {
     setGlobal(root, 'STAT_BUDGET_MAX', '11');
     const beast = { ...(JSON.parse(BEAST_JSON) as Json), keywords: ['swift', 'sentinel'] };
     writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · solid black shadow' });
     const report = await check(root);
     expect(report.errors).toEqual([]);
     expect(report.warnings).toEqual([]);
@@ -1023,7 +1023,7 @@ describe('guide §4 · change a monster or Relic', () => {
   it('§4 example: a Relic with its Flaw in the right field is accepted, and an unknown Flaw is refused', async () => {
     const good = makeCopy();
     writeJson(good, 'cards/relics.json', [...readArray(good, 'cards/relics.json'), JSON.parse(RELIC_JSON) as Json]);
-    writeJson(good, 'art-briefs.json', { ...readObject(good, 'art-briefs.json'), 'example-relic': 'feral · lunging · ember red' });
+    writeJson(good, 'art-briefs.json', { ...readObject(good, 'art-briefs.json'), 'example-relic': 'feral · lunging · solid black shadow' });
     expect((await check(good)).errors).toEqual([]);
 
     const bad = makeCopy();
@@ -1045,7 +1045,7 @@ describe('guide §4 · change a monster or Relic', () => {
     setGlobal(root, 'STAT_BUDGET_MIN', '8');
     setGlobal(root, 'STAT_BUDGET_MAX', '10');
     writeJson(root, 'cards/relics.json', [...readArray(root, 'cards/relics.json'), { ...(JSON.parse(RELIC_JSON) as Json), power: 1, guard: 1 }]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-relic': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-relic': 'feral · lunging · solid black shadow' });
     const report = await check(root);
     expect(report.errors).toEqual([]);
     expect(report.warnings).toEqual([]);
@@ -1065,7 +1065,7 @@ describe('guide §5 · add or remove a card', () => {
   it('§5 example: add a monster with its art brief, and the check is clean', async () => {
     const root = makeCopy();
     writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), JSON.parse(BEAST_JSON) as Json]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · solid black shadow' });
     const report = await check(root);
     expect(report.errors).toEqual([]);
     expect(report.warnings).toEqual([]);
@@ -1087,9 +1087,9 @@ describe('guide §5 · add or remove a card', () => {
     writeJson(root, 'cards/relics.json', [...readArray(root, 'cards/relics.json'), JSON.parse(RELIC_JSON) as Json]);
     writeJson(root, 'art-briefs.json', {
       ...readObject(root, 'art-briefs.json'),
-      'example-purge': 'feral · lunging · ember red',
-      'example-snare': 'feral · lunging · ember red',
-      'example-relic': 'feral · lunging · ember red',
+      'example-purge': 'feral · lunging · solid black shadow',
+      'example-snare': 'feral · lunging · solid black shadow',
+      'example-relic': 'feral · lunging · solid black shadow',
     });
     const report = await check(root);
     expect(report.errors).toEqual([]);
@@ -1204,7 +1204,7 @@ describe('guide §5 · add or remove a card', () => {
   it('§5 example: a deleted card whose brief is left behind gets an orphan warning', async () => {
     const root = makeCopy();
     writeJson(root, 'cards/player-spells.json', [...readArray(root, 'cards/player-spells.json'), JSON.parse(SPELL_JSON) as Json]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-purge': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-purge': 'feral · lunging · solid black shadow' });
     writeJson(root, 'cards/player-spells.json', readArray(root, 'cards/player-spells.json').filter((spell) => spell['id'] !== 'example-purge'));
     const report = await check(root);
     expect(report.errors).toEqual([]);
@@ -1250,7 +1250,7 @@ describe('guide §5 · add or remove a card', () => {
       `collector.json › ai › params.castHighValueSpell.${key}: "${key}" is not a Collector spell in the deck › use a spell id from collector.json › deck`,
     ]);
     expect(report.warnings).toEqual([
-      `warning: art-briefs.json › ${key}-2 › missing art brief › add a one-line "mood · pose · palette"`,
+      `warning: art-briefs.json › ${key}-2 › missing art brief › add a one-line "mood · pose · ink"`,
       `warning: art-briefs.json › ${key} › orphan brief, no card or Chimera family has this id › delete the entry`,
     ]);
   });
@@ -1261,7 +1261,7 @@ describe('guide §6 · write card text', () => {
     const root = makeCopy();
     addContentNumber(root, DRAW_NUMBER_LINE);
     writeJson(root, 'cards/player-spells.json', [...readArray(root, 'cards/player-spells.json'), JSON.parse(DRAW_JSON) as Json]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-draw': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-draw': 'feral · lunging · solid black shadow' });
     const report = await check(root);
     expect(report.errors).toEqual([]);
     expect(report.warnings).toEqual([]);
@@ -1321,7 +1321,7 @@ describe('guide §7 · tune a global', () => {
     setGlobal(root, 'STAT_BUDGET_MAX', '10');
     const beast = { ...(JSON.parse(BEAST_JSON) as Json), power: 7, keywords: ['swift'] };
     writeJson(root, 'cards/player-monsters.json', [...readArray(root, 'cards/player-monsters.json'), beast]);
-    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · ember red' });
+    writeJson(root, 'art-briefs.json', { ...readObject(root, 'art-briefs.json'), 'example-beast': 'feral · lunging · solid black shadow' });
     expect((await check(root)).warnings).toEqual([BUDGET_11]);
     setGlobal(root, 'STAT_BUDGET_MAX', '11');
     expect((await check(root)).warnings).toEqual([]);
@@ -1363,7 +1363,7 @@ describe('guide §7 · tune a global', () => {
   it('§7 example: a new card number needs one line in globals.ts; without it the check fails', async () => {
     const without = makeCopy();
     writeJson(without, 'cards/player-spells.json', [...readArray(without, 'cards/player-spells.json'), QUILL_SPELL]);
-    writeJson(without, 'art-briefs.json', { ...readObject(without, 'art-briefs.json'), 'example-quill': 'feral · lunging · ember red' });
+    writeJson(without, 'art-briefs.json', { ...readObject(without, 'art-briefs.json'), 'example-quill': 'feral · lunging · solid black shadow' });
     const failed = await check(without);
     expect(failed.errors).toEqual([
       'cards/player-spells.json › example-quill › text: unknown placeholder {QUILL_TOLL} › use a numeric name from globals.ts',
@@ -1373,7 +1373,7 @@ describe('guide §7 · tune a global', () => {
     const withLine = makeCopy();
     addContentNumber(withLine, QUILL_LINE);
     writeJson(withLine, 'cards/player-spells.json', [...readArray(withLine, 'cards/player-spells.json'), QUILL_SPELL]);
-    writeJson(withLine, 'art-briefs.json', { ...readObject(withLine, 'art-briefs.json'), 'example-quill': 'feral · lunging · ember red' });
+    writeJson(withLine, 'art-briefs.json', { ...readObject(withLine, 'art-briefs.json'), 'example-quill': 'feral · lunging · solid black shadow' });
     const fixed = await check(withLine);
     expect(fixed.errors).toEqual([]);
     expect(fixed.warnings).toEqual([]);
