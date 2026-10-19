@@ -3,6 +3,22 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-18 · The Monarch's court: the crown, the levy and the Ink Spiral look
+
+The crown changes the rules, so a duel saved before this update starts over. `CONTENT_VERSION` stays `0.2.0`. The file
+names, card ids and globals keep their engine names, so saved seeds and the tools still work.
+
+- **The Monarch** (D-350): the Collector is now **the Monarch**, the opponent. Appraisal is **the Levy** (levy, levied), a Relic is a **Courtier**, and **The Unpriced** is **The Hollow Heir**. Every word a player reads changed. The renamed cards: Mourning Cartographer is **Mourning Herald**, Abyssal Curator is **Abyssal Chamberlain**, Provenance Ledger is **Royal Ledger**, Gilt Frame is **Gilded Mantle**, Forfeit is **Execution** (Restoration keeps its name), Display Case is **Bend the Knee**, Counterfeit is **Forbidden Union**, Insurance Claim is **Blood Tithe**. Ids (`forfeit`, `display-case` and the rest) are unchanged. The screens say "Decree of <date>", "Today's champion", "Bestiary" and "Champions", a result is a royal edict sealed with a wax seal (DEFIED or BOUND), and the loading line reads "Summoning the court...". The Vault keeps its name.
+- **The crown** (D-349): a monster the Monarch levies is crowned while it is on his board. It gets **+1 Power** there (`CROWN_POWER` 1). A crown badge shows on the monster, and the card inspect reads "Crowned +1 Power". The crown is on by default (`FLAGS.CROWNED` true). A levy does not graft the monster automatically, so the Monarch keeps the monsters he already has.
+  - Sim, quick run, 800 games per bot, 60 dates. Expert win rate 47.5% → 44.1%. Greedy 29.5% → 24.1%. Novice 0% → 0%. Levy success 56.6%, unchanged. The Hollow Heir now shows up in 47.5% of games (was 46.4%).
+  - The expert now sits just under the 45–55% target band (BT-1). That is on purpose: the owner asked for a tougher Monarch. The band is left for the owner to move.
+  - Rejected from the same run, expert / greedy win rates: life 44 (42.6% / 24.4%), life 48 (37.6% / 19.5%), a Levy Power limit of 4 (46.6% / 29.0%), and Levy rounds 3, 5, 7, 9 (34.9% / 18.5%). `COLLECTOR_LIFE` stays 40.
+  - To switch the crown off, set `FLAGS.CROWNED` to `false`. To make it stronger or weaker, change `CROWN_POWER`.
+- **Ink Spiral look** (D-351): a paper-white ground with hard black ink on every screen. Card art sits in hatched panels, board cards drift slowly (off with reduced motion or Animations off), and a faint spiral turns behind the Monarch's header. Blackletter names, book-serif flavour and condensed rules text. The Monarch is a crowned ink face with spiral eyes. Levy rounds show filled crowns on the round track. Element badges are ink patterns with no color for now: Ember solid, Tide horizontal lines, Gale diagonal lines, Lumen ring, Umbra concentric rings.
+- **Levy lines** (D-352): `collector.json` › `dialogue` has an optional `levy` list, spoken when a levy takes one of your monsters. A failed levy and mood changes still use the mood lists, and a missing `levy` list falls back to them. Every mood line was rewritten in the Monarch's voice.
+- **Tagline** (D-353): "Defy the Monarch, a few minutes a day." sits under the title on Home, and it is the web app's description.
+- **Content guide**: `docs/CONTENT_GUIDE.md` uses the new names, explains the crown switch and the `levy` list, and says where the engine names still appear. Each example is pinned by `packages/content/test/guide.test.ts`.
+
 ## 2026-10-17 · Simple mode: Graft only, Riposte, Ambush and a quieter table
 
 The rules changed, so a duel saved before this update starts over. `CONTENT_VERSION` stays `0.2.0`.

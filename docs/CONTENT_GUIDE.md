@@ -1,7 +1,7 @@
 # Vault Duel content guide
 
-This guide is for the game's owner. It shows how to change cards, numbers, rules and the Collector without writing code.
-It covers sections 1 to 7, the element ring (10), the Collector's lane settings (13) and balance checks (16). Sections
+This guide is for the game's owner. It shows how to change cards, numbers, rules and the Monarch without writing code.
+It covers sections 1 to 7, the element ring (10), the Monarch's lane settings (13) and balance checks (16). Sections
 8, 9, 11, 12, 14 and 15 come later in Phase 1.
 
 Every worked example in this guide is tested. `packages/content/test/guide.test.ts` copies the content to a temp
@@ -9,16 +9,35 @@ folder, makes the same change, runs the same checks as `pnpm content:check`, and
 here. Examples that run the simulator run it on a tiny setting and read the report it writes. When a number in an
 example matters, the test sets it on its own copy, so an example stays true when you tune the game.
 
+> **Two sets of names.** The code, the file names, the ids and the tools keep the engine's names: Collector, Appraisal,
+> Relic and The Unpriced. Players see the royal-court names: the Monarch, Levy, Courtier and The Hollow Heir (D-350).
+> This guide uses the player names in its own words. Where it names a file, an id, a global or a tool message, it uses
+> the engine name, and it says what players see the first time in each section.
+
 ## Words used here
+
+| Engine name (files, ids, globals, messages) | What players see |
+| --- | --- |
+| Collector (`collector.json`, `collector-spells.json`, `collector-traps.json`) | the Monarch |
+| Appraisal, Appraised (`APPRAISAL_ROUNDS`, `APPRAISAL_MIN_POWER`, `appraised`) | Levy, levied |
+| Relic (`relics.json`) | Courtier |
+| The Unpriced (`the-unpriced`) | The Hollow Heir |
 
 - **Monster**: a card you summon from your hand. It has Power, Guard, an element, a kind and keywords. At launch a
   base monster has at most one keyword (section 4).
-- **Relic**: a Collector monster. Every Relic has exactly one Flaw.
+- **Courtier** (the engine calls it a Relic): a Monarch's monster. Every courtier has exactly one Flaw.
+- **The Monarch** (the engine calls him the Collector): your opponent. He has his own deck, his own spells and traps,
+  an ace, dialogue and AI.
+- **Levy** (the engine calls it Appraisal): on the Levy rounds (`APPRAISAL_ROUNDS`, the rounds with a crown on the
+  round track), the Monarch tries to take one of your face-up monsters with enough Power (`APPRAISAL_MIN_POWER`). A try
+  can fail. The monster he takes is **levied**.
+- **Crowned**: a monster the Monarch has levied is crowned while it is on his board. It has +`CROWN_POWER` Power
+  there (section 7, D-349). In your vault it is a card, so it has no crown.
 - **Spell** and **trap**: cards with effects. A trap waits face down until its trigger happens.
 - **Element**: one of the colors of the game. An element can beat other elements. The `beats` field in `elements.json` says which (section 10).
 - **Kind**: the family of a monster, such as beast or knight.
 - **Keyword**: an ability printed on a card. A base monster has at most one (`MAX_BASE_KEYWORDS`, section 4).
-- **Flaw**: a drawback printed on a Relic. Flaws are not keywords.
+- **Flaw**: a drawback printed on a Courtier. Flaws are not keywords.
 - **Lane**: one of the three columns of monster slots on each side. Lane 0 is the left-hand column. With lanes on, a
   monster can attack only the monster across from it (section 7).
 - **Summon turn**: the turn a monster enters the board. What a monster may do on that turn is set by `SICKNESS_MODE` (section 7).
@@ -50,24 +69,24 @@ Every command in this guide runs from the repository root.
 
 Values live in data. Rules live in the design document.
 
-- The **values** (card stats, card text, effects, the Collector's deck, numbers, switches) are in the content files
+- The **values** (card stats, card text, effects, the Monarch's deck, numbers, switches) are in the content files
   and in `globals.ts`. These files are the source of truth (D-166).
-- The **rules** (what a keyword does, how a turn works, how Appraisal works) are in `docs/DESIGN.md`. The tables in
+- The **rules** (what a keyword does, how a turn works, how a Levy works) are in `docs/DESIGN.md`. The tables in
   that file are the launch values, kept as a record. They are not updated when you change a value.
 
 | What you change | Where | Who may change it |
 | --- | --- | --- |
 | Base monsters: stats, keyword, element, kind, text | `packages/content/cards/player-monsters.json` | Owner |
-| Relics: stats, element, kind, the one Flaw, text | `packages/content/cards/relics.json` | Owner |
+| Courtiers (the engine's Relics): stats, element, kind, the one Flaw, text | `packages/content/cards/relics.json` | Owner |
 | Player spells and traps | `packages/content/cards/player-spells.json`, `packages/content/cards/player-traps.json` | Owner |
-| Collector spells and traps | `packages/content/cards/collector-spells.json`, `packages/content/cards/collector-traps.json` | Owner |
-| The Collector's deck list, his ace, his dialogue | `packages/content/collector.json` (`deck`, `ace`, `dialogue`) | Owner |
-| The Collector's AI card lists: the entries in `ai › params › castHighValueSpell` and the ids in `ai › trapPreference` | `packages/content/collector.json` (`ai`) | Owner, edited with the card, like `deck` (D-204) |
-| The Collector's other AI settings: rule lists (including `summonLane`), mood overrides, `reposition`, string parameters | `packages/content/collector.json` (`ai`) | Owner only, with a decision entry first (D-166) |
+| The Monarch's spells and traps | `packages/content/cards/collector-spells.json`, `packages/content/cards/collector-traps.json` | Owner |
+| The Monarch's deck list, his ace, his dialogue (including the optional `levy` list, D-352) | `packages/content/collector.json` (`deck`, `ace`, `dialogue`) | Owner |
+| The Monarch's AI card lists: the entries in `ai › params › castHighValueSpell` and the ids in `ai › trapPreference` | `packages/content/collector.json` (`ai`) | Owner, edited with the card, like `deck` (D-204) |
+| The Monarch's other AI settings: rule lists (including `summonLane`), mood overrides, `reposition`, string parameters | `packages/content/collector.json` (`ai`) | Owner only, with a decision entry first (D-166) |
 | The element ring: each element's `beats` | `packages/content/elements.json` | Owner only, with a decision entry first (D-285) |
 | Other elements' details (name, color, icon, identity), kinds, Chimera families | `packages/content/elements.json`, `kinds.json`, `recipes.json` | Owner |
 | Numbers | `packages/content/src/globals.ts` | Owner |
-| Rule switches and rule numbers: the lane, sickness and bond settings, `APPRAISAL_MIN_POWER` (section 7) | `packages/content/src/globals.ts` | Owner only, with a decision entry first (D-166) |
+| Rule switches and rule numbers: the lane, sickness and bond settings, `APPRAISAL_MIN_POWER` (the Levy's Power limit), the crown (`FLAGS.CROWNED`, `CROWN_POWER`) (section 7) | `packages/content/src/globals.ts` | Owner only, with a decision entry first (D-166) |
 | Balance targets (`TARGET_*`) | `packages/content/src/globals.ts` | Owner only, with a decision entry first (D-166) |
 | Proposal switches (`FLAGS.APPRAISED_ENTERS_GUARD`, `FLAGS.ACE_SET_ASIDE`, `FLAGS.CHIMERA_TO_HAND`, `UNSTABLE_EXPIRY`, `SLOW_TURNS`) | `packages/content/src/globals.ts` | Owner only, with a decision entry first (D-166) |
 | Objectives and weekly twists | `packages/content/objectives.json`, `twists.json` | Owner |
@@ -91,9 +110,9 @@ tuning number such as the player's life is in the main part of `globals.ts`:
 
 ### Worked example: one value that lives in two places
 
-The Collector's deck list and `COLLECTOR_DECK_SIZE` must agree. If you remove one id from his deck, the check says
-so. The test removes one unnamed id from its copy's deck and sets `COLLECTOR_DECK_SIZE` to the old count. Your deck
-gives different numbers, so the guide shows an example:
+The Monarch's deck list and `COLLECTOR_DECK_SIZE` (the number of cards in his deck) must agree. If you remove one id from
+his deck, the check says so. The test removes one unnamed id from its copy's deck and sets `COLLECTOR_DECK_SIZE` to
+the old count. Your deck gives different numbers, so the guide shows an example:
 
 ```text
 collector.json › deck › has 19 cards, needs COLLECTOR_DECK_SIZE=20 › add 1 card id
@@ -205,7 +224,7 @@ cards/player-monsters.json › example-beast › power: expected number, got "7"
 - **Error**: no prefix. The check fails. The last line says how many errors there were, and the exit code is 1.
 - **Warning**: starts with `warning:`. The check still passes. A warning tells you about a card that may be wrong
   but is allowed. Stat budget, missing art briefs, unused placeholders, card numbers that nothing uses any more, and
-  Collector cards that the AI never plays are warnings.
+  Monarch cards that the AI never plays are warnings.
 - **Success**: `content:check OK: N files parsed`, a list of counts, and `deckgen: feasible on every test date`.
 
 Warnings print first. Errors follow. Errors stop the run before the deck-generation test.
@@ -239,20 +258,21 @@ content:check FAILED: 1 error(s) in 1 file(s)
 ### The common messages
 
 Each message in the table is produced by the tooling, and each one is asserted by a test. Where a message ends in a
-list of valid ids, the list is shown as `…`, because the ids can change. The check prints the current list.
+list of valid ids, the list is shown as `…`, because the ids can change. The check prints the current list. The
+messages keep the engine's names (Collector, Relic, Appraisal), because that is what the tool prints.
 
 | Message, as printed | What it means and what to do |
 | --- | --- |
 | `cards/player-monsters.json › example-beast › power: missing › add "power"` | A field is missing. The fix names the field to add. |
 | `cards/player-monsters.json › example-beast › power: expected number, got "7" › write numbers without quotes` | A number is written in quotes. Remove the quotes. |
 | `cards/player-monsters.json › example-beast › keywords: has 2 keywords, max MAX_BASE_KEYWORDS=1 › remove 1 keyword` | A base monster has more keywords than the limit. Keep one (section 4). |
-| `cards/relics.json › example-relic › flaw: missing, a Relic needs exactly 1 Flaw › add "flaw": "<flaw id>"` | A Relic has no Flaw. Add `"flaw": "<flaw id>"` (section 4). |
-| `cards/player-monsters.json › example-beast › Flaws appear only on Relics › remove "flaw"` | A Flaw is on a base monster. Flaws belong only on Relics. Remove `flaw`. |
+| `cards/relics.json › example-relic › flaw: missing, a Relic needs exactly 1 Flaw › add "flaw": "<flaw id>"` | A Courtier has no Flaw. Add `"flaw": "<flaw id>"` (section 4). |
+| `cards/player-monsters.json › example-beast › Flaws appear only on Relics › remove "flaw"` | A Flaw is on a base monster. Flaws belong only on Courtiers. Remove `flaw`. |
 | `objectives.json › win-without-grafting › metric: got "rounds" › use one of: …` | An objective uses a metric that does not exist. Use one of the listed metrics. |
 | `cards/player-monsters.json › example-beast › unknown element "wind" › use one of: …, or add it to elements.json` | The element is not in `elements.json`. Use a listed id (section 4). |
 | `cards/player-monsters.json › example-beast › unknown kind "dragon" › use one of: …, or add it to kinds.json` | The kind is not in `kinds.json`. Use a listed id (section 4). |
 | `cards/player-monsters.json › example-beast › keyword "hant" is not registered › use one of: …, or add packages/content/keywords/hant.ts` | The keyword id is not known. Fix the spelling. Adding a keyword is section 11. |
-| `cards/player-monsters.json › example-beast › "slow" is a Flaw, not a keyword › use one of: …` | A Flaw is in a monster's keyword list. Move it to a Relic's `flaw` field. |
+| `cards/player-monsters.json › example-beast › "slow" is a Flaw, not a keyword › use one of: …` | A Flaw is in a monster's keyword list. Move it to a Courtier's `flaw` field. |
 | `cards/relics.json › example-relic › Flaw "frail" is not registered › use one of: …, or add packages/content/keywords/frail.ts` | The Flaw id is not known. Fix the spelling. Adding a Flaw is section 11. |
 | `warning: cards/player-monsters.json › example-beast › budget 11 (P7+G3+1kw) outside 8–10 › lower Power or Guard by 1 if this is not intended` | The stat budget is out of range. A warning only. Adjust Power or Guard, or leave it if you meant it (section 4). |
 | `warning: art-briefs.json › example-beast › missing art brief › add a one-line "mood · pose · palette"` | A card has no art brief. A warning only. Add one line (section 5). |
@@ -267,23 +287,24 @@ list of valid ids, the list is shown as `…`, because the ids can change. The c
 | `cards/player-traps.json › example-snare › ref "grafted" is not available for trigger "enemyAttack" › use attacker or defender` | A trap uses a reference its trigger does not provide. Use one of the listed references. |
 | `cards/player-spells.json › example-purge › "cancelAttack" only works in a trap with trigger enemyAttack or enemyDirectAttack › remove it or change the trigger` | Cancel is used outside an attack trap. Move it to an attack trap, or remove it. |
 | `cards/player-traps.json › example-last › condition "powerGte" can't be checked on a destroyed monster › use type, relic, chimera, element, kind or graftedThisTurn` | A trap checks a monster that has already left the board. Use one of the listed conditions. |
-| `cards/relics.json › example-relic › Covetous is ace-only › change flaw or set collector.json ace` | The Covetous Flaw is on a Relic that is not the Collector's ace. Change the Flaw, or change the ace. |
-| `collector.json › ace › "no-such-relic" is not a Relic › use a Relic id from cards/relics.json` | The ace is not a Relic: the id is unknown, or it is a player card, a Collector spell or a trap. Use a Relic id (section 5). |
-| `collector.json › ace › "the-unpriced" is not in the deck › add it to the deck list in collector.json` | The ace is a Relic but not in his deck list. Add it (section 5). |
+| `cards/relics.json › example-relic › Covetous is ace-only › change flaw or set collector.json ace` | The Covetous Flaw is on a Courtier that is not the Monarch's ace. Change the Flaw, or change the ace. |
+| `collector.json › ace › "no-such-relic" is not a Relic › use a Relic id from cards/relics.json` | The ace is not a Courtier: the id is unknown, or it is a player card, a Monarch spell or a trap. Use a Courtier id (section 5). |
+| `collector.json › ace › "the-unpriced" is not in the deck › add it to the deck list in collector.json` | The ace is a Courtier but not in the Monarch's deck list. Add it (section 5). |
+| `collector.json › dialogue › unknown key(s) levys › remove levys` | A line list in `dialogue` has a name nothing reads. The lists are `composed`, `agitated`, `desperate` and `levy`. Fix the name (section 5). |
 | `recipes.json › (beast, beast) › no Chimera recipe for this kind pair › add {"kinds":["beast","beast"], …}` | A kind pair has no Chimera recipe. Add the recipe (section 9, later). |
 | `recipes.json › example-chimera › pair (beast, beast) already defined by packmaw › delete one` | Two recipes cover the same kind pair. Delete one. |
-| `collector.json › deck › has 19 cards, needs COLLECTOR_DECK_SIZE=20 › add 1 card id` | The Collector's deck size differs from the global. Make the list and the global agree (section 5). |
-| `collector.json › deck[n] › "<id>" is a player card › use a card from relics.json or collector-*.json` | A player card is in the Collector's deck. Use a Collector card. |
+| `collector.json › deck › has 19 cards, needs COLLECTOR_DECK_SIZE=20 › add 1 card id` | The Monarch's deck size differs from the global. Make the list and the global agree (section 5). |
+| `collector.json › deck[n] › "<id>" is a player card › use a card from relics.json or collector-*.json` | A player card is in the Monarch's deck. Use a card from one of his files. |
 | `collector.json › deck[n] › "<id>" no longer exists › remove the reference` | The deck names a card that was deleted. Remove the id from the deck list. |
 | `collector.json › ai › params.castHighValueSpell.forfeit: "forfeit" is not a Collector spell in the deck › use a spell id from collector.json › deck` | The AI names a spell that is not in his deck. Put it back, or remove its AI entry (section 5). |
 | `collector.json › ai › params.castHighValueSpell.forfeit: needs exactly one of "pick" or "when" › keep exactly one of "pick" or "when"` | An AI entry has both keys or neither. Keep exactly one (section 5). |
 | `collector.json › ai › params.castHighValueSpell.example-collector-purge: "contestedAttack" needs a spell that gives Power to "chosen" › use "pick": "highestPower" instead` | A `contestedAttack` entry is on a spell that gives no Power to `chosen`. Use `"pick"` (section 5). |
-| `warning: collector.json › deck[0] › Collector spell "example-collector-purge" has no AI rule that casts it › add "example-collector-purge" to ai.params.castHighValueSpell with a pick, or make it draw-only` | A Collector spell is in his deck and no AI entry casts it. Add the entry, or make the spell draw-only (section 5). The index is the card's place in the deck. |
-| `warning: collector.json › deck[17] › Collector trap "display-case" is not in ai.trapPreference › add it, or AI rule 4 never sets it` | A Collector trap is in his deck and his trap list does not name it. Add its id to `trapPreference` (section 5). |
+| `warning: collector.json › deck[0] › Collector spell "example-collector-purge" has no AI rule that casts it › add "example-collector-purge" to ai.params.castHighValueSpell with a pick, or make it draw-only` | A Monarch's spell is in his deck and no AI entry casts it. Add the entry, or make the spell draw-only (section 5). The index is the card's place in the deck. |
+| `warning: collector.json › deck[17] › Collector trap "display-case" is not in ai.trapPreference › add it, or AI rule 4 never sets it` | A Monarch's trap is in his deck and his trap list does not name it. Add its id to `trapPreference` (section 5). |
 | `cards/player-spells.json › pool › 2 spells × MAX_COPIES=2 can't fill DECK_SPELLS=5 › add 1 spell, or lower DECK_SPELLS or raise MAX_COPIES in globals.ts` | There are too few spells for the deck. Add the listed number, or change the globals (section 5). |
 | `cards/player-monsters.json › pool › deck constraints unsatisfiable on 1000 of 1000 test dates › relax DECK_MIN_ELEMENTS, DECK_MIN_KINDS or the CURVE_* globals, or add monsters` | The deck generator cannot build a deck on the test dates. Relax the deck rules in `globals.ts`, or add monsters. |
 | `elements.json › ember › beats unknown element "wind" › use an id from elements.json` | An element's `beats` names an element that does not exist. Use an id from `elements.json` (section 10). |
-| `collector.json › ai › reposition: got "sometimes" › use one of: toAttackIfUsable, allAttack, laneAware` | The Collector's reposition mode is not one of the three. Use one of them (section 13). |
+| `collector.json › ai › reposition: got "sometimes" › use one of: toAttackIfUsable, allAttack, laneAware` | The Monarch's reposition mode is not one of the three. Use one of them (section 13). |
 | `collector.json › ai › params.summonLane.[0]: got "nowhere" › use one of: sentinelCenter, facingBeatable, facingEmpty, leftmostFree` | A summon-lane rule name is wrong. Use one of the four, in the list (section 13). |
 | `globals.ts › PLAYER_LIFE › must be 0 or more › use 0 or more` | A global is negative. Use 0 or more. |
 | `globals.ts › SENTINEL_REACH › must be 0 or more › use 0 or more` | A rule number is negative. Use 0 or more (section 7). |
@@ -291,9 +312,9 @@ list of valid ids, the list is shown as `…`, because the ids can change. The c
 | `globals.ts › FLAGS › LANES: Invalid input: expected boolean, received string › fix the value in globals.ts` | A switch is written in words. Write `true` or `false`, without quotes (section 7). |
 | `globals.ts › BONDS_PER_TURN › must be 1 until the engine supports other values › keep 1` | A pinned bond setting was changed. Keep 1 (section 7). |
 | `globals.ts › SYMBIOTES_PER_HOST › must be 1 until the engine supports other values › keep 1` | The same, for symbiotes. Keep 1 (section 7). |
-| `globals.ts › APPRAISAL_ROUNDS › round 13 > MAX_ROUNDS=12 › remove it` | An Appraisal round is after the last round. Remove the round, or raise `MAX_ROUNDS`. |
+| `globals.ts › APPRAISAL_ROUNDS › round 13 > MAX_ROUNDS=12 › remove it` | A Levy round is after the last round (`APPRAISAL_ROUNDS` is the list of Levy rounds). Remove the round, or raise `MAX_ROUNDS`. |
 | `globals.ts › WARD_CHARGES › must be 1 until the engine supports other values › keep 1` | A pinned global is set to another value. Keep the one value (section 7). |
-| `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1` | `RELIC_FLAWS` is pinned to 1, because a Relic has exactly one Flaw. Keep 1 (section 7). |
+| `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1` | `RELIC_FLAWS` is pinned to 1, because a Courtier has exactly one Flaw. Keep 1 (section 7). |
 | `warning: globals.ts › CONTENT_NUMBERS › SIPHON_DRAIN: not used by any card, objective, AI param or keyword › delete the line, or use $SIPHON_DRAIN in an effect` | A card number is left behind after the card that used it was deleted. Delete the line, or use the name in a card (section 5). |
 | `keywords/index.gen.ts › (file) › stale, does not match keywords/*.ts › run pnpm content:gen` | A keyword file changed, and the generated list was not rebuilt. Run `pnpm content:gen`. |
 | `keywords/example-ward.ts › example-ward › id "example-other" ≠ file name › rename the file or the id` | A keyword file's id does not match its file name. Make them match. |
@@ -307,7 +328,7 @@ waiting for a reader. Section 3 above shows it, and section 7 explains it.
 
 ---
 
-## 4. Change a monster or Relic
+## 4. Change a monster or a Courtier
 
 ### Template: a base monster
 
@@ -337,15 +358,16 @@ Field rules:
   `MAX_BASE_KEYWORDS` of them, which is 1 at launch (see below).
 - `text` is optional. If you write it, follow section 6.
 
-### Template: a Relic
+### Template: a Courtier
 
-Put this in `packages/content/cards/relics.json`. A Relic is a monster with one extra field, `flaw`.
+Put this in `packages/content/cards/relics.json`, the file of the Courtiers. A Courtier is a monster with one extra
+field, `flaw`.
 
 ```json
 {
   "id": "example-relic",
   "type": "monster",
-  "name": "Example Relic",
+  "name": "Example Courtier",
   "element": "lumen",
   "kind": "knight",
   "power": 6,
@@ -355,13 +377,14 @@ Put this in `packages/content/cards/relics.json`. A Relic is a monster with one 
 }
 ```
 
-A Relic has exactly one Flaw, in the `flaw` field. It never goes in `keywords`.
+A Courtier has exactly one Flaw, in the `flaw` field. It never goes in `keywords`. The id stays `example-relic` in the
+file, because the engine keeps its name. Only the `name` is the player's word (D-350).
 
 ### The stat budget
 
 A base monster's Power plus Guard plus one for each keyword should fall inside the stat budget. The budget range
 is set by `STAT_BUDGET_MIN` and `STAT_BUDGET_MAX` in `globals.ts`. The keyword cost is `KEYWORD_COST`. A card outside
-the range gets a **warning**, not an error (D-167). Relics and Chimeras are not checked against the budget.
+the range gets a **warning**, not an error (D-167). Courtiers and Chimeras are not checked against the budget.
 
 ### Worked example: raise Power and watch the budget
 
@@ -383,7 +406,7 @@ the check refuses it:
 cards/player-monsters.json › example-beast › keywords: has 2 keywords, max MAX_BASE_KEYWORDS=1 › remove 1 keyword
 ```
 
-Remove one. A Relic's `keywords` list follows the same limit, and the check refuses a Relic with two keywords in the
+Remove one. A Courtier's `keywords` list follows the same limit, and the check refuses a Courtier with two keywords in the
 same way:
 
 ```text
@@ -392,7 +415,7 @@ cards/relics.json › example-relic › keywords: has 2 keywords, max MAX_BASE_K
 
 ### Worked example: raising the keyword limit
 
-`MAX_BASE_KEYWORDS` in `globals.ts` sets the limit for every base monster and every Relic. It is read by the check, so
+`MAX_BASE_KEYWORDS` in `globals.ts` sets the limit for every base monster and every Courtier. It is read by the check, so
 raising it changes what is accepted. The test sets it to 2 on its copy, and the card with two keywords (swift and
 sentinel) passes. The test also widens the stat budget to 11, so the card's budget is in range and only the keyword
 limit is in view:
@@ -403,16 +426,17 @@ limit is in view:
 
 Chimeras have their own limit, `MAX_INHERITED_KEYWORDS`, which this check does not read.
 
-### Worked example: a Relic needs its Flaw
+### Worked example: a Courtier needs its Flaw
 
-Remove the `flaw` field from a Relic and the check says what to add:
+Remove the `flaw` field from a Courtier and the check says what to add:
 
 ```text
 cards/relics.json › example-relic › flaw: missing, a Relic needs exactly 1 Flaw › add "flaw": "<flaw id>"
 ```
 
-A Flaw id that is not known gets the message from section 3. The test checks both sides: a Relic with `"flaw": "slow"`
-passes, and a Relic with `"flaw": "frail"` is refused.
+The message says "Relic" because the tool keeps the engine's name. A Flaw id that is not known gets the message from
+section 3. The test checks both sides: a Courtier with `"flaw": "slow"` passes, and a Courtier with `"flaw": "frail"` is
+refused.
 
 ### Worked example: a wrong element
 
@@ -434,8 +458,9 @@ pnpm content:check
 
 ## 5. Add or remove a card
 
-Adding a card takes two or three edits. Put the card in its file. Add one line to `art-briefs.json`. For a Collector
-card, also put its id in his deck list. For a Collector spell that the AI casts, add one entry to his AI (below).
+Adding a card takes two or three edits. Put the card in its file. Add one line to `art-briefs.json`. For a Monarch's
+card (a Courtier, a Monarch spell or a Monarch trap), also put its id in his deck list. For a Monarch spell that the AI
+casts, add one entry to his AI (below).
 
 ### Template: an art brief
 
@@ -477,44 +502,45 @@ Put this in `packages/content/cards/player-traps.json`. The trigger says when it
 }
 ```
 
-### Template: a Collector spell
+### Template: a Monarch's spell
 
-Put this in `packages/content/cards/collector-spells.json`. Its id must also go in the Collector's deck list.
+Put this in `packages/content/cards/collector-spells.json`, the file of the Monarch's spells. Its id must also go in the
+Monarch's deck list.
 
 ```json
 {
   "id": "example-collector-purge",
   "type": "spell",
-  "name": "Example Collector Purge",
+  "name": "Example Monarch Purge",
   "text": "Destroy one enemy monster.",
   "target": { "side": "enemy", "zone": "board" },
   "effects": [{ "op": "destroy", "target": "chosen" }]
 }
 ```
 
-### Template: the Collector's deck list
+### Template: the Monarch's deck list
 
 The deck list is in `packages/content/collector.json`, under `deck`. Each entry is one card id. The list must have as
-many entries as `COLLECTOR_DECK_SIZE` in `globals.ts`. A card must come from a Collector file (Relics, Collector
-spells or Collector traps). A player card is refused. Put an id in the list like this:
+many entries as `COLLECTOR_DECK_SIZE` in `globals.ts`. A card must come from one of his files (the Courtiers, the
+Monarch's spells or the Monarch's traps). A player card is refused. Put an id in the list like this:
 
 ```text
 "example-collector-purge",
 ```
 
-### The Collector's AI
+### The Monarch's AI
 
 `collector.json` also holds his AI: the order of his plays and attacks, the mood overrides and the parameters. Section 1
 says who may edit what. In short:
 
 - The **card lists** are yours to edit with the card: the entries under `ai › params › castHighValueSpell`, and the ids
-  under `ai › trapPreference`. Adding or removing a Collector card that the AI plays is a data edit (D-204).
+  under `ai › trapPreference`. Adding or removing a Monarch card that the AI plays is a data edit (D-204).
 - Everything else in the AI is owner-only, with a decision entry first (D-166). That includes the lane settings of
   section 13.
 
 #### castHighValueSpell
 
-This block has one entry for each Collector spell the AI casts. The key is the spell's id. Each entry has exactly one
+This block has one entry for each Monarch spell the AI casts. The key is the spell's id. Each entry has exactly one
 of two forms:
 
 ```text
@@ -522,24 +548,39 @@ of two forms:
 "gilt-frame": { "when": "contestedAttack" },
 ```
 
-- `{ "pick": "highestPower" }` casts the spell on the target with the highest Power the AI can see. Forfeit is one.
+- `{ "pick": "highestPower" }` casts the spell on the target with the highest Power the AI can see. `forfeit` (Execution) is one.
 - `{ "when": "contestedAttack" }` casts the spell when the Power it gives its target would win a contested attack.
-  Gilt Frame is one. The check refuses it on a spell with no Power effect on `chosen`.
+  `gilt-frame` (Gilded Mantle) is one. The check refuses it on a spell with no Power effect on `chosen`.
 
-The entries can be added and removed freely. A new Collector spell that the AI casts takes three edits: the card in
+The entries can be added and removed freely. A new Monarch spell that the AI casts takes three edits: the card in
 its file, its line in the deck list, and its entry here. A draw-only spell (every effect draws a card for its caster)
 needs no entry. Without an entry, the check warns (see the example below). There is no code change.
 
 #### trapPreference
 
-A Collector trap in his deck is set only when its id is in `ai › trapPreference`. A deck trap that is missing from
-that list gets a warning, and the example below shows it.
+A Monarch trap in his deck is set only when its id is in `ai › trapPreference`. A deck trap that is missing from
+that list gets a warning, and the example below shows it. `display-case` is Bend the Knee.
 
-### The Collector's ace
+### The Monarch's ace
 
-`collector.json › ace` is the id of his ace Relic. The ace must be a Relic in `cards/relics.json`, and it must be in his
-deck list. Covetous is the ace's Flaw: only the ace may carry it, and the check says so when a Covetous Relic is not
-the ace.
+`collector.json › ace` is the id of his ace, which players see as **The Hollow Heir** (`the-unpriced`). The ace must be a
+Courtier in `cards/relics.json`, and it must be in his deck list. Covetous is the ace's Flaw: only the ace may carry it,
+and the check says so when a Covetous Courtier is not the ace.
+
+### The Monarch's lines
+
+`collector.json › dialogue` holds the lines the Monarch speaks. It has four lists of text:
+
+- `composed`, `agitated` and `desperate` are the mood lines. He speaks from the list of the mood he is in.
+- `levy` is optional (D-352). He speaks from it when a Levy takes one of your monsters. A failed Levy, and a change of
+  mood, keep using the mood lists. If `levy` is missing, the mood lists are used for a Levy too.
+
+Each line is one string in quotes, inside the list. Add the `levy` list inside `dialogue`, with a comma after the list
+before it:
+
+```text
+"levy": ["Rise, soldier. You serve a greater house."],
+```
 
 ### Worked example: add a monster with its brief
 
@@ -550,15 +591,15 @@ is clean: no errors and no warnings. Without the brief, the same card gets one w
 warning: art-briefs.json › example-beast › missing art brief › add a one-line "mood · pose · palette"
 ```
 
-### Worked example: add a spell, a trap and a Relic
+### Worked example: add a spell, a trap and a Courtier
 
-Add the spell, trap and Relic templates above, each with its brief. The check is clean. A Relic that is not in the
-Collector's deck list is still valid. Only the ace must be in his deck.
+Add the spell, trap and Courtier templates above, each with its brief. The check is clean. A Courtier that is not in the
+Monarch's deck list is still valid. Only the ace must be in his deck.
 
-### Worked example: a Collector spell swapped into his deck
+### Worked example: a Monarch's spell swapped into his deck
 
-Add the Collector spell template to `cards/collector-spells.json`, with its brief. Then put its id into the deck list
-in place of `gilded-penitent`, a Relic the AI never names. Give the spell one entry in `castHighValueSpell`:
+Add the Monarch's spell template to `cards/collector-spells.json`, with its brief. Then put its id into the deck list
+in place of `gilded-penitent`, a Courtier the AI never names. Give the spell one entry in `castHighValueSpell`:
 
 ```text
 "example-collector-purge": { "pick": "highestPower" },
@@ -576,7 +617,7 @@ warning: collector.json › deck[0] › Collector spell "example-collector-purge
 ### Worked example: a bad entry in castHighValueSpell
 
 An entry has exactly one of `"pick"` or `"when"`. With neither, or with both, the check refuses it. The first line
-below is for the example spell, which has both keys. The second is for Forfeit's entry, and it has neither:
+below is for the example spell, which has both keys. The second is for Execution's entry (`forfeit`), and it has neither:
 
 ```text
 collector.json › ai › params.castHighValueSpell.example-collector-purge: needs exactly one of "pick" or "when" › keep exactly one of "pick" or "when"
@@ -591,7 +632,7 @@ collector.json › ai › params.castHighValueSpell.example-collector-purge: "co
 
 ### Worked example: a trap missing from his trap list
 
-Take `display-case` out of `ai › trapPreference` and it is still in his deck. The check warns:
+Take `display-case` (Bend the Knee) out of `ai › trapPreference` and it is still in his deck. The check warns:
 
 ```text
 warning: collector.json › deck[17] › Collector trap "display-case" is not in ai.trapPreference › add it, or AI rule 4 never sets it
@@ -599,22 +640,41 @@ warning: collector.json › deck[17] › Collector trap "display-case" is not in
 
 ### Worked example: the ace must be in the deck list
 
-The ace is `the-unpriced`. Take it out of his deck list, and put another Relic in its place so the deck size stays the
-same. The test adds a copy of the example Relic to `relics.json` for this. The check says the ace is not in the deck:
+The ace is `the-unpriced`, The Hollow Heir. Take it out of his deck list, and put another Courtier in its place so the
+deck size stays the same. The test adds a copy of the example Courtier to `relics.json` for this. The check says the
+ace is not in the deck:
 
 ```text
 collector.json › ace › "the-unpriced" is not in the deck › add it to the deck list in collector.json
 ```
 
-### Worked example: the ace must be a Relic
+### Worked example: the ace must be a Courtier
 
-Set the ace to an id that is not a Relic, and the check refuses it. The message is the same for an unknown id, a
-player card, a Collector spell or a trap. Changing the ace also moves Covetous, so the Relic that carried it is named
+Set the ace to an id that is not a Courtier, and the check refuses it. The message is the same for an unknown id, a
+player card, a Monarch spell or a trap. Changing the ace also moves Covetous, so the Courtier that carried it is named
 too:
 
 ```text
 collector.json › ace › "no-such-relic" is not a Relic › use a Relic id from cards/relics.json
 cards/relics.json › the-unpriced › Covetous is ace-only › change flaw or set collector.json ace
+```
+
+### Worked example: a line list with a misspelled name
+
+The lines in `dialogue` are read by name. A list called `levys` is not read, and the check refuses it. The fix is to
+rename it to `levy`:
+
+```text
+collector.json › dialogue › unknown key(s) levys › remove levys
+```
+
+### Worked example: no levy list falls back to the mood lines
+
+Remove the `levy` list and the check is clean, with no warning. The mood lists speak for the Levy instead. The test
+removes `levy` from its copy and reads the check again. The line below is the one you would delete:
+
+```text
+"levy": ["Rise, soldier. You serve a greater house."],
 ```
 
 ### Worked example: one card too many in the deck
@@ -630,7 +690,7 @@ The numbers depend on the deck, so the guide shows an example. Remove one id, or
 
 ### Worked example: delete a card the deck still lists
 
-Delete a Collector spell from its file and leave its id in the deck. The check reports the broken reference, and it
+Delete a Monarch's spell from its file and leave its id in the deck. The check reports the broken reference, and it
 reports the brief that no longer has a card. The index `[0]` depends on your deck:
 
 ```text
@@ -644,8 +704,8 @@ trap list that names it. Then remove any card number only that card used (next e
 ### Worked example: delete a card and leave its number behind
 
 A card number is a line in the `CONTENT_NUMBERS` block of `globals.ts`. When the card that used it is deleted, the line
-stays, and nothing uses it. The check warns about each one. The test deletes the `siphon` spell and its brief, and
-leaves its two numbers:
+stays, and nothing uses it. The check warns about each one. The test deletes the `siphon` spell (Siphon, whose text says
+"The Monarch loses") and its brief, and leaves its two numbers:
 
 ```text
 warning: globals.ts › CONTENT_NUMBERS › SIPHON_DRAIN: not used by any card, objective, AI param or keyword › delete the line, or use $SIPHON_DRAIN in an effect
@@ -670,7 +730,9 @@ A deck of five spells, with at most two copies of each, needs three different sp
 ### Ids are permanent. A rename changes the name only
 
 An id is made once and never changes. It is the key for the deck list, the AI, the art briefs and the saved
-collection. To rename a card, change its `name` (and `text`, if it mentions the name). The id stays as it is.
+collection. To rename a card, change its `name` (and `text`, if it mentions the name). The id stays as it is. In D-350
+the royal-court names were given this way: the ids and file names of the Monarch, the Courtiers and The Hollow Heir did
+not change.
 
 ### Worked example: a rename
 
@@ -679,8 +741,8 @@ Change `"name": "Cinderjaw Hound"` to `"name": "Example Hound"` and leave the id
 ### Worked example: change an id on purpose
 
 If an id must change, change it in the card's file and then fix every line the check reports. The test renames the
-Collector spell that the AI names. The check reports two errors. The deck still lists the old id, and the AI still
-names it. Two warnings follow, because the new id has no brief yet and the old brief has no card:
+Monarch's spell (Execution, `forfeit`) that the AI names. The check reports two errors. The deck still lists the old id,
+and the AI still names it. Two warnings follow, because the new id has no brief yet and the old brief has no card:
 
 ```text
 collector.json › deck[16] › "forfeit" no longer exists › remove the reference
@@ -873,7 +935,7 @@ globals.ts › PLAYER_LIFE › must be 0 or more › use 0 or more
 
 ### Worked example: a new card number needs one line
 
-A card number is a global that only a card uses. For example, a spell that makes the Collector lose 2 life needs a number
+A card number is a global that only a card uses. For example, a spell that makes the Monarch lose 2 life needs a number
 named `QUILL_TOLL`. Put the spell in `cards/player-spells.json`. The card uses `$QUILL_TOLL` in its effect and
 `{QUILL_TOLL}` in its text:
 
@@ -882,7 +944,7 @@ named `QUILL_TOLL`. Put the spell in `cards/player-spells.json`. The card uses `
   "id": "example-quill",
   "type": "spell",
   "name": "Example Quill",
-  "text": "The Collector loses {QUILL_TOLL} life.",
+  "text": "The Monarch loses {QUILL_TOLL} life.",
   "effects": [{ "op": "damage", "who": "opponent", "n": "$QUILL_TOLL" }]
 }
 ```
@@ -919,11 +981,12 @@ withdrawn, because Slow now restricts a monster on its summon turn (D-280).
 
 ### Rule switches and rule numbers
 
-These settings change how the game plays. They are the 2026-10-16 rules, which ship on in v0.2.0 (D-280 to D-287 and
-D-305 to D-310). Each row is one edit in `globals.ts`. Changing one is an owner decision: write the reason in
-`docs/DECISIONS.md` first, and keep the simulator evidence (`docs/BALANCE_LOG.md`).
+These settings change how the game plays. The first rows are the 2026-10-16 rules, which ship on in v0.2.0 (D-280 to
+D-287 and D-305 to D-310). The crown rows (`FLAGS.CROWNED`, `CROWN_POWER`) are from 2026-10-18 (D-349). Each row is one
+edit in `globals.ts`. Changing one is an owner decision: write the reason in `docs/DECISIONS.md` first, and keep the
+simulator evidence (`docs/BALANCE_LOG.md`).
 
-| Setting | Shipped in v0.2.0 | What it does | Values you may write |
+| Setting | Shipped value | What it does | Values you may write |
 | --- | --- | --- | --- |
 | `SICKNESS_MODE` | `'monstersOnly'` | On its summon turn, a monster may attack monsters but not life. `'classic'` is the old rule: no attack at all on that turn. | `'classic'` or `'monstersOnly'` |
 | `FLAGS.LANES` | `true` | Each monster attacks only the monster across from it. When that side has no monster, the attack goes straight at life. `false` is free targeting. | `true` or `false` |
@@ -937,14 +1000,28 @@ D-305 to D-310). Each row is one edit in `globals.ts`. Changing one is an owner 
 | `FLAGS.RIPOSTE` | `true` | An attacker whose Power is below a guard (or face-down) defender's Guard is destroyed; its owner still takes the difference (D-337). `false` is the old rule: the attacker survives. | `true` or `false` |
 | `FLAGS.AMBUSH` | `true` | Flipping your own face-down monster to attack gives it `AMBUSH_POWER` until the end of the turn (D-338). | `true` or `false` |
 | `AMBUSH_POWER` | `2` | The Power an Ambush flip adds until the end of that turn. Read only with `AMBUSH`. | a whole number, 0 or more |
+| `FLAGS.CROWNED` | `true` | A monster the Monarch levied is crowned: it gets `CROWN_POWER` Power while it is on his board (D-349). `false` makes a levied monster a plain monster on his board. | `true` or `false` |
+| `CROWN_POWER` | `1` | The Power a crowned monster gets on the Monarch's board. Read only with `CROWNED`. | a whole number, 0 or more |
 | `BOND_GRAFT_MAX_HAND_MATERIALS` | `3` | The most hand cards one Graft may use. `3` is no limit, the same as `MAX_GRAFT_MATERIALS`. Read only with `BOND_ACTION`. | a whole number, 0 or more |
 | `SYMBIOSIS_GUARD_BONUS` | `2` | The Guard a host gains from its symbiote. Read only with `SYMBIOSIS`. | a whole number, 0 or more |
 | `SPLIT_PART_PERM_P` | `0` | The permanent Power change each part gets when a Chimera splits. A negative number makes the parts weaker. Read only with `SPLIT`. | a whole number, any sign |
-| `APPRAISAL_MIN_POWER` | `5` | Appraisal takes only a face-up monster with at least this Power. It was 7 before v0.2.0, because Split parts and Symbiosis hosts are base monsters with Power 2 to 7. | a whole number, 0 or more |
+| `APPRAISAL_MIN_POWER` | `5` | The Levy (the engine's Appraisal) takes only a face-up monster with at least this Power. It was 7 before v0.2.0, because Split parts and Symbiosis hosts are base monsters with Power 2 to 7. | a whole number, 0 or more |
 
 The sim tested `APPRAISAL_MIN_POWER` at 5, 6 and 7, and `BOND_GRAFT_MAX_HAND_MATERIALS` at 2 and 3 (`docs/BALANCE_LOG.md`).
 The other rule numbers are shipped at their starting values and have not been swept. Change one by one step, then run
 `pnpm sim:quick`.
+
+### The crown (D-349)
+
+The crown is the Monarch's answer to the Levy. A monster he levies is crowned while it sits on his board, and it gets
+`CROWN_POWER` (1) more Power there. The screen marks it with a crown badge. The crown is on by default (`FLAGS.CROWNED`).
+The Levy itself does not change: it still tries to take one of your monsters, and only the Monarch's board gets the crown. In
+your vault a levied monster is a card, so it has no crown.
+
+The owner chose the crown over an automatic graft after a Levy (D-349). The sim, quick run with 800 games per bot, read:
+the expert bot won 47.5% with the crown off and 44.1% with it on, and the greedy bot 29.5% and 24.1%. The novice won 0%
+both times. The expert target is 45 to 55%, so 44.1% sits just under the band. D-349 leaves that band for the owner to
+move.
 
 ### Turn a rule off or on
 
@@ -962,7 +1039,7 @@ clean, and the game reads the old rule. The test writes the same change to its c
 ```
 
 Worked example: turn lanes off. The check is clean with `FLAGS.LANES` set to `false`. Its settings then do nothing in
-play: `FLAGS.LANE_SWAP`, `SENTINEL_REACH`, `LANE_MOVE_RANGE` and the Collector's `summonLane` list are read only with
+play: `FLAGS.LANE_SWAP`, `SENTINEL_REACH`, `LANE_MOVE_RANGE` and the Monarch's `summonLane` list are read only with
 lanes on. The element ring still applies.
 
 ```text
@@ -979,6 +1056,38 @@ are on, become plays too (D-305, D-306).
 
 A rule change also changes the duel's saved rules. A duel saved under the old rules restarts with a notice (D-323).
 Every rule switch is listed in the table above.
+
+### Worked example: switch the crown off in one edit
+
+To remove the crown, change one line in the `FLAGS` block of `globals.ts`: `CROWNED` from `true` to `false`. The check
+is clean, and a levied monster is a plain monster on his board. `CROWN_POWER` then does nothing. The test writes the
+same change to its copy and reads the flag back:
+
+```text
+  CROWNED: false,
+```
+
+### Worked example: a stronger crown
+
+`CROWN_POWER` is a whole number, 0 or more. Set it to 2 and each crowned monster has +2 Power on his board. The check
+is clean. A negative crown is refused, because the crown only adds Power:
+
+```text
+  CROWN_POWER: 2,
+```
+
+```text
+globals.ts › CROWN_POWER › must be 0 or more › use 0 or more
+```
+
+### Worked example: try the crown off for one simulator run
+
+`--set` switches the crown off for one run, and the file is not changed. Compare the two reports. The header of the
+second one lists `FLAGS.CROWNED=false`:
+
+```bash
+pnpm sim:quick --games 2 --seed-dates 1 --bots expert --workers 1 --set FLAGS.CROWNED=false --out /tmp/vd-guide-crown
+```
 
 ### Settings locked to one value
 
@@ -997,7 +1106,7 @@ only the value shown.
 | `SYMBIOTES_PER_HOST` | 1 | `globals.ts › SYMBIOTES_PER_HOST › must be 1 until the engine supports other values › keep 1` |
 | `FLAGS.ACE_SET_ASIDE` | false | `globals.ts › FLAGS › ACE_SET_ASIDE: must be false until the engine supports other values › keep false` |
 
-`RELIC_FLAWS` stays a global so the number is written down, but a Relic has exactly one Flaw because its `flaw` field
+`RELIC_FLAWS` stays a global so the number is written down, but a Courtier has exactly one Flaw because its `flaw` field
 is a single id. Changing it to 2 is refused, and only a decision entry can lift the pin (D-202). `BONDS_PER_TURN` is
 one bond action a turn, and `SYMBIOTES_PER_HOST` is one symbiote on each host (D-306, D-308).
 
@@ -1035,8 +1144,9 @@ that. You do not need to do anything. A planned setting you set today keeps its 
 
 ### Sanity rules
 
-The check also refuses values that break a rule, such as a negative number, an Appraisal round after the last round,
-star cuts that are not in descending order, or a rate outside 0 to 1. Every number is 0 or more, with one exception:
+The check also refuses values that break a rule, such as a negative number, a Levy round after the last round (`APPRAISAL_ROUNDS`
+is the list of the rounds where the Levy takes a monster), star cuts that are not in descending order, or a rate outside
+0 to 1. Every number is 0 or more, with one exception:
 `SPLIT_PART_PERM_P` may be negative, because it is the one lever for weaker parts. The messages look the same as the ones above.
 
 `SPLIT_PART_PERM_P` set to -1 is accepted. `SENTINEL_REACH` set to -1 is refused:
@@ -1153,7 +1263,7 @@ elements.json › lumen › beats unknown element "umbra" › use an id from ele
 cards/player-monsters.json › <card id> › unknown element "umbra" › use one of: …, or add it to elements.json
 ```
 
-The `<card id>` line repeats for each card and each Relic that uses the element. Names depend on your cards, so the
+The `<card id>` line repeats for each card and each Courtier that uses the element. Names depend on your cards, so the
 guide shows the shape.
 
 Fix every line: change the `beats`, and move or delete each card. The check is clean when nothing names the element.
@@ -1182,10 +1292,11 @@ pnpm content:check
 
 ---
 
-## 13. The Collector's lanes and reposition
+## 13. The Monarch's lanes and reposition
 
 Section 5 covers his deck and ace. The settings here decide how he places and moves his monsters once lanes are on.
-They are AI rules, so they are owner-only, with a decision entry first (D-166).
+They are AI rules, so they are owner-only, with a decision entry first (D-166). The file is `collector.json`, the
+Monarch's file.
 
 ### Where: collector.json
 
@@ -1309,11 +1420,12 @@ you can read and a `.json` file with every global the run used. The `.md` file h
   | BT-1 | Win rate | expert |
   ```
 
-  The metrics are: BT-1 the expert's win rate against the Collector; BT-3 the median round a game ends; BT-3b the
+  The metrics are: BT-1 the expert's win rate against the Monarch; BT-3 the median round a game ends; BT-3b the
   share of games ending in rounds 8 to 12 (it needs to be more than half); BT-4 the share ending in round 12; BT-5 the
-  grafts per win; BT-6 the Appraisal success rate; BT-7 how often the Unpriced (the Collector's ace) appears; BT-2 the
-  novice's win rate; BT-8 the seed rejection rate (sim full and sim seed only); DUEL-MIN and LEARN-SEC (minutes to
-  play and seconds to learn), which need people to play, so they are never measured by the simulator.
+  grafts per win; BT-6 the Levy (the engine's Appraisal) success rate; BT-7 how often The Hollow Heir (the Monarch's
+  ace, `the-unpriced`) appears; BT-2 the novice's win rate; BT-8 the seed rejection rate (sim full and sim seed only); DUEL-MIN and LEARN-SEC (minutes to
+  play and seconds to learn), which need people to play, so they are never measured by the simulator. The report
+  keeps the engine's names for these rows, such as "Appraisal success rate".
 - **Anomalies.** A line under `ANOMALY` is a warning about the run itself. The speed line (PERF) is one: it reports
   duels per second per core against `PERF_DUELS_PER_SEC_PER_CORE`, and a tiny run is always slow.
 - **The rest.** Win rate by bot, the round each game ended, a per-bot detail table, damage and the sealed Vault,

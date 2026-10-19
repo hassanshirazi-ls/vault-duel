@@ -2,6 +2,21 @@
 
 Every applied balance change, with the evidence. Experiment JSONs live in `docs/reports/balance/` (T01-T25: 123L without bond rules; B01-B15: this cycle). Marks follow the TARGET_* globals: expert win 45-55%, median rounds 9-11, rounds 8-12 over half, round 12 15-30%, grafts/win 1.5-3, Appraisal 30-60%, Unpriced 20-40%, novice 20-30%, seed rejection at most 15%. Quick noise: about plus or minus 2.2 points on a 2000-game win rate.
 
+## 2026-10-18 · Crowned levy (D-349)
+
+Change: `FLAGS.CROWNED` on, `CROWN_POWER` 1 (a monster taken by Appraisal has +1 Power on the Collector's board). The owner asked for a slightly tougher Collector and picked this over a life change. Quick runs: `sim quick --games 800 --bots expert,greedy,novice`, 60 dates from 2026-10-18, one `--set` per cell.
+
+| Cell | Expert | Greedy | Novice | Appraisal success | Unpriced |
+|---|---|---|---|---|---|
+| before (life 40, no crown) | 47.5 | 29.5 | 0.0 | 56.6 | 46.4 |
+| **crown +1 (shipped)** | **44.1** | **24.1** | 0.0 | 56.6 | 47.5 |
+| life 44 | 42.6 | 24.4 | 0.0 | 57.4 | 50.1 |
+| life 48 | 37.6 | 19.5 | 0.0 | 58.0 | 52.6 |
+| `APPRAISAL_MIN_POWER` 4 | 46.6 | 29.0 | 0.0 | 60.6 | 48.4 |
+| `APPRAISAL_ROUNDS` [3,5,7,9] | 34.9 | 18.5 | 0.0 | 53.2 | 54.1 |
+
+Unchanged: `COLLECTOR_LIFE` 40, `APPRAISAL_MIN_POWER` 5, `APPRAISAL_ROUNDS` [3,6,9]. Expert 44.1% is 0.9 points under BT-1 (45-55%) by the owner's request; the band is the owner's to move.
+
 ## 2026-10-17 · Collector life for the turn slots (D-335)
 
 Change: `FLAGS.TURN_SLOTS` on (one monster, one spell or trap, one bond, any order; attacks close nothing). The expert bot now plans again after each play, so it uses both slots. Quick runs: `sim quick --games 1000 --bots expert,greedy,novice` (10 dates from 2026-10-17), live package otherwise.

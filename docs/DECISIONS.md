@@ -2936,6 +2936,59 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 **D-348 · Riposte and Ambush cues** (ui-dev, 2026-10-17)
 - Target badges read "Riposte" (shield) where `previewCombat` says the attacker would be destroyed, and "?" (eye) on face-down targets; the attack hint says a guard that holds destroys the attacker. A Riposte shows as a shield flash on the guard (a `CombatResolved` that destroys only the attacker of a guard/face-down defender); an Ambush as a +p spring from the `Ambushed` event. A face-down monster that can Ambush has a "+2" spark reposition button (labelled Ambush for screen readers), read from `AMBUSH_POWER`.
 
+**D-349 · Crowned levy** (owner choice, 2026-10-18)
+- Question: The owner wants the Collector "a tiny bit tougher". Should he graft automatically after an Appraisal?
+- Decision: No auto-graft. A graft turns two bodies into one Chimera whose stats come from the family table, so it rarely beats what he already has and leaves him a blocker short, and it would consume the Appraised monster that Covetous needs for his ace (summoned in 46% of expert games). Instead, owner's pick: **a monster he took by Appraisal is crowned and has +`CROWN_POWER` (1) Power while it is on his board**. `FLAGS.CROWNED` (default on) and `CROWN_POWER` live in globals; `stats.statOf` adds it for a board monster with `appraised` set on the Collector's side only (QA 2026-10-18: defence in depth, no current path leaves one on the player's side), so the bots, previews and combat all see it through `effectivePower`. In the vault it is a card, not a monster, so it has no crown. Appraisal targeting is unchanged (it reads the player's board, where nothing is crowned).
+- Sim (quick, 800 games per bot, 60 dates from 2026-10-18): expert 47.5% → 44.1%, greedy 29.5% → 24.1%, novice 0% → 0%; Appraisal success 56.6% (unchanged), Unpriced (share of games in which he summons his ace) 46.4% → 47.5%. `COLLECTOR_LIFE` stays 40. Rejected alternatives from the same run: life 44 (42.6 / 24.4), life 48 (37.6 / 19.5), `APPRAISAL_MIN_POWER` 4 (46.6 / 29.0), Appraisal rounds 3·5·7·9 (34.9 / 18.5).
+- BT-1 (expert 45–55%) now reads 44.1%, just under the band, by the owner's request for a tougher opponent. The target band is left for the owner to move.
+
+**D-350 · Royal court theme: player-facing names** (owner choice, 2026-10-18; replaces the auction-house vocabulary of D-237/D-238)
+- Decision: every word the player reads changes; ids, file names, event names, globals (`APPRAISAL_ROUNDS`, `COLLECTOR_LIFE`), `collector.json` and code identifiers keep their names, so seeds, hashes and tools are unaffected apart from the content hash. Docs for engineers (ARCHITECTURE, this file) keep the engine terms; DESIGN, CONTENT_GUIDE, How to play and all UI text use the new ones.
+
+| Engine term / old text | Player-facing now |
+| --- | --- |
+| The Collector | The Monarch |
+| Appraisal · Appraise · Appraised | Levy · levy · levied (round track marks are crowns, D-351) |
+| Relic | Courtier ("every courtier has one Flaw") |
+| The Unpriced | The Hollow Heir |
+| Mourning Cartographer · Abyssal Curator | Mourning Herald · Abyssal Chamberlain |
+| Provenance Ledger · Gilt Frame · Forfeit (Restoration kept) | Royal Ledger · Gilded Mantle · Execution |
+| Display Case · Counterfeit · Insurance Claim | Bend the Knee · Forbidden Union · Blood Tithe |
+| "Lot of <date>" · Today's lot | "Decree of <date>" · Today's decree |
+| Signature card | Today's champion |
+| Binder · Signatures tab | Bestiary · Champions tab |
+| Bill of sale · Lot acquired / Lot sealed away | Royal edict · The crown yields / You kneel |
+| Stamp ACQUIRED / SEALED IN THE VAULT | Wax seal DEFIED / BOUND |
+| Loading the catalogue... | Summoning the court... |
+
+- The vault stays: it is the Monarch's royal vault, so the title "Vault Duel", "Enter the vault" and the round-12 seal keep their words. Mood names (Composed, Agitated, Desperate) and the Flaw name Covetous stay. Card art briefs for the renamed cards were rewritten in the ink palette.
+
+**D-351 · Web look: Ink Spiral** (owner choice, 2026-10-18; replaces D-237's direction, type and placeholder treatment and D-238's jewel colors and gilt finishes; D-237/D-238 layouts and interactions stay)
+- Decision: option A from the 2026-10-18 review page, on **every** screen (duel, Home, result, Bestiary, Stats, How to play, menus). Paper white ground and hard black ink; hatched card art panels; heavy black offset shadows on cards and the speech line; board cards drift slowly (about 5–6 s loop, off under reduced motion and when `ANIMATIONS` is off); a faint slowly turning spiral behind the Monarch's header. Type: a blackletter-grotesque display face (Grenze Gotisch class) for names and headers, a book serif (Spectral class) for flavour and the Monarch's lines, a condensed sans (IBM Plex Sans Condensed class) for rules text, numbers and buttons. The Monarch's portrait is a crowned ink face with spiral eyes. Round track marks on levy rounds are filled crowns. A crowned monster shows a small crown badge on its mini card and "Crowned +1 Power" in card inspect.
+- **Element badges: ink patterns, no color** (owner: "for now"). Ember solid, Tide horizontal lines, Gale diagonal lines, Lumen ring, Umbra concentric rings, always with the element icon. Still tokens keyed by element id, so jewel colors can return as a token swap.
+- Result screen: the royal edict with a wax seal (DEFIED / BOUND). Home: the decree with the tagline (D-353) under the title.
+
+**D-352 · Levy lines** (2026-10-18)
+- Decision: `collector.json › dialogue` gains an optional `levy` list, spoken when an Appraisal takes a monster; a failed Appraisal and mood shifts keep using the mood lists, and a missing `levy` list falls back to them. All mood lines were rewritten in the Monarch's voice.
+
+**D-353 · Tagline** (owner choice, 2026-10-18)
+- Decision: "Defy the Monarch, a few minutes a day." under the title on Home and as the web app's description (manifest and meta description).
+
+**D-354 · Ink element badges** (ui-dev, 2026-10-18; extends D-351)
+- An element badge is a ring of the element's ink pattern around a paper disc holding the ink icon: Ember solid, Tide horizontal lines, Gale diagonals, Lumen a ring, Umbra concentric rings. Patterns are tokens `--el-pat-<id>` with a neutral fallback; `--el-<id>` stays as a neutral tone so jewel colors can come back as a token swap. The element wheel draws the same badge through a `foreignObject`.
+
+**D-355 · Ink motion** (ui-dev, 2026-10-18; extends D-351)
+- Board cards drift through a `.drift` wrapper using the independent `translate` and `rotate` properties (5.5 s loop), so a card's own cue animations still play. Because of the wrapper, no stylesheet may target a niche child with `>` (QA 2026-10-18 found the lit-lane frame lost to `.niche:has(> .empty-slot…)`; fixed and pinned in ink.test.tsx). Off with `data-anim='off'` (FLAGS.ANIMATIONS) and under reduced motion, never under a button. The Monarch's spiral is one SVG turned by a CSS rotation (120 s, compositor only), not a canvas.
+
+**D-356 · Edict and share** (ui-dev, 2026-10-18; extends D-350)
+- The wax seal reads DEFIED (sword icon) or BOUND (lock icon); the share line reads "Defied" or "Bound"; a levied round's share emoji is a crown (👑) instead of the hammer. Levy rounds on the track use the `crown` glyph (was `gavel`).
+
+**D-357 · App icon** (ui-dev, 2026-10-18)
+- `public/icon.svg` is redrawn as an ink seal with a crown and spiral (the oxblood gavel contradicted the theme); PNG icons regenerated with `scripts/make-icons.mjs`; manifest theme and background color are paper #f3f0e8.
+
+**D-358 · Small ink-round wording and layout** (ui-dev, 2026-10-18)
+- How to play pager "Lot n of N" → "Page n of N"; the levy intent reads "He will levy"; Stats eyebrow "Bound in black ink", empty line "No decrees in the ledger yet."; the side panel is the "Court ledger", empty line "The court has not convened."; past rounds on the track are struck through instead of faded (contrast); Practice mode greys the paper instead of dimming gold. Measured contrast: ink on card about 18:1, secondary text about 6.9:1, flaw/good/unstable inks above 6:1 on paper.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |

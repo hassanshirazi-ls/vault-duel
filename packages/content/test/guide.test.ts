@@ -187,7 +187,7 @@ const BEAST_JSON = `{
 const RELIC_JSON = `{
   "id": "example-relic",
   "type": "monster",
-  "name": "Example Relic",
+  "name": "Example Courtier",
   "element": "lumen",
   "kind": "knight",
   "power": 6,
@@ -225,7 +225,7 @@ const DRAW_JSON = `{
 const COLLECTOR_SPELL_JSON = `{
   "id": "example-collector-purge",
   "type": "spell",
-  "name": "Example Collector Purge",
+  "name": "Example Monarch Purge",
   "text": "Destroy one enemy monster.",
   "target": { "side": "enemy", "zone": "board" },
   "effects": [{ "op": "destroy", "target": "chosen" }]
@@ -235,7 +235,7 @@ const QUILL_JSON = `{
   "id": "example-quill",
   "type": "spell",
   "name": "Example Quill",
-  "text": "The Collector loses {QUILL_TOLL} life.",
+  "text": "The Monarch loses {QUILL_TOLL} life.",
   "effects": [{ "op": "damage", "who": "opponent", "n": "$QUILL_TOLL" }]
 }`;
 
@@ -244,6 +244,12 @@ const DRAW_NUMBER_LINE = '    DRAW_CARDS: 2,';
 const QUILL_LINE = '    QUILL_TOLL: 2,';
 const DECK_LINE = '"example-collector-purge",';
 const CAST_LINE = '"example-collector-purge": { "pick": "highestPower" },';
+/** D-352: the optional levy list in collector.json › dialogue. */
+const LEVY_LINE = '"levy": ["Rise, soldier. You serve a greater house."],';
+/** D-349: the one-edit switch for the crown, and the crown's Power, as they read in globals.ts. */
+const CROWNED_LINE = '  CROWNED: false,';
+const CROWN_POWER_LINE = '  CROWN_POWER: 2,';
+const CROWN_SIM_COMMAND = 'pnpm sim:quick --games 2 --seed-dates 1 --bots expert --workers 1 --set FLAGS.CROWNED=false --out /tmp/vd-guide-crown';
 
 const ELEMENT_EMBER_JSON = '{ "id": "ember", "name": "Ember", "color": "#C8452C", "icon": "flame", "beats": ["gale"], "identity": "Aggressive, high Power" }';
 const ELEMENT_VOID_JSON = '{ "id": "void", "name": "Void", "color": "#2A2A2A", "icon": "moon", "beats": ["ember"], "identity": "Example only" }';
@@ -253,6 +259,7 @@ const SENTINEL_TEMPLATE = 'Enemy attacks in its lane and in the lanes within {SE
 const SNIPPETS = [
   BEAST_JSON, RELIC_JSON, SPELL_JSON, TRAP_JSON, DRAW_JSON, COLLECTOR_SPELL_JSON, QUILL_JSON, BRIEF_LINE, DRAW_NUMBER_LINE,
   QUILL_LINE, DECK_LINE, CAST_LINE, ELEMENT_EMBER_JSON, ELEMENT_VOID_JSON, SUMMON_LANE_LINE, SENTINEL_TEMPLATE,
+  LEVY_LINE, CROWNED_LINE, CROWN_POWER_LINE,
 ];
 
 // ---- Messages the guide quotes. Lists of ids are written as "…" in the guide, so those are quoted by prefix. --------
@@ -306,6 +313,8 @@ const REACH_NEGATIVE = 'globals.ts › SENTINEL_REACH › must be 0 or more › 
 const BONDS_BAD = 'globals.ts › BONDS_PER_TURN › must be 1 until the engine supports other values › keep 1';
 const SYMBIOTES_BAD = 'globals.ts › SYMBIOTES_PER_HOST › must be 1 until the engine supports other values › keep 1';
 const SENTINEL_TYPO = 'keywords/sentinel.ts › sentinel › text: unknown placeholder {SENTINEL_REACHX} › did you mean {SENTINEL_REACH}?';
+/** D-352: a line list in collector.json › dialogue under a name nothing reads. */
+const DIALOGUE_LEVYS = 'collector.json › dialogue › unknown key(s) levys › remove levys';
 
 const MESSAGES = [
   BUDGET_11, MISSING_BRIEF, ORPHAN_BRIEF, NO_EXAMPLES, BARE_NUMBER, TWO_SENTENCES, MALFORMED, UNKNOWN_PLACEHOLDER,
@@ -313,7 +322,7 @@ const MESSAGES = [
   RELIC_TWO_KEYWORDS, ACE_NOT_RELIC, COVETOUS_MOVED, ACE_NOT_IN_DECK, FORFEIT_NEEDS_ONE, PURGE_NEEDS_ONE, CONTESTED_NO_POWER,
   FORFEIT_NOT_IN_DECK, UNUSED_SIPHON_DRAIN, UNUSED_SIPHON_GAIN, PINNED_RELIC_FLAWS,
   BEATS_UNKNOWN, UMBRA_BEATS, REPOSITION_BAD, LANE_BAD, SICKNESS_BAD, LANES_WORDS, REACH_NEGATIVE, BONDS_BAD, SYMBIOTES_BAD,
-  SENTINEL_TYPO,
+  SENTINEL_TYPO, DIALOGUE_LEVYS,
 ];
 
 /** Asserts that the guide quotes `line` verbatim. Table cells escape the pipe character, so the guide text is normalised first. */
@@ -1536,5 +1545,77 @@ describe('guide · the v0.2.0 rule levers', () => {
     expect(text.includes('{SENTINEL_REACH|')).toBe(true);
     writeFileSync(path, text.replace('{SENTINEL_REACH|', '{SENTINEL_REACHX|'));
     expect((await check(root)).errors).toContain(SENTINEL_TYPO);
+  });
+});
+
+// Round 2026-10-18 (D-349 crown, D-350 royal court names, D-352 levy lines): the Monarch's lines, the crown switches
+// and the player-facing names the guide uses.
+describe('guide · the Monarch, the crown and the levy lines (D-349, D-350, D-352)', () => {
+  it('§5 dialogue: a levy list is accepted, and without one the mood lines are used', async () => {
+    const root = makeCopy();
+    const collector = readObject(root, 'collector.json');
+    const dialogue = collector['dialogue'] as Json;
+    expect(dialogue['levy'], 'the shipped collector.json has a levy list').toBeDefined();
+    expect((await check(root)).errors).toEqual([]);
+    quoted(LEVY_LINE);
+
+    writeJson(root, 'collector.json', { ...collector, dialogue: withoutKeys(dialogue, ['levy']) });
+    const fallback = await check(root);
+    expect(fallback.errors).toEqual([]);
+    expect(fallback.warnings).toEqual([]);
+  });
+
+  it('§5 dialogue: a misspelled levy key is refused', async () => {
+    const root = makeCopy();
+    const collector = readObject(root, 'collector.json');
+    const dialogue = collector['dialogue'] as Json;
+    const misspelt = { ...withoutKeys(dialogue, ['levy']), levys: dialogue['levy'] };
+    writeJson(root, 'collector.json', { ...collector, dialogue: misspelt });
+    expect((await check(root)).errors).toEqual([DIALOGUE_LEVYS]);
+    quoted(DIALOGUE_LEVYS);
+  });
+
+  it('§7 crown: CROWNED is switched off in one edit, and the check stays clean', async () => {
+    const root = makeCopy();
+    setGlobal(root, 'CROWNED', 'false');
+    const g = await globalsOf(root);
+    expect(g.FLAGS.CROWNED).toBe(false);
+    expect((await check(root)).errors).toEqual([]);
+    quoted(CROWNED_LINE);
+  });
+
+  it('§7 crown: CROWN_POWER is a number of 0 or more, and a negative one is refused', async () => {
+    const root = makeCopy();
+    setGlobal(root, 'CROWN_POWER', '2');
+    const g = await globalsOf(root);
+    expect(g.CROWN_POWER).toBe(2);
+    expect((await check(root)).errors).toEqual([]);
+    quoted(CROWN_POWER_LINE);
+    expect(messageOf(() => withOverrides(g, ['CROWN_POWER=-1']))).toBe('globals.ts › CROWN_POWER › must be 0 or more › use 0 or more');
+  });
+
+  it('§7 crown: one simulator run can switch the crown off, and the base globals are unchanged', async () => {
+    const g = await globalsOf(makeCopy());
+    const overridden = withOverrides(g, ['FLAGS.CROWNED=false']);
+    expect(overridden.FLAGS.CROWNED).toBe(false);
+    expect(g.FLAGS.CROWNED, 'the base globals keep the crown on').toBe(true);
+    quoted(CROWN_SIM_COMMAND);
+  });
+
+  it('the guide uses the player names, not the old card and screen names (D-350)', () => {
+    for (const old of [
+      'Gilt Frame',
+      'Mourning Cartographer',
+      'Abyssal Curator',
+      'Provenance Ledger',
+      'Display Case',
+      'Counterfeit',
+      'Insurance Claim',
+      'The Collector loses',
+      'Example Relic',
+      'Example Collector Purge',
+    ]) {
+      expect(GUIDE_TEXT.includes(old), `guide still names: ${old}`).toBe(false);
+    }
   });
 });

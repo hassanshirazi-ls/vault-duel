@@ -4,13 +4,15 @@ Oct 13, 2026 · @Hassan
 
 ## Overview
 
-Vault Duel is a daily dark-fantasy card duel: every day, every player gets the same seeded 24-card deck and one attempt to defeat the Collector within 12 rounds. A duel lasts 3–5 minutes. The game is original IP, built so all content (cards, keywords, elements, kinds, recipes, boss behavior) is data that can be added, changed or removed without touching engine code.
+Vault Duel is a daily dark-fantasy card duel: every day, every player gets the same seeded 24-card deck and one attempt to defeat the Monarch within 12 rounds. A duel lasts 3–5 minutes. The game is original IP, built so all content (cards, keywords, elements, kinds, recipes, boss behavior) is data that can be added, changed or removed without touching engine code.
+
+> **Names (D-350):** players see the royal-court names: the Monarch, the Levy, Courtiers, The Hollow Heir. The code, the content files and the technical sections at the end of this document keep the engine names (Collector, Appraisal, Relic, `the-unpriced`).
 
 **Pillars**
 
 - **Same game for everyone.** Both decks are shuffled from the date seed, so results are comparable and shareable.
-- **Simple rules, deep combinations.** A new player understands the rules in 60 seconds; depth comes from Grafting, elements, timing around Appraisal, and reading the Collector.
-- **Challenging but fair boss.** The Collector never cheats, is deterministic, and telegraphs his intent.
+- **Simple rules, deep combinations.** A new player understands the rules in 60 seconds; depth comes from Grafting, elements, timing around the Levy, and reading the Monarch.
+- **Challenging but fair boss.** The Monarch never cheats, is deterministic, and telegraphs his intent.
 - **Fast.** One monster, one spell or trap and one Graft per turn, at most 12 rounds, no waiting on animations.
 
 **Locked decisions**
@@ -18,16 +20,16 @@ Vault Duel is a daily dark-fantasy card duel: every day, every player gets the s
 | Area | Decision |
 | --- | --- |
 | Format | Duel: hidden draw order, identical seed for everyone |
-| Boss | The Collector, the only boss; weekly rule twist |
+| Boss | The Monarch, the only boss; weekly rule twist |
 | Art | Dark fantasy painted cards; placeholders until the artist delivers |
 | Combining | **Graft** creates **Chimeras** (replaces "fusion") |
-| Long-term hook | The Binder: cosmetic collection of daily signature cards and discovered Chimeras |
+| Long-term hook | The Bestiary: cosmetic collection of daily champion cards and discovered Chimeras |
 | Platforms | Web first (PWA), then iOS and Android from the same codebase; portrait, one-handed, tap-only |
 | Working title | Vault Duel (check trademark before launch) |
 
 ## Core rules
 
-You have 20 life and a 24-card deck; the Collector has 40 life and a fixed 20-card deck. Reduce his life to 0 before round 12 ends.
+You have 20 life and a 24-card deck; the Monarch has 40 life and a fixed 20-card deck. Reduce his life to 0 before round 12 ends.
 
 **Setup**
 
@@ -35,7 +37,7 @@ You have 20 life and a 24-card deck; the Collector has 40 life and a fixed 20-ca
 2. Each side draws 5. The player may redraw once: the whole hand goes to the bottom and the next 5 seeded cards are drawn. The seed guarantees at least 2 monsters in both opening hands.
 3. The player always goes first and cannot attack on round 1.
 
-**A round** = the player's turn, then the Collector's turn.
+**A round** = the player's turn, then the Monarch's turn.
 
 1. **Draw** up to 5 cards, at most 2 per turn (spell effects ignore the cap).
 2. **Your turn**, in any order:
@@ -46,9 +48,9 @@ You have 20 life and a 24-card deck; the Collector has 40 life and a fixed 20-ca
    - **Reposition**: each of your monsters may either switch between attack and guard or move one lane (into an empty lane, or trading places with your monster there), once, except on the turn it was summoned and after it has attacked. A face-down monster flipped to attack is revealed and **springs an Ambush**: +2 Power until the end of the turn, and it can attack right away.
 3. **End the turn.** Attacking closes nothing: you can summon, cast or graft after an attack.
 
-**Summoning sickness**: from round 2, a monster can attack the Collector's monsters on the turn it arrives, but not his life; it can attack life from your next turn. Swift lets it hit life on its first turn too; Slow stops it attacking at all on its first turn.
+**Summoning sickness**: from round 2, a monster can attack the Monarch's monsters on the turn it arrives, but not his life; it can attack life from your next turn. Swift lets it hit life on its first turn too; Slow stops it attacking at all on its first turn.
 
-**Board**: 3 lanes and 2 trap slots per side. Each of your lanes faces the Collector's lane across from it. A full board blocks summoning; a Graft that uses a board monster frees its lane.
+**Board**: 3 lanes and 2 trap slots per side. Each of your lanes faces the Monarch's lane across from it. A full board blocks summoning; a Graft that uses a board monster frees its lane.
 
 **Combat**
 
@@ -62,7 +64,7 @@ You have 20 life and a 24-card deck; the Collector has 40 life and a fixed 20-ca
 
 A monster can attack only the enemy monster in the lane across from it, or a Sentinel covering that lane: Sentinel cover is the only way an attack goes to the side. A direct hit on life needs the enemy's whole monster board to be empty. Element advantage adds +2 Power when attacking only. Keywords and traps resolve before damage.
 
-**Win and loss**: you win when the Collector hits 0. You lose at 0 life, or when the vault seals at the end of round 12. If you cannot draw, you skip the draw (no deck-out loss).
+**Win and loss**: you win when the Monarch hits 0. You lose at 0 life, or when the vault seals at the end of round 12. If you cannot draw, you skip the draw (no deck-out loss).
 
 ## Elements and kinds
 
@@ -101,7 +103,7 @@ Launch has 6 keywords and 5 Flaws. Base cards carry at most 1 keyword; Chimeras 
 | Haunt | When destroyed, the monster that destroyed it loses 2 Power permanently | Deathrattle family | Ghost wisps |
 | Echo | When destroyed, return it to its owner's hand | — | Faded double image |
 
-Flaws appear only on the Collector's Relics. Each Relic has exactly one.
+Flaws appear only on the Monarch's Courtiers. Each Courtier has exactly one.
 
 | Flaw | Rule |
 | --- | --- |
@@ -109,7 +111,7 @@ Flaws appear only on the Collector's Relics. Each Relic has exactly one.
 | Vain | Must attack if able, choosing the best legal target |
 | Brittle | Destroyed by any attack with element advantage, regardless of Power |
 | Tethered | −2 Power while it is his only monster |
-| Covetous | Can only be summoned by sacrificing a monster he acquired through Appraisal (ace only) |
+| Covetous | Can only be summoned by sacrificing a monster he took with a Levy (ace only) |
 
 Complexity budget: no card text longer than one sentence. A new keyword must justify itself against these six.
 
@@ -125,7 +127,7 @@ Grafting combines 2 monsters into a Chimera whose family is set by their two kin
 4. **Ascend** (second step, same turn): graft the new Chimera with 1 more monster. Result: same family, Ascended, +2 Power and +1 Guard, may take that material's keyword (still max 2). Max 3 materials total.
 5. **Unstable**: if the materials' elements oppose each other (one beats the other, or Lumen + Umbra), the Chimera gets +3 Power but is destroyed at the end of your next turn.
 6. The Chimera enters in attack or guard position (player's choice) in an empty lane of your choice, and follows normal summoning rules (summoning sickness).
-7. The UI always shows a preview of the result before confirming. A first-time result is added to the Binder.
+7. The UI always shows a preview of the result before confirming. A first-time result is added to the Bestiary.
 
 **Chimera families** (15 kind pairs, order-independent). Art is one painting per family; the element changes the frame and glow, so launch needs 15 Chimera paintings, not 75.
 
@@ -149,7 +151,7 @@ Grafting combines 2 monsters into a Chimera whose family is set by their two kin
 | Construct + Spirit | Haunted Engine | 7 / 6 |
 | Spirit + Spirit | Choir of Ash | 7 / 5 |
 
-Every pair of monsters can graft, so a random hand never has zero options; the skill is choosing which pair, which order, and when. Every Chimera reaches 5+ Power, which makes it an Appraisal target (see The Collector).
+Every pair of monsters can graft, so a random hand never has zero options; the skill is choosing which pair, which order, and when. Every Chimera reaches 5+ Power, which makes it a Levy target (see The Monarch).
 
 ## Bond actions
 
@@ -157,15 +159,15 @@ Every pair of monsters can graft, so a random hand never has zero options; the s
 
 | Bond | Good at | Costs you |
 | --- | --- | --- |
-| Graft | One big body that breaks walls and wins trades | Two cards become one, and the Chimera is the biggest Appraisal target |
-| Split | Dodging Appraisal, getting lanes back, escaping Unstable, re-grafting in a new order | The Chimera's bonus stats and Ascend are lost; the parts can't attack or move that turn |
-| Symbiosis | Staying power: a second monster waits under the first, even on a full board | If the host is Appraised, the Collector takes both cards; the attached card isn't attacking |
+| Graft | One big body that breaks walls and wins trades | Two cards become one, and the Chimera is the biggest Levy target |
+| Split | Dodging the Levy, getting lanes back, escaping Unstable, re-grafting in a new order | The Chimera's bonus stats and Ascend are lost; the parts can't attack or move that turn |
+| Symbiosis | Staying power: a second monster waits under the first, even on a full board | If the host is levied, the Monarch takes both cards; the attached card isn't attacking |
 
-**Split**: unbind one of your face-up Chimeras into the monsters it was grafted from. The first part keeps the Chimera's lane, the rest take the nearest free lanes, and any part with no room goes to your hand. Splitting is not destruction, so Echo, Haunt, Last Rites and Insurance Claim do not trigger. A Chimera that arrived this turn can't be split, and its materials must still be in your discard.
+**Split**: unbind one of your face-up Chimeras into the monsters it was grafted from. The first part keeps the Chimera's lane, the rest take the nearest free lanes, and any part with no room goes to your hand. Splitting is not destruction, so Echo, Haunt, Last Rites and Blood Tithe do not trigger. A Chimera that arrived this turn can't be split, and its materials must still be in your discard.
 
-**Symbiosis**: attach a base monster from your hand under one of your face-up monsters (one per host). The host gains +2 Guard and, if it has room, the attached monster's keyword. If the host is destroyed, the attached monster comes out in its lane as if newly summoned. If the host is Appraised, the Collector takes both. A host with a symbiote can't be grafted or split.
+**Symbiosis**: attach a base monster from your hand under one of your face-up monsters (one per host). The host gains +2 Guard and, if it has room, the attached monster's keyword. If the host is destroyed, the attached monster comes out in its lane as if newly summoned. If the host is levied, the Monarch takes both. A host with a symbiote can't be grafted or split.
 
-The Collector never bonds.
+The Monarch never bonds.
 
 ## Player card pool v0.1
 
@@ -193,8 +195,8 @@ Stat budget: Power + Guard = 8–10; a keyword costs about 1 point.
 | Bloodlust | One of your monsters gets +3 Power this turn |
 | Grave Recall | Return a monster from your discard pile to your hand |
 | Scrying Bones | Draw 2 cards (ignores the draw cap) |
-| Shroud | One of your monsters cannot be Appraised until your next turn |
-| Siphon | The Collector loses 3 life; you gain 3 |
+| Shroud | One of your monsters cannot be levied until your next turn |
+| Siphon | The Monarch loses 3 life; you gain 3 |
 
 **Traps** (set face-down as your one spell or trap of the turn; trigger automatically, then discard)
 
@@ -207,35 +209,37 @@ Stat budget: Power + Guard = 8–10; a keyword costs about 1 point.
 
 Each card also gets a one-line art brief (mood, pose, palette) in its data file so the artist can work in parallel.
 
-## The Collector
+## The Monarch
 
-The Collector plays a fixed 20-card deck of Relics: stronger than your base cards, but he never grafts and every Relic has one Flaw. His signature mechanic, Appraisal, steals your strongest monster, and his ace can only arrive if Appraisal succeeded.
+The Monarch plays a fixed 20-card deck of Courtiers: stronger than your base cards, but he never grafts and every Courtier has one Flaw. His signature mechanic, the Levy, steals your strongest monster to fight for him, crowned, and his ace can only arrive if a Levy succeeded.
 
 > *Launch values (v0.1). The live values in this section are in packages/content (see CONTENT_GUIDE.md); it is not updated.*
 
 **Monsters (13)**
 
-| Relic | Element / kind | Power / Guard | Keyword | Flaw |
+| Courtier | Element / kind | Power / Guard | Keyword | Flaw |
 | --- | --- | --- | --- | --- |
 | Gilded Penitent | Lumen Knight | 7 / 6 | Ward | Slow |
 | Ossuary Seraph | Lumen Spirit | 8 / 3 | Pierce | Vain |
 | Saint of Brass | Lumen Construct | 6 / 7 | Echo | Slow |
-| Mourning Cartographer | Gale Spirit | 6 / 5 | Echo | Tethered |
+| Mourning Herald | Gale Spirit | 6 / 5 | Echo | Tethered |
 | Stormglass Hydra | Gale Wyrm | 8 / 5 | — | Brittle |
 | Ashen Duchess | Ember Knight | 7 / 5 | Swift | Tethered |
 | Kiln-Born Leviathan | Ember Wyrm | 9 / 4 | — | Brittle |
 | Drowned Choir | Tide Spirit | 6 / 6 | Haunt | Tethered |
-| Abyssal Curator | Tide Construct | 5 / 7 | Sentinel | Slow |
+| Abyssal Chamberlain | Tide Construct | 5 / 7 | Sentinel | Slow |
 | Reliquary Hound | Umbra Beast | 6 / 4 | Haunt | Vain |
 | Velvet Moth Sovereign | Umbra Beast | 7 / 3 | Pierce | Brittle |
 | Weeping Automaton | Umbra Construct | 5 / 8 | Ward | Slow |
-| The Unpriced (ace) | Umbra Wyrm | 10 / 8 | Ward | Covetous |
+| The Hollow Heir (ace) | Umbra Wyrm | 10 / 8 | Ward | Covetous |
 
-**Spells (4)**: Provenance Ledger (draw 2), Restoration (return a destroyed Relic to his hand), Gilt Frame (+2 Power and +2 Guard until the end of his next turn), Forfeit (destroy one of your monsters with Power 4 or less).
+**Spells (4)**: Royal Ledger (draw 2), Restoration (return a destroyed Courtier to his hand), Gilded Mantle (+2 Power and +2 Guard until the end of his next turn), Execution (destroy one of your monsters with Power 4 or less).
 
-**Traps (3)**: Display Case (cancel an attack and switch the attacker to guard), Counterfeit (a Chimera grafted this turn loses 3 Power), Insurance Claim (when his monster is destroyed, he gains 3 life).
+**Traps (3)**: Bend the Knee (cancel an attack and switch the attacker to guard), Forbidden Union (a Chimera grafted this turn loses 3 Power), Blood Tithe (when his monster is destroyed, he gains 3 life).
 
-**Appraisal**: at the start of his turns in rounds 3, 6 and 9, he takes your highest-Power face-up monster with Power 5 or more (tie: leftmost). It goes to his leftmost open lane, or to his vault if his board is full. Face-down monsters and Shrouded monsters are safe. A monster with a symbiote attached is taken together with it. A countdown is always on screen.
+**Levy**: at the start of his turns in rounds 3, 6 and 9, he takes your highest-Power face-up monster with Power 5 or more (tie: leftmost). It goes to his leftmost open lane, or to his vault if his board is full. Face-down monsters and Shrouded monsters are safe. A monster with a symbiote attached is taken together with it. A countdown is always on screen.
+
+**Crowned** (D-349): a monster he took with a Levy wears his crown and has +1 Power (`CROWN_POWER`) while it is on his board.
 
 **Moods** (by his life)
 
@@ -245,17 +249,17 @@ The Collector plays a fixed 20-card deck of Relics: stronger than your base card
 | Agitated | 8–15 | Trades aggressively; prioritizes removing your monsters |
 | Desperate | 1–7 | Attacks anything, including face-down monsters |
 
-**Intents**: an icon above him shows the category of his next turn (attack, appraise, guard, scheme) but never which card, so his traps stay hidden. His dialogue changes with mood.
+**Intents**: an icon above him shows the category of his next turn (attack, levy, guard, scheme) but never which card, so his traps stay hidden. His dialogue changes with mood.
 
 **AI priorities** (deterministic; sees only public information; ties broken by leftmost slot, then card id)
 
 Play phase:
 
 1. If he can win this turn, do it.
-2. If The Unpriced is summonable, summon it.
+2. If The Hollow Heir is summonable, summon it.
 3. If a lane is open and he holds a monster that beats the monster it would attack from that lane, play it there (highest-Power target first).
 4. If he has fewer monsters than you and holds a trap, set it.
-5. If a spell has a legal high-value target (Forfeit, Restoration, Gilt Frame on a contested attack), cast it.
+5. If a spell has a legal high-value target (Execution, Restoration, Gilded Mantle on a contested attack), cast it.
 6. Otherwise summon his highest-Power monster that is not Slow; if all are Slow, set it face-down in guard.
 
 Attack phase:
@@ -270,7 +274,7 @@ Weekly twist: one global rule change per week (example: "Umbra monsters +1 Power
 
 ## Daily loop
 
-Each local calendar date produces one seed; the seed produces the player's deck, both shuffles, and the day's signature card, so every player on that date plays the identical duel.
+Each local calendar date produces one seed; the seed produces the player's deck, both shuffles, and the day's champion, so every player on that date plays the identical duel.
 
 **Seeding**: seed = hash("vault-duel" + YYYY-MM-DD + content version). The reset is local midnight. A dev setting overrides the date for testing.
 
@@ -285,16 +289,16 @@ Each local calendar date produces one seed; the seed produces the player's deck,
 
 **Daily flow**
 
-1. Open the game: today's deck list, difficulty, Appraisal reminder.
+1. Open the game: today's deck list, difficulty, Levy reminder.
 2. Optional redraw, then duel (progress saves after every action; refresh resumes).
 3. Result screen: win/loss, rounds used, life left, bonus objectives (0–3 stars), share button.
-4. Practice mode unlocks for today's seed; the Binder and stats are available.
+4. Practice mode unlocks for today's seed; the Bestiary and stats are available.
 
-**Bonus objectives** (example pool, 3 picked per day): win without grafting; win with 15+ life; win by round 8; never lose a monster to Appraisal.
+**Bonus objectives** (example pool, 3 picked per day): win without grafting; win with 15+ life; win by round 8; never lose a monster to a Levy.
 
-**Share text**: one emoji per round (attack, graft, guard, monster lost, appraised), plus rounds used versus the day's par.
+**Share text**: one emoji per round (attack, graft, guard, monster lost, levied), plus rounds used versus the day's par.
 
-**The Binder**: winning adds the day's signature card to your Binder permanently. Discovering a Chimera family for the first time also adds it. Cosmetic only. v0.1 stores progress in the browser; accounts and sync come later.
+**The Bestiary**: winning adds the day's champion to your Bestiary permanently. Discovering a Chimera family for the first time also adds it. Cosmetic only. v0.1 stores progress in the browser; accounts and sync come later.
 
 ## Balance targets and globals
 
