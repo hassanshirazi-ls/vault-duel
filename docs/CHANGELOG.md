@@ -3,6 +3,15 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-19 · A clearer How to play
+
+No rule or content changed. Saved duels keep working.
+
+- **How to play** (D-359): a new page, **Attack, guard or face-down**, explains the three positions, the summon buttons, and that a face-down monster flips only into Attack (the Ambush). **Your turn** now comes right after Playing cards. It and **Lanes** show their key rules up front: no attacks in round 1, any order, and that moving, swapping or switching is free and leaves the monster able to attack. A swap uses up both monsters' change for the turn. A new **Common questions** page answers what new players ask most. Every number still comes from the globals, and each answer drops out when its rule is switched off.
+- **Duel hints** (D-359): picking a monster in your hand now says which buttons choose its position, and picking a monster that can move says moving uses no summon, spell or Graft.
+- The Your turn picture no longer cuts off the Attacks pip on a phone, and it says Graft, like the duel.
+- The guide opens once more for returning players (`HOWTO_VERSION` 5).
+
 ## 2026-10-18 · The Monarch's court: the crown, the levy and the Ink Spiral look
 
 The crown changes the rules, so a duel saved before this update starts over. `CONTENT_VERSION` stays `0.2.0`. The file

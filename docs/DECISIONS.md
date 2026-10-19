@@ -2989,6 +2989,16 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 **D-358 · Small ink-round wording and layout** (ui-dev, 2026-10-18)
 - How to play pager "Lot n of N" → "Page n of N"; the levy intent reads "He will levy"; Stats eyebrow "Bound in black ink", empty line "No decrees in the ledger yet."; the side panel is the "Court ledger", empty line "The court has not convened."; past rounds on the track are struck through instead of faded (contrast); Practice mode greys the paper instead of dimming gold. Measured contrast: ink on card about 18:1, secondary text about 6.9:1, flaw/good/unstable inks above 6:1 on paper.
 
+**D-359 · How to play: the first-game questions** (main session, 2026-10-19, owner request)
+- The owner found the guide missed rules a new player trips over: no attacks in round 1, what face-up/face-down does, how to choose the summon position, and what a lane move or swap costs. No rule changed; only the guide (`apps/web/src/view/howto.ts`, `ui/HowToPlay.tsx`, `style/howto.css`) and two hint lines in `ui/Duel.tsx`.
+- Pages keep their structure (demo, summary, Try it, folded "All the rules"). A page may add `keys`: two to four rules always shown under the summary. Your turn (round 1, any order, free reposition, only Attack attacks) and Lanes (move/swap, free, then attack) carry them.
+- New page **Attack, guard or face-down** (after Your turn; Your turn now follows Playing cards). It shows one sample card in the three positions and states the engine facts: the two summon buttons (default face-up Attack), a face-down monster flips only into Attack (the Ambush) and never into Guard, an attacked face-down monster stays face-up in Guard (combat.ts), and a switch, a flip and a lane move share the monster's one change a turn.
+- Lanes: a swap stamps `repositioned` on both monsters (lane-move.ts), so it uses up both monsters' change, and both must be eligible (legal.ts). Moving uses no turn slot, and a moved monster can still attack.
+- New page **Common questions** before the keyword glossary: questions and answers shown open (`qa`), every answer built from the globals and switches, so the questions about lanes, swaps, round 1 and any order drop out when those rules are off.
+- Duel hint: a monster picked from the hand adds "The buttons choose Attack or Guard, face-up or face-down."; a board monster that can move adds "It uses no summon, spell or Graft."
+- The Your turn demo's labelled pips sit two by two (they overflowed the demo box at 390px and below) and name the bond Graft when it is the only bond, as the duel does.
+- `HOWTO_VERSION` 4 → 5, so returning players see the guide once more.
+
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
 | A# | Topic | Entry | Outcome |
