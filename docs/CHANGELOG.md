@@ -3,6 +3,14 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-19 · Playtest fixes: Inspect and element badges
+
+No rule or content changed, so saved duels and the seeds manifest are unaffected.
+
+- **Inspect puts the rules first** (D-361): the card is drawn small (104px) beside its name instead of large above it, so the rules, matchups and element wheel are on the first screen.
+- **Element badges in muted colour** (D-361): each badge is filled with a dusty version of its element's old colour (Ember rust, Gale sage, Tide slate blue, Lumen ochre, Umbra plum) with the icon on top. The ink-pattern ring is gone. Spell and trap badges are plain paper.
+- **Bigger element badges on cards** (D-361): half as big again (about 16px on a hand card instead of 10px), with a bolder icon.
+
 ## 2026-10-19 · The card face: art first
 
 No rule changed. The art briefs changed, and they are part of the content hash, so a duel saved before this update

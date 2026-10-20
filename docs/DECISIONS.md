@@ -2975,7 +2975,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Decision: "Defy the Monarch, a few minutes a day." under the title on Home and as the web app's description (manifest and meta description).
 
 **D-354 · Ink element badges** (ui-dev, 2026-10-18; extends D-351)
-- An element badge is a ring of the element's ink pattern around a paper disc holding the ink icon: Ember solid, Tide horizontal lines, Gale diagonals, Lumen a ring, Umbra concentric rings. Patterns are tokens `--el-pat-<id>` with a neutral fallback; `--el-<id>` stays as a neutral tone so jewel colors can come back as a token swap. The element wheel draws the same badge through a `foreignObject`.
+- An element badge is a ring of the element's ink pattern around a paper disc holding the ink icon: Ember solid, Tide horizontal lines, Gale diagonals, Lumen a ring, Umbra concentric rings. Patterns are tokens `--el-pat-<id>` with a neutral fallback; `--el-<id>` stays as a neutral tone so jewel colors can come back as a token swap. The element wheel draws the same badge through a `foreignObject`. (Changed by D-361: the badge is filled with a muted colour, the pattern ring is gone.)
 
 **D-355 · Ink motion** (ui-dev, 2026-10-18; extends D-351)
 - Board cards drift through a `.drift` wrapper using the independent `translate` and `rotate` properties (5.5 s loop), so a card's own cue animations still play. Because of the wrapper, no stylesheet may target a niche child with `>` (QA 2026-10-18 found the lit-lane frame lost to `.niche:has(> .empty-slot…)`; fixed and pinned in ink.test.tsx). Off with `data-anim='off'` (FLAGS.ANIMATIONS) and under reduced motion, never under a button. The Monarch's spiral is one SVG turned by a CSS rotation (120 s, compositor only), not a canvas.
@@ -3004,12 +3004,20 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Owner's answers:
   1. **The art fills the whole card** (C). Today's shade over the bottom of the art is gone.
   2. **Board cards always show the whole name on one line**, never shortened and never wrapped (owner: "one line only like Yu-Gi-Oh"). A name wider than its bar first shrinks to 82% of its size, then is squeezed sideways until it fits (`CardName` in `MiniCard.tsx`, re-measured when the card resizes and when the fonts load). Measured over all 70 names: the longest, Velvet Moth Sovereign, is squeezed to 91% on a 102px board card, 81% at 76px and 57% on the 54px primer pictures.
-  3. **Inspect shows a larger card**: the card face itself at the top of the sheet, the full sheet width, up to 320px. The text below still repeats everything it shows.
+  3. **Inspect shows a larger card**: the card face itself at the top of the sheet, the full sheet width, up to 320px. The text below still repeats everything it shows. (Changed by D-361: a small card beside the name.)
   4. **The stat in play replaces the Attack/Guard badge.** Power is reversed in Attack, Guard in Guard (and for a face-down card). A card with no position (hand, Bestiary, primer) reverses neither. The position stays in the card's spoken label.
   5. **Lettering, no plates** (round 2, option 1): the name, element badge, keyword glyphs, turn marks and stats are black ink with a solid paper outline, straight on the art. The reversed stat is paper with an ink outline.
   6. **The art brief** in `docs/ART_BRIEF.md`: 4:5 portrait, 1600×2000 or larger, black ink on white, the quiet areas listed there, one file per card named by id.
 - Layout (all sized from the card's width): name across the top; under it, element and keywords on the right and turn marks (crowned, Ascended, Unstable, can't hit life, moved, attacked) on the left, at most three on a card under 72px; Power and Guard bottom right. On a card with a Flaw the name starts after the chipped corner. Keyword frames, Flaw cracks, the face-down mark, the symbiote tab and preview badges are unchanged.
 - Owner approved (2026-10-19): every per-card line in `art-briefs.json` drops its colour palette for an ink treatment, so the format is now "mood · pose · ink" (the `content:check` hint and CONTENT_GUIDE say so). The mood and pose of each card are unchanged. The briefs are part of the content hash, so the seeds manifest is regenerated with this change.
+
+**D-361 · Inspect text first, and bigger muted-colour element badges** (owner choices, 2026-10-19; changes D-360 point 3 and D-354)
+- Playtest feedback: the large card at the top of Inspect pushed the rules off the first screen, and the element badges on board and hand cards (about 10px, with the pattern ring) could not be told apart on a phone. The owner liked the How to play questions (no change). Options were shown as real screenshots at 390 × 844 (Inspect: A small card beside the name, B no art, C big card at the bottom; badges: 1 muted colours, 2 bigger monochrome, 3 both).
+- Owner's answers: **A + 3**.
+  1. **Inspect draws the card small beside the name**: the card face (not `large`) at 104px, first in `.inspect-head`, left of the name, element, kind and stats. The rules, matchups and wheel follow on the first screen. The Flaw plate (large cards only) no longer shows in Inspect; the Flaw is in the rules list.
+  2. **Element badges are filled with a muted version of the old jewel colour**, the icon drawn on top in ink: Ember `#b8664f`, Gale `#8fb09a`, Tide `#55708f`, Lumen `#c9ab62`, Umbra `#806b9c`; spells and traps (neutral) plain paper. Tokens `--el-<id>` and `--el-on-<id>` in `tokens.css`, one line each to retune; a test keeps every icon ink at 3:1 or more against its tone, so the element never depends on colour alone. This applies everywhere the badge appears (cards, Inspect, Beats / Weak to chips, element wheel, slot cards, symbiote tab).
+  3. **The badge on a card is half as big again**: 19% of the card's width (14–30px; 14px on a 76px card, 16px on a hand card at 390px), icon 78% of the badge with a 2.4 stroke. Keyword glyphs keep their size.
+- The ink patterns (`--el-pat-<id>`) stay, only as the faint ghost behind the placeholder art.
 
 ### Paper-sim ambiguity index (docs/reports/phase0-paper-sim.md §2)
 
