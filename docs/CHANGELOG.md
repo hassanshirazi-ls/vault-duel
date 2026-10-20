@@ -3,6 +3,28 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-20 · Playtest fixes: the Monarch's turn, the share text, the guide
+
+No rule or content changed.
+
+- **His moves stand out** (D-365): the card he plays or attacks with, and its target, get a heavy ink ring and a label, and each move's highlight stays up a little longer.
+- **The Levy is easy to see** (D-365): your monster is marked "Levied" in its slot, then lands crowned on his side, about 3 seconds in all, and the plaque names it ("Levy · takes Cinderjaw Hound"). Nothing waits for a tap.
+- **New share text** (D-365): `Vault Duel #6 🏆 9/12`, the round row, `❤️ 12 life · par 8 · ★★☆`, then the link. A loss reads `💀 X/12`. Day #1 is 15 October 2026.
+- **Link preview** (D-365): a shared link now shows a picture with the name and "One vault. One duel. Every day."
+- **How to play** (D-365): every page reworded for grammar and clarity. The rules are unchanged. Two tips on getting around the lanes rule are gone ("move it, or summon across from his monster" in Common questions, "Move it a lane, or summon across from him." in the Lanes quiz).
+
+## 2026-10-20 · Phase 1 tidy-up: every setting does something
+
+No rule or card changed. One setting was removed, which changes the settings hash: a duel in progress when this update
+arrives starts over, and the seeds manifest is regenerated (2026-10-20 to 2027-01-17).
+
+- **`OBJECTIVE_STARS_MAX` removed** (D-362): it repeated `OBJECTIVES_PER_DAY`, since each objective is worth one star. The line `OBJECTIVE_STARS_MAX: 3,` is gone from `globals.ts`. Change `OBJECTIVES_PER_DAY` instead.
+- **`FLAGS.BONUS_OBJECTIVES` works** (D-362): set it to `false` and the objectives and stars disappear from Home, Result, the share text, How to play and Stats. `true` (today's value) changes nothing.
+- **`RESET_HOUR_LOCAL` works** (D-362): the daily duel and the "Next duel in" countdown now roll over at this local hour. `0` (today's value) is midnight, as before.
+- **Nothing is planned** (D-362): every setting is now read by the game or pinned, so `content:check` no longer prints a `not yet read` line. CONTENT_GUIDE section 7 now shows how to add a planned setting.
+- **Keyword checks in the browser** (D-363): a duplicate, badly named or empty keyword, or more than 32 of them, is now reported by the dev build too. The duplicate message was `duplicate id (also in keywords/<first>.ts)` and is now `duplicate id`, on `keywords/<id>.ts`.
+- **Balance target** (D-364): the expert bot's target stays an average win rate of 45–55% across days.
+
 ## 2026-10-19 · Playtest fixes: Inspect and element badges
 
 No rule or content changed, so saved duels and the seeds manifest are unaffected.

@@ -184,8 +184,8 @@ Add this line to `art-briefs.json`, inside the object:
 ```
 
 The check prints one warning to the error stream, then the success line `content:check OK: <N> files parsed`, and
-exits with code 0. The block shows those two lines. `<N>` is the number of files. The counts and the `not yet read`
-line (section 3) follow them:
+exits with code 0. The block shows those two lines. `<N>` is the number of files. The counts follow them (and the `not yet read`
+line, when a setting is planned; section 3):
 
 ```text
 warning: cards/player-monsters.json › example-beast › budget 11 (P7+G3+1kw) outside 8–10 › lower Power or Guard by 1 if this is not intended
@@ -231,7 +231,8 @@ Warnings print first. Errors follow. Errors stop the run before the deck-generat
 
 A line that starts with `not yet checked` means a rule is listed but not implemented. There are none today.
 
-**"not yet read" lines:** a clean run also prints one information line, after the counts and the deck-generation line:
+**"not yet read" lines:** when a setting is planned (section 7), a clean run also prints one information line, after the
+counts and the deck-generation line. None is planned today, so the line does not appear:
 
 ```text
 not yet read: <N> globals wait for <readers> › see packages/content/src/planned-globals.ts
@@ -1126,18 +1127,29 @@ Every core setting and every flag is in one of three states:
   reader lands. Setting one today changes nothing in play. Nothing needs to be unpinned later, because a planned
   setting is never pinned.
 
+A setting becomes planned when it is added before the code that reads it exists. The change that builds that reader
+takes it out of the planned list. None is planned today, so every setting has a reader or a pin.
+
 The planned settings are listed in `packages/content/src/planned-globals.ts`, with the code that will read each one.
-Do not copy the list from there into this guide. The check prints the count and the readers after a clean run (the
-`not yet read` line in section 3).
+That list is empty today. Do not copy the list from there into this guide. When the list has entries, the check prints
+the count and the readers after a clean run (the `not yet read` line in section 3).
 
-### Worked example: a planned setting is accepted
+### Worked example: adding a planned setting
 
-`OBJECTIVE_STARS_MAX` is planned. Its reader is the bonus objective code, which is not built yet. Set it to 5 and the
-check accepts it and stays clean:
+Say the owner adds a new setting, `EXAMPLE_LIMIT`, before the code that reads it is built. It takes three edits:
+
+1. In `packages/content/src/globals.ts`, add the setting with its value, in the group it belongs to:
+   `EXAMPLE_LIMIT: 3,`
+2. In `packages/content/src/schemas/globals.ts`, add the same name with its type:
+   `EXAMPLE_LIMIT: Int,`
+3. In `packages/content/src/planned-globals.ts`, add this line to the list:
 
 ```text
-  OBJECTIVE_STARS_MAX: 5,
+  EXAMPLE_LIMIT: { reader: 'engine', where: 'engine <file> (<decision>)' },
 ```
+
+Then set the value to 5 in `globals.ts` (`EXAMPLE_LIMIT: 5,`). The check accepts it and stays clean. Nothing in play
+changes, because the reader is not built yet.
 
 When the reader lands, the change that wires it also deletes its line from `planned-globals.ts`, and a test enforces
 that. You do not need to do anything. A planned setting you set today keeps its value.

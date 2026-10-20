@@ -1448,7 +1448,7 @@ export const DEFAULT_GLOBALS = deepFreeze({
   SIM_RUNS_PER_SEED: 500, SEED_WINRATE_MIN: 0.30, SEED_WINRATE_MAX: 0.70,
   SEED_MAX_REROLLS: 20, BOT_NOISE_EPSILON: 0.10, DIFFICULTY_STAR_CUTS: [0.5667, 0.4333],
   // Daily loop
-  RESET_HOUR_LOCAL: 0, OBJECTIVES_PER_DAY: 3, OBJECTIVE_STARS_MAX: 3,
+  RESET_HOUR_LOCAL: 0, OBJECTIVES_PER_DAY: 3,   // OBJECTIVE_STARS_MAX removed by D-362 (1 star per objective)
   // Balance targets (sim report pass/fail) — owner-only (D-166)
   TARGET_EXPERT_WINRATE: [0.45, 0.55], TARGET_NOVICE_WINRATE: [0.20, 0.30], TARGET_NOVICE_POINT: 0.25,
   TARGET_MEDIAN_ROUNDS: [9, 11], TARGET_TYPICAL_END_ROUNDS: [8, 12],
@@ -1508,9 +1508,8 @@ export function withOverrides(base: Globals, sets: readonly string[]): Globals; 
 export interface PlannedGlobal { readonly reader: 'engine' | 'ai' | 'sim' | 'web'; readonly where: string }
 export const PLANNED_GLOBALS: Readonly<Record<string, PlannedGlobal>> = {
   OBJECTIVES_PER_DAY:         { reader: 'ai',     where: 'ai/difficulty.ts › prepareDay (D-102)' },
-  OBJECTIVE_STARS_MAX:        { reader: 'engine', where: 'engine meta/objectives.ts (D-102)' },
-  RESET_HOUR_LOCAL:           { reader: 'web',    where: 'web daily/date.ts (D-104)' },
-  'FLAGS.BONUS_OBJECTIVES':   { reader: 'engine', where: 'engine meta/objectives.ts (BO-1)' },
+  // D-362: OBJECTIVE_STARS_MAX removed; RESET_HOUR_LOCAL (web daily/date.ts) and FLAGS.BONUS_OBJECTIVES
+  // (web view/objectives.ts and the screens) are read, so the live list is empty
   'FLAGS.ANIMATIONS':         { reader: 'web',    where: 'web duel store (§16)' },
   'FLAGS.DEBUG_OVERLAY':      { reader: 'web',    where: 'web debug overlay (§16)' },
   AI_SEARCH_NODE_BUDGET:      { reader: 'ai',     where: 'ai/collector/win-search.ts (D-211)' },  // until ai reads it
@@ -2057,7 +2056,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | --- | --- | --- | --- |
 | DL-1 | Each local date → one seed → deck, both shuffles, signature card | web `daily/date.ts`, `setup/seed.ts` | D-001, D-002, D-010 |
 | DL-2 | seed = hash("vault-duel" + date + content version) | `setup/seed.ts`, `rng.ts` | D-001 |
-| DL-3 | Reset at local midnight; dev date override | web `daily/date.ts`, `globals.RESET_HOUR_LOCAL` | D-104 |
+| DL-3 | Reset at local midnight (`RESET_HOUR_LOCAL`, default 0); dev date override | web `daily/date.ts`, `globals.RESET_HOUR_LOCAL` | D-104, D-362 |
 | DG-1 | 15/5/4, max 2 copies | `setup/deckgen.ts` | D-005, D-197 |
 | DG-2 | ≥ 3 elements, ≥ 4 kinds | `setup/deckgen.ts`, `content/src/feasibility.ts` | D-005, D-200 |
 | DG-3 | Curve: ≥ 4 with Power ≤ 5, ≥ 3 with Power ≥ 6 | `setup/deckgen.ts`, `content/src/feasibility.ts` | D-005, D-200 |
@@ -2069,7 +2068,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | DF-2 | Optional redraw, duel, save after every action, refresh resumes | `reducer.ts`, `replay.ts`, web `daily/session.ts` | D-108 |
 | DF-3 | Result: win/loss, rounds, life, objectives (0–3 stars), share | `meta/objectives.ts`, web `screens/Result.tsx` | D-102 |
 | DF-4 | Practice unlocks for today's seed; Binder and stats | web `screens/Duel.tsx` (practice), `persistence/*` | D-105, D-106 |
-| BO-1 | Objective pool, 3 per day | `objectives.json`, `meta/objectives.ts`, `FLAGS.BONUS_OBJECTIVES` | D-102 |
+| BO-1 | Objective pool, 3 per day | `objectives.json`, ai `difficulty.ts › prepareDay`, web `view/objectives.ts`, `FLAGS.BONUS_OBJECTIVES` | D-102, D-362 |
 | SH-1 | Share: one emoji per round + rounds vs par | `meta/share-grid.ts`, web `meta/share.ts` | D-100, D-101 |
 | BI-1 | Binder: win adds signature card; first Chimera family adds it; cosmetic; local | web `persistence/binder.ts` | D-010, D-066 |
 
