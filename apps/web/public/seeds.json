@@ -1,15 +1,8 @@
 {
   "contentHash": "dc8ab66e64dc4c9febcc4424ff0ef2a3",
-  "globalsHash": "919818733e5ea36f2259e8c13818e4c0",
+  "globalsHash": "7e315a80bc4c575346cb3a47d8989e3e",
   "expertHash": "0eb20ec33121d2dffb41434b07cc1b45",
   "days": {
-    "2026-10-19": {
-      "k": 2,
-      "winRate": 0.69,
-      "stars": 1,
-      "par": 8,
-      "check": "accepted"
-    },
     "2026-10-20": {
       "k": 2,
       "winRate": 0.318,
@@ -631,6 +624,13 @@
       "winRate": 0.37,
       "stars": 3,
       "par": 11,
+      "check": "accepted"
+    },
+    "2027-01-17": {
+      "k": 1,
+      "winRate": 0.546,
+      "stars": 2,
+      "par": 7,
       "check": "accepted"
     }
   }
