@@ -136,7 +136,6 @@ export interface Globals {
   // Daily loop
   readonly RESET_HOUR_LOCAL: number;
   readonly OBJECTIVES_PER_DAY: number;
-  readonly OBJECTIVE_STARS_MAX: number;
   // Balance targets
   readonly TARGET_EXPERT_WINRATE: Range;
   readonly TARGET_NOVICE_WINRATE: Range;

@@ -14,11 +14,8 @@ export const KEYWORD_DIR = 'keywords';
 /** Generated barrel path, relative to packages/content. */
 export const BARREL_FILE = 'keywords/index.gen.ts';
 const BARREL_NAME = 'index.gen.ts';
-/** KwMask is a 32-bit field (ARCHITECTURE.md §3, §8.4). */
-export const MAX_KEYWORDS = 32;
 
 const KIND_RANK: Readonly<Record<KeywordDef['kind'], number>> = { keyword: 0, flaw: 1 };
-const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 /** One loaded keyword file. `stem` is the file name without ".ts", which must equal `def.id`. */
 export interface KeywordSource {
@@ -92,25 +89,14 @@ function problem(file: string, id: string, text: string, fix: string): ContentEr
 }
 
 /**
- * File-level rules (§10.3, "keyword file problems"): id equals the file name, ids are unique and kebab-case,
- * display strings are set, and at most MAX_KEYWORDS entries exist. The text rules (sentences on the rendered text,
- * placeholders) run in validateContent over the registry (D-172, D-198), so they are not repeated here.
+ * File-level rule (§8.4, §10.3 "keyword file problems"): id equals the file name. The registry rules (unique ids,
+ * kebab-case, display strings, the 32-keyword limit) run in validateContent over the registry (D-198), so they are not
+ * repeated here, and each problem is reported once. The text rules (D-172) run there too.
  */
 export function checkKeywordSources(sources: readonly KeywordSource[]): ContentError[] {
   const errors: ContentError[] = [];
-  const firstFile = new Map<string, string>();
   for (const { file, stem, def } of sources) {
     if (def.id !== stem) errors.push(problem(file, stem, `id "${def.id}" ≠ file name`, 'rename the file or the id'));
-    if (!KEBAB.test(def.id)) errors.push(problem(file, def.id, 'id is not kebab-case', 'use lowercase words joined by "-"'));
-    const first = firstFile.get(def.id);
-    if (first === undefined) firstFile.set(def.id, file);
-    else errors.push(problem(file, def.id, `duplicate id (also in ${first})`, 'rename one of them'));
-    for (const field of ['name', 'icon', 'visual'] as const) {
-      if (def[field].trim() === '') errors.push(problem(file, def.id, `${field} is empty`, `set ${field} to a non-empty string`));
-    }
-  }
-  if (sources.length > MAX_KEYWORDS) {
-    errors.push(problem(`${KEYWORD_DIR}/`, '(all)', `${sources.length} keywords and Flaws, the bit mask holds ${MAX_KEYWORDS}`, 'remove one'));
   }
   return errors;
 }

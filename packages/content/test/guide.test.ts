@@ -92,6 +92,14 @@ function setGlobal(root: string, name: string, literal: string): void {
   writeFileSync(path, text.replace(pattern, `$1${literal}`));
 }
 
+/** Adds `line` on its own line before or after `marker` in a copy file. The marker must appear once in the file. */
+function addLine(root: string, rel: string, marker: string, line: string, where: 'before' | 'after'): void {
+  const path = join(root, rel);
+  const text = readFileSync(path, 'utf8');
+  if (text.split(marker).length !== 2) throw new Error(`addLine: ${marker} must appear once in ${rel}`);
+  writeFileSync(path, text.replace(marker, where === 'before' ? `${line}\n${marker}` : `${marker}\n${line}`));
+}
+
 /** Adds one line inside the copy's CONTENT_NUMBERS block, as the owner does by hand (D-171). */
 function addContentNumber(root: string, line: string): void {
   const path = join(root, 'src/globals.ts');
@@ -957,15 +965,19 @@ describe('guide §3 · reading content:check output', () => {
     quoted('not yet checked');
   });
 
-  it('§3 "not yet read" line: a clean run prints it last, with the count and readers from planned-globals.ts', () => {
+  it('§3 "not yet read" line: a clean run prints it last when something is planned, with the count and readers from planned-globals.ts, and not at all when nothing is', () => {
     const root = makeCopy();
     const result = runScript(root, 'content-check.ts');
     expect(result.status).toBe(0);
     const planned = Object.values(PLANNED_GLOBALS);
-    const readers = [...new Set(planned.map((entry) => entry.reader))].sort().join(', ');
-    const line = `not yet read: ${planned.length} globals wait for ${readers} › see packages/content/src/planned-globals.ts`;
     const printed = lines(result.stdout);
-    expect(printed[printed.length - 1]).toBe(line);
+    if (planned.length === 0) {
+      expect(printed.some((line) => line.startsWith('not yet read'))).toBe(false);
+    } else {
+      const readers = [...new Set(planned.map((entry) => entry.reader))].sort().join(', ');
+      const line = `not yet read: ${planned.length} globals wait for ${readers} › see packages/content/src/planned-globals.ts`;
+      expect(printed[printed.length - 1]).toBe(line);
+    }
     // The guide shows the line with <N> and <readers>, so adding or wiring a planned global needs no guide edit.
     quoted('not yet read: <N> globals wait for <readers> › see packages/content/src/planned-globals.ts');
   }, SPAWN_TIMEOUT);
@@ -1427,18 +1439,26 @@ describe('guide §7 · tune a global', () => {
     quoted('FLAGS.WEEKLY_TWIST=true');
   });
 
-  it('§7 planned settings are accepted today, and the check stays clean', async () => {
+  it('§7 a planned setting is accepted today, and the check stays clean', async () => {
+    // Nothing is planned in the repo, so the guide's example runs on a copy: a new setting with its schema entry,
+    // then its planned line, exactly as the guide's worked example writes them.
     const root = makeCopy();
-    expect(PLANNED_GLOBALS['OBJECTIVE_STARS_MAX'], 'the example key is listed as planned').toBeDefined();
-    expect(PLANNED_GLOBALS['FLAGS.BONUS_OBJECTIVES'], 'the example flag is listed as planned').toBeDefined();
-    setGlobal(root, 'OBJECTIVE_STARS_MAX', '5');
+    const planned = "  EXAMPLE_LIMIT: { reader: 'engine', where: 'engine <file> (<decision>)' },";
+    addLine(root, 'src/globals.ts', '  // Balance targets (sim report pass/fail)', '  EXAMPLE_LIMIT: 3,', 'before');
+    addLine(root, 'src/schemas/globals.ts', '    // Balance targets', '    EXAMPLE_LIMIT: Int,', 'before');
+    addLine(root, 'src/planned-globals.ts', 'PLANNED_GLOBALS: Readonly<Record<string, PlannedGlobal>> = {', planned, 'after');
+    setGlobal(root, 'EXAMPLE_LIMIT', '5');
     const g = await globalsOf(root);
-    expect(withOverrides(g, ['OBJECTIVE_STARS_MAX=5']).OBJECTIVE_STARS_MAX).toBe(5);
-    expect(() => withOverrides(g, ['FLAGS.BONUS_OBJECTIVES=false'])).not.toThrow();
-    expect((await check(root)).errors).toEqual([]);
-    quoted('OBJECTIVE_STARS_MAX: 5,');
+    expect(g).toHaveProperty('EXAMPLE_LIMIT', 5);
+    // The copy's own content-check, so its own schema and planned list are the ones that accept the setting.
+    const result = runScript(root, 'content-check.ts');
+    expect(result.status, result.stderr).toBe(0);
+    const printed = lines(result.stdout);
+    expect(printed[printed.length - 1]).toBe('not yet read: 1 globals wait for engine › see packages/content/src/planned-globals.ts');
+    quoted('EXAMPLE_LIMIT: 5,');
+    quoted(planned.trim());
     quoted('planned-globals.ts');
-  });
+  }, SPAWN_TIMEOUT);
 });
 
 // ---- The guide's own structure ----------------------------------------------------------------------------------------

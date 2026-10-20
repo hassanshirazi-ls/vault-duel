@@ -3,11 +3,16 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { formatError } from '../src/files';
+import { keywordRegistryProblems } from '../src/keyword-registry';
 import { BARREL_FILE, CONTENT_ROOT, checkKeywordSources, loadKeywordFiles, renderKeywordBarrel, sortKeywords } from '../src/node';
 
 async function main(): Promise<void> {
   const loaded = await loadKeywordFiles();
-  const errors = [...loaded.errors, ...checkKeywordSources(loaded.sources)];
+  const errors = [
+    ...loaded.errors,
+    ...checkKeywordSources(loaded.sources),
+    ...keywordRegistryProblems(loaded.sources.map((source) => source.def)),
+  ];
   if (errors.length > 0) {
     for (const error of errors) console.error(formatError(error));
     console.error(`content:gen FAILED: ${errors.length} problem(s), ${BARREL_FILE} not written`);

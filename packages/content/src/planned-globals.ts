@@ -8,8 +8,4 @@ export interface PlannedGlobal {
   readonly where: string;
 }
 
-export const PLANNED_GLOBALS: Readonly<Record<string, PlannedGlobal>> = {
-  OBJECTIVE_STARS_MAX: { reader: 'engine', where: 'engine meta/objectives.ts (D-102)' },
-  RESET_HOUR_LOCAL: { reader: 'web', where: 'web daily/date.ts (D-104)' },
-  'FLAGS.BONUS_OBJECTIVES': { reader: 'engine', where: 'engine meta/objectives.ts (BO-1)' },
-};
+export const PLANNED_GLOBALS: Readonly<Record<string, PlannedGlobal>> = {};

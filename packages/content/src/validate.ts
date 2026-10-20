@@ -9,6 +9,7 @@ import { KEYWORDS } from '../keywords/index.gen';
 import { DEFAULT_GLOBALS } from './globals';
 import { CONTENT_FILES, type ContentData, type ContentError, type ContentKey } from './files';
 import { globalNameProblem, placeholderProblem } from './global-names';
+import { keywordRegistryProblems } from './keyword-registry';
 import { parseTemplate, plainText, renderText, type ParsedTemplate } from './text';
 import { GlobalsSchema, globalsProblems } from './schemas/globals';
 
@@ -117,6 +118,7 @@ export function validateContent(
   };
   checkGlobalsSanity(ctx);
   checkDuplicateIds(ctx);
+  checkKeywordRegistry(ctx);
   checkElementBeats(ctx);
   checkMonsterVocabulary(ctx);
   checkKeywordFields(ctx);
@@ -692,6 +694,11 @@ function checkKeywordRef(ctx: Ctx, where: Where, id: string, want: 'keyword' | '
 }
 
 // keywords[] of base monsters and Relics are keywords; a Relic's flaw is a Flaw (§10.3, D-114).
+/** D-198: the keyword rules that need only the registry (duplicate ids, kebab-case, display strings, the 32 limit). */
+function checkKeywordRegistry(ctx: Ctx): void {
+  for (const error of keywordRegistryProblems(ctx.keywordList)) ctx.sink.errors.push(error);
+}
+
 function checkKeywordFields(ctx: Ctx): void {
   const { data } = ctx;
   for (const monster of data.playerMonsters ?? []) {

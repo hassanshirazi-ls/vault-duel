@@ -128,7 +128,6 @@ const GLOBAL_VALUES = {
   // Daily loop
   RESET_HOUR_LOCAL: 0,
   OBJECTIVES_PER_DAY: 3,
-  OBJECTIVE_STARS_MAX: 3,
   // Balance targets (sim report pass/fail)
   TARGET_EXPERT_WINRATE: [0.45, 0.55],
   TARGET_NOVICE_WINRATE: [0.2, 0.3],

@@ -5,6 +5,8 @@ import { FIXTURE_GLOBALS, fixtureData } from '../test-utils/fixture';
 import { formatError, type ContentData } from './files';
 import { KEYWORDS } from '../keywords/index.gen';
 import { DEFERRED_RULES, validateContent } from './validate';
+import { MAX_KEYWORDS } from './keyword-registry';
+import type { KeywordDef } from '@vault-duel/engine';
 
 const G = FIXTURE_GLOBALS;
 
@@ -625,5 +627,41 @@ describe('conditions on a destroyed monster (D-185)', () => {
     const data = trap();
     entry(data.playerTraps, 'fixture-snare').effects = [{ op: 'destroy', target: 'destroyed', if: { not: { powerGte: 3 } } }];
     expect(errorLines(data)).toEqual([message('powerGte')]);
+  });
+});
+
+// D-198: the registry rules run in validateContent, so the browser dev build reports them too. Each problem is listed once.
+describe('keyword registry rules (D-198)', () => {
+  const template = need(KEYWORDS[0], 'a keyword to copy the shape from');
+  const def = (id: string, changes: Partial<KeywordDef> = {}): KeywordDef => ({ ...template, id, ...changes });
+  const registryLines = (keywords: readonly KeywordDef[]): string[] =>
+    validateContent(fixtureData(), G, keywords).errors.map(formatError).filter((line) => line.startsWith('keywords/'));
+
+  it('reports a duplicate id once, naming the registry entry', () => {
+    const lines = registryLines([def('swift-copy-a'), def('swift-copy-a')]);
+    expect(lines).toEqual(['keywords/swift-copy-a.ts › swift-copy-a › duplicate id › rename one of them']);
+  });
+
+  it('reports an id that is not kebab-case', () => {
+    expect(registryLines([def('Not_Kebab')])).toEqual([
+      'keywords/Not_Kebab.ts › Not_Kebab › id is not kebab-case › use lowercase words joined by "-"',
+    ]);
+  });
+
+  it('reports each empty display field', () => {
+    expect(registryLines([def('blank-name', { name: ' ', icon: '', visual: '  ' })])).toEqual([
+      'keywords/blank-name.ts › blank-name › name is empty › set name to a non-empty string',
+      'keywords/blank-name.ts › blank-name › icon is empty › set icon to a non-empty string',
+      'keywords/blank-name.ts › blank-name › visual is empty › set visual to a non-empty string',
+    ]);
+  });
+
+  it('reports more keywords and Flaws than the bit mask holds, once', () => {
+    const many = Array.from({ length: MAX_KEYWORDS + 1 }, (_, i) => def(`k-${i}`));
+    expect(registryLines(many)).toEqual([`keywords/ › (all) › ${MAX_KEYWORDS + 1} keywords and Flaws, the bit mask holds ${MAX_KEYWORDS} › remove one`]);
+  });
+
+  it('reports nothing for a registry whose entries are all well formed', () => {
+    expect(registryLines([def('alpha-one'), def('beta-two')])).toEqual([]);
   });
 });

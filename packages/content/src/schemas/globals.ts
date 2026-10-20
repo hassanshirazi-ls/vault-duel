@@ -201,7 +201,6 @@ const GlobalsShape = z
     // Daily loop
     RESET_HOUR_LOCAL: Int,
     OBJECTIVES_PER_DAY: Int,
-    OBJECTIVE_STARS_MAX: Int,
     // Balance targets
     TARGET_EXPERT_WINRATE: Range,
     TARGET_NOVICE_WINRATE: Range,

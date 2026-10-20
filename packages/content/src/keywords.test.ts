@@ -19,6 +19,7 @@ import {
   sortKeywords,
   type KeywordSource,
 } from './keyword-files';
+import { keywordRegistryProblems } from './keyword-registry';
 import { formatError } from './files';
 
 function need<T>(value: T | undefined, what: string): T {
@@ -192,22 +193,16 @@ describe('file checks (§8.4, §10.3 keyword file problems)', () => {
     ]);
   });
 
-  it('reports two files with one id', () => {
-    const problems = checkKeywordSources([source('swift', {}), source('swift', {})]);
-    expect(problems.map((error) => error.problem)).toEqual(['duplicate id (also in keywords/swift.ts)']);
+  it('leaves duplicate ids to the registry rules, so a duplicate is reported once (D-198)', () => {
+    const sources = [source('swift', {}), source('swift', {})];
+    expect(checkKeywordSources(sources)).toEqual([]);
+    expect(keywordRegistryProblems(sources.map((entry) => entry.def)).map((error) => error.problem)).toEqual(['duplicate id']);
   });
 
   it('warns on a keyword file with no examples (D-169), and not on one that has one', () => {
     const warnings = checkKeywordExamples([source('haunt', { examples: [] }), source('swift', { examples: ['x'] })]);
     expect(warnings.map(formatError)).toEqual([
       'keywords/haunt.ts › haunt › no examples › add one board-DSL example with declared cards (D-169)',
-    ]);
-  });
-
-  it('reports more than 32 keywords and Flaws', () => {
-    const many = Array.from({ length: 33 }, (_, i) => source(`k${i}`, { id: `k${i}` }));
-    expect(checkKeywordSources(many).map((error) => error.problem)).toEqual([
-      '33 keywords and Flaws, the bit mask holds 32',
     ]);
   });
 

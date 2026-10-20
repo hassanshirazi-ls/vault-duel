@@ -1,8 +1,8 @@
 // Property tests (ARCHITECTURE.md §17): random seeds x random legal-action walks.
 import fc from 'fast-check';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { DC_TWIST, DUEL_GLOBALS, duelEngine } from '../test-utils/duel-fixture';
-import { withGlobals } from '../test-utils/globals';
+import { ALT_GLOBALS, withGlobals } from '../test-utils/globals';
 import { moodOf } from './mood';
 import { hashState, toActions } from './replay';
 import { rerollSeed, seedString } from './setup/seed';
@@ -10,10 +10,16 @@ import { redactState } from './view/redact';
 import type { Action } from './types/actions';
 import type { GameState, Iid, Side } from './types/state';
 import type { EngineInternals } from './engine';
+import type { Globals } from './types/globals';
 import type { GameEvent } from './types/events';
 
-const engine = duelEngine();
-const g = DUEL_GLOBALS;
+// The suites run under TEST_GLOBALS (via DUEL_GLOBALS) and ALT_GLOBALS (D-168): `engine` and `g` are bound per case in beforeAll.
+const GLOBAL_CASES: readonly (readonly [string, Globals])[] = [
+  ['TEST_GLOBALS', DUEL_GLOBALS],
+  ['ALT_GLOBALS', withGlobals({ ...ALT_GLOBALS })],
+];
+let engine: EngineInternals;
+let g: Globals;
 const MAX_STEPS = 4000;
 
 /** Every iid sits in exactly one zone (§4 conservation). */
@@ -58,7 +64,12 @@ function walk(seed: string, picks: readonly number[], check: (s: GameState, lega
 const seeds = fc.nat({ max: 1_000_000 }).map((n) => rerollSeed(seedString(g, `2026-01-${n % 28}`), n % 5));
 const picks = fc.array(fc.nat({ max: 1000 }), { minLength: 1, maxLength: 64 });
 
-describe('random legal walks (§17)', () => {
+describe.each(GLOBAL_CASES)('random legal walks (§17) under %s', (_name, caseGlobals) => {
+  beforeAll(() => {
+    g = caseGlobals;
+    engine = duelEngine(caseGlobals);
+  });
+
   it('(1)(2)(3)(5) every chosen legal action applies, cards are conserved, the game ends within 2 x MAX_ROUNDS turns', () => {
     fc.assert(
       fc.property(seeds, picks, (seed, ps) => {
@@ -155,7 +166,7 @@ describe('random legal walks (§17)', () => {
 
 // ---- (8) previewCombat equals the pipeline (D-209) ----------------------------------------------------------
 
-const ALT = withGlobals({ DECK_MIN_KINDS: 2, APPRAISAL_MIN_POWER: 5, ELEMENT_BONUS: 3, STAT_FLOOR: 1, ASCEND_POWER: 1, UNSTABLE_BONUS: 2 });
+const PREVIEW_ALT = withGlobals({ DECK_MIN_KINDS: 2, APPRAISAL_MIN_POWER: 5, ELEMENT_BONUS: 3, STAT_FLOOR: 1, ASCEND_POWER: 1, UNSTABLE_BONUS: 2 });
 const TWIST = withGlobals({ DECK_MIN_KINDS: 2, APPRAISAL_MIN_POWER: 5, FLAGS: { WEEKLY_TWIST: true } });
 
 interface PreviewCase {
@@ -164,8 +175,8 @@ interface PreviewCase {
   readonly opts: { readonly twist?: number };
 }
 const PREVIEW_CASES: readonly PreviewCase[] = [
-  { name: 'TEST_GLOBALS', eng: engine, opts: {} },
-  { name: 'alternate globals', eng: duelEngine(ALT), opts: {} },
+  { name: 'TEST_GLOBALS', eng: duelEngine(), opts: {} },
+  { name: 'alternate globals', eng: duelEngine(PREVIEW_ALT), opts: {} },
   { name: 'fixture twist', eng: duelEngine(TWIST, { dev: true }, DC_TWIST), opts: { twist: 0 } },
 ];
 
@@ -254,7 +265,12 @@ function perturbHidden(s: GameState): GameState {
   return { ...s, sides: [sides[0], sides[1]] as unknown as GameState['sides'], log: null };
 }
 
-describe('(9) redactState', () => {
+describe.each(GLOBAL_CASES)('(9) redactState under %s', (_name, caseGlobals) => {
+  beforeAll(() => {
+    g = caseGlobals;
+    engine = duelEngine(caseGlobals);
+  });
+
   it('states that differ only in hidden information hash equal after redaction, for either viewer', () => {
     fc.assert(
       fc.property(seeds, picks, fc.nat({ max: 150 }), (seed, ps, cut) => {
