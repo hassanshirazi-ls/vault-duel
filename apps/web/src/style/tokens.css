@@ -1,8 +1,7 @@
 /* Design tokens (D-351: Ink Spiral). Paper white ground, hard black ink, hatched art panels, heavy black offset shadows.
-   Base palette first, then the hatching and offset-shadow recipes, then one token pair per element id: --el-pat-<id> is the
-   ink pattern that stands for the element (no color) and --el-<id> a neutral ink tone for anything that needs a single value.
-   A new element is one entry here; an id without an entry uses the neutral pattern. Jewel colors can return as a token
-   swap: give --el-<id> a hue and point --el-pat-<id> at it. */
+   Base palette first, then the hatching and offset-shadow recipes, then the tokens per element id: --el-pat-<id> is the
+   ink pattern behind the placeholder art, --el-<id> the muted badge tone (D-361) and --el-on-<id> the icon ink on it.
+   A new element is one entry of each here; an id without an entry uses the neutral ones. */
 :root {
   /* ground and ink */
   --paper: #f3f0e8;
@@ -28,19 +27,21 @@
   --el-pat-lumen: radial-gradient(circle, var(--card) 0 34%, var(--ink) 34% 52%, var(--card) 52%);
   --el-pat-umbra: repeating-radial-gradient(circle, var(--ink) 0 1px, var(--card) 1px 2.4px);
   --el-pat-neutral: repeating-linear-gradient(90deg, var(--ink) 0 1px, var(--card) 1px 4px);
-  /* a single neutral tone per element, for anything that needs one value */
-  --el-ember: #111111;
-  --el-on-ember: #fbf9f4;
-  --el-gale: #4a4640;
-  --el-on-gale: #fbf9f4;
-  --el-tide: #3a3631;
-  --el-on-tide: #fbf9f4;
-  --el-lumen: #8a847a;
+  /* D-361: the badge tone per element, a desaturated version of its old jewel color, so the small badges on mobile tell
+     apart at a glance. The icon is always drawn on top in --el-on-<id> (at least 3:1, test/ink.test.tsx), so the
+     element never depends on color alone. One line each to retune. */
+  --el-ember: #b8664f;
+  --el-on-ember: #111111;
+  --el-gale: #8fb09a;
+  --el-on-gale: #111111;
+  --el-tide: #55708f;
+  --el-on-tide: #111111;
+  --el-lumen: #c9ab62;
   --el-on-lumen: #111111;
-  --el-umbra: #1f1d1a;
-  --el-on-umbra: #fbf9f4;
-  --el-neutral: #6a655d;
-  --el-on-neutral: #fbf9f4;
+  --el-umbra: #806b9c;
+  --el-on-umbra: #111111;
+  --el-neutral: #fbf9f4;
+  --el-on-neutral: #111111;
 
   /* type: a blackletter-grotesque for names and headers, a book serif for flavour and the Monarch's lines, a condensed
      sans for rules text, numbers and buttons. All three are self-hosted (@fontsource) so the offline app has them. */

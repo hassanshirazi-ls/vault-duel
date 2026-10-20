@@ -14,7 +14,7 @@ import { useLongPress } from './hooks';
 
 /**
  * How a Flaw shows on a card (D-271, Flaw B): fracture lines through the ink frame and a chip missing from the top-left
- * corner; the art is untouched. On large cards and Inspect a jagged black plate with the Flaw's name hangs on the
+ * corner; the art is untouched. On large cards a jagged black plate with the Flaw's name hangs on the
  * bottom edge (CSS shows it only there). The card must be `position: relative` (`.mini` is).
  */
 export function FlawMark({ flaw }: { readonly flaw: KeywordView }) {

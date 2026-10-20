@@ -1,5 +1,5 @@
 // Card inspect (D-238): a bottom sheet on phones and tablets, a card in the court-ledger panel on wide screens (D-240).
-// Content: the card drawn large (D-360), name, element and kind, Power/Guard, every keyword or Flaw with its
+// Content: the card drawn small beside the name (D-361), name, element and kind, Power/Guard, every keyword or Flaw with its
 // rule, and the element's beats/weak-to line. All rule text comes through renderText (the view layer's `ctx.render`).
 import type { Iid, Monster } from '@vault-duel/engine';
 import type { ReactNode } from 'react';
@@ -85,11 +85,12 @@ export function CardDetail({ c, monster, crowned = false, onClose, extra }: { re
   return (
       <div className="inspect">
         <div className="inspect-body">
-        {/* D-360: the card itself, large, so the art can be seen; the text below repeats everything it shows */}
-        <div className="inspect-hero" inert aria-hidden="true">
-          <MiniCard view={c} monster={monster} side="me" crowned={crowned} large onTap={noop} onLong={noop} />
-        </div>
         <div className="inspect-head">
+          {/* D-361: the card itself, small, beside the name (D-360 drew it large, which pushed the rules off the first
+              screen); the text repeats everything it shows */}
+          <div className="inspect-hero" inert aria-hidden="true">
+            <MiniCard view={c} monster={monster} side="me" crowned={crowned} onTap={noop} onLong={noop} />
+          </div>
           <div className="inspect-title">
             <h2>{c.name}</h2>
             <p className="inspect-sub">

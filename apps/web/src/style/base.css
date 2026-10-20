@@ -173,8 +173,8 @@ b,
   letter-spacing: 0.02em;
 }
 
-/* element badge (D-351): a ring of the element's ink pattern around a paper disc with the icon. Pattern and icon always
-   come together, so the element never depends on color. --elp is set from the element id (visual/elements.ts). */
+/* element badge (D-361): an ink-ringed disc in the element's muted tone with the icon drawn on it. Tone and icon always
+   come together, so the element never depends on color. --el and --el-on are set from the element id (visual/elements.ts). */
 .gem {
   display: inline-grid;
   place-items: center;
@@ -182,16 +182,14 @@ b,
   height: 22px;
   border: 1.5px solid var(--ink);
   border-radius: 50%;
-  background: var(--elp, var(--el-pat-neutral));
-  color: var(--ink);
+  background: var(--el, var(--el-neutral));
+  color: var(--el-on, var(--el-on-neutral));
   box-shadow: 1px 1px 0 var(--ink);
   flex: none;
 }
 .gem svg {
-  box-sizing: border-box;
-  padding: 1px;
-  border-radius: 50%;
-  background: var(--card);
+  width: 66%;
+  height: 66%;
 }
 .gem.lg {
   width: 30px;

@@ -66,7 +66,7 @@ describe('card face (D-360)', () => {
     expect(css).toMatch(/\.mini-name,\s*\.mini-stats b \{\s*text-shadow:/);
     expect(css).toMatch(/\.mini-stats \.stat\[data-on\] \{\s*--fc: var\(--card\);\s*--hc: var\(--ink\);/);
   });
-  it('draws the card large at the top of Inspect', async () => {
+  it('draws the card small beside the name in Inspect, so the rules are on the first screen (D-361)', async () => {
     const h = await started('2026-10-14');
     const state = h.store.getState().state;
     if (state === null) throw new Error('no state');
@@ -74,7 +74,9 @@ describe('card face (D-360)', () => {
     if (iid === undefined) throw new Error('no hand');
     const out = renderToString(<StoreContext.Provider value={{ ...h.store, getInitialState: h.store.getState }}><InspectCard iid={iid} /></StoreContext.Provider>);
     expect(out).toContain('class="inspect-hero"');
-    expect(out).toMatch(/class="inspect-hero"[^>]*><button type="button" class="mini large"/);
+    expect(out).toMatch(/class="inspect-head"><div class="inspect-hero"[^>]*><button type="button" class="mini"/);
     expect(out.indexOf('inspect-hero')).toBeLessThan(out.indexOf('inspect-title'));
+    const screens = readFileSync(new URL('../src/style/screens.css', import.meta.url), 'utf8');
+    expect(screens).toMatch(/\.inspect-hero \.mini \{\s*--w: 104px;/);
   });
 });

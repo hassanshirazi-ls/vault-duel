@@ -125,7 +125,7 @@ function withoutCrown(g: typeof ctx.globals): typeof ctx.globals {
   return { ...g, FLAGS: { ...g.FLAGS, CROWNED: false } };
 }
 
-describe('element ink patterns (D-351)', () => {
+describe('element ink patterns (D-351, behind the placeholder art)', () => {
   it('keys a pattern per element id, with a neutral fallback', () => {
     expect(elementPatternVar('tide')).toBe('var(--el-pat-tide, var(--el-pat-neutral))');
     expect(elementPatternVar(null)).toBe('var(--el-pat-neutral)');
@@ -136,6 +136,32 @@ describe('element ink patterns (D-351)', () => {
     const tokens = css('tokens.css');
     expect(tokens).toContain('--el-pat-neutral:');
     for (const e of ctx.elements.values()) expect(tokens, e.id).toContain(`--el-pat-${e.id}:`);
+  });
+});
+
+describe('element badge tones (D-361)', () => {
+  // WCAG relative luminance of a #rrggbb token, and the contrast ratio of two of them
+  const lum = (hex: string): number => {
+    const [r, g, b] = [1, 3, 5].map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    }) as [number, number, number];
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a: string, b: string): number => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  const token = (tokens: string, name: string): string => {
+    const hex = new RegExp(`--${name}: (#[0-9a-f]{6});`).exec(tokens)?.[1];
+    if (hex === undefined) throw new Error(`no --${name} hex token`);
+    return hex;
+  };
+  it('every element in the content and the neutral one has a tone, with its icon ink at 3:1 or more', () => {
+    const tokens = css('tokens.css');
+    for (const id of [...[...ctx.elements.values()].map((e) => e.id), 'neutral']) {
+      expect(contrast(token(tokens, `el-${id}`), token(tokens, `el-on-${id}`)), id).toBeGreaterThanOrEqual(3);
+    }
+  });
+  it('the badge is filled with the tone and drawn in its ink', () => {
+    expect(css('base.css')).toMatch(/\.gem \{[^}]*background: var\(--el, var\(--el-neutral\)\);[^}]*color: var\(--el-on, var\(--el-on-neutral\)\);/);
   });
 });
 

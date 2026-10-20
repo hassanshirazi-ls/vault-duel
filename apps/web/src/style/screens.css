@@ -971,18 +971,14 @@ button.life[data-glow='target']::after {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-/* D-360: Inspect shows the card itself, large: the full width of the sheet, up to 320px */
+/* D-361: Inspect shows the card itself, small, beside the name, so the rules are on the first screen (D-360 drew it large) */
 .inspect-hero {
-  display: grid;
-  justify-items: center;
-  padding: 4px 6px 12px 0;
+  flex: none;
+  padding: 2px 4px 0 0;
 }
 .inspect-hero .mini {
-  --w: min(100%, 320px);
+  --w: 104px;
   cursor: default;
-}
-.inspect-hero .flaw-plate {
-  display: inline-flex;
 }
 .inspect-head {
   display: flex;
