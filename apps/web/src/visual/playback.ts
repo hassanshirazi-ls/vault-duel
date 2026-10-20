@@ -9,7 +9,9 @@ import type { Cue } from './cues';
 
 /** What the Collector is about to do, as ids; the screen turns them into highlights and one line of text. */
 export interface Telegraph {
-  readonly kind: 'attack' | 'summon' | 'summonDown' | 'cast' | 'trap' | 'reposition' | 'moveLane';
+  readonly kind: 'attack' | 'summon' | 'summonDown' | 'cast' | 'trap' | 'reposition' | 'moveLane' | 'levy' | 'levyNone';
+  /** a levy already carried out (the second half of the beat): the plaque says "took" */
+  readonly done?: boolean;
   /** the monster that acts (lit) */
   readonly actor?: Iid;
   /** the card played from his hand */
@@ -37,8 +39,19 @@ export interface Stage {
 
 const slotOf = (after: GameState, iid: Iid): number => after.sides[1].board.findIndex((m) => m !== null && m.iid === iid);
 
+/** The levy at the start of his turn happens inside your end-turn step: `target` is the card taken (marked in your slot first). */
+function levyOf(f: Frame): Telegraph | null {
+  for (const e of f.events) {
+    if (e.e === 'Appraised') return { kind: 'levy', target: e.iid };
+    if (e.e === 'AppraisalFailed') return { kind: 'levyNone' };
+  }
+  return null;
+}
+
 /** The telegraph for one Collector frame, or null when there is nothing to announce (end of turn). */
 export function telegraphOf(f: Frame): Telegraph | null {
+  const levy = levyOf(f);
+  if (levy !== null) return levy;
   const a: Action = f.action;
   switch (a.t) {
     case 'attack':
@@ -71,12 +84,13 @@ export function stagesOf(frames: readonly Frame[]): Stage[] {
   const out: Stage[] = [];
   for (const f of frames) {
     const cues = cuesFromEvents(f.events, f.before);
-    const telegraph = f.side === 1 ? telegraphOf(f) : null;
+    const levy = levyOf(f);
+    const telegraph = f.side === 1 ? telegraphOf(f) : levy;
     if (telegraph !== null) {
-      out.push({ kind: 'telegraph', state: f.before, before: f.before, events: [], cues: [], telegraph, side: f.side, ms: TIMING.TELEGRAPH_MS });
+      out.push({ kind: 'telegraph', state: f.before, before: f.before, events: [], cues: [], telegraph, side: f.side, ms: telegraph.kind === 'levy' ? TIMING.LEVY_MARK_MS : TIMING.TELEGRAPH_MS });
     }
     const ms = cues.length > 0 ? cueDurationMs(cues) : f.side === 1 && telegraph !== null ? TIMING.SETTLE_MS : 0;
-    out.push({ kind: 'act', state: f.after, before: f.before, events: f.events, cues, telegraph: null, side: f.side, ms });
+    out.push({ kind: 'act', state: f.after, before: f.before, events: f.events, cues, telegraph: levy === null ? null : { ...levy, done: true }, side: f.side, ms });
   }
   return out;
 }

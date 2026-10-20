@@ -204,7 +204,7 @@ describe('the Collector as a show (D-266)', () => {
         }
       });
       const tStages = stages.filter((x) => x.kind === 'telegraph');
-      expect(tStages.every((x) => x.ms === TIMING.TELEGRAPH_MS && x.cues.length === 0)).toBe(true);
+      expect(tStages.every((x) => x.ms === (x.telegraph?.kind === 'levy' ? TIMING.LEVY_MARK_MS : TIMING.TELEGRAPH_MS) && x.cues.length === 0)).toBe(true);
       // every telegraph is followed by the act it announces, on the state that act produced
       stages.forEach((x, j) => {
         if (x.kind === 'telegraph') expect(stages[j + 1]?.kind).toBe('act');

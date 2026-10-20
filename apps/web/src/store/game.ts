@@ -3,7 +3,7 @@
 // duel through exactly the code the browser runs.
 import { createStore } from 'zustand/vanilla';
 import type { DailySetup } from '@vault-duel/ai';
-import type { Action, GameEvent, GameState } from '@vault-duel/engine';
+import type { Action, GameEvent, GameState, Globals } from '@vault-duel/engine';
 import type { GameCtx, LoadResult } from '../content/load';
 import { newDuel, playerStep, recordOf, replayTrail } from '../duel/runtime';
 import type { Frame, Runtime } from '../duel/runtime';
@@ -41,7 +41,7 @@ export type Screen = 'binder' | 'stats';
 export interface GameDeps {
   readonly storage: KV;
   readonly loadContent: () => LoadResult;
-  readonly today: () => string;
+  readonly today: (g: Globals) => string;
   readonly resolveSetup: (
     ctx: GameCtx,
     date: string,
@@ -177,7 +177,7 @@ export function createGameStore(deps: GameDeps) {
           rounds: state.result.round,
           par: setup.difficulty.par,
           life: Math.max(0, state.sides[0].life),
-          stars: objectivesMet(ctx, setup.objectives, state),
+          stars: ctx.globals.FLAGS.BONUS_OBJECTIVES ? objectivesMet(ctx, setup.objectives, state) : 0,
         },
         signature: setup.signature,
         families: state.track.families.map((i) => ctx.content.ids[i] as string),
@@ -208,7 +208,7 @@ export function createGameStore(deps: GameDeps) {
         const ctx = loaded.ctx;
         for (const w of ctx.warnings) console.warn(`warning: ${w}`);
         const rt = createRuntime(ctx, deps.dev === undefined ? {} : { dev: deps.dev });
-        const date = deps.today();
+        const date = deps.today(ctx.globals);
         // D-197: any content reload restarts the duel, even one whose replay would still pass.
         if (opts.restartNotice !== undefined) {
           clearSession(deps.storage, date);

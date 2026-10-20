@@ -9,21 +9,41 @@ export function isValidDate(text: string): boolean {
   return probe.getUTCFullYear() === y && probe.getUTCMonth() === mo - 1 && probe.getUTCDate() === d;
 }
 
-export function localDate(now: Date): string {
+/** The reset hour as a whole hour 0..23 (D-104); anything else falls back to local midnight. */
+function resetHour(h: number): number {
+  return Number.isInteger(h) && h >= 0 && h <= 23 ? h : 0;
+}
+
+/** The start of the duel day `now` belongs to: the most recent local `resetHour` o'clock (calendar arithmetic, so DST days work). */
+function dayStart(now: Date, hour: number): Date {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  start.setHours(hour, 0, 0, 0);
+  if (now.getTime() < start.getTime()) {
+    start.setDate(start.getDate() - 1);
+    start.setHours(hour, 0, 0, 0);
+  }
+  return start;
+}
+
+/** The date of the duel running at `now`: with a reset hour of 4, 02:00 on Oct 21 is still the Oct 20 duel (D-104). */
+export function localDate(now: Date, resetHourLocal = 0): string {
+  const d = dayStart(now, resetHour(resetHourLocal));
   const p = (n: number, w = 2): string => String(n).padStart(w, '0');
-  return `${p(now.getFullYear(), 4)}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+  return `${p(d.getFullYear(), 4)}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 /** The override from a query string when it is a real date, else today's local date. */
-export function resolveDate(search: string, now: Date): string {
+export function resolveDate(search: string, now: Date, resetHourLocal = 0): string {
   const override = new URLSearchParams(search).get('date');
-  return override !== null && isValidDate(override) ? override : localDate(now);
+  return override !== null && isValidDate(override) ? override : localDate(now, resetHourLocal);
 }
 
-/** Whole minutes from `now` until the next local midnight, when the next daily duel opens (never less than 1). */
-export function minutesToNextDuel(now: Date): number {
-  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  return Math.max(1, Math.ceil((midnight.getTime() - now.getTime()) / 60000));
+/** Whole minutes from `now` until the next reset (local midnight by default), when the next daily duel opens (never less than 1). */
+export function minutesToNextDuel(now: Date, resetHourLocal = 0): number {
+  const next = dayStart(now, resetHour(resetHourLocal));
+  next.setDate(next.getDate() + 1);
+  next.setHours(resetHour(resetHourLocal), 0, 0, 0);
+  return Math.max(1, Math.ceil((next.getTime() - now.getTime()) / 60000));
 }
 
 /** "14h 12m", or "42m" under an hour. */

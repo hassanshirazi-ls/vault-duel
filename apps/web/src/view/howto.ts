@@ -55,14 +55,14 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
   const sentinel = hasKeyword('sentinel');
   const glossary = keywordGlossary(ctx);
   const noRoundOneAttacks = g.FIRST_ATTACK_ROUND_PLAYER > 1;
-  const firstAttacks = r('No attacks in round 1: your monsters first attack in round {FIRST_ATTACK_ROUND_PLAYER}.');
+  const firstAttacks = r('There are no attacks in round 1. Your monsters first attack in round {FIRST_ATTACK_ROUND_PLAYER}.');
   // a switch, an Ambush flip and a lane move are all the one reposition a monster gets each turn (D-282)
   const repoNames = f.LANES ? (f.LANE_SWAP ? 'Moving, swapping or switching' : 'Moving or switching') : 'Switching';
   const freeNote = slots
-    ? `${repoNames} a monster is free: it uses none of those. Each monster gets one, before it attacks.`
-    : `${repoNames} a monster does not use your card play. Each monster gets one a turn.`;
+    ? `${repoNames} a monster is free: it does not use your summon, your spell or trap, or your Graft. Each monster gets one of these, before it attacks.`
+    : `${repoNames} a monster does not use your card play. Each monster gets one of these a turn.`;
   const qa = commonQuestions(ctx);
-  const placeNote = ' Before you place a monster, its Attack/Guard and Face-up/Face-down buttons choose how it stands.';
+  const placeNote = ' Before you place a monster, use its Attack/Guard and Face-up/Face-down buttons to choose how it stands.';
   // the play sentence by switch state (docs/reports/bond-flip-content-draft.md 3a): with the bond action on, Graft is no longer a play
   const playTail = bondTurn ? '' : bonds.length === 1 ? ', or Graft' : `, or use ${orList(bonds)}`;
   const playSummaryTail = bondTurn ? '' : bonds.length === 1 ? ' or Graft' : ` or use ${orList(bonds)}`;
@@ -70,12 +70,12 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
     {
       id: 'goal',
       title: 'The goal',
-      summary: r('Every day brings one vault and one duel, the same for every player. You start with {PLAYER_LIFE} life and the Monarch has {COLLECTOR_LIFE}. Take his life to 0 before round {MAX_ROUNDS} ends.'),
+      summary: r('Every day brings one vault and one duel, the same for every player. You start with {PLAYER_LIFE} life and the Monarch has {COLLECTOR_LIFE}. Take the Monarch\'s life to 0 before round {MAX_ROUNDS} ends.'),
       lines: [
-        'Every day brings one vault and one duel, the same for every player, with one daily attempt.',
+        'Every day brings one vault and one duel, the same for every player. You get one daily attempt.',
         r('You start with {PLAYER_LIFE} life. The Monarch has {COLLECTOR_LIFE}.'),
-        `Your deck holds ${deckSize} cards, and you can read the whole list on the title screen.`,
-        r('Take his life to 0 before round {MAX_ROUNDS} ends. A round is your turn, then his.'),
+        `Your deck holds ${deckSize} cards. You can read the whole list on the title screen.`,
+        r("Take the Monarch's life to 0 before round {MAX_ROUNDS} ends. A round is your turn, then the Monarch's turn."),
       ],
     },
     {
@@ -88,22 +88,22 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
         : r(`Each turn you draw back up to {HAND_SIZE} cards, then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell, set a trap${playSummaryTail}. Tap a card, then tap where it goes. Hold any card to read it.`) + placeNote,
       lines: [
         r('You begin with {OPENING_HAND} cards.'),
-        ...when(f.REDRAW, r('Before round 1 you may send your hand back for a fresh one ({REDRAWS|redraw|redraws}).')),
-        r('Each turn you draw back up to {HAND_SIZE} cards, at most {MAX_DRAW_PER_TURN|card|cards} a turn.'),
+        ...when(f.REDRAW, r('Before round 1 you may send your hand back for a fresh one. You get {REDRAWS|redraw|redraws}.')),
+        r('Each turn you draw back up to {HAND_SIZE} cards, but never more than {MAX_DRAW_PER_TURN|card|cards} a turn.'),
         slots
-          ? 'Then you may summon one monster and play one spell or trap (cast the spell, or set the trap).'
+          ? 'Then you may summon one monster and play one spell or trap (you cast the spell or set the trap).'
           : bondTurn
             ? r('Then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell or set a trap.')
             : r(`Then play {PLAYS_PER_TURN|card|cards}: summon a monster, cast a spell, set a trap${playTail}.`),
-        ...when(slots, r(`You may also make {BONDS_PER_TURN|bond|bonds}: ${orList(bonds)}. Summon, spell, bond and attacks come in any order.`)),
+        ...when(slots, r(`You may also make {BONDS_PER_TURN|bond|bonds}: ${orList(bonds)}. Your summon, spell or trap, bond and attacks can come in any order.`)),
         ...when(bondTurn && !slots, r(`Before your first attack you may also make {BONDS_PER_TURN|bond action|bond actions}: ${orList(bonds)}, in either order. Your first attack ends the bond for the turn.`)),
         r('Your board has {BOARD_SLOTS} monster slots and {TRAP_SLOTS} trap slots.'),
         slots
-          ? 'A monster stands in attack or guard. You may switch it once a turn, but not on the turn it was summoned, and not after it has attacked.'
-          : r('A monster stands in attack or guard. You may switch it {REPOSITIONS_PER_TURN|time|times} a turn, but not on the turn it was summoned.'),
-        r('Each monster in attack position may attack {ATTACKS_PER_TURN|time|times} a turn. Your first attacks come in round {FIRST_ATTACK_ROUND_PLAYER}.'),
+          ? 'A monster stands in attack or guard position. You may switch it once a turn, but not on the turn it was summoned and not after it has attacked.'
+          : r('A monster stands in attack or guard position. You may switch it {REPOSITIONS_PER_TURN|time|times} a turn, but not on the turn it was summoned.'),
+        r('Each monster in attack position may attack {ATTACKS_PER_TURN|time|times} a turn. Your monsters first attack in round {FIRST_ATTACK_ROUND_PLAYER}.'),
         'Tap a card in your hand to lift it, then tap a glowing slot or target. Hold any card to read it.',
-        'A monster from your hand shows two buttons: Attack or Guard, and Face-up or Face-down. Set them before you tap the slot. It starts face-up in Attack.',
+        'A monster in your hand shows two buttons: Attack or Guard, and Face-up or Face-down. Set them before you tap the slot. The monster starts face-up in Attack.',
       ],
     },
     ...when<HowToPage>(slots, {
@@ -111,14 +111,14 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
       title: 'Your turn',
       summary: r(
         graftOnly
-          ? 'Each turn: summon one monster, play one spell or trap, make one Graft and attack once with each monster. Any order. The dots beside End turn show what is left.'
-          : `Each turn: summon one monster, play one spell or trap, make one bond (${orList(bonds)}) and attack once with each monster. Any order. The dots beside End turn show what is left.`,
+          ? 'Each turn you can summon one monster, play one spell or trap, make one Graft and attack once with each monster, in any order. The dots beside End turn show what is left.'
+          : `Each turn you can summon one monster, play one spell or trap, make one bond (${orList(bonds)}) and attack once with each monster, in any order. The dots beside End turn show what is left.`,
       ),
       keys: [
         ...when(noRoundOneAttacks, firstAttacks),
-        'Any order: summon after you attack, or attack after you summon.',
+        'Any order: you can summon after you attack, or attack after you summon.',
         freeNote,
-        'Only a monster in Attack position can attack. A guard or a face-down monster cannot.',
+        'Only a monster in Attack position can attack. A monster in Guard or face-down cannot.',
       ],
       lines: [
         'Monster: summon one monster a turn.',
@@ -126,58 +126,58 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
         graftOnly
           ? r('Graft: make {BONDS_PER_TURN|Graft|Grafts} a turn with the Graft button beside End turn.')
           : r(`Bond: make {BONDS_PER_TURN|bond|bonds} a turn, ${orList(bonds)}. All of them are under the Bond button beside End turn.`),
-        'Attacks: each monster in attack position attacks once. The number on the Attacks pip is how many can still attack.',
-        'Any order: you can attack first and summon or bond afterwards. Attacking closes nothing.',
+        'Attacks: each monster in attack position may attack once. The number on the Attacks pip shows how many monsters can still attack.',
+        'Any order: you can attack first, then summon or bond. Attacking closes nothing.',
         f.LANES
-          ? 'A monster may move a lane or switch position once, before it attacks. After its attack it stays put, and a tick marks it.'
-          : 'A monster may switch position once, before it attacks. After its attack it stays put, and a tick marks it.',
-        'Moving and switching are free: they do not use your monster, spell or trap, or Graft.',
+          ? 'A monster may either move a lane or switch position, once, before it attacks. After it attacks it stays put, and a tick marks it.'
+          : 'A monster may switch position once, before it attacks. After it attacks it stays put, and a tick marks it.',
+        'Moving and switching are free: they do not use your monster summon, your spell or trap, or your Graft.',
         'Graft joins monsters into a Chimera.',
-        ...when(f.SPLIT, 'Split unbinds a Chimera back into its parts, which can save it from a Levy aimed at it.'),
-        ...when(f.SYMBIOSIS, 'Symbiosis attaches a monster from your hand under one of yours, as extra Guard and a spare body.'),
+        ...when(f.SPLIT, 'Split unbinds a Chimera back into its parts. This can save the Chimera from a Levy aimed at it.'),
+        ...when(f.SYMBIOSIS, 'Symbiosis attaches a monster from your hand under one of your monsters, giving extra Guard and a spare body.'),
         graftOnly
           ? 'The Graft button opens the workbench: pick two monsters and see the result, including Ascend and Unstable, before you confirm.'
-          : 'The Bond button lists every bond you can make right now, with the board it leaves and whether it is exposed to the next Levy. The option marked Best is a hint only.',
+          : 'The Bond button lists every bond you can make right now, with the board each one leaves and whether that board is exposed to the next Levy. The option marked Best is only a hint.',
       ],
     }),
     ...when<HowToPage>(bondTurn && !slots, {
       id: 'bonds',
       title: 'Play and bond',
-      summary: r(`Each turn you get {PLAYS_PER_TURN|card play|card plays} and {BONDS_PER_TURN|bond action|bond actions}. A bond is ${orList(bonds)}. Bond before you attack: your first attack closes it.`),
+      summary: r(`Each turn you get {PLAYS_PER_TURN|card play|card plays} and {BONDS_PER_TURN|bond action|bond actions}. A bond is ${orList(bonds)}. Bond before you attack, because your first attack closes the bond.`),
       lines: [
         r('Each turn you have {PLAYS_PER_TURN|card play|card plays}: summon a monster, cast a spell or set a trap.'),
         r(`You also have {BONDS_PER_TURN|bond action|bond actions}: ${orList(bonds)}. A bond does not use up your card play.`),
         'Play and bond in either order, but your first attack closes the bond for the turn.',
         'Graft joins monsters into a Chimera.',
-        ...when(f.SPLIT, 'Split unbinds a Chimera back into its parts, which can save it from a Levy aimed at it.'),
-        ...when(f.SYMBIOSIS, 'Symbiosis attaches a monster from your hand under one of yours, as extra Guard and a spare body.'),
-        'The Play and Bond pips above your hand show what is left this turn: a tick means used, a cross means your attack closed it.',
-        'The Bonds button lists every bond you can make right now, with the board it leaves and whether it is exposed to the next Levy.',
-        'The option marked Best is the one a strong player would likely pick. It is a hint only.',
+        ...when(f.SPLIT, 'Split unbinds a Chimera back into its parts. This can save the Chimera from a Levy aimed at it.'),
+        ...when(f.SYMBIOSIS, 'Symbiosis attaches a monster from your hand under one of your monsters, giving extra Guard and a spare body.'),
+        'The Play and Bond pips above your hand show what is left this turn: a tick means used, and a cross means your attack closed it.',
+        'The Bonds button lists every bond you can make right now, with the board each one leaves and whether that board is exposed to the next Levy.',
+        'The option marked Best is the one a strong player would likely pick, but it is only a hint.',
       ],
     }),
     {
       id: 'positions',
       title: 'Attack, guard or face-down',
       summary:
-        'Every monster stands one of three ways. Pick it before you place the monster: tap it in your hand, then use the Attack/Guard and Face-up/Face-down buttons. It starts face-up in Attack.',
+        'Every monster stands in one of three ways. Choose before you place the monster: tap it in your hand, then use the Attack/Guard and Face-up/Face-down buttons. A monster starts face-up in Attack.',
       keys: [
-        'Attack (sword badge): it can attack. If it is attacked, its Power fights back, and when it loses you take the difference.',
-        'Guard (shield badge): it cannot attack. It defends with its Guard, and you take no damage when it falls.' +
+        'Attack (sword badge): the monster can attack. When it is attacked, its Power fights back, and if it loses you take the difference.',
+        'Guard (shield badge): the monster cannot attack. It defends with its Guard, and you take no damage when it falls.' +
           (f.RIPOSTE ? ' An attacker weaker than its Guard is destroyed instead (Riposte).' : ''),
         'Face-down (hidden card): a guard the Monarch cannot read, so he does not know its Power or Guard.' + (f.APPRAISAL ? ' The Levy cannot take it.' : ''),
       ],
       lines: [
-        'A monster cannot change on the turn it arrives. From your next turn it may change once a turn' + (slots ? ', before it attacks.' : '.'),
+        'A monster cannot change position on the turn it arrives. From your next turn it may change once a turn' + (slots ? ', before it attacks.' : '.'),
         'Switch: a face-up monster turns from Attack to Guard, or from Guard to Attack.',
         f.AMBUSH
-          ? r('Flip: a face-down monster can only turn face-up into Attack. That is an Ambush: +{AMBUSH_POWER} Power until the end of the turn, and it may attack right away.')
-          : 'Flip: a face-down monster can only turn face-up into Attack, and it may attack right away.',
+          ? r('Flip: a face-down monster can only turn face-up into Attack. That is an Ambush: +{AMBUSH_POWER} Power until the end of the turn, and the monster may attack right away.')
+          : 'Flip: a face-down monster can only turn face-up into Attack, and the monster may attack right away.',
         'A face-down monster cannot flip into Guard. It stays face-down until you flip it or it is attacked.',
-        'When a face-down monster is attacked, it is turned face-up and fights as a guard. It stays face-up in Guard after that.',
+        'When a face-down monster is attacked, it turns face-up and fights as a guard. It then stays face-up in Guard.',
         f.LANES
-          ? 'A switch, a flip and a lane move are the same one change a turn: a monster does one of them, not two.'
-          : 'A switch and a flip are the same one change a turn: a monster does one of them, not both.',
+          ? 'A switch, a flip and a lane move count as the same one change a turn: a monster can do only one of them.'
+          : 'A switch and a flip count as the same one change a turn: a monster can do only one of them.',
         bondTurn || slots ? 'None of this uses your monster summon, your spell or trap, or your Graft.' : 'None of this uses your card play.',
         "The Monarch's face-down monsters work the same way: you learn their Guard only when your attack reveals them.",
       ],
@@ -185,61 +185,61 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
     {
       id: 'combat',
       title: 'Combat and elements',
-      summary: r('The higher Power wins the fight. An attacker with element advantage gets +{ELEMENT_BONUS} Power: follow the arrows on the wheel, and every element has its own ink pattern and icon.'),
+      summary: r('The higher Power wins the fight. An attacker with element advantage gets +{ELEMENT_BONUS} Power. Follow the arrows on the wheel. Every element has its own ink pattern and icon.'),
       lines: [
-        'Attack a monster in attack position: the higher Power destroys the lower, and the loser takes the difference. A tie destroys both.',
-        'Attack a monster in guard: Power above its Guard destroys it with no damage. Below it, you take the difference.',
-        'A face-down monster is revealed and fights as a guard. With no monsters in the way, an attack hits life for its full Power.',
-        ...when(f.RIPOSTE, 'Riposte: when your attack is weaker than a guard\u2019s Guard, the guard holds and your attacker is destroyed, and you still take the difference.'),
+        'Attack a monster in attack position: the higher Power destroys the lower, and the loser\u2019s owner takes the difference. A tie destroys both.',
+        'Attack a monster in guard: if your Power is above its Guard, the monster is destroyed with no damage. If your Power is below its Guard, you take the difference.',
+        'A face-down monster is revealed and fights as a guard. If there are no monsters in the way, an attack hits life for its full Power.',
+        ...when(f.RIPOSTE, 'Riposte: when your attack is weaker than a guard\u2019s Guard, the guard holds and your attacker is destroyed. You still take the difference.'),
         ...when(f.RIPOSTE, 'A face-down monster\u2019s Guard is hidden, so attacking one can end in a Riposte.'),
-        ...when(f.AMBUSH, r('Ambush: flip a face-down monster to attack and it gets +{AMBUSH_POWER} Power until the end of that turn.')),
+        ...when(f.AMBUSH, r('Ambush: when you flip a face-down monster to attack, it gets +{AMBUSH_POWER} Power until the end of that turn.')),
         ...when(g.SICKNESS_MODE === 'monstersOnly', 'A monster you just summoned may attack monsters but not life until your next turn.'),
         r('An attacker with element advantage gets +{ELEMENT_BONUS} Power. Every element has its own ink pattern and icon, never color alone.'),
-        'On the wheel, each arrow points at the element its tail beats. In a duel, hold a monster to see a small compass for its element: solid ink arrows to what it beats, dashed red arrows from what beats it.',
+        'On the wheel, each arrow points from an element to the element it beats. In a duel, hold a monster to see a small compass for its element: solid ink arrows point to what it beats, and dashed red arrows point from what beats it.',
       ],
     },
     ...when<HowToPage>(f.LANES, {
       id: 'lanes',
       title: 'Lanes',
-      summary: r("Your {BOARD_SLOTS} monster slots are lanes. A monster attacks only the Monarch's monster straight across from it, unless a Sentinel next to that lane pulls the attack to itself. An empty lane across means no hit. A direct hit on his life needs his board to be empty."),
+      summary: r("Your {BOARD_SLOTS} monster slots are lanes. A monster can attack only the Monarch's monster straight across from it, unless a Sentinel next to that lane pulls the attack onto itself. An empty lane across means no hit. A direct hit on his life needs his whole board to be empty."),
       keys: [
         f.LANE_SWAP
           ? r('Move: tap your monster, then a lit slot up to {LANE_MOVE_RANGE|lane|lanes} away. If your own monster is there, the two swap places.')
           : r('Move: tap your monster, then a lit empty slot up to {LANE_MOVE_RANGE|lane|lanes} away.'),
         slots
-          ? 'A move is free: it uses no summon, spell or trap, or Graft. Move first, then attack from the new lane.'
+          ? 'A move is free: it does not use your summon, your spell or trap, or your Graft. Move first, then attack from the new lane.'
           : 'A move does not use your card play. Move first, then attack from the new lane.',
         f.LANE_SWAP
           ? 'A move or swap is that monster’s one change for the turn, so it cannot also switch position. A swap uses up the change of both monsters.'
           : 'A move is that monster’s one change for the turn, so it cannot also switch position.',
       ],
       lines: [
-        r("The {BOARD_SLOTS} monster slots are lanes: each of your monsters faces the Monarch's slot straight across. You pick the lane when you summon."),
-        'With lanes, a monster can only attack the monster across from it. An empty lane across means no attack, and life can be hit only when the Monarch has no monsters at all.',
+        r("The {BOARD_SLOTS} monster slots are lanes. Each of your monsters faces the Monarch's slot straight across, and you pick the lane when you summon."),
+        'With lanes, a monster can only attack the monster across from it. An empty lane across means no attack. The Monarch\u2019s life can be hit only when he has no monsters at all.',
         ...when(sentinel, r('A Sentinel guards nearby lanes: attacks in its lane and within {SENTINEL_REACH|lane|lanes} of it must target it. This is the only way an attack goes to the side. A shield badge with an arrow marks each covered lane and points at the Sentinel.')),
         'A direct hit on his life needs his whole monster board to be empty. Then his life glows when you pick an attacker.',
         f.LANE_SWAP
-          ? r("Instead of switching, a monster may move up to {LANE_MOVE_RANGE|lane|lanes} sideways, trading places with your monster there. A move and a switch share one turn's reposition.")
-          : r("Instead of switching, a monster may move up to {LANE_MOVE_RANGE|lane|lanes} sideways into an empty lane. A move and a switch share one turn's reposition."),
+          ? r("Instead of switching, a monster may move up to {LANE_MOVE_RANGE|lane|lanes} sideways, trading places with your monster there. A move and a switch share the monster's one change a turn.")
+          : r("Instead of switching, a monster may move up to {LANE_MOVE_RANGE|lane|lanes} sideways into an empty lane. A move and a switch share the monster's one change a turn."),
         ...when(f.LANE_SWAP, slots ? 'Both monsters in a swap must be free to change: not summoned this turn, not yet moved or switched, and not yet attacked.' : 'Both monsters in a swap must be free to change: not summoned this turn and not yet moved or switched.'),
-        'A monster keeps its position when it moves, and a face-down monster stays face-down.',
-        slots ? 'Moving never uses your summon, spell or trap, or Graft, and a moved monster can still attack this turn.' : 'Moving never uses your card play, and a moved monster can still attack this turn.',
-        'Pick your monster and its lane lights up. A slot marked "No hit" has nothing to attack; lit Move and Swap slots show where it can go.',
-        'He picks lanes too: he likes to summon across from a monster he can beat, or across from an empty lane.',
+        'A monster keeps its Attack or Guard position when it moves, and a face-down monster stays face-down.',
+        slots ? 'Moving never uses your summon, your spell or trap, or your Graft. A moved monster can still attack this turn.' : 'Moving never uses your card play, and a moved monster can still attack this turn.',
+        'Pick your monster and its lane lights up. A slot marked "No hit" has nothing to attack. Lit Move and Swap slots show where the monster can go.',
+        'The Monarch picks lanes too. He likes to summon across from a monster he can beat, or across from an empty lane.',
       ],
     }),
     {
       id: 'graft',
       title: 'Graft',
-      summary: r('Graft joins {MIN_GRAFT_MATERIALS} monsters into one Chimera. The first material sets its element, and a preview shows the result before you confirm.') + (f.ASCEND ? r(' Add one more ({MAX_GRAFT_MATERIALS} in all) to Ascend it.') : ''),
+      summary: r('Graft joins {MIN_GRAFT_MATERIALS} monsters into one Chimera. The first material sets the Chimera\'s element, and a preview shows the result before you confirm.') + (f.ASCEND ? r(' Add one more monster ({MAX_GRAFT_MATERIALS} in all) to Ascend it.') : ''),
       lines: [
         bondTurn
           ? slots
-            ? r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is your bond, so it does not use up your monster summon, and board materials are sacrificed. Start it from the ' + (graftOnly ? 'Graft' : 'Bond') + ' button.')
-            : r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is a bond action, so it does not use up your card play, and board materials are sacrificed.')
-          : r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is your card play for the turn, and board materials are sacrificed.'),
-        'The two kinds set the family and its Power and Guard. The first material sets the element, so the order matters.',
-        r('A Chimera inherits up to {MAX_INHERITED_KEYWORDS|keyword|keywords}. If more are available, you choose.'),
+            ? r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is your bond, so it does not use up your monster summon. Materials from the board are sacrificed. Start it from the ' + (graftOnly ? 'Graft' : 'Bond') + ' button.')
+            : r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is a bond action, so it does not use up your card play. Materials from the board are sacrificed.')
+          : r('Graft joins {MIN_GRAFT_MATERIALS} monsters from your hand or board into one Chimera. It is your card play for the turn. Materials from the board are sacrificed.'),
+        'The kinds of the materials set the family and its Power and Guard. The first material sets the element, so the order matters.',
+        r('A Chimera inherits up to {MAX_INHERITED_KEYWORDS|keyword|keywords}. If more keywords are available, you choose.'),
         ...when(f.ASCEND, r('Ascend: add one more monster ({MAX_GRAFT_MATERIALS} in all) for +{ASCEND_POWER} Power and +{ASCEND_GUARD} Guard.')),
         ...when(f.UNSTABLE, r("Unstable: if one material's element beats the other's, the Chimera gets +{UNSTABLE_BONUS} Power but is destroyed at the end of your next turn.")),
         'A preview shows the result before you confirm. A new family is added to your Bestiary.',
@@ -253,8 +253,8 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
         summary: 'Split unbinds a face-up Chimera of yours into the monsters it was grafted from.',
         lines: [
           'Split unbinds a face-up Chimera of yours into the monsters it was grafted from.',
-          'The first part keeps its slot; the rest take the nearest free slots, or go to your hand if there is no room.',
-          'Parts cannot attack or move that turn. Their materials must still be in your discard, and a Chimera that arrived this turn cannot split.',
+          'The first part keeps its slot. The rest take the nearest free slots, or go to your hand if there is no room.',
+          'The parts cannot attack or move that turn. The materials must still be in your discard, and a Chimera that arrived this turn cannot split.',
           'Splitting is not destruction, so Echo, Haunt, Last Rites and Blood Tithe do not trigger.',
         ],
       },
@@ -267,8 +267,8 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
         summary: 'Symbiosis attaches a base monster from your hand under one of your face-up monsters.',
         lines: [
           'Symbiosis attaches a base monster from your hand under one of your face-up monsters.',
-          r("The host gains +{SYMBIOSIS_GUARD_BONUS} Guard and, if it has room, the attached monster's keyword."),
-          'The attached monster uses no slot. If the host is destroyed, it comes out in its slot as if newly summoned; if the host is levied, the Monarch takes both.',
+          r("The monster it goes under is the host. The host gains +{SYMBIOSIS_GUARD_BONUS} Guard and, if it has room, the attached monster's keyword."),
+          'The attached monster uses no slot. If the host is destroyed, the attached monster comes out in the host\'s slot as if newly summoned. If the host is levied, the Monarch takes both.',
           r('A host carries {SYMBIOTES_PER_HOST|attached monster|attached monsters} at most.'),
         ],
       },
@@ -279,42 +279,42 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
         id: 'appraisal',
         title: 'Levy',
         summary:
-          `At the start of his turn in rounds ${joinList(g.APPRAISAL_ROUNDS)} the Monarch takes your highest-Power face-up monster, if its Power is ` +
-          r('{APPRAISAL_MIN_POWER} or more. A countdown on screen always shows the next one.') +
-          (f.CROWNED ? r(' A monster he levies is crowned: it gets +{CROWN_POWER} Power while it serves him.') : ''),
+          `At the start of his turn in rounds ${joinList(g.APPRAISAL_ROUNDS)}, the Monarch takes your highest-Power face-up monster if its Power is ` +
+          r('{APPRAISAL_MIN_POWER} or more. A countdown on screen always shows the next Levy.') +
+          (f.CROWNED ? r(' A monster the Monarch levies is crowned: it gets +{CROWN_POWER} Power while it serves him.') : ''),
         lines: [
           `At the start of his turn in rounds ${joinList(g.APPRAISAL_ROUNDS)}, the Monarch takes your highest-Power face-up monster${f.SYMBIOSIS ? ', and any monster attached under it' : ''}.`,
           r('Only a monster with Power {APPRAISAL_MIN_POWER} or more can be taken. Face-down monsters are safe.'),
           'A countdown on screen always shows the next Levy.',
-          ...when(f.CROWNED, r('A monster he levies is crowned: it gets +{CROWN_POWER} Power while it serves him, and wears a crown badge on its card.')),
-          ...when(f.INTENTS, 'An icon beside his portrait shows what kind of turn he plans: attack, levy, guard or scheme. It never shows which card.'),
-          ...when(f.MOODS, r('As his life falls he turns Agitated (at {MOOD_AGITATED_AT} or less) and then Desperate (at {MOOD_DESPERATE_AT} or less), and his play changes.')),
+          ...when(f.CROWNED, r('A monster the Monarch levies is crowned. It gets +{CROWN_POWER} Power while it serves him and wears a crown badge on its card.')),
+          ...when(f.INTENTS, 'An icon beside his portrait shows what kind of turn he plans: attack, levy, guard or scheme. The icon never shows which card he will play.'),
+          ...when(f.MOODS, r('As his life falls, he becomes Agitated (at {MOOD_AGITATED_AT} or less) and then Desperate (at {MOOD_DESPERATE_AT} or less), and his play changes.')),
         ],
       },
     ),
     {
       id: 'winning',
       title: 'Winning',
-      summary: r('Take the Monarch to 0 life to win. You lose at 0 life, or when the vault seals at the end of round {MAX_ROUNDS}. A win adds the day\'s champion to your Bestiary.'),
+      summary: r('Take the Monarch\'s life to 0 to win. You lose if your life reaches 0, or when the vault seals at the end of round {MAX_ROUNDS}. A win adds the day\'s champion to your Bestiary.'),
       lines: [
-        r('Win by taking the Monarch to 0 life. You lose at 0 life, or when the vault seals at the end of round {MAX_ROUNDS}.'),
+        r('Win by taking the Monarch\'s life to 0. You lose if your life reaches 0, or when the vault seals at the end of round {MAX_ROUNDS}.'),
         'Your result compares the rounds you used with the day\'s par.',
-        ...when(ctx.objectiveIds.length > 0, r('Each day has {OBJECTIVES_PER_DAY|bonus objective|bonus objectives}, with a star for each one you meet.')),
+        ...when(g.FLAGS.BONUS_OBJECTIVES && ctx.objectiveIds.length > 0, r('Each day has {OBJECTIVES_PER_DAY|bonus objective|bonus objectives}. You earn a star for each one you meet.')),
         'A win adds the day\'s champion to your Bestiary. Share your round row with friends.',
-        'Practice replays today\'s seed, unrecorded, once your daily attempt is done.',
+        'Once your daily attempt is done, Practice replays today\'s seed without recording the result.',
       ],
     },
     {
       id: 'faq',
       title: 'Common questions',
-      summary: 'Quick answers to what new players ask most. Open How to play from the duel menu any time.',
+      summary: 'Quick answers to what new players ask most. You can open How to play from the duel menu at any time.',
       lines: qa.map((x) => `${x.q} ${x.a}`),
       qa,
     },
     ...when<HowToPage>(glossary.length > 0, {
       id: 'keywords',
       title: 'Keywords and Flaws',
-      summary: 'A keyword is a small rule a monster carries. A Flaw is a drawback, shown as a cracked frame. Hold any card to read its own.',
+      summary: 'A keyword is a small rule a monster carries. A Flaw is a drawback, shown as a cracked frame. Hold any card to read its keywords and Flaws.',
       lines: glossary.map((k) => `${k.name}${k.flaw ? ' (Flaw)' : ''}: ${k.text}`),
       open: true,
     }),
@@ -331,52 +331,52 @@ export function commonQuestions(ctx: GameCtx): { readonly q: string; readonly a:
   const has = (id: string): boolean => ctx.content.keywords.some((k) => k.id === id);
   const when = <T,>(on: boolean, ...items: T[]): T[] => (on ? items : []);
   const noSlot = slots ? 'your summon, your spell or trap, or your Graft' : 'your card play';
-  const quirks = [has('swift') ? 'Swift lets it hit life too' : '', has('slow') ? 'Slow stops it attacking at all' : ''].filter(Boolean);
+  const quirks = [has('swift') ? 'Swift lets it hit life too' : '', has('slow') ? 'Slow stops it from attacking at all' : ''].filter(Boolean);
   return [
     ...when(g.FIRST_ATTACK_ROUND_PLAYER > 1, {
       q: 'Can I attack on my first turn?',
-      a: r('No. Round 1 is for setting up. Your monsters can first attack in round {FIRST_ATTACK_ROUND_PLAYER}.'),
+      a: r('No. Round 1 is for setting up. Your monsters can attack from round {FIRST_ATTACK_ROUND_PLAYER}.'),
     }),
     {
       q: 'How do I summon a monster in Guard or face-down?',
-      a: 'Tap the monster in your hand. Two buttons appear: Attack or Guard, and Face-up or Face-down. Set them, then tap a lit slot. Face-down is always in Guard.',
+      a: 'Tap the monster in your hand. Two buttons appear: Attack or Guard, and Face-up or Face-down. Set them, then tap a lit slot. A face-down monster is always in Guard.',
     },
     {
       q: 'Can a monster attack on the turn I summon it?',
       a:
         g.SICKNESS_MODE === 'monstersOnly'
-          ? `Yes, if it is in Attack position, but only the Monarch's monsters, not his life. It can hit his life from your next turn.${quirks.length > 0 ? ` ${joinList(quirks)}.` : ''}`
-          : 'No. It can attack from your next turn.',
+          ? `Yes, if it is in Attack position, but it can hit only the Monarch's monsters, not his life. It can hit his life from your next turn.${quirks.map((q) => ` ${q}.`).join('')}`
+          : 'No. A monster can attack from your next turn.',
     },
     {
       q: 'What does face-down do?',
       a:
-        'It hides the card from the Monarch, so he cannot see its Power or Guard. It defends as a guard' +
+        'Face-down hides the monster from the Monarch, so he cannot see its Power or Guard. The monster defends as a guard' +
         (f.APPRAISAL ? ' and is safe from the Levy' : '') +
         '. It cannot attack until you flip it face-up into Attack' +
         (f.AMBUSH ? r(', which gives it +{AMBUSH_POWER} Power that turn (an Ambush).') : '.'),
     },
     ...when(f.LANES, {
       q: f.LANE_SWAP ? 'Does moving or swapping use up my turn?' : 'Does moving use up my turn?',
-      a: `No. It does not use ${noSlot}. It only uses that monster's one change for the turn${f.LANE_SWAP ? ' (both monsters’, in a swap)' : ''}, so it cannot also switch between Attack and Guard.`,
+      a: `No. It does not use ${noSlot}. It only uses that monster's one change for the turn${f.LANE_SWAP ? ' (the changes of both monsters, in a swap)' : ''}, so the monster cannot also switch between Attack and Guard.`,
     }),
     ...when(f.LANES, {
       q: f.LANE_SWAP ? 'Can I move or swap, then attack?' : 'Can I move, then attack?',
-      a: slots ? 'Yes. Move first, then attack from the new lane. Not the other way round: after a monster attacks it stays put.' : 'Yes. Move first, then attack from the new lane.',
+      a: slots ? 'Yes. Move first, then attack from the new lane. You cannot attack and then move, because a monster stays put after it attacks.' : 'Yes. Move first, then attack from the new lane.',
     }),
     {
       q: 'Can I switch to Guard and still attack?',
-      a: 'No. Only a monster in Attack position attacks. Switching from Guard to Attack and then attacking works, if it was not summoned this turn.',
+      a: 'No. Only a monster in Attack position can attack. Switching from Guard to Attack and then attacking works, if the monster was not summoned this turn.',
     },
     ...when(slots, {
       q: 'Can I summon or Graft after I attack?',
-      a: 'Yes. Your summon, spell or trap, Graft and attacks come in any order. Attacking closes nothing.',
+      a: 'Yes. Your summon, spell or trap, Graft and attacks can come in any order. Attacking closes nothing.',
     }),
     ...when(f.LANES, {
       q: 'Why can’t my monster attack anything?',
       a:
-        "It attacks only the lane straight across. If that lane is empty and he still has monsters elsewhere, there is nothing to hit: move it, or summon across from his monster. It may also be in Guard or face-down, or have attacked already" +
-        (g.FIRST_ATTACK_ROUND_PLAYER > 1 ? ', or it is round 1.' : '.'),
+        "A monster attacks only the lane straight across. If that lane is empty and the Monarch still has monsters elsewhere, there is nothing to hit. The monster may also be in Guard or face-down, or have attacked already" +
+        (g.FIRST_ATTACK_ROUND_PLAYER > 1 ? ', or it may be round 1.' : '.'),
     }),
     {
       q: 'Can I take a move back?',
@@ -516,7 +516,7 @@ export function howToQuiz(ctx: GameCtx, id: HowToArtId): Quiz | null {
           { label: 'His life', right: false },
           { label: 'Nothing from there', right: true },
         ],
-        why: 'It attacks only straight across, and his life is open only when his board is empty. Move it a lane, or summon across from him.',
+        why: 'It attacks only straight across, and his life is open only when his board is empty.',
       };
     case 'bonds':
       if (g.FLAGS.TURN_SLOTS) {

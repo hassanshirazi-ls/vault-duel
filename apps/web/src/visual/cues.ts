@@ -3,7 +3,7 @@
 import type { GameEvent, GameState, Iid, Side } from '@vault-duel/engine';
 
 export type CueKind =
-  | 'enter' | 'graft' | 'split' | 'bond' | 'lunge' | 'hit' | 'ward' | 'flash' | 'damage' | 'heal' | 'intent' | 'gavel' | 'mood' | 'burn' | 'taken' | 'riposte' | 'ambush';
+  | 'enter' | 'graft' | 'split' | 'bond' | 'lunge' | 'hit' | 'ward' | 'flash' | 'damage' | 'heal' | 'intent' | 'gavel' | 'arrive' | 'mood' | 'burn' | 'taken' | 'riposte' | 'ambush';
 
 export interface Cue {
   readonly kind: CueKind;
@@ -25,7 +25,9 @@ export const TIMING = {
   /** hold after the last beat before the queue ends */
   TAIL_MS: 800,
   /** the Collector's telegraph before each of his actions: the card or attacker lit, its target marked */
-  TELEGRAPH_MS: 600,
+  TELEGRAPH_MS: 850,
+  /** the levy's first half: the card he is about to take marked in your slot, the plaque naming it. The second half (gavel, the shadow hand, the card arriving crowned) is cues, about 4 beats plus the tail: the whole Levy runs about 2.8 s */
+  LEVY_MARK_MS: 1200,
   /** a Collector action with no animation of its own (a trap set face-down) still stays this long on screen */
   SETTLE_MS: 500,
 } as const;
@@ -56,7 +58,15 @@ export function cuesFromEvents(events: readonly GameEvent[], before?: GameState)
         if (e.swapped >= 0) add({ kind: 'flash', iid: e.swapped }, false);
         add({ kind: 'flash', iid: e.iid });
         break;
-      case 'Appraised': add({ kind: 'taken', iid: e.iid }, false); add({ kind: 'flash', iid: e.iid }, true, 3); break;
+      case 'Appraised':
+        // the shadow hand lifts it from your slot (beat 0) while the card arrives on his side one beat later (D-349)
+        add({ kind: 'taken', iid: e.iid }, false);
+        if (e.to === 'board') {
+          beat += 1;
+          add({ kind: 'arrive', iid: e.iid }, true, 3);
+        } else beat += SPAN.gavel ?? 3;
+        break;
+      case 'AppraisalFailed': beat += SPAN.gavel ?? 3; break;
       case 'Destroyed': add({ kind: 'burn', iid: e.iid, side: e.side }); break;
       case 'AttackDeclared': add({ kind: 'lunge', iid: e.attacker }); break;
       case 'CombatResolved':
@@ -70,7 +80,7 @@ export function cuesFromEvents(events: readonly GameEvent[], before?: GameState)
       case 'Damage': if (e.amount > 0) add({ kind: 'damage', side: e.side, amount: e.amount }, false); break;
       case 'LifeGained': add({ kind: 'heal', side: e.side, amount: e.amount }, false); break;
       case 'IntentSet': add({ kind: 'intent' }, false); break;
-      case 'AppraisalAttempt': add({ kind: 'gavel' }); break;
+      case 'AppraisalAttempt': add({ kind: 'gavel' }, false); break;
       case 'MoodChanged': add({ kind: 'mood' }, false); break;
       default: break;
     }

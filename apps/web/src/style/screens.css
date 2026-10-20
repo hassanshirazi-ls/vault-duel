@@ -1671,8 +1671,8 @@ button.life[data-glow='target']::after {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 800;
   line-height: 1.15;
   color: var(--ink);
   animation: fade-in var(--beat) both;
@@ -2269,7 +2269,14 @@ button.life[data-glow='target']::after {
     box-shadow: var(--offset-sm);
     font-size: 14px;
   }
+  .duel > .collector .telegraph {
+    padding: 5px 12px;
+    border-width: 2.5px;
+    box-shadow: var(--offset);
+    font-size: 16px;
+  }
   .telegraph svg {
+    display: inline-block;
     vertical-align: -3px;
   }
 }

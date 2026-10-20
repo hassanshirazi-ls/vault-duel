@@ -100,8 +100,9 @@ describe('cues from events', () => {
       { e: 'Destroyed', iid: 4, side: 1, cause: 'combat', by: 2 },
       { e: 'Appraised', iid: 7, fromSlot: 1, to: 'board', toSlot: 0 },
     ]);
-    expect(cues.map((c) => c.kind)).toEqual(['burn', 'taken', 'flash']);
-    expect(cues[1]?.beat).toBe(cues[2]?.beat);
+    expect(cues.map((c) => c.kind)).toEqual(['burn', 'taken', 'arrive']);
+    // the hand lifts it at once; the card arrives on his side one beat later
+    expect(cues[2]?.beat).toBe((cues[1]?.beat ?? 0) + 1);
   });
   it('speaks on a mood shift or a levy attempt, not otherwise', () => {
     expect(quipMood([{ e: 'MoodChanged', from: 0, to: 2 }], 2)).toBe(2);

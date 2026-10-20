@@ -308,13 +308,13 @@ function Illustration({ id, ctx, samples }: { readonly id: HowToArtId; readonly 
           <span className="stamp">
             <Seal />
           </span>
-          <p className="ht-stars" aria-hidden="true">
+          {g.FLAGS.BONUS_OBJECTIVES && <p className="ht-stars" aria-hidden="true">
             {Array.from({ length: g.OBJECTIVES_PER_DAY }, (_, i) => (
               <span key={i} style={{ '--i': i } as CSSProperties}>
                 <Glyph id="star" size={26} filled />
               </span>
             ))}
-          </p>
+          </p>}
         </div>
       );
   }

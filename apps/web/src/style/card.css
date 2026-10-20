@@ -951,3 +951,78 @@
 .mini[data-side='me'][data-attacked] .mini-clip {
   filter: saturate(0.55) brightness(0.8);
 }
+
+/* ---- the Monarch's telegraph and the levy (D-266, D-349, D-362): a thick ink ring with a heavy offset shadow, and an inked label ---- */
+.mini[data-mark] {
+  z-index: 4;
+  outline: 4px solid var(--ink);
+  outline-offset: 3px;
+  box-shadow: 6px 8px 0 var(--ink);
+}
+.mini[data-mark='target'] {
+  outline-style: dashed;
+}
+.mini[data-mark='levy'] {
+  outline-width: 5px;
+  outline-offset: 4px;
+  box-shadow: 8px 10px 0 var(--ink);
+}
+.mini[data-mark] .preview-badge {
+  padding: 3px 8px;
+  background: var(--ink);
+  border-color: var(--ink);
+  box-shadow: 2px 3px 0 var(--card);
+  color: var(--paper);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.mini[data-mark='levy']::before {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border: 2px solid var(--ink);
+  pointer-events: none;
+  animation: ring calc(var(--beat) * 4) ease-in-out infinite alternate;
+}
+/* a levied card arriving crowned on his side: it drops in, inverts once, then holds a heavy ring until the beat ends */
+.cue-arrive {
+  animation-name: cue-arrive;
+  animation-duration: calc(var(--cue) * 3);
+}
+@keyframes cue-arrive {
+  0% {
+    transform: translateY(-18px) scale(1.14);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+    filter: invert(1);
+    transform: scale(1.08);
+    outline: 5px solid var(--ink);
+    outline-offset: 4px;
+    box-shadow: 8px 10px 0 var(--ink);
+  }
+  45% {
+    filter: none;
+    transform: scale(1.06);
+    outline: 5px solid var(--ink);
+    outline-offset: 4px;
+    box-shadow: 8px 10px 0 var(--ink);
+  }
+  85% {
+    transform: none;
+    outline: 5px solid var(--ink);
+    outline-offset: 4px;
+    box-shadow: 8px 10px 0 var(--ink);
+  }
+  100% {
+    outline: 5px solid transparent;
+    outline-offset: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cue-arrive,
+  .mini[data-mark='levy']::before {
+    animation: none;
+  }
+}

@@ -67,7 +67,7 @@ export function Stats() {
           {figure('Streak', String(sum.current), { red: true, glyph: 'flame' })}
           {figure('Best streak', String(sum.best))}
           {figure('Rounds vs par', vsPar)}
-          {figure('Bonus stars', `${sum.stars}`, { glyph: 'star' })}
+          {g.FLAGS.BONUS_OBJECTIVES && figure('Bonus stars', `${sum.stars}`, { glyph: 'star' })}
         </dl>
         <section className="chart" aria-label="Rounds used">
           <h3>Rounds used</h3>

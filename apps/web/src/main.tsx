@@ -35,7 +35,7 @@ let api: ContentApi = initialContentApi;
 const store = createGameStore({
   storage,
   loadContent: () => loadGameContent(api, overrides),
-  today: () => resolveDate(devSearch, new Date()),
+  today: (g) => resolveDate(devSearch, new Date(), g.RESET_HOUR_LOCAL),
   resolveSetup: (ctx, date, onProgress) =>
     resolveSetup(ctx, date, {
       storage,

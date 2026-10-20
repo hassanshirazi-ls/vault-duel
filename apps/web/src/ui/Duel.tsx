@@ -38,7 +38,7 @@ import { Inspect } from './Inspect';
 import { CardBack, MiniCard } from './MiniCard';
 import { RoundTrack } from './RoundTrack';
 
-const CARD_CUES = new Set(['enter', 'graft', 'split', 'bond', 'lunge', 'hit', 'ward', 'flash', 'riposte', 'ambush']);
+const CARD_CUES = new Set(['enter', 'graft', 'split', 'bond', 'lunge', 'hit', 'ward', 'flash', 'arrive', 'riposte', 'ambush']);
 /** while the Monarch's moves play, nothing is offered */
 const NO_GROUPS = groupLegal([]);
 
@@ -116,10 +116,14 @@ export function Duel() {
     return hidden ? 'A face-down card' : view(iid).name;
   };
   const tgLine = telegraph === null ? null : telegraphLine(telegraph, nameOf);
-  const markOf = (iid: Iid): { icon: string; label: string } | undefined => {
+  const markOf = (iid: Iid): { icon: string; label: string; tone: 'act' | 'target' | 'levy' } | undefined => {
     if (telegraph === null) return undefined;
-    if (telegraph.actor === iid) return { icon: telegraph.kind === 'reposition' || telegraph.kind === 'moveLane' ? 'swap' : 'sword', label: 'Acts' };
-    if (telegraph.target === iid) return { icon: 'pos', label: 'Target' };
+    if (telegraph.actor === iid) return { icon: telegraph.kind === 'reposition' || telegraph.kind === 'moveLane' ? 'swap' : 'sword', label: 'Acts', tone: 'act' };
+    if (telegraph.kind === 'levy' && telegraph.target === iid) {
+      const his = S.sides[1].board.some((m) => m !== null && m.iid === iid);
+      return { icon: 'crown', label: his ? 'Taken' : 'Levied', tone: 'levy' };
+    }
+    if (telegraph.target === iid) return { icon: 'pos', label: 'Target', tone: 'target' };
     return undefined;
   };
   const slotMarked = (side: Side, kind: 'monster' | 'trap', i: number): boolean =>

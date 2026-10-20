@@ -100,7 +100,7 @@ export interface MiniCardProps {
   /** a glyph beside the preview text (Riposte shows a shield, a hidden Guard an eye), so the warning is never text alone */
   readonly previewIcon?: string | undefined;
   /** a labelled marker with an icon, for the Monarch's telegraph (D-266) */
-  readonly mark?: { readonly icon: string; readonly label: string } | undefined;
+  readonly mark?: { readonly icon: string; readonly label: string; readonly tone?: 'act' | 'target' | 'levy' } | undefined;
   readonly style?: CSSProperties;
   readonly label?: string;
   /** can hit monsters but not life this turn (D-280) */
@@ -136,6 +136,7 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
       data-flaw={frame.flawVisual ?? undefined}
       data-glow={glow ?? undefined}
       data-selected={selected ? '' : undefined}
+      data-mark={mark?.tone}
       data-dim={dim ? '' : undefined}
       data-down={faceDown ? '' : undefined}
       data-unstable={unstable ? '' : undefined}
@@ -278,9 +279,9 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
 }
 
 /** The back of a card the player cannot see (the Monarch's traps and face-down monsters). */
-export function CardBack({ icon, label, onTap, glow = null, selected = false, mark, preview, previewIcon }: { readonly preview?: string | undefined; readonly previewIcon?: string | undefined; readonly icon: string; readonly label: string; readonly onTap?: (() => void) | undefined; readonly glow?: Glow; readonly selected?: boolean; readonly mark?: { readonly icon: string; readonly label: string } | undefined }) {
+export function CardBack({ icon, label, onTap, glow = null, selected = false, mark, preview, previewIcon }: { readonly preview?: string | undefined; readonly previewIcon?: string | undefined; readonly icon: string; readonly label: string; readonly onTap?: (() => void) | undefined; readonly glow?: Glow; readonly selected?: boolean; readonly mark?: { readonly icon: string; readonly label: string; readonly tone?: 'act' | 'target' | 'levy' } | undefined }) {
   return (
-    <button type="button" className="mini back" aria-label={label} data-glow={glow ?? undefined} data-selected={selected ? '' : undefined} onClick={onTap} disabled={onTap === undefined}>
+    <button type="button" className="mini back" aria-label={label} data-glow={glow ?? undefined} data-selected={selected ? '' : undefined} data-mark={mark?.tone} onClick={onTap} disabled={onTap === undefined}>
       <span className="mini-clip" />
       <span className="back-icon">
         <Glyph id={icon} size={28} />

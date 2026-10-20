@@ -107,7 +107,7 @@
 }
 .duel > .collector .quip,
 .duel > .collector .telegraph {
-  padding: 4px 10px;
-  border: 1.5px solid var(--ink);
-  box-shadow: var(--offset-sm);
+  padding: 5px 12px;
+  border: 2.5px solid var(--ink);
+  box-shadow: var(--offset);
 }

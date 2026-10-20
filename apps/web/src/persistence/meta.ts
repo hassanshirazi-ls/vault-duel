@@ -17,7 +17,7 @@ export interface DayRecord {
   readonly par: number;
   /** the player's life at the end (0 on a loss) */
   readonly life: number;
-  /** bonus objectives met, 0..OBJECTIVE_STARS_MAX */
+  /** bonus objectives met, 0..OBJECTIVES_PER_DAY; always 0 when FLAGS.BONUS_OBJECTIVES is off */
   readonly stars: number;
 }
 

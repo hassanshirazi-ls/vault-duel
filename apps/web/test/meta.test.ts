@@ -12,7 +12,7 @@ import type { DayRecord } from '../src/persistence/meta';
 import { memoryStorage } from '../src/persistence/storage';
 import { practiceKey, sessionKey } from '../src/daily/session';
 import { roundRow } from '../src/view/roundRow';
-import { sendShare, shareText } from '../src/view/share';
+import { dayNumber, sendShare, shareText, shortUrl } from '../src/view/share';
 import { makeStore, simplePick, started } from './helpers';
 
 const win = (rounds = 6, stars = 2): DayRecord => ({ won: true, rounds, par: 6, life: 12, stars });
@@ -150,16 +150,21 @@ describe('share text', () => {
   const track: Track = { round: [RoundFlag.Attacked, RoundFlag.Grafted, 0, RoundFlag.Appraised, 0, 0, 0, 0, 0, 0, 0, 0], grafts: 1, families: [], unpriced: false, appraisedLost: 0 };
   it('builds the round row, rounds against par, life and stars', () => {
     const row = roundRow(track, 4).join('');
-    const text = shareText({ date: '2026-10-15', won: true, rounds: 4, par: 6, life: 9, stars: 2, starsMax: 3, row, url: 'https://example.test/' });
-    expect(text).toBe(`Vault Duel 2026-10-15 · Defied\n4 rounds (par 6) · Life 9 · ★★☆\n${row}\nhttps://example.test/`);
+    const text = shareText({ date: '2026-10-15', won: true, rounds: 4, maxRounds: 12, par: 6, life: 9, stars: 2, starsMax: 3, row, url: 'https://example.test/' });
+    expect(text).toBe(`Vault Duel #1 🏆 4/12\n${row}\n❤️ 9 life · par 6 · ★★☆\nexample.test`);
     expect(row).toBe('⚔️🧬🛡️👑');
   });
   it('a loss says Bound and never shows negative life', () => {
-    const text = shareText({ date: 'd', won: false, rounds: 12, par: 6, life: -3, stars: 0, starsMax: 3, row: '', url: 'u' });
-    expect(text).toContain('Bound');
-    expect(text).toContain('Life 0');
-    expect(text).toContain('☆☆☆');
-    expect(text).toContain('12 rounds (par 6)');
+    const text = shareText({ date: '2026-10-20', won: false, rounds: 12, maxRounds: 12, par: 8, life: -3, stars: 0, starsMax: 3, row: '⚔️💀', url: 'https://vault-duel.vercel.app/' });
+    expect(text).toBe('Vault Duel #6 💀 X/12\n⚔️💀\n❤️ 0 life · par 8 · ☆☆☆\nvault-duel.vercel.app');
+  });
+  it('numbers days from the launch date by calendar, across month, year and DST changes', () => {
+    expect([dayNumber('2026-10-15'), dayNumber('2026-10-20'), dayNumber('2026-11-01'), dayNumber('2027-01-01')]).toEqual([1, 6, 18, 79]);
+    expect(dayNumber('2026-11-02') - dayNumber('2026-10-31')).toBe(2);
+  });
+  it('keeps a path on the link and drops the scheme and trailing slash', () => {
+    expect(shortUrl('https://example.test/play/')).toBe('example.test/play');
+    expect(shortUrl('http://localhost:5173/')).toBe('localhost:5173');
   });
   it('uses the Web Share API, falls back to the clipboard, and treats a cancelled sheet as no error', async () => {
     const calls: string[] = [];

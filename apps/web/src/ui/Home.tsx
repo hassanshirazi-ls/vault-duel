@@ -2,7 +2,7 @@
 // the big Daily duel plate (date, difficulty stars, Enter the vault / Resume / Today's result), then ink plates with a
 // one-line italic subtitle: Practice (after today's duel), How to play, Bestiary, Stats (D-265). Everything about the day
 // sits below them in a folding "Today's decree": the champion on its plinth, the weekly twist, the levy rounds, the bonus
-// objectives and the deck list. The footer has the feedback link and the countdown to the next duel (local midnight).
+// objectives and the deck list. The footer has the feedback link and the countdown to the next duel (the local reset hour, midnight by default).
 import { deckLine, definitionView } from '../view/cards';
 import { Glyph } from '../visual/glyphs';
 import { useGame } from './context';
@@ -28,13 +28,13 @@ function shortDate(iso: string): string {
 }
 
 /** "Next duel in 14h 12m": local midnight, checked every 30 seconds. */
-function NextDuel() {
+function NextDuel({ resetHour }: { readonly resetHour: number }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 30000);
     return () => window.clearInterval(id);
   }, []);
-  return <span className="next-duel">Next duel in {formatCountdown(minutesToNextDuel(now))}</span>;
+  return <span className="next-duel">Next duel in {formatCountdown(minutesToNextDuel(now, resetHour))}</span>;
 }
 
 export function Home() {
@@ -155,7 +155,7 @@ export function Home() {
               </span>
             </li>
           )}
-          {setup.objectives.map((id) => (
+          {g.FLAGS.BONUS_OBJECTIVES && setup.objectives.map((id) => (
             <li key={id}>
               <Glyph id="star" size={18} />
               <span>
@@ -187,7 +187,7 @@ export function Home() {
 
       <footer className="home-foot">
         <FeedbackLink plain />
-        <NextDuel />
+        <NextDuel resetHour={g.RESET_HOUR_LOCAL} />
       </footer>
       {g.FLAGS.DEBUG_OVERLAY && source !== null && <p className="muted">Setup source: {source}</p>}
     </main>

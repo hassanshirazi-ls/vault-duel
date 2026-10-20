@@ -17,7 +17,7 @@ function listFiles(dir: string, base = dir): string[] {
 }
 
 /**
- * Offline cache (D-250): after the build, writes dist/sw.js with the app shell (every emitted file except card art,
+ * Offline cache (D-250): after the build, writes dist/sw.js with the app shell (every emitted file except card art, the link-preview image,
  * seeds.json, the worker script itself and the .woff fallbacks of fonts that ship as .woff2) as its precache list. The cache name hashes the files, so a new build is a
  * new cache and the old one is deleted when the new worker takes over. Content is bundled in the JS; seeds.json and
  * art/ are cached as they are used (see src/sw/sw.template.js).
@@ -31,7 +31,7 @@ function offlineShell(): Plugin {
       outDir = join(config.root, config.build.outDir);
     },
     closeBundle() {
-      const files = listFiles(outDir).filter((f) => f !== 'sw.js' && f !== 'seeds.json' && !f.startsWith('art/') && !f.endsWith('.woff'));
+      const files = listFiles(outDir).filter((f) => f !== 'sw.js' && f !== 'seeds.json' && !f.startsWith('art/') && f !== 'og.png' && !f.endsWith('.woff'));
       const hash = createHash('sha256');
       for (const f of files) hash.update(f).update(readFileSync(join(outDir, f)));
       const version = hash.digest('hex').slice(0, 12);
@@ -54,10 +54,21 @@ function buildSha(): string {
   }
 }
 
+/**
+ * Link preview tags need absolute URLs in most chat apps. Vercel sets VERCEL_PROJECT_PRODUCTION_URL (a host, no scheme)
+ * at build time; index.html carries `__SITE_URL__` where the site root goes. Without it (local dev and builds) the root
+ * is `./`, which still resolves for a browser but is not a valid preview URL.
+ */
+function siteUrl(): Plugin {
+  const host = process.env['VERCEL_PROJECT_PRODUCTION_URL']?.trim() ?? '';
+  const root = host === '' ? './' : `https://${host.replace(/^https?:\/\//, '').replace(/\/+$/, '')}/`;
+  return { name: 'vault-duel-site-url', transformIndexHtml: (html) => html.replaceAll('__SITE_URL__', root) };
+}
+
 // Workspace packages export TypeScript source ("exports": "./src/index.ts"), so Vite compiles them like app code
 // and JSON/keyword edits reach the HMR graph (D-176).
 export default defineConfig({
-  plugins: [react(), offlineShell()],
+  plugins: [react(), siteUrl(), offlineShell()],
   define: { __BUILD_SHA__: JSON.stringify(buildSha()) },
   worker: { format: 'es' },
   build: { target: 'es2022' },

@@ -23,6 +23,10 @@ export function telegraphLine(t: Telegraph, nameOf: (iid: Iid) => string): Teleg
       return { icon: 'trap', text: 'The Monarch sets a trap' };
     case 'reposition':
       return { icon: 'swap', text: `${of(t.actor)} changes position` };
+    case 'levy':
+      return { icon: 'crown', text: `Levy · ${t.done === true ? 'took' : 'takes'} ${of(t.target)}` };
+    case 'levyNone':
+      return { icon: 'crown', text: 'Levy · nothing to take' };
     case 'moveLane':
       return { icon: 'swap', text: `${of(t.actor)} moves to lane ${(t.slot?.index ?? 0) + 1}` };
   }

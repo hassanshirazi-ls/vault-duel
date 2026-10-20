@@ -49,17 +49,20 @@ export function Result() {
   const practice = mode === 'practice';
   const row = roundRow(state.track, result.round).join('');
   const sig = definitionView(ctx, setup.signature);
-  const stars = objectivesMet(ctx, setup.objectives, state);
+  const bonus = ctx.globals.FLAGS.BONUS_OBJECTIVES;
+  const stars = bonus ? objectivesMet(ctx, setup.objectives, state) : 0;
   const newFamilies = Object.keys(binder.families).filter((id) => binder.families[id] === setup.date);
   const share = async (): Promise<void> => {
     const text = shareText({
       date: setup.date,
       won,
       rounds: result.round,
+      maxRounds: ctx.globals.MAX_ROUNDS,
       par: setup.difficulty.par,
       life: state.sides[0].life,
       stars,
       starsMax: setup.objectives.length,
+      showStars: bonus,
       row,
       url: `${window.location.origin}${import.meta.env.BASE_URL}`,
     });
@@ -92,7 +95,7 @@ export function Result() {
             <dd>{state.track.grafts}</dd>
           </div>
         </dl>
-        <ul className="receipt-objectives">
+        {bonus && <ul className="receipt-objectives">
           {setup.objectives.map((id) => {
             const o = ctx.objectives.get(id);
             const met = o !== undefined && objectiveMet(o, state, ctx.globals);
@@ -104,7 +107,7 @@ export function Result() {
               </li>
             );
           })}
-        </ul>
+        </ul>}
         <p className="receipt-row" aria-label="Round row">
           {row}
         </p>
