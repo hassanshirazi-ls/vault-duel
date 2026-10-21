@@ -3,13 +3,22 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-20 · Longer duels: Player life 24, Mirror Sigil −2
+
+Two settings changed, which changes the settings hash: a duel in progress when this update arrives starts over, and
+the seeds manifest is regenerated (2026-10-20 to 2027-01-17).
+
+- **You start with 24 life** (D-368, proposal M-14): `PLAYER_LIFE: 20,` is now `PLAYER_LIFE: 24,` in `globals.ts`. Duels last longer: 55.6% now end in rounds 8 to 12 (was 50.0%), and 15.1% go the full 12 rounds (was 11.5%).
+- **Mirror Sigil takes 2** (D-368, proposal M-16): `MIRROR_SIGIL_PENALTY: 3` is now `MIRROR_SIGIL_PENALTY: 2` in `CONTENT_NUMBERS`. This offsets the extra life, so the expert's win rate stays at 46.6% (was 46.2%).
+- **Evidence**: `docs/BALANCE_LOG.md`, "Phase 3 A/B round 1 (2026-10-20)", tested every proposal that runs today. The other proposals were not adopted.
+
 ## 2026-10-20 · Phase 3 start: baseline sim, a naive bot, the set-aside switch
 
 No live rule, card or setting changed, so saved duels and the seeds manifest are unaffected.
 
-- **Baseline report**: `docs/reports/full-2026-10-20.md` measures the live game before any Phase 3 test. The expert wins 46.1% (target 45–55%). Grafts per win (4.29) and how often The Unpriced appears (47.9%) are now above their targets, and duels are longer than on 16 October but still short of the length targets.
+- **Baseline report**: `docs/reports/full-2026-10-20.md` measures the live game before any Phase 3 test. The expert wins 46.1% (target 45–55%). Grafts per win (4.29) and how often The Hollow Heir appears (47.9%) are now above their targets, and duels are longer than on 16 October but still short of the length targets.
 - **Naive bot** (D-367): the simulator now also plays a scripted "casual player" (proposal M-09) and reports it as BT-2n next to the random novice. It won 0% in the first run, like the novice. Which bot the 20–30% novice target applies to is your call.
-- **`FLAGS.ACE_SET_ASIDE` works** (D-366): with it `true`, The Unpriced starts outside his deck and joins his hand on the first successful Appraisal (proposal M-04). It stays `false` until you adopt M-04, and `true` is no longer refused. The pinned-settings table in CONTENT_GUIDE section 7 lost its `FLAGS.ACE_SET_ASIDE` row.
+- **`FLAGS.ACE_SET_ASIDE` works** (D-366): with it `true`, The Hollow Heir starts outside his deck and joins his hand on the first successful Levy (proposal M-04). It stays `false` until you adopt M-04, and `true` is no longer refused. The pinned-settings table in CONTENT_GUIDE section 7 lost its `FLAGS.ACE_SET_ASIDE` row.
 
 ## 2026-10-20 · Playtest fixes: the Monarch's turn, the share text, the guide
 
@@ -67,7 +76,7 @@ No rule or content changed. Saved duels keep working.
 The crown changes the rules, so a duel saved before this update starts over. `CONTENT_VERSION` stays `0.2.0`. The file
 names, card ids and globals keep their engine names, so saved seeds and the tools still work.
 
-- **The Monarch** (D-350): the Collector is now **the Monarch**, the opponent. Appraisal is **the Levy** (levy, levied), a Relic is a **Courtier**, and **The Unpriced** is **The Hollow Heir**. Every word a player reads changed. The renamed cards: Mourning Cartographer is **Mourning Herald**, Abyssal Curator is **Abyssal Chamberlain**, Provenance Ledger is **Royal Ledger**, Gilt Frame is **Gilded Mantle**, Forfeit is **Execution** (Restoration keeps its name), Display Case is **Bend the Knee**, Counterfeit is **Forbidden Union**, Insurance Claim is **Blood Tithe**. Ids (`forfeit`, `display-case` and the rest) are unchanged. The screens say "Decree of <date>", "Today's champion", "Bestiary" and "Champions", a result is a royal edict sealed with a wax seal (DEFIED or BOUND), and the loading line reads "Summoning the court...". The Vault keeps its name.
+- **The Monarch** (D-350): the opponent, once "Collector", is now **the Monarch**. "Appraisal" is now **the Levy** (levy, levied), "Relic" is now a **Courtier**, and "The Unpriced" is now **The Hollow Heir**. Every word a player reads changed. The renamed cards: "Mourning Cartographer" is now **Mourning Herald**, "Abyssal Curator" is now **Abyssal Chamberlain**, "Provenance Ledger" is now **Royal Ledger**, "Gilt Frame" is now **Gilded Mantle**, "Forfeit" is now **Execution** (Restoration keeps its name), "Display Case" is now **Bend the Knee**, "Counterfeit" is now **Forbidden Union**, "Insurance Claim" is now **Blood Tithe**. Ids (`forfeit`, `display-case` and the rest) are unchanged. The screens say "Decree of <date>", "Today's champion", "Bestiary" and "Champions", a result is a royal edict sealed with a wax seal (DEFIED or BOUND), and the loading line reads "Summoning the court...". The Vault keeps its name.
 - **The crown** (D-349): a monster the Monarch levies is crowned while it is on his board. It gets **+1 Power** there (`CROWN_POWER` 1). A crown badge shows on the monster, and the card inspect reads "Crowned +1 Power". The crown is on by default (`FLAGS.CROWNED` true). A levy does not graft the monster automatically, so the Monarch keeps the monsters he already has.
   - Sim, quick run, 800 games per bot, 60 dates. Expert win rate 47.5% → 44.1%. Greedy 29.5% → 24.1%. Novice 0% → 0%. Levy success 56.6%, unchanged. The Hollow Heir now shows up in 47.5% of games (was 46.4%).
   - The expert now sits just under the 45–55% target band (BT-1). That is on purpose: the owner asked for a tougher Monarch. The band is left for the owner to move.
@@ -85,8 +94,8 @@ The rules changed, so a duel saved before this update starts over. `CONTENT_VERS
 - **Graft is the only bond** (D-336): `FLAGS.SPLIT` and `FLAGS.SYMBIOSIS` are now `false`. Their rules stay in the game, switched off, for future daily modes. The **Graft** button beside End turn is back and opens the workbench directly. Shroud's text drops "if you split it, this ends".
 - **Riposte** (`FLAGS.RIPOSTE`, D-337): attacking a guard (or face-down) monster with less Power than its Guard now destroys the attacker, and its owner still takes the difference. Guard holds a lane, and a face-down monster is a gamble to attack.
 - **Ambush** (`FLAGS.AMBUSH`, `AMBUSH_POWER` 2, D-338): flipping your face-down monster to attack gives it +2 Power until the end of the turn, and it can attack right away.
-- **The Collector** counts Riposte, never peeks at a face-down Guard, flips to Ambush when it wins a fight, and sets his guard summons face-down when Composed (`collector.json` `allowFaceDown` true, D-343…D-345). Collector life stays 40: the expert bot wins 50.6% (target 45–55%), greedy 28.3%, median 8 rounds.
-- **Quiet table** (D-339, D-346): the Collector's header is one row (his mood is the portrait ring's color); the round track is a thin strip with an "⚒ in k" Appraisal chip; lane labels are gone; the hint shows only while you hold a card; slot dots and your trap icons sit beside your life; the element wheel lives in Inspect.
+- **The Monarch** counts Riposte, never peeks at a face-down Guard, flips to Ambush when it wins a fight, and sets his guard summons face-down when Composed (`collector.json` `allowFaceDown` true, D-343…D-345). Monarch life stays 40: the expert bot wins 50.6% (target 45–55%), greedy 28.3%, median 8 rounds.
+- **Quiet table** (D-339, D-346): the Monarch's header is one row (his mood is the portrait ring's color); the round track is a thin strip with an "⚒ in k" Levy chip; lane labels are gone; the hint shows only while you hold a card; slot dots and your trap icons sit beside your life; the element wheel lives in Inspect.
 - **Fixed: Grave Recall did nothing** (D-347). Its targets are in your discard pile, which the board couldn't show. A **Choose** button now opens your discard pile.
 - **Fixed: a second row of slots over your traps** (D-339). Three overlapping layers (floating Attack/Face-up toggles, a ring inside each lit slot, full-height lane rails) are gone.
 - **Riposte and Ambush cues** (D-348): targets show "Riposte" or "?" (face-down), your face-down monster's flip button reads "+2", and both play a short effect.
@@ -97,8 +106,8 @@ The rules changed, so a duel saved before this update starts over. `CONTENT_VERS
 The rules changed, so a duel saved before this update starts over. `CONTENT_VERSION` stays `0.2.0`.
 
 - **Your turn** (`FLAGS.TURN_SLOTS`, D-335): summon one monster, play one spell or trap, make one bond (Graft, Split or Symbiosis) and attack once with each monster, **in any order**. Attacking no longer closes your card play or your bond. A monster that has attacked can't switch position or move lanes that turn.
-- **The Collector** plays by the same rules, so he can also summon and play a spell or trap in one turn.
-- **Collector life 25 → 40** (`COLLECTOR_LIFE`, D-335). The extra slot helps a skilled player much more than him: at 25 the expert bot won 73.5%; at 40 it wins 50.0% (target 45–55%), and games last longer (median 7 rounds, was 5).
+- **The Monarch** plays by the same rules, so he can also summon and play a spell or trap in one turn.
+- **Monarch life 25 → 40** (`COLLECTOR_LIFE`, D-335). The extra slot helps a skilled player much more than him: at 25 the expert bot won 73.5%; at 40 it wins 50.0% (target 45–55%), and games last longer (median 7 rounds, was 5).
 - **Clearer screen**: the pips above your hand read Monster · Spell/Trap · Bond · Attacks (with the number of monsters that can still attack). One **Bond** button beside End turn replaces the separate Graft and Bonds buttons; picking Graft materials by hand is at the top of its sheet. A monster that has attacked shows a tick. A Sentinel's cover badge points at the Sentinel, the only thing that pulls an attack to the side. The attack hint says when a direct hit is possible (his board empty) and why a monster can't attack.
 - **How to play**: "Play and bond" is now **Your turn**, and it shows once more for everyone.
 
@@ -115,27 +124,27 @@ This release turns on the rules from the 2026-10-16 playtest round and adds thre
 
 ### New rules, now on by default
 
-- **Lanes** (`FLAGS.LANES`, D-281…D-284). Each side has three lanes, and a monster attacks only the monster across from it. An empty lane does not reach the Collector's life; a direct attack needs his whole board empty. You pick the lane when you summon or graft. Once per turn a monster may either move one lane (or trade places with your monster there) or switch between attack and guard (`FLAGS.LANE_SWAP`, `LANE_MOVE_RANGE`).
+- **Lanes** (`FLAGS.LANES`, D-281…D-284). Each side has three lanes, and a monster attacks only the monster across from it. An empty lane does not reach the Monarch's life; a direct attack needs his whole board empty. You pick the lane when you summon or graft. Once per turn a monster may either move one lane (or trade places with your monster there) or switch between attack and guard (`FLAGS.LANE_SWAP`, `LANE_MOVE_RANGE`).
 - **Summoning sickness, monsters only** (`SICKNESS_MODE = monstersOnly`, D-280). From round 2, a new monster can attack his monsters on the turn it arrives, but not his life. Swift now also lets it hit life that turn; Slow stops it attacking at all.
 - **Sentinel guards three lanes** (`SENTINEL_REACH` 1, D-283): its own lane and the lanes beside it.
 - **One element ring** (ring A, `elements.json` `beats`, D-285): Ember → Gale → Tide → Lumen → Umbra → Ember. Each element beats exactly one and loses to exactly one; Lumen and Umbra no longer beat each other.
 - **Bond actions** (D-305…D-320). Each turn you play one card and make one bond action, in either order, before your first attack (`FLAGS.BOND_ACTION`):
   - **Graft**: as before, but it no longer uses up your card play.
-  - **Split** (`FLAGS.SPLIT`): unbind one of your Chimeras back into the monsters it was made from. Good for dodging Appraisal or getting lanes back; you lose the Chimera's bonus stats.
-  - **Symbiosis** (`FLAGS.SYMBIOSIS`): attach a monster from your hand under one of yours. The host gets +`SYMBIOSIS_GUARD_BONUS` (2) Guard and the attached monster's keyword; when the host is destroyed, the attached monster comes out in its lane. If the host is Appraised, the Collector takes both.
+  - **Split** (`FLAGS.SPLIT`): unbind one of your Chimeras back into the monsters it was made from. Good for dodging Levy or getting lanes back; you lose the Chimera's bonus stats.
+  - **Symbiosis** (`FLAGS.SYMBIOSIS`): attach a monster from your hand under one of yours. The host gets +`SYMBIOSIS_GUARD_BONUS` (2) Guard and the attached monster's keyword; when the host is destroyed, the attached monster comes out in its lane. If the host is Levied, the Monarch takes both.
 
-### Collector changes
+### Monarch changes
 
-- **Appraisal takes monsters with Power 5 or more** (`APPRAISAL_MIN_POWER` 7 → 5, D-332). Split and Symbiosis let players keep everything under 7, so Appraisal almost stopped working (13–15% success). At 5 it succeeds about half the time again. Evidence: `docs/BALANCE_LOG.md`.
+- **Levy takes monsters with Power 5 or more** (`APPRAISAL_MIN_POWER` 7 → 5, D-332). Split and Symbiosis let players keep everything under 7, so Levy almost stopped working (13–15% success). At 5 it succeeds about half the time again. Evidence: `docs/BALANCE_LOG.md`.
 - He places summons by lane and makes lane moves when they give him more kills (`collector.json` `ai.reposition = laneAware`, `ai.params.summonLane`; D-286).
 - He never makes bond actions.
-- Full sim of the shipped rules (50,000 duels per bot): expert player 51.4% (target 45–55%), Appraisal 49.7%, The Unpriced appears in 23.0% of duels. Games are short (median 5 rounds), which matches the faster pace you asked for; the round-length targets still fail (D-332).
+- Full sim of the shipped rules (50,000 duels per bot): expert player 51.4% (target 45–55%), Levy 49.7%, The Hollow Heir appears in 23.0% of duels. Games are short (median 5 rounds), which matches the faster pace you asked for; the round-length targets still fail (D-332).
 
 ### New texts
 
 - Swift: "Can also attack life directly the turn it is summoned."
 - Sentinel: "Enemy attacks in its lane and in the lanes within {SENTINEL_REACH|lane|lanes} of it must target it."
-- Shroud: "One of your monsters cannot be Appraised until your next turn; if you split it, this ends."
+- Shroud: "One of your monsters cannot be Levied until your next turn; if you split it, this ends."
 - How to play now has 8 pages, adding Split and Symbiosis and lines for lanes and sickness. Each line appears only while its rule is on.
 
 ### In the app
@@ -143,12 +152,12 @@ This release turns on the rules from the 2026-10-16 playtest round and adds thre
 - Lanes on the board, lane picking when you summon or graft, lit "Move"/"Swap" slots for lane moves, a "No hit" note for an empty lane across, and a sickness badge (D-322).
 - The in-duel element compass is now a strip above your board: "Beats … +2" and "Weak to …". The full wheel stays in How to play (D-321).
 - "Play" and "Bond" pips show what you have left this turn. A Split button sits on Chimeras, and an Attach button on hand monsters. An attached monster shows as a tab under its host (D-327).
-- **Bond options**: a button beside Undo lists every Graft, Split and Symbiosis you can make this turn, with the result and whether it is safe from the next Appraisal, and marks the best one (D-328).
+- **Bond options**: a button beside Undo lists every Graft, Split and Symbiosis you can make this turn, with the result and whether it is safe from the next Levy, and marks the best one (D-328).
 
 ### New levers in the content guide
 
 - `SICKNESS_MODE`, `FLAGS.LANES`, `FLAGS.LANE_SWAP`, `LANE_MOVE_RANGE`, `SENTINEL_REACH`, `FLAGS.SPLIT`, `FLAGS.SYMBIOSIS`, `FLAGS.BOND_ACTION`, `SYMBIOSIS_GUARD_BONUS`, `BOND_GRAFT_MAX_HAND_MATERIALS`, `SPLIT_PART_PERM_P`. Each rule turns off with one edit in `globals.ts`.
-- Editing the element ring in `elements.json`, and the Collector's `summonLane` / `reposition` in `collector.json`.
+- Editing the element ring in `elements.json`, and the Monarch's `summonLane` / `reposition` in `collector.json`.
 - Sim overrides for trying a change without editing: `--set`, `--ring`, `--collector`, `--collector-reposition`.
 - New `content:check` messages for a bad `beats` id, a removed element, a bad reposition mode or lane rule, a bad sickness mode, a lanes flag in words, a negative Sentinel reach, and a mistyped Sentinel placeholder. Each is quoted in the guide and tested.
 
@@ -163,25 +172,25 @@ This release turns on the rules from the 2026-10-16 playtest round and adds thre
 ### Added
 
 - `content:check` prints one information line after a clean run: `not yet read: 28 globals wait for ai, engine, sim, web › see packages/content/src/planned-globals.ts`. It counts the globals that are listed in `planned-globals.ts` because their readers are not built yet. It is information only and never fails the run (D-205).
-- `RELIC_FLAWS` is pinned to 1. Any other value is refused with `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1`, because a Relic has exactly one Flaw (D-202).
-- `castHighValueSpell` in `collector.json` is keyed by Collector spell id. Each entry has exactly one of `{ "pick": "highestPower" }` or `{ "when": "contestedAttack" }`. You can add or remove entries with their card, with no code change (D-204).
+- `RELIC_FLAWS` is pinned to 1. Any other value is refused with `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1`, because a Courtier has exactly one Flaw (D-202).
+- `castHighValueSpell` in `collector.json` is keyed by Monarch spell id. Each entry has exactly one of `{ "pick": "highestPower" }` or `{ "when": "contestedAttack" }`. You can add or remove entries with their card, with no code change (D-204).
 - An entry with both keys or neither is refused: `collector.json › ai › params.castHighValueSpell.<id>: needs exactly one of "pick" or "when" › keep exactly one of "pick" or "when"` (D-204).
 - A `contestedAttack` entry on a spell that gives no Power to `chosen` is refused: `collector.json › ai › params.castHighValueSpell.<id>: "contestedAttack" needs a spell that gives Power to "chosen" › use "pick": "highestPower" instead` (D-204).
-- The Collector's ace must be a Relic: `collector.json › ace › "<id>" is not a Relic › use a Relic id from cards/relics.json` (D-203).
-- The Collector's ace must be in his deck list: `collector.json › ace › "<id>" is not in the deck › add it to the deck list in collector.json` (D-203).
-- A Collector spell in his deck with no AI entry gets a warning: `warning: collector.json › deck[n] › Collector spell "<id>" has no AI rule that casts it › add "<id>" to ai.params.castHighValueSpell with a pick, or make it draw-only`. A draw-only spell gets no warning (D-177).
-- A Collector trap in his deck that `trapPreference` does not name gets a warning: `warning: collector.json › deck[n] › Collector trap "<id>" is not in ai.trapPreference › add it, or AI rule 4 never sets it` (D-177).
+- The Monarch's ace must be a Courtier: `collector.json › ace › "<id>" is not a Relic › use a Relic id from cards/relics.json` (D-203).
+- The Monarch's ace must be in his deck list: `collector.json › ace › "<id>" is not in the deck › add it to the deck list in collector.json` (D-203).
+- A Monarch spell in his deck with no AI entry gets a warning: `warning: collector.json › deck[n] › Collector spell "<id>" has no AI rule that casts it › add "<id>" to ai.params.castHighValueSpell with a pick, or make it draw-only`. A draw-only spell gets no warning (D-177).
+- A Monarch trap in his deck that `trapPreference` does not name gets a warning: `warning: collector.json › deck[n] › Collector trap "<id>" is not in ai.trapPreference › add it, or AI rule 4 never sets it` (D-177).
 - A card number that nothing uses gets a warning: `warning: globals.ts › CONTENT_NUMBERS › <NAME>: not used by any card, objective, AI param or keyword › delete the line, or use $<NAME> in an effect`. It is left behind when the card that used it is deleted (D-205).
 - A missing field now says what to add, for every field: `cards/player-monsters.json › <id> › power: missing › add "power"` (D-207).
-- A Relic without its Flaw: `cards/relics.json › <id> › flaw: missing, a Relic needs exactly 1 Flaw › add "flaw": "<flaw id>"` (D-202, D-207).
-- The global `AI_SEARCH_NODE_BUDGET` is a safety cap on the Collector's win search. The `not yet read` count rises by 1, because the global is listed in `planned-globals.ts` until `ai` reads it (D-211).
+- A Courtier without its Flaw: `cards/relics.json › <id> › flaw: missing, a Relic needs exactly 1 Flaw › add "flaw": "<flaw id>"` (D-202, D-207).
+- The global `AI_SEARCH_NODE_BUDGET` is a safety cap on the Monarch's win search. The `not yet read` count rises by 1, because the global is listed in `planned-globals.ts` until `ai` reads it (D-211).
 
 ### Changed
 
-- The keyword limit now comes from `MAX_BASE_KEYWORDS`, which the check reads. Old: `cards/player-monsters.json › <id> › keywords: ["swift","sentinel"] is above the maximum 1 › use 1 or less`. New: `cards/player-monsters.json › <id> › keywords: has 2 keywords, max MAX_BASE_KEYWORDS=1 › remove 1 keyword`. A Relic gets the same line in `cards/relics.json`. Raising `MAX_BASE_KEYWORDS` now accepts more keywords, where before it did nothing (D-201).
+- The keyword limit now comes from `MAX_BASE_KEYWORDS`, which the check reads. Old: `cards/player-monsters.json › <id> › keywords: ["swift","sentinel"] is above the maximum 1 › use 1 or less`. New: `cards/player-monsters.json › <id> › keywords: has 2 keywords, max MAX_BASE_KEYWORDS=1 › remove 1 keyword`. A Courtier gets the same line in `cards/relics.json`. Raising `MAX_BASE_KEYWORDS` now accepts more keywords, where before it did nothing (D-201).
 - A Flaw on a base monster. Old: `cards/player-monsters.json › <id> › (entry): unknown key(s) flaw › remove flaw`. New: `cards/player-monsters.json › <id> › Flaws appear only on Relics › remove "flaw"` (D-207).
-- The Collector AI spell path now names `params`. Old: `collector.json › ai › castHighValueSpell.<id>: …`. New: `collector.json › ai › params.castHighValueSpell.<id>: …` (D-204).
-- An unknown key in `castHighValueSpell` is accepted now, because the map takes any Collector spell id. Old: `collector.json › ai › params.castHighValueSpell: unknown key(s) <id> › remove <id>`. The spell is then checked the same way as the others: it needs to be in his deck, and it gets the D-177 warning when it has no entry (D-204).
+- The Monarch's AI spell path now names `params`. Old: `collector.json › ai › castHighValueSpell.<id>: …`. New: `collector.json › ai › params.castHighValueSpell.<id>: …` (D-204).
+- An unknown key in `castHighValueSpell` is accepted now, because the map takes any Monarch spell id. Old: `collector.json › ai › params.castHighValueSpell: unknown key(s) <id> › remove <id>`. The spell is then checked the same way as the others: it needs to be in his deck, and it gets the D-177 warning when it has no entry (D-204).
 - A whole-entry problem no longer prints `(entry):`. Its line has no field part, so `(entry)` is gone from every message. A problem that belongs to a whole file keeps `(file)` in the entry place (D-206).
 - The unused card-number warning runs only in `pnpm content:check`, because it reads the keyword sources. The browser build does not run it (D-205).
 - Owner ruling: the `castHighValueSpell` entries and the `trapPreference` ids are card lists. You edit them with the card, the way you edit `deck`. The rule lists, mood lists, `reposition` and the other AI settings stay owner-only (D-204).
@@ -198,4 +207,4 @@ This release turns on the rules from the 2026-10-16 playtest round and adds thre
 
 ### Changed
 
-- Web app, no content change: a bug fix for extra summoning zones, a main menu, a duel menu with the log, Undo to the start of your turn, tap-again to take a Graft material out, slower animations with a telegraph before each Collector move, and a steadier layout (D-265 to D-270).
+- Web app, no content change: a bug fix for extra summoning zones, a main menu, a duel menu with the log, Undo to the start of your turn, tap-again to take a Graft material out, slower animations with a telegraph before each Monarch move, and a steadier layout (D-265 to D-270).

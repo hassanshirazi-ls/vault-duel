@@ -3105,6 +3105,17 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Result: 0.0% in `sim:quick` (2,000 duels) and in the 2026-10-20 full run, the same as the novice. As scripted it can't reach 20–30% against `COLLECTOR_LIFE` 40. Not tuned: whether to loosen the script, change the target or keep both bots is an owner call for Phase 3.
 - Reason: the simplest faithful reading of M-09 under today's rules. Every ambiguity goes to "what a new player would obviously do".
 
+
+**D-368 · Player life 24 and Mirror Sigil −2 (M-14 + M-16 adopted)** (owner choice, 2026-10-20)
+- Question: Phase 3 A/B round 1 (docs/BALANCE_LOG.md, "Phase 3 A/B round 1 (2026-10-20)"; reports in `docs/reports/ab-round1-2026-10-20/`) tested every lever that runs today against the baseline `docs/reports/full-2026-10-20.md`. Which package ships?
+- Decision (owner): **M-14 + M-16**. `PLAYER_LIFE` 20 → 24 and `CONTENT_NUMBERS.MIRROR_SIGIL_PENALTY` 3 → 2.
+  - Confirm run (20,000 games, 60 dates from 2026-10-20, reproduced by the main session): expert 46.6% (was 46.2%), rounds 8–12 55.6% (pass, was 50.0%), round 12 15.1% (pass, was 11.5%), median 8 (target 9–11, still failing), grafts per win 4.34, Levy success 55.5%, Hollow Heir 49.8%, seed rejection 63.6% (was 66.7%). Novice and naive stay at 0%.
+  - M-14 is the only lever that lengthens duels. M-16 weakens the player's Mirror Sigil and takes back most of M-14's win-rate gain, so the expert stays near the D-364 average. §M framed M-16 as "only if walls stay too strong after M-06"; here it is adopted as that offset instead.
+  - The other levers are not adopted, and no owner ruling rejects them. Round 1 found M-04 nearly doubles the Hollow Heir rate (48% → 78%), M-12 drops the expert to 24.8%, M-02 pushes Levy success over 60%, M-08 and M-10 have no effect under turn slots, and M-13 shortens duels. M-05 and M-11 need card overrides the sim CLI lacks.
+  - Grafts per win, the Hollow Heir rate and seed rejection moved with no proposal lever. They go to balance-analyst round 2 (non-proposal knobs, measure only).
+  - The settings hash changes: the seeds manifest is regenerated (2026-10-20 to 2027-01-17), and a duel in progress when this update arrives starts over.
+- Reason: the owner's pick of the recommended package. It passes two of the three length targets without moving the expert's average.
+
 ---
 
 ## L. Summary of items needing owner review
@@ -3120,7 +3131,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 | D-218 | Attack rule 2: which of his attackers takes a kill, the strongest that can (D-090 literal, current) or the weakest that is enough? | Ruled 2026-10-15 (owner): the strongest, for v0.1. The weakest-sufficient alternative is A/B-tested in Phase 3 as M-17 |
 | D-229 | Difficulty check rejects ~75% of seeds (BT-8 ≤ 15%); `prepareDay` costs ~6 s, against D-099's 1–2 s | Measured in AI milestone 2. Levers (ε, per-run shuffle, band) change D-094 or globals; decide with Phase 3 sims. On-device vs precomputed: decided by D-236 (precomputed manifest, on-device fallback). Sim milestone (60 dates): 88.1% rejected and 2 D-004 fallbacks |
 | D-230 | BT-3b "most games end in rounds 8–12" read as more than half | DESIGN gives no number. Confirm, or give a share to make a `TARGET_*` global |
-| M-01…M-16 | Balance/rule proposals from the paper-sim (section M) | None applied; each needs a Phase 3 sim A/B test and an owner decision. Levers M-01 and M-02 get plumbing in D-183, and M-04 in D-184 |
+| M-01…M-16 | Balance/rule proposals from the paper-sim (section M) | M-14 and M-16 adopted (D-368, 2026-10-20); the rest still need an owner decision. Levers M-01 and M-02 get plumbing in D-183, and M-04 in D-184 |
 | D-152 | Ward saves an Unstable Chimera from expiry: does it keep the +3? | DESIGN is silent and it's reachable with launch cards. Owner ruled (A): Unstable ends and the +3 goes |
 | D-019 | No life cap (changed after paper-sim) | First draft capped life; DESIGN states no cap |
 | D-083 | Rule 3 "beats" uses the combat preview (element bonus, Guard vs a guard target) | Changed after paper-sim; affects which Relic answers your monster |
@@ -3160,9 +3171,9 @@ Source: `docs/reports/phase0-paper-sim.md` §3 (5 hand-played duels, n = 5, dire
 | M-11 | P15 | card | Bastion Warden 6/9 → 7/8 (only if walls are still dominant after M-06) | The only ≤ 6-Power Guard ≥ 8 wall: Appraisal-immune and unbreakable | `--set card.bastion-warden.power=7 guard=8` |
 | M-12 | P12 (part) | rule/card | A Chimera that would go to hand goes to the discard instead; Grave Recall cannot target Chimeras | Re-summoning a Chimera from hand is a value exploit; Chimera-in-hand was undefined (A13) | `CHIMERA_TO_HAND` flag |
 | M-13 | A4 reading | AI data | Paper-sim mood variant: Composed = list as written; Agitated = rule 2 takes ties; Desperate = face-down any Power + trades | Simpler than D-081 (D-081 kept because it implements all of DESIGN's mood prose) | alternate `collector.json › ai.moods` |
-| M-14 | P10 | global | `PLAYER_LIFE` 20 → 24 | Most losses were empty-board swings of 13–23 damage; +4 life buys one more decision turn | `--set PLAYER_LIFE=24` |
+| M-14 | P10 | global | `PLAYER_LIFE` 20 → 24 | Most losses were empty-board swings of 13–23 damage; +4 life buys one more decision turn | `--set PLAYER_LIFE=24`. **Adopted (D-368)** |
 | M-15 | feel notes | UX only | Mark "will be appraised" on face-up 7+ Power monsters during the player turn before an Appraisal round | Novices lose 7-Power base cards on R3 to a rule they haven't absorbed | none (UI; no rule change, no sim needed); recommended for the UI phase |
-| M-16 | P9 (note) | card | Mirror Sigil −3 → −2, only if walls stay too strong after M-06 | Vain bounce damage into Mirror Sigil + high Guard is large (6 in one hit, D3) | `--set MIRROR_SIGIL_PENALTY=2` |
+| M-16 | P9 (note) | card | Mirror Sigil −3 → −2, only if walls stay too strong after M-06 | Vain bounce damage into Mirror Sigil + high Guard is large (6 in one hit, D3) | `--set MIRROR_SIGIL_PENALTY=2`. **Adopted (D-368)** |
 | M-17 | AI milestone 1 (D-218) | AI | Attack rule 2: the weakest attacker that is enough takes the kill, instead of the strongest | More kills per turn; D-090 read literally sends the strongest | `collector.json › ai.params.killWithoutLoss.attacker` (`strongest` / `weakestSufficient`). Not built; built only if the owner asks for the A/B |
 
 **Paper-sim proposals that were pure clarifications** (adopted as decisions, not listed above):

@@ -311,8 +311,8 @@ The simulator must show an experienced-bot win rate of 45–55% and a novice-bot
 | Median duel length | 9–11 rounds |
 | Games lasting the full 12 rounds | 15–30% |
 | Grafts per winning game | 1.5–3 |
-| Appraisals that succeed | 30–60% |
-| Games where The Unpriced appears | 20–40% |
+| Levies that succeed | 30–60% |
+| Games where The Hollow Heir appears | 20–40% |
 | Seeds rejected by the difficulty check | under 15% |
 
 Every number in this doc is a global in one config file, so tuning never requires engine changes:
@@ -332,7 +332,7 @@ HAUNT_PENALTY=2  TETHERED_PENALTY=2
 SIM_RUNS_PER_SEED=500  SEED_WINRATE_MIN=0.30  SEED_WINRATE_MAX=0.70
 ```
 
-Feature flags (on/off without code changes): Ascend, Unstable, Appraisal, moods, intents, weekly twist, redraw, bonus objectives, animations, debug overlay.
+Feature flags (on/off without code changes): Ascend, Unstable, Levy, moods, intents, weekly twist, redraw, bonus objectives, animations, debug overlay.
 
 ## Technical architecture
 
@@ -389,11 +389,11 @@ v0.1 is a playable daily duel in the browser with every rule in this doc, placeh
 
 **In v0.1**
 
-- [ ] Full rules engine with all keywords, Flaws, Graft, Ascend, Unstable and Appraisal
-- [ ] Collector AI with moods and intents
+- [ ] Full rules engine with all keywords, Flaws, Graft, Ascend, Unstable and the Levy
+- [ ] The Monarch's AI with moods and intents
 - [ ] Daily seed, deck generator and difficulty check
-- [ ] Portrait mobile UI: board, hand, Graft preview, intents, Appraisal countdown, card inspect
-- [ ] Result screen, share text, local stats and streaks, Binder (local)
+- [ ] Portrait mobile UI: board, hand, Graft preview, intents, Levy countdown, card inspect
+- [ ] Result screen, share text, local stats and streaks, Bestiary (local)
 - [ ] Practice mode after the daily attempt
 - [ ] Placeholder art generated from data
 - [ ] Simulator CLI and balance report meeting the targets above
@@ -409,10 +409,10 @@ v0.1 is a playable daily duel in the browser with every rule in this doc, placeh
 | v0.2 | Painted art integration, sound, animation polish, tutorial duel |
 | v0.3 | Accounts and sync, leaderboards with server replay verification, weekly twists |
 | v0.4 | Capacitor iOS and Android builds, push reminder for the daily duel |
-| v1.0 | Launch: supporter tier, card backs, Binder archive access, ads outside duels |
+| v1.0 | Launch: supporter tier, card backs, Bestiary archive access, ads outside duels |
 
 **Open questions**
 
 - Final game name and trademark check.
 - Reset at local midnight (Wordle-style) or a single global time?
-- Does the Collector get a second deck variant after launch, or only weekly twists?
+- Does the Monarch get a second deck variant after launch, or only weekly twists?

@@ -9,8 +9,8 @@ folder, makes the same change, runs the same checks as `pnpm content:check`, and
 here. Examples that run the simulator run it on a tiny setting and read the report it writes. When a number in an
 example matters, the test sets it on its own copy, so an example stays true when you tune the game.
 
-> **Two sets of names.** The code, the file names, the ids and the tools keep the engine's names: Collector, Appraisal,
-> Relic and The Unpriced. Players see the royal-court names: the Monarch, Levy, Courtier and The Hollow Heir (D-350).
+> **Two sets of names.** The code, the file names, the ids and the tools keep the engine's names (the table under
+> "Words used here" lists them). Players see the royal-court names: the Monarch, Levy, Courtier and The Hollow Heir (D-350).
 > This guide uses the player names in its own words. Where it names a file, an id, a global or a tool message, it uses
 > the engine name, and it says what players see the first time in each section.
 
@@ -25,10 +25,10 @@ example matters, the test sets it on its own copy, so an example stays true when
 
 - **Monster**: a card you summon from your hand. It has Power, Guard, an element, a kind and keywords. At launch a
   base monster has at most one keyword (section 4).
-- **Courtier** (the engine calls it a Relic): a Monarch's monster. Every courtier has exactly one Flaw.
-- **The Monarch** (the engine calls him the Collector): your opponent. He has his own deck, his own spells and traps,
+- **Courtier**: a Monarch's monster. Every courtier has exactly one Flaw.
+- **The Monarch**: your opponent. He has his own deck, his own spells and traps,
   an ace, dialogue and AI.
-- **Levy** (the engine calls it Appraisal): on the Levy rounds (`APPRAISAL_ROUNDS`, the rounds with a crown on the
+- **Levy**: on the Levy rounds (`APPRAISAL_ROUNDS`, the rounds with a crown on the
   round track), the Monarch tries to take one of your face-up monsters with enough Power (`APPRAISAL_MIN_POWER`). A try
   can fail. The monster he takes is **levied**.
 - **Crowned**: a monster the Monarch has levied is crowned while it is on his board. It has +`CROWN_POWER` Power
@@ -77,7 +77,7 @@ Values live in data. Rules live in the design document.
 | What you change | Where | Who may change it |
 | --- | --- | --- |
 | Base monsters: stats, keyword, element, kind, text | `packages/content/cards/player-monsters.json` | Owner |
-| Courtiers (the engine's Relics): stats, element, kind, the one Flaw, text | `packages/content/cards/relics.json` | Owner |
+| Courtiers: stats, element, kind, the one Flaw, text | `packages/content/cards/relics.json` | Owner |
 | Player spells and traps | `packages/content/cards/player-spells.json`, `packages/content/cards/player-traps.json` | Owner |
 | The Monarch's spells and traps | `packages/content/cards/collector-spells.json`, `packages/content/cards/collector-traps.json` | Owner |
 | The Monarch's deck list, his ace, his dialogue (including the optional `levy` list, D-352) | `packages/content/collector.json` (`deck`, `ace`, `dialogue`) | Owner |
@@ -260,7 +260,7 @@ content:check FAILED: 1 error(s) in 1 file(s)
 
 Each message in the table is produced by the tooling, and each one is asserted by a test. Where a message ends in a
 list of valid ids, the list is shown as `…`, because the ids can change. The check prints the current list. The
-messages keep the engine's names (Collector, Relic, Appraisal), because that is what the tool prints.
+messages keep the engine's names (the table under "Words used here" lists them), because that is what the tool prints.
 
 | Message, as printed | What it means and what to do |
 | --- | --- |
@@ -435,7 +435,7 @@ Remove the `flaw` field from a Courtier and the check says what to add:
 cards/relics.json › example-relic › flaw: missing, a Relic needs exactly 1 Flaw › add "flaw": "<flaw id>"
 ```
 
-The message says "Relic" because the tool keeps the engine's name. A Flaw id that is not known gets the message from
+The message uses the engine's name, because the tool keeps it. A Flaw id that is not known gets the message from
 section 3. The test checks both sides: a Courtier with `"flaw": "slow"` passes, and a Courtier with `"flaw": "frail"` is
 refused.
 
@@ -1006,7 +1006,7 @@ simulator evidence (`docs/BALANCE_LOG.md`).
 | `BOND_GRAFT_MAX_HAND_MATERIALS` | `3` | The most hand cards one Graft may use. `3` is no limit, the same as `MAX_GRAFT_MATERIALS`. Read only with `BOND_ACTION`. | a whole number, 0 or more |
 | `SYMBIOSIS_GUARD_BONUS` | `2` | The Guard a host gains from its symbiote. Read only with `SYMBIOSIS`. | a whole number, 0 or more |
 | `SPLIT_PART_PERM_P` | `0` | The permanent Power change each part gets when a Chimera splits. A negative number makes the parts weaker. Read only with `SPLIT`. | a whole number, any sign |
-| `APPRAISAL_MIN_POWER` | `5` | The Levy (the engine's Appraisal) takes only a face-up monster with at least this Power. It was 7 before v0.2.0, because Split parts and Symbiosis hosts are base monsters with Power 2 to 7. | a whole number, 0 or more |
+| `APPRAISAL_MIN_POWER` | `5` | The Levy (Appraisal in the code) takes only a face-up monster with at least this Power. It was 7 before v0.2.0, because Split parts and Symbiosis hosts are base monsters with Power 2 to 7. | a whole number, 0 or more |
 
 The sim tested `APPRAISAL_MIN_POWER` at 5, 6 and 7, and `BOND_GRAFT_MAX_HAND_MATERIALS` at 2 and 3 (`docs/BALANCE_LOG.md`).
 The other rule numbers are shipped at their starting values and have not been swept. Change one by one step, then run
@@ -1433,10 +1433,10 @@ you can read and a `.json` file with every global the run used. The `.md` file h
 
   The metrics are: BT-1 the expert's win rate against the Monarch; BT-3 the median round a game ends; BT-3b the
   share of games ending in rounds 8 to 12 (it needs to be more than half); BT-4 the share ending in round 12; BT-5 the
-  grafts per win; BT-6 the Levy (the engine's Appraisal) success rate; BT-7 how often The Hollow Heir (the Monarch's
+  grafts per win; BT-6 the Levy success rate; BT-7 how often The Hollow Heir (the Monarch's
   ace, `the-unpriced`) appears; BT-2 the novice's win rate; BT-8 the seed rejection rate (sim full and sim seed only); DUEL-MIN and LEARN-SEC (minutes to
   play and seconds to learn), which need people to play, so they are never measured by the simulator. The report
-  keeps the engine's names for these rows, such as "Appraisal success rate".
+  uses these names for its rows, such as "Levy success rate".
 - **Anomalies.** A line under `ANOMALY` is a warning about the run itself. The speed line (PERF) is one: it reports
   duels per second per core against `PERF_DUELS_PER_SEC_PER_CORE`, and a tiny run is always slow.
 - **The rest.** Win rate by bot, the round each game ended, a per-bot detail table, damage and the sealed Vault,
