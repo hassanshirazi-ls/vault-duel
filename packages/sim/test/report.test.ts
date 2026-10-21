@@ -133,11 +133,11 @@ describe('balance targets', () => {
     expect(verdicts(world(expert, novice))['BT-2n']).toBe('not measured');
   });
 
-  it('judges the seed rejection rate against TARGET_SEED_REJECT_MAX', () => {
-    const summary = (rejected: number, candidates: number) => ({ ...summarise({ setups: [], candidates: [] }), rejected, candidates, rejectionRate: rejected / candidates, dates: 1 });
-    expect(verdicts(world(expert, novice), { seedSummary: summary(1, 5) })['BT-8']).toBe('pass');
-    expect(verdicts(world(expert, novice), { seedSummary: summary(4, 5) })['BT-8']).toBe('fail');
-    expect(verdicts(world(expert, novice), { seedSummary: summary(5, 5) })['BT-8']).toBe('fail');
+  it('judges BT-8 on fallback dates and reports the rejection rate as BT-8r (D-370)', () => {
+    const summary = (rejected: number, candidates: number, fallbacks: number) => ({ ...summarise({ setups: [], candidates: [] }), rejected, candidates, rejectionRate: rejected / candidates, dates: 1, fallbacks });
+    expect(verdicts(world(expert, novice), { seedSummary: summary(4, 5, 0) })['BT-8']).toBe('pass');
+    expect(verdicts(world(expert, novice), { seedSummary: summary(1, 5, 1) })['BT-8']).toBe('fail');
+    expect(verdicts(world(expert, novice), { seedSummary: summary(5, 5, 0) })['BT-8r']).toBe('info');
   });
 
   it('flags impossible values and unfinished games', () => {

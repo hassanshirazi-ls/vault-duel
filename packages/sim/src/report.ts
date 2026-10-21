@@ -287,9 +287,11 @@ export function evaluateTargets(g: Globals, bots: readonly BotSummary[], seed: S
     add({ id: 'BT-2n', name: 'Win rate', bot: 'naive', value: naive.winRate, target: showRange(g.TARGET_NOVICE_WINRATE), verdict: 'info', note: `informational: M-09 alternative to D-117 (scripted naive player, D-367)${naive.winRate === null ? '' : inRange(naive.winRate, g.TARGET_NOVICE_WINRATE) === 'pass' ? ', inside the range' : ', outside the range'}` });
   }
   if (seed === null) {
-    add({ id: 'BT-8', name: 'Seed rejection rate', bot: 'expert-noisy', value: null, target: `at most ${g.TARGET_SEED_REJECT_MAX}`, verdict: 'not measured', note: 'run sim full or sim seed' });
+    add({ id: 'BT-8', name: 'Dates that fall back', bot: 'expert-noisy', value: null, target: 'none (D-004)', verdict: 'not measured', note: 'run sim full or sim seed' });
   } else {
-    add({ id: 'BT-8', name: 'Seed rejection rate', bot: 'expert-noisy', value: finite(seed.rejectionRate), target: `at most ${g.TARGET_SEED_REJECT_MAX}`, verdict: Number.isFinite(seed.rejectionRate) ? (seed.rejectionRate <= g.TARGET_SEED_REJECT_MAX ? 'pass' : 'fail') : 'not measured', note: `${seed.rejected} of ${seed.candidates} candidate seeds rejected over ${seed.dates} dates; ${seed.fallbacks} fallbacks (D-004 target: never)` });
+    // D-370: BT-8 is the fallback count (D-004: never); the rejection rate is a compute guide, reported as BT-8r
+    add({ id: 'BT-8', name: 'Dates that fall back', bot: 'expert-noisy', value: seed.fallbacks, target: 'none (D-004)', verdict: seed.fallbacks === 0 ? 'pass' : 'fail', note: `${seed.fallbacks} of ${seed.dates} dates used the D-004 fallback seed` });
+    add({ id: 'BT-8r', name: 'Seed rejection rate', bot: 'expert-noisy', value: finite(seed.rejectionRate), target: `at most ${g.TARGET_SEED_REJECT_MAX}`, verdict: 'info', note: `informational, compute cost (D-370): ${seed.rejected} of ${seed.candidates} candidate seeds rejected over ${seed.dates} dates` });
   }
   add({ id: 'DUEL-MIN', name: 'Duel length in minutes', bot: '-', value: null, target: showRange(g.TARGET_DUEL_MINUTES), verdict: 'not measured', note: 'needs human playtests, not a simulation' });
   add({ id: 'LEARN-SEC', name: 'Seconds to learn the rules', bot: '-', value: null, target: `at most ${g.TARGET_RULES_LEARN_SECONDS}`, verdict: 'not measured', note: 'needs human playtests, not a simulation' });
@@ -333,7 +335,6 @@ export function findAnomalies(g: Globals, bots: readonly BotSummary[], seed: See
   }
   if (seed !== null) {
     if (seed.fallbacks > 0) out.push(`${seed.fallbacks} dates reached the D-004 fallback (target: never)`);
-    if (Number.isFinite(seed.rejectionRate) && seed.rejectionRate > g.TARGET_SEED_REJECT_MAX) out.push(`seed rejection ${(seed.rejectionRate * 100).toFixed(1)}% is above TARGET_SEED_REJECT_MAX (${g.TARGET_SEED_REJECT_MAX})`);
   }
   return out;
 }
@@ -388,7 +389,7 @@ export function renderMarkdown(r: Report): string {
 
   L.push('## Balance targets', '', '| Id | Metric | Bot | Value | Target | Result | Note |', '| --- | --- | --- | --- | --- | --- | --- |');
   for (const m of [...r.results.targets, r.perf.metric]) {
-    const asPct = ['BT-1', 'BT-2', 'BT-2n', 'BT-3b', 'BT-4', 'BT-6', 'BT-7', 'BT-8'].includes(m.id);
+    const asPct = ['BT-1', 'BT-2', 'BT-2n', 'BT-3b', 'BT-4', 'BT-6', 'BT-7', 'BT-8r'].includes(m.id);
     const value = m.value === null ? 'n/a' : asPct ? pct(m.value) : dec(m.value);
     const target = asPct && m.id !== 'BT-3b' ? m.target.replace(/-?\d+(\.\d+)?/g, (n) => (Number(n) <= 1 ? `${(Number(n) * 100).toFixed(0)}%` : n)) : m.target;
     L.push(`| ${m.id} | ${m.name} | ${m.bot} | ${value} | ${target} | **${m.verdict}** | ${m.note} |`);
@@ -439,7 +440,7 @@ export function renderMarkdown(r: Report): string {
     const s = r.results.seedCheck.summary;
     L.push('## Difficulty check', '');
     L.push(`- dates: ${s.dates}, candidate seeds played: ${s.candidates}, rejected: ${s.rejected}`);
-    L.push(`- rejection rate: **${pct(finite(s.rejectionRate))}** (target at most ${pct(g.TARGET_SEED_REJECT_MAX)})`);
+    L.push(`- rejection rate: **${pct(finite(s.rejectionRate))}** (compute guide at most ${pct(g.TARGET_SEED_REJECT_MAX)}, D-370)`);
     L.push(`- dates needing at least one reroll: ${s.datesNeedingReroll} of ${s.dates}; mean rerolls per date ${dec(finite(s.meanRerolls))}; fallbacks ${s.fallbacks}`);
     L.push('', 'Candidate win rates (tenths):', '', `| ${s.winRateHistogram.map((_, i) => `${i / 10}`).join(' | ')} |`, `| ${s.winRateHistogram.map(() => '---').join(' | ')} |`, `| ${s.winRateHistogram.join(' | ')} |`, '');
     L.push('| Date | k | Win rate | Stars | Par | Check | Candidates |', '| --- | --- | --- | --- | --- | --- | --- |');

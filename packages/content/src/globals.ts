@@ -44,7 +44,7 @@ const GLOBAL_VALUES = {
   SEED_PREFIX: 'vault-duel',
   // Life & length
   PLAYER_LIFE: 24, // 20 before D-368 (Phase 3 A/B round 1, M-14; docs/BALANCE_LOG.md)
-  COLLECTOR_LIFE: 40, // 25 before D-335: the turn slots give a skilled player much more than the Collector (docs/BALANCE_LOG.md)
+  COLLECTOR_LIFE: 46, // 40 before D-369 (offsets APPRAISAL_MIN_POWER 8); 25 before D-335: the turn slots give a skilled player much more than the Collector (docs/BALANCE_LOG.md)
   MAX_ROUNDS: 12,
   // Decks
   COLLECTOR_DECK_SIZE: 20,
@@ -105,7 +105,7 @@ const GLOBAL_VALUES = {
   DURATION_NEXT_OWN_TURN: 2,
   // Appraisal
   APPRAISAL_ROUNDS: [3, 6, 9],
-  APPRAISAL_MIN_POWER: 5, // 7 before the 2026-10-16 flip: Split and Symbiosis kept monsters under 7 (docs/BALANCE_LOG.md)
+  APPRAISAL_MIN_POWER: 8, // 5 before D-369 (Phase 3 A/B round 2: the Hollow Heir follows the Levy). 7 before the 2026-10-16 flip: Split and Symbiosis kept monsters under 7 (docs/BALANCE_LOG.md)
   // Moods (Composed = above AGITATED_AT)
   MOOD_AGITATED_AT: 15,
   MOOD_DESPERATE_AT: 7,
@@ -135,7 +135,7 @@ const GLOBAL_VALUES = {
   TARGET_MEDIAN_ROUNDS: [9, 11],
   TARGET_TYPICAL_END_ROUNDS: [8, 12],
   TARGET_FULL_LENGTH_SHARE: [0.15, 0.3],
-  TARGET_GRAFTS_PER_WIN: [1.5, 3],
+  TARGET_GRAFTS_PER_WIN: [3.5, 5], // [1.5, 3] before D-370: Graft is the core action, and no knob moved it
   TARGET_APPRAISAL_SUCCESS: [0.3, 0.6],
   TARGET_UNPRICED_APPEARS: [0.2, 0.4],
   TARGET_SEED_REJECT_MAX: 0.15,
