@@ -12,6 +12,7 @@ import { cardView, isCrowned } from '../view/cards';
 import { monsterSlotKeys } from '../view/keys';
 import { attackNote, coveredLanes, lanesOn, monstersOnly, movedThisTurn } from '../view/lanes';
 import { groupLegal } from '../view/legal';
+import { levyForecast } from '../view/levy';
 import { duelLog, undoLabel } from '../view/log';
 import { boardActionable, planFor, summonMode } from '../view/selection';
 import type { Plan, Selection } from '../view/selection';
@@ -87,6 +88,10 @@ export function Duel() {
     return c === undefined ? undefined : { kind: c.kind, beat: c.beat, ...(c.amount === undefined ? {} : { amount: c.amount }) };
   };
   const intent = S.collector.intent;
+  // the Levy warning (D-372): asked of the engine on the live state, and only while the player may act
+  const levy = blocked || shown !== state || liveGroups.endTurn === null ? null : levyForecast(rt.engine, state, liveGroups.endTurn);
+  const levyIid = levy?.kind === 'takes' ? levy.iid : -1;
+  const echo = S.result === null && g.FLAGS.INTENTS && intent !== null ? INTENT_LABEL[intent] : null;
   const appraisal = appraisalCountdown(g, S);
   const mood = S.collector.mood;
   // what an attack would do, as a short word and an icon. A guard that holds destroys the attacker (Riposte, D-337); a
@@ -257,6 +262,7 @@ export function Duel() {
               moved={movedThisTurn(g, S, m)}
               attacked={mine && slots && m.attacked === S.turn}
               crowned={isCrowned(g, side, m)}
+              levyRisk={mine && m.iid === levyIid}
               symbiote={m.sym >= 0 ? view(m.sym) : null}
               onTap={() => tapBoard(m, mine)}
               onLong={() => setInspected(m.iid)}
@@ -460,6 +466,11 @@ export function Duel() {
               {selView === null ? (
                 <>
                   <p className="sr-only">{undoWhy ?? ''}</p>
+                  {echo !== null && (
+                    <p className="intent-echo" data-intent={intent}>
+                      <Glyph id={echo.icon} size={16} /> {echo.label}
+                    </p>
+                  )}
                   <div className="hint-buttons">
                     <button type="button" className="btn ghost" disabled={!canUndo} onClick={() => undo()} title={undoWhy ?? undefined}>
                       <Glyph id="undo" size={18} /> Undo
@@ -591,8 +602,22 @@ export function Duel() {
                 </button>
               ))}
             {!mulligan && (
-              <button type="button" className="btn primary end-turn" disabled={groups.endTurn === null} onClick={() => doAct(groups.endTurn as Action)}>
-                End turn <Glyph id="check" size={20} className="btn-ico" />
+              <button
+                type="button"
+                className="btn primary end-turn"
+                data-levy={levy === null ? undefined : levy.kind}
+                disabled={groups.endTurn === null}
+                aria-label={levy === null ? undefined : levy.kind === 'takes' ? 'End turn. The Levy will take a monster of yours' : 'End turn. The Levy has nothing to take'}
+                onClick={() => doAct(groups.endTurn as Action)}
+              >
+                <span className="end-main">
+                  End turn <Glyph id="check" size={20} className="btn-ico" />
+                </span>
+                {levy !== null && (
+                  <span className="end-levy">
+                    <Glyph id="crown" size={12} filled={levy.kind === 'takes'} /> {levy.kind === 'takes' ? 'Levy' : 'Levy · none'}
+                  </span>
+                )}
               </button>
             )}
           </div>

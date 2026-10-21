@@ -83,6 +83,9 @@ function CardName({ name }: { readonly name: string }) {
   );
 }
 
+/** the mark's hover and screen-reader text */
+export const LEVY_RISK_TEXT = 'The Levy will take this';
+
 export type Glow = 'target' | null;
 
 export interface MiniCardProps {
@@ -111,13 +114,15 @@ export interface MiniCardProps {
   readonly attacked?: boolean;
   /** a monster the Monarch took by levy, crowned while it serves him (D-349): a small crown badge */
   readonly crowned?: boolean;
+  /** ending the turn would hand this monster to the Monarch by levy (D-372): an outlined crown, not the filled one of a crowned card */
+  readonly levyRisk?: boolean;
   /** the card attached under this monster (FLAGS.SYMBIOSIS, D-308): drawn as a small tab under the card */
   readonly symbiote?: CardView | null | undefined;
   /** a mouse entered or left the card; touch and pen never call this */
   readonly onHover?: ((on: boolean) => void) | undefined;
 }
 
-export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, previewIcon, mark, style, label, onHover, monstersOnly = false, moved = false, attacked = false, crowned = false, symbiote = null }: MiniCardProps) {
+export function MiniCard({ view, monster, side, onTap, onLong, glow = null, selected = false, dim = false, cue, large = false, preview, previewIcon, mark, style, label, onHover, monstersOnly = false, moved = false, attacked = false, crowned = false, levyRisk = false, symbiote = null }: MiniCardProps) {
   const press = useLongPress(onTap, onLong);
   const frame = frameFor(view.keywords);
   const flaw = view.keywords.find((k) => k.flaw);
@@ -126,7 +131,7 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
   const cueStyle = cue === undefined ? undefined : ({ '--b': cue.beat } as CSSProperties);
   const classes = ['mini', large ? 'large' : '', cue === undefined ? '' : `cue cue-${cue.kind}`].filter(Boolean).join(' ');
   const stat = (base: number | null): string => (base === null ? '' : String(base));
-  const status = [monster === undefined ? '' : monster.pos === 0 ? 'Attack position' : 'Guard position', view.ascended ? 'Ascended' : '', unstable ? 'Unstable' : '', monstersOnly ? 'Can attack monsters, not life, this turn' : '', moved ? 'Already moved this turn' : '', attacked ? 'Already attacked this turn' : '', crowned ? 'Crowned' : '', symbiote === null ? '' : `${symbiote.name} attached`].filter(Boolean);
+  const status = [monster === undefined ? '' : monster.pos === 0 ? 'Attack position' : 'Guard position', view.ascended ? 'Ascended' : '', unstable ? 'Unstable' : '', monstersOnly ? 'Can attack monsters, not life, this turn' : '', moved ? 'Already moved this turn' : '', attacked ? 'Already attacked this turn' : '', crowned ? 'Crowned' : '', levyRisk ? LEVY_RISK_TEXT : '', symbiote === null ? '' : `${symbiote.name} attached`].filter(Boolean);
   return (
     <button
       type="button"
@@ -143,6 +148,7 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
       data-pos={monster?.pos}
       data-sym={symbiote === null ? undefined : ''}
       data-attacked={attacked ? '' : undefined}
+      data-levy-risk={levyRisk ? '' : undefined}
       style={{ ...elementStyle(view.element?.id), ...cueStyle, ...style }}
       aria-label={label ?? `${view.name}${view.power !== null ? `, Power ${stat(view.power)}, Guard ${stat(view.guard)}` : ''}${status.length > 0 ? `, ${status.join(', ')}` : ''}`}
       {...press}
@@ -182,7 +188,7 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
             </span>
           ))}
         </span>
-        {(crowned || view.ascended || unstable || monstersOnly || moved || attacked) && (
+        {(crowned || levyRisk || view.ascended || unstable || monstersOnly || moved || attacked) && (
           <span className="mini-marks">
             {crowned && (
               <span className="tag" data-crown="" role="img" aria-label="Crowned" title="Crowned">
@@ -212,6 +218,12 @@ export function MiniCard({ view, monster, side, onTap, onLong, glow = null, sele
             {attacked && (
               <span className="tag" data-attacked="" title="Already attacked this turn">
                 <Glyph id="check" size={12} />
+              </span>
+            )}
+            {/* last, so the small-card container query (children 4+ hidden) never pushes out moved or attacked; the dashed frame stays as the signal */}
+            {levyRisk && (
+              <span className="tag" data-levy="" role="img" aria-label={LEVY_RISK_TEXT} title={LEVY_RISK_TEXT}>
+                <Glyph id="crown" size={12} />
               </span>
             )}
           </span>

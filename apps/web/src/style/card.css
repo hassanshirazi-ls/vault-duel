@@ -1026,3 +1026,39 @@
     animation: none;
   }
 }
+
+/* the Levy will take this monster (D-372): a dashed frame (a ::before, so keyword-frame outlines and shadows stay) and an outlined crown on a paper square, which
+   reads differently from the solid ink crown of a card the Monarch already took. The pulse is opacity only. */
+.mini[data-levy-risk]:not([data-mark])::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 2px dashed var(--ink);
+  pointer-events: none;
+}
+.mini .mini-marks .tag[data-levy] {
+  border: 1.5px dashed var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  animation: levy-risk-pulse calc(var(--beat) * 5) ease-in-out infinite alternate;
+}
+.mini .mini-marks .tag[data-levy] svg {
+  width: 80%;
+  height: 80%;
+}
+@keyframes levy-risk-pulse {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+[data-anim='off'] .mini .mini-marks .tag[data-levy] {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mini .mini-marks .tag[data-levy] {
+    animation: none;
+  }
+}
