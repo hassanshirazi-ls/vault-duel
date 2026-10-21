@@ -2278,41 +2278,6 @@ body[data-ascend-hint] .mini[data-glow='target']::after {
   .life-max {
     display: none;
   }
-  /* the telegraph and the quip float under the header, so they never move the board */
-  .statusline {
-    position: absolute;
-    left: 8px;
-    right: 8px;
-    top: 100%;
-    z-index: 6;
-    min-height: 0;
-    margin-top: 6px;
-    pointer-events: none;
-  }
-  .telegraph,
-  .quip {
-    display: block;
-    width: fit-content;
-    max-width: 100%;
-    margin-inline: auto;
-    padding: 3px 10px;
-    padding: 3px 10px;
-    border: 1.5px solid var(--ink);
-    border-radius: 0;
-    background: var(--card);
-    box-shadow: var(--offset-sm);
-    font-size: 14px;
-  }
-  .duel > .collector .telegraph {
-    padding: 5px 12px;
-    border-width: 2.5px;
-    box-shadow: var(--offset);
-    font-size: 16px;
-  }
-  .telegraph svg {
-    display: inline-block;
-    vertical-align: -3px;
-  }
 }
 @media (min-width: 400px) {
   .life-max {
@@ -2756,4 +2721,49 @@ button.trap-hit {
 }
 .hintbar .intent-echo svg {
   flex: none;
+}
+
+/* D-373: on a phone the Monarch's quip and telegraph are said in the hint bar above your hand, where the eyes already are; the
+   header's floating status line is hidden so it never covers his row. The wide layout keeps its column line. */
+.hintbar > .says {
+  display: none;
+}
+.says-quip {
+  font-style: italic;
+  transition: opacity 0.6s ease-in;
+}
+.says-quip[data-fading] {
+  opacity: 0;
+}
+[data-anim='off'] .says-quip {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .says-quip {
+    transition: none;
+  }
+}
+.says .says-skip {
+  font-weight: 400;
+  font-style: normal;
+  color: var(--ink-2);
+}
+.says svg {
+  display: inline-block;
+  vertical-align: -3px;
+  margin-right: 4px;
+}
+@media not all and (min-width: 1024px) and (orientation: landscape) {
+  .collector .statusline {
+    display: none;
+  }
+  .hintbar > .says {
+    display: -webkit-box;
+    grid-column: 1;
+    font-weight: 700;
+  }
+  .hintbar[data-says] > .acting,
+  .hintbar[data-says] > .intent-echo {
+    display: none;
+  }
 }

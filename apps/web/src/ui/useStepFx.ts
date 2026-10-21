@@ -59,7 +59,7 @@ export function useStepFx(ctx: GameCtx | null, rt: Runtime | null, state: GameSt
       setStages(next);
       setIndex(next.length > 0 ? 0 : null);
       const lines = quipLines(events, state.collector.mood, ctx.dialogue, MOOD_NAMES);
-      if (lines !== undefined) setQuip({ key: state.nActions, text: ctx.render(lines[state.nActions % lines.length] as string) });
+      if (lines !== undefined) setQuip((q) => ({ key: (q?.key ?? 0) + 1, text: ctx.render(lines[state.nActions % lines.length] as string) }));
     }
   }
 

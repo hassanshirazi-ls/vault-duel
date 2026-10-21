@@ -3,7 +3,7 @@
 // everything offered comes from `getLegalActions` through view/legal.ts and view/selection.ts, and every change goes
 // through the store's `act`. A step plays stage by stage (visual/playback.ts): your action, then the Monarch's moves
 // one at a time, each behind a telegraph. Any tap skips to the end of it. Tapping a chosen card again deselects it.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { Action, Iid, Monster, Side } from '@vault-duel/engine';
 import { MOOD_NAMES } from '@vault-duel/ai';
@@ -18,6 +18,9 @@ import { boardActionable, planFor, summonMode } from '../view/selection';
 import type { Plan, Selection } from '../view/selection';
 import { INTENT_LABEL, appraisalCountdown, moodName } from '../view/status';
 import { telegraphLine } from '../view/telegraph';
+import { hintLine } from '../view/hintline';
+import { scheduleQuip } from './quipClock';
+import type { QuipPhase } from './quipClock';
 import { UNDO_WHY, undoStatus } from '../view/undo';
 import { Glyph } from '../visual/glyphs';
 import { CollectorHeader, LifeSeal } from './Collector';
@@ -64,6 +67,16 @@ export function Duel() {
   const [recall, setRecall] = useState(false);
   const wide = useWide();
   const { shown, cues, ghosts, telegraph, blocked, quip } = useStepFx(ctx, rt, state, events, frames);
+  // His speech shows above the hand for QUIP_MS, then the line goes back to what it said before. Quips are told apart by their
+  // own key (it grows with every new one), so an Undo that reuses an action count cannot mistake a new quip for an old one.
+  const [clock, setClock] = useState<{ key: number; phase: QuipPhase } | null>(null);
+  const quipKey = quip === null ? null : quip.key;
+  useEffect(() => {
+    if (quipKey === null) return undefined;
+    return scheduleQuip(quipKey, (key, phase) => setClock({ key, phase }));
+  }, [quipKey]);
+  const quipLive = quip !== null && !(clock?.key === quip.key && clock.phase === 'gone');
+  const quipFading = quip !== null && clock?.key === quip.key && clock.phase === 'fading';
   const undoNow = useMemo(() => undoStatus(trail), [trail]);
   const log = useMemo(() => (ctx === null || state === null ? [] : duelLog(ctx, state, trail)), [ctx, state, trail]);
 
@@ -315,6 +328,7 @@ export function Duel() {
   };
 
   const selView = sel === null ? null : view(sel.iid);
+  const line = hintLine({ blocked, selecting: selView !== null, telegraph: tgLine !== null, quipLive });
   const ambushHere = g.FLAGS.AMBUSH && sel?.t === 'board' && plan.reposition !== null && selMonster !== null && selMonster.faceDown;
   // bond rules (D-305..D-320): display only. What may be done is whatever `groups` offers.
   const F = g.FLAGS;
@@ -440,10 +454,20 @@ export function Duel() {
       ) : (
         <footer className="bottom" onClick={(e) => e.stopPropagation()}>
           {blocked ? (
-            <div className="hintbar" aria-live="polite">
-              <p className="muted">
+            <div className="hintbar" aria-live="polite" data-says={line === 'telegraph' || line === 'quip' ? line : undefined}>
+              <p className="muted acting">
                 <Glyph id="eye" size={16} /> The Monarch is acting. Tap to skip.
               </p>
+              {line === 'telegraph' && tgLine !== null && (
+                <p className="says">
+                  <Glyph id={tgLine.icon} size={16} /> {tgLine.text} <span className="says-skip">Tap to skip.</span>
+                </p>
+              )}
+              {line === 'quip' && quip !== null && (
+                <p className="says says-quip" key={quip.key} data-fading={quipFading ? '' : undefined}>
+                  “{quip.text}” <span className="says-skip">Tap to skip.</span>
+                </p>
+              )}
             </div>
           ) : mulligan ? (
             <div className="hintbar mulligan">
@@ -462,10 +486,20 @@ export function Duel() {
               </div>
             </div>
           ) : (
-            <div className="hintbar" aria-live="polite" data-idle={selView === null ? '' : undefined}>
+            <div
+              className="hintbar"
+              aria-live="polite"
+              data-idle={selView === null ? '' : undefined}
+              data-says={line === 'quip' ? 'quip' : undefined}
+            >
               {selView === null ? (
                 <>
                   <p className="sr-only">{undoWhy ?? ''}</p>
+                  {line === 'quip' && quip !== null && (
+                    <p className="says says-quip" key={quip.key} data-fading={quipFading ? '' : undefined}>
+                      “{quip.text}”
+                    </p>
+                  )}
                   {echo !== null && (
                     <p className="intent-echo" data-intent={intent}>
                       <Glyph id={echo.icon} size={16} /> {echo.label}
