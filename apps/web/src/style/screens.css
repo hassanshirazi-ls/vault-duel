@@ -1076,8 +1076,8 @@ button.life[data-glow='target']::after {
 .workbench {
   display: flex;
   flex-direction: column;
-  height: min(52dvh, 360px);
-  max-height: 52dvh;
+  height: min(58dvh, 390px);
+  max-height: 58dvh;
   border-radius: 0;
 }
 .bench {
@@ -1105,8 +1105,8 @@ button.life[data-glow='target']::after {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-height: 0;
   flex: 1 1 auto;
+  min-height: 44px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -1238,10 +1238,44 @@ button.life[data-glow='target']::after {
   gap: 4px;
 }
 .bench-hand {
+  flex: none;
   display: flex;
   gap: 8px;
   overflow-x: auto;
   padding: 8px 6px;
+}
+.bench-add {
+  flex: none;
+  margin: 0;
+  font-weight: 700;
+}
+/* Ascend (D-371): the empty third slot is a button; tapping it flags <body>, and every glowing card pulses (a static heavier ring when motion is off) */
+.slot[data-ascend] {
+  border-style: dashed;
+  border-color: var(--ink);
+}
+.slot-bonus {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+body[data-ascend-hint] .mini[data-glow='target']::after {
+  border-style: solid;
+  border-width: 4px;
+  inset: -6px;
+  opacity: 1;
+  animation: ascend-pulse calc(var(--beat) * 3) ease-in-out 3 alternate;
+}
+@keyframes ascend-pulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
 }
 .bench-hand .mini {
   --w: 60px;

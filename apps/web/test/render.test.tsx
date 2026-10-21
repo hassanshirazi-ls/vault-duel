@@ -59,6 +59,14 @@ describe('screens render (server-side smoke)', () => {
         pick();
         const before = h.store.getState().state?.pending?.mats;
         expect(before).toHaveLength(2);
+        // the fixture has a third material, so the Ascend step shows (D-371)
+        expect(h.store.getState().state?.pending?.stage).toBe('ascend');
+        const g = h.store.getState().ctx?.globals;
+        const out = html(h);
+        expect(out).toContain('Graft without Ascend');
+        expect(out).toContain('Add a third for Ascend:');
+        expect(out).toContain('Ascend: tap a highlighted monster to add it');
+        expect(out).toMatch(new RegExp(`\\+${g?.ASCEND_POWER}[^+]*\\+${g?.ASCEND_GUARD}`));
         expect(html(h)).toContain('Graft workbench');
         h.store.getState().graftSwap();
         expect(h.store.getState().error).toBeNull();

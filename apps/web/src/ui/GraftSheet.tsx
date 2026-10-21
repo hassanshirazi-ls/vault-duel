@@ -1,9 +1,9 @@
 // Graft workbench sheet (D-238). It is driven entirely by the pending-choice actions in the legal list and by
 // `previewGraft()`; Cancel is `graftCancel`, the order swap is `graftSwap` (cancel, begin, pick, pick, all legal).
 // The board stays live above it: Duel makes the legal material cards glow and routes their taps to `graftPick`.
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { Action, Iid } from '@vault-duel/engine';
-import { ASCEND_HINT, UNSTABLE_WARNING } from '../view/copy';
+import { ASCEND_ADD, ASCEND_SKIP, UNSTABLE_WARNING } from '../view/copy';
 import { cardView } from '../view/cards';
 import { POSITION_LABEL } from '../view/legal';
 import { graftPreviewView } from '../view/status';
@@ -24,21 +24,33 @@ const STAGE_HINT: Readonly<Record<string, string>> = {
 };
 
 /** A filled material slot: a tap takes the material out again, holding it inspects it. */
-function MaterialSlot({ n, view, active, onTake, onLong }: { readonly n: number; readonly view: CardView | null; readonly active: boolean; readonly onTake: () => void; readonly onLong: () => void }) {
+function MaterialSlot({ n, view, active, onTake, onLong, ascend, onAscend }: { readonly ascend?: { readonly power: number; readonly guard: number } | undefined; readonly onAscend?: (() => void) | undefined; readonly n: number; readonly view: CardView | null; readonly active: boolean; readonly onTake: () => void; readonly onLong: () => void }) {
   const press = useLongPress(onTake, onLong);
+  const hint = view === null && ascend !== undefined && onAscend !== undefined;
   return (
     <button
       type="button"
       className="slot"
       data-filled={view !== null ? '' : undefined}
       data-active={active ? '' : undefined}
-      disabled={view === null}
-      aria-label={view === null ? undefined : `${view.name}, material ${n}. Tap to take it out.`}
-      {...(view === null ? {} : press)}
+      data-ascend={hint ? '' : undefined}
+      disabled={view === null && !hint}
+      aria-label={view !== null ? `${view.name}, material ${n}. Tap to take it out.` : hint ? 'Ascend: tap a highlighted monster to add it' : undefined}
+      {...(view === null ? (hint ? { onClick: onAscend } : {}) : press)}
     >
       <span className="slot-n">{n}</span>
       {view === null ? (
-        <span className="slot-empty">{n === 3 ? 'Ascend' : 'Tap a card'}</span>
+        <span className="slot-empty">
+          {hint ? (
+            <span className="slot-bonus">
+              +{ascend.power} <Glyph id="sword" size={12} /> +{ascend.guard} <Glyph id="shield" size={12} />
+            </span>
+          ) : n === 3 ? (
+            'Ascend'
+          ) : (
+            'Tap a card'
+          )}
+        </span>
       ) : (
         <span className="slot-card">
           <Gem element={view.element} />
@@ -65,6 +77,17 @@ export function GraftSheet({ onInspect }: { readonly onInspect: (iid: Iid) => vo
   const unpick = useGame((s) => s.graftUnpick);
   const [chips, setChips] = useState<readonly string[]>([]);
   const [wantPos, setWantPos] = useState<0 | 1>(0);
+  const [pulse, setPulse] = useState(0);
+  // tapping the empty Ascend slot flags <body> for a moment: CSS pulses (or statically marks) every glowing card, hand and board alike
+  useEffect(() => {
+    if (pulse === 0) return undefined;
+    document.body.dataset['ascendHint'] = '';
+    const t = window.setTimeout(() => delete document.body.dataset['ascendHint'], 1600);
+    return () => {
+      window.clearTimeout(t);
+      delete document.body.dataset['ascendHint'];
+    };
+  }, [pulse]);
   if (ctx === null || rt === null || state === null || groups === null || state.pending === null) return null;
   const { pending } = state;
   const g = ctx.globals;
@@ -74,6 +97,8 @@ export function GraftSheet({ onInspect }: { readonly onInspect: (iid: Iid) => vo
   };
   const slotCount = g.FLAGS.ASCEND && (pending.stage === 'ascend' || pending.mats.length > 2) ? g.MAX_GRAFT_MATERIALS : 2;
   const handPicks = state.sides[0].hand.filter((iid) => groups.graftPicks.has(iid) || pending.mats.includes(iid));
+  const atAscend = pending.stage === 'ascend' && g.FLAGS.ASCEND;
+  const flash = (): void => setPulse((n) => n + 1);
   const canSwap = pending.mats.length === 2 && pending.stage !== 'mat1' && pending.stage !== 'mat2';
 
   // keyword choice: chips toggle; a selection of the allowed size must match one of the legal graftKeywords actions
@@ -107,7 +132,7 @@ export function GraftSheet({ onInspect }: { readonly onInspect: (iid: Iid) => vo
             const active = iid === undefined && i === pending.mats.length;
             return (
               <Fragment key={`slot-${i}`}>
-                <MaterialSlot n={i + 1} view={view} active={active} onTake={() => iid !== undefined && unpick(iid)} onLong={() => iid !== undefined && onInspect(iid)} />
+                <MaterialSlot n={i + 1} view={view} active={active} ascend={atAscend && i === 2 ? { power: g.ASCEND_POWER, guard: g.ASCEND_GUARD } : undefined} onAscend={atAscend && i === 2 ? flash : undefined} onTake={() => iid !== undefined && unpick(iid)} onLong={() => iid !== undefined && onInspect(iid)} />
                 {i === 0 && (
                   <button type="button" className="swap" onClick={swap} disabled={!canSwap} aria-label="Swap the order of the materials" title="Swap order">
                     <Glyph id="swap" size={20} />
@@ -117,6 +142,23 @@ export function GraftSheet({ onInspect }: { readonly onInspect: (iid: Iid) => vo
             );
           })}
         </div>
+
+        {atAscend && <p className="muted bench-add">{ASCEND_ADD}</p>}
+        {handPicks.length > 0 && (
+          <div className="bench-hand" aria-label="Materials in your hand">
+            {handPicks.map((iid) => (
+              <MiniCard
+                key={`h-${iid}`}
+                view={cardView(ctx, rt.engine, state, iid)}
+                side="me"
+                glow={pending.mats.includes(iid) ? null : 'target'}
+                selected={pending.mats.includes(iid)}
+                onTap={() => (pending.mats.includes(iid) ? unpick(iid) : act(groups.graftPicks.get(iid) as Action))}
+                onLong={() => onInspect(iid)}
+              />
+            ))}
+          </div>
+        )}
 
         <div className="bench-scroll">
         <div className="preview" aria-live="polite">
@@ -157,7 +199,6 @@ export function GraftSheet({ onInspect }: { readonly onInspect: (iid: Iid) => vo
                   <Glyph id="spark" size={18} /> {ctx.render(UNSTABLE_WARNING)}
                 </p>
               )}
-              {pending.stage === 'ascend' && <p className="muted">{ctx.render(ASCEND_HINT)}</p>}
               {STAGE_HINT[pending.stage] !== undefined && pending.stage !== 'ascend' && <p className="muted">{STAGE_HINT[pending.stage]}</p>}
             </>
           )}
@@ -181,28 +222,12 @@ export function GraftSheet({ onInspect }: { readonly onInspect: (iid: Iid) => vo
           </div>
         )}
 
-        {handPicks.length > 0 && (
-          <div className="bench-hand" aria-label="Materials in your hand">
-            {handPicks.map((iid) => (
-              <MiniCard
-                key={`h-${iid}`}
-                view={cardView(ctx, rt.engine, state, iid)}
-                side="me"
-                glow={pending.mats.includes(iid) ? null : 'target'}
-                selected={pending.mats.includes(iid)}
-                onTap={() => (pending.mats.includes(iid) ? unpick(iid) : act(groups.graftPicks.get(iid) as Action))}
-                onLong={() => onInspect(iid)}
-              />
-            ))}
-          </div>
-        )}
-
         </div>
 
         <div className="bench-actions" data-lanes={laned.length > 0 ? '' : undefined}>
           {pending.stage === 'ascend' && groups.graftSkipAscend !== null && (
             <button type="button" className="btn primary" onClick={() => act(groups.graftSkipAscend as Action)}>
-              <Glyph id="check" size={18} /> Graft
+              <Glyph id="check" size={18} /> {ASCEND_SKIP}
             </button>
           )}
           {pending.stage === 'keywords' && (
