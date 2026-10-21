@@ -3159,6 +3159,17 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - No engine, rule, content or seed change. 11 tests added.
 - Reason: the warnings sit where the player looks, and the forecast comes from the engine itself, so it is always right.
 
+
+**D-374 · Sim CLI: `--card` content override (Phase 3 A/B)** (2026-10-21)
+- Question: M-05 (The Hollow Heir loses Ward) and M-11 (Bastion Warden 7/8) could not be A/B tested: `--set` reaches only globals and `CONTENT_NUMBERS`, and `--collector` only `collector.json › ai`.
+- Decision (playtest-runner, recorded by the main session): `sim quick|full` accept a repeatable `--card <id>.<field>=<json>`.
+  - Fields: `power`, `guard` or `keywords` of a player monster, a Monarch courtier (relic) or his ace; `power` and `guard` of a Graft recipe. Bastion Warden is a recipe (knight + construct), not a card.
+  - It is applied to a copy of the raw content before `parseContent`/`compileContent`, like `--ring` and `--collector`, so the parser still validates the value and the content hash reflects it. Workers receive the same strings.
+  - Unknown ids and fields fail with a usage error listing the valid ones. The report's content-overrides line lists each override, and its label now names `--card`.
+  - With no `--card` the raw content object is returned untouched, so every hash is unchanged (`seeds:check` passes).
+  - In zsh, quote a bracketed value: `--card 'the-unpriced.keywords=[]'`.
+- Reason: the smallest change that makes M-05 and M-11 testable without touching content defaults.
+
 ---
 
 ## L. Summary of items needing owner review

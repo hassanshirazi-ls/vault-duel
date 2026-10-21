@@ -383,7 +383,7 @@ export function renderMarkdown(r: Report): string {
   L.push(`- expertHash: \`${r.config.expertHash}\``);
   L.push(`- globals hash: \`${r.config.globalsHash}\``);
   L.push(`- overrides (--set): ${r.config.overrides.length === 0 ? 'none' : r.config.overrides.map((s) => `\`${s}\``).join(' ')}`);
-  L.push(`- content overrides (--ring, --collector): ${r.config.contentOverrides.length === 0 ? 'none' : r.config.contentOverrides.map((s) => `\`${s}\``).join(' ')}`);
+  L.push(`- content overrides (--ring, --collector, --card): ${r.config.contentOverrides.length === 0 ? 'none' : r.config.contentOverrides.map((s) => `\`${s}\``).join(' ')}`);
   L.push(`- arguments: \`${JSON.stringify(r.args)}\``);
   L.push('- the complete globals used are in the JSON file next to this report', '');
 

@@ -92,7 +92,7 @@ async function main(argv: readonly string[]): Promise<number> {
     process.stderr.write('sim full --ab: not implemented (proposal A/B runs are Phase 3)\n');
     return 2;
   }
-  const content: ContentOverrides = { ring: opts.ring, collector: opts.collector };
+  const content: ContentOverrides = { ring: opts.ring, collector: opts.collector, card: opts.card };
   let ctx: SimContext;
   try {
     ctx = loadContext(opts.sets, content);
