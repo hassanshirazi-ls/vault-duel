@@ -265,6 +265,7 @@ export interface SideState {
   readonly board: readonly (Monster | null)[];   // length BOARD_SLOTS
   readonly traps: readonly (TrapSlot | null)[];  // length TRAP_SLOTS
   readonly vault: readonly Iid[];  // Collector only; [] for player (D-078)
+  readonly aside: readonly Iid[];  // the ace set aside with FLAGS.ACE_SET_ASIDE, else []; public; hashed only when non-empty (D-184, D-366)
 }
 
 export type Step = 'mulligan' | 'main' | 'attack' | 'over';
@@ -620,7 +621,7 @@ a host's symbiote (m.sym ≥ 0, D-308): m' keeps sym on his board; to the vault,
 appraisal.successes++, taken.push(iid); track.round[round−1] |= RoundFlag.Appraised; track.appraisedLost++
 ```
 
-Lever M-04 (`FLAGS.ACE_SET_ASIDE`) is pinned to `false` until its plumbing lands (D-184). That plumbing adds a `SideState.aside` zone, which holds the ace from setup. On the duel's first success the ace moves from `aside` to the hand, with `CardDrawn{byEffect:true}`, right after `Appraised`.
+Lever M-04 (`FLAGS.ACE_SET_ASIDE`) is wired (D-184, D-366) and defaults to `false`. With it on, the `SideState.aside` zone holds the ace from setup. On the duel's first success the ace moves from `aside` to the hand, with `CardDrawn{byEffect:true}`, right after `Appraised`.
 
 ### 5.8 Win check (`pipeline.ts › lifeChanged / checkWin / endGame`) — D-018, D-151
 
@@ -1338,7 +1339,7 @@ Parse errors come from zod 4 issues rendered by `files.ts › describeIssue` (D-
 | keyword without examples — **warning** (D-196) | `warning: keywords/x.ts › x › no examples › add one board-DSL example with declared cards (D-169)` |
 | deckgen feasibility (`feasibility.ts › checkDeckgen`, run by `content:check` on engine `deckForSeed`, 1,000 dates from 2026-01-01; skipped when the pool-capacity rule fails; D-200) | `cards/player-monsters.json › pool › deck constraints unsatisfiable on 3 of 1000 test dates › relax DECK_MIN_ELEMENTS, DECK_MIN_KINDS or the CURVE_* globals, or add monsters` |
 | globals sanity (`GlobalsSchema`, D-147, D-199) | `globals.ts › APPRAISAL_ROUNDS › round 13 > MAX_ROUNDS=12 › remove it`. Also: every `Range` has min ≤ max; every number and `CONTENT_NUMBERS` value is ≥ 0 (`must be 0 or more › use 0 or more`); the rates `SEED_WINRATE_*`, `BOT_NOISE_EPSILON`, `TARGET_NOVICE_POINT`, `TARGET_SEED_REJECT_MAX` and the star cuts lie in 0…1; `SEED_WINRATE_MIN ≤ SEED_WINRATE_MAX`; `globals.ts › DIFFICULTY_STAR_CUTS › cuts must descend, got [0.4, 0.6] › write the higher (1-star) cut first` |
-| pinned global set to an unsupported value (D-170, D-199, D-205) | `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1` (D-202). The same form for `WARD_CHARGES` (D-133), `PLAYS_PER_TURN`, `REPOSITIONS_PER_TURN`, `ATTACKS_PER_TURN` (D-190), `MIN_GRAFT_MATERIALS` (`2`), and the flag `globals.ts › FLAGS › ACE_SET_ASIDE: must be false until the engine supports other values › keep false` (until D-184's plumbing) |
+| pinned global set to an unsupported value (D-170, D-199, D-205) | `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1` (D-202). The same form for `WARD_CHARGES` (D-133), `PLAYS_PER_TURN`, `REPOSITIONS_PER_TURN`, `ATTACKS_PER_TURN` (D-190), `MIN_GRAFT_MATERIALS` (`2`) |
 | `--set` errors (`withOverrides`, D-199) | `OverridesError` with `ContentError` records; `globals.ts › PLAYER_LEFE › unknown key › use a key from globals.ts or a name already in CONTENT_NUMBERS`; whole-object `FLAGS=…` / `CONTENT_NUMBERS=…`: `globals.ts › FLAGS › set one entry at a time › write FLAGS.<NAME>=<value>` |
 | `CONTENT_NUMBERS` name clash (D-171) | `globals.ts › CONTENT_NUMBERS › PLAYER_LIFE: PLAYER_LIFE is already a core key of Globals › rename it, or change the core PLAYER_LIFE instead` |
 | unused content number — **warning** (D-205; `content:check` only, needs the keyword-source scan) | `warning: globals.ts › CONTENT_NUMBERS › QUILL_TOLL: not used by any card, objective, AI param or keyword › delete the line, or use $QUILL_TOLL in an effect` |
@@ -1500,7 +1501,7 @@ export function withOverrides(base: Globals, sets: readonly string[]): Globals; 
 **Read, pinned or planned (D-205).** Every core global and every flag is in exactly one state, checked by `packages/content/test/globals-readers.test.ts`:
 
 - **Read:** a non-test source in engine, content (incl. `keywords/`), ai, sim or web names it, or the content JSON references it as `"$NAME"`.
-- **Pinned:** the code supports one value only, so `GlobalsSchema` refuses any other with the D-199 message (`pinned()` / `pinnedFlag()`): `WARD_CHARGES`, `PLAYS_PER_TURN`, `REPOSITIONS_PER_TURN`, `ATTACKS_PER_TURN`, `MIN_GRAFT_MATERIALS`, `BONDS_PER_TURN`, `SYMBIOTES_PER_HOST`, `RELIC_FLAWS` (D-202), `FLAGS.ACE_SET_ASIDE` (D-184). The change that teaches the code a pinned key removes its pin.
+- **Pinned:** the code supports one value only, so `GlobalsSchema` refuses any other with the D-199 message (`pinned()`): `WARD_CHARGES`, `PLAYS_PER_TURN`, `REPOSITIONS_PER_TURN`, `ATTACKS_PER_TURN`, `MIN_GRAFT_MATERIALS`, `BONDS_PER_TURN`, `SYMBIOTES_PER_HOST`, `RELIC_FLAWS` (D-202). `FLAGS.ACE_SET_ASIDE` was pinned until D-366. The change that teaches the code a pinned key removes its pin.
 - **Planned:** its reader isn't built yet. Listed, not pinned, in `packages/content/src/planned-globals.ts`; any sane value is accepted and takes effect when the reader lands. `content:check` prints the `not yet read` info line (§10.3). The test fails when a planned key becomes read (delete its line), when a key is in no state, and when a key is both pinned and planned.
 
 ```ts

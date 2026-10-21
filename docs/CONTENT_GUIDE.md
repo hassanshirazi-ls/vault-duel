@@ -1105,7 +1105,6 @@ only the value shown.
 | `RELIC_FLAWS` | 1 | `globals.ts › RELIC_FLAWS › must be 1 until the engine supports other values › keep 1` |
 | `BONDS_PER_TURN` | 1 | `globals.ts › BONDS_PER_TURN › must be 1 until the engine supports other values › keep 1` |
 | `SYMBIOTES_PER_HOST` | 1 | `globals.ts › SYMBIOTES_PER_HOST › must be 1 until the engine supports other values › keep 1` |
-| `FLAGS.ACE_SET_ASIDE` | false | `globals.ts › FLAGS › ACE_SET_ASIDE: must be false until the engine supports other values › keep false` |
 
 `RELIC_FLAWS` stays a global so the number is written down, but a Courtier has exactly one Flaw because its `flaw` field
 is a single id. Changing it to 2 is refused, and only a decision entry can lift the pin (D-202). `BONDS_PER_TURN` is

@@ -1430,6 +1430,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
     - `appraisal()`: on the duel's first success (`successes` was 0), if `aside` isn't empty, the ace moves from `aside` to the hand right after `Appraised`, with the event `CardDrawn{side:1, iid, byEffect:true}`.
     - Nothing else changes. Covetous still needs a sacrifice (D-054). `collector.json` still lists all 20 cards including the ace, so the validator is unchanged.
   - Until the plumbing lands, `FLAGS.ACE_SET_ASIDE` is on the D-170 inert list. `GlobalsSchema` pins it to `false` with the message `globals.ts › FLAGS › ACE_SET_ASIDE: must be false until the engine supports other values › keep false`. The pin is removed in the change that wires the flag.
+  - Wired by D-366 (2026-10-20). The pin is gone, and the flag still defaults to `false`.
 - Reason: a zone keeps card conservation and copy-on-write (§4.1) uniform, whereas a root field would need special cases in both. The pin stops a `--set` from silently doing nothing (D-170).
 
 **D-185 · What a trap's `when` is evaluated on**
@@ -1699,7 +1700,7 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   Pinning a planned global to today's value would copy the value, and it would need a manual unpin later that nothing reminds anyone to do.
 - Decision: every core global and every flag is in exactly one of three states, and a test keeps the states true.
   1. **Read:** some non-test source reads it. It needs no mark.
-  2. **Pinned:** the code supports only one value, an engine or format limit. `GlobalsSchema` pins it (D-170, D-199). The pins today are `WARD_CHARGES`, `PLAYS_PER_TURN`, `REPOSITIONS_PER_TURN`, `ATTACKS_PER_TURN`, `MIN_GRAFT_MATERIALS`, `RELIC_FLAWS` (D-202) and `FLAGS.ACE_SET_ASIDE` (D-184). As before (D-170), a pin is removed in the change that teaches the code the key.
+  2. **Pinned:** the code supports only one value, an engine or format limit. `GlobalsSchema` pins it (D-170, D-199). The pins today are `WARD_CHARGES`, `PLAYS_PER_TURN`, `REPOSITIONS_PER_TURN`, `ATTACKS_PER_TURN`, `MIN_GRAFT_MATERIALS`, `RELIC_FLAWS` (D-202) and `FLAGS.ACE_SET_ASIDE` (D-184; the pin was removed by D-366). As before (D-170), a pin is removed in the change that teaches the code the key.
   3. **Planned:** its reader is a module that isn't built yet. It is listed in a new file, `packages/content/src/planned-globals.ts`, which is browser-safe and exported from the content root:
      ```ts
      export interface PlannedGlobal { readonly reader: 'engine' | 'ai' | 'sim' | 'web'; readonly where: string }
@@ -3078,6 +3079,32 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 | A23 | Unstable on a stolen Chimera | D-062 | agrees |
 | A24 | Tethered when checking "beats" | D-083 | changed to match |
 
+
+**D-366 · Wiring `FLAGS.ACE_SET_ASIDE` (M-04 plumbing, D-184)**
+- Date: 2026-10-20
+- Question: D-184 left three details open: how the set-aside zone enters the state hash, how setup finds the ace, and whether the ace moves when the stolen monster goes to the vault.
+- Decision (engine-dev, recorded by the main session):
+  - `SideState.aside` and the `IidZone` value `'aside'` are added as D-184 specifies. The conservation property counts the zone.
+  - `canonicalState`/`hashState` append `['aside', sides[0].aside, sides[1].aside]` only when either side's `aside` is non-empty. A state that never uses the zone hashes exactly as before, so `seeds.json` and saved replays stay valid. A test pins the flag-off hash.
+  - With the flag on, setup moves the first Collector instance whose def is `collector.ace` to `sides[1].aside` and shuffles the other 19 cards. The opening-hand guarantee runs on those 19.
+  - The ace moves to his hand on the duel's first successful Appraisal (`successes` was 0), right after `Appraised`, with `CardDrawn{side:1, iid, byEffect:true}`. It moves whether the stolen monster went to his board or to the vault, because D-184 says "first success". A later success moves nothing.
+  - The `GlobalsSchema` pin is removed, as D-170 requires, and the unused `pinnedFlag` helper is deleted with it. The flag stays `false` until the owner adopts M-04 after the Phase 3 A/B test.
+  - The zone is public, so nothing needs redacting. Whether the web UI shows it is a UI question for the day the flag goes on.
+- Reason: appending to the hash only when the zone is used is the only way to keep flag-off hashes identical.
+
+**D-367 · Scripted naive player bot (M-09, reported next to the uniform-random novice)**
+- Date: 2026-10-20
+- Question: how is M-09's "highest-Power face-up attack summons, grafts only for ≥ 8 Power, attacks when raw Power ≥ the displayed stat, ignores traps/Appraisal" read under lanes, turn slots and the pending Graft model?
+- Decision (ai-dev's reading, recorded by the main session): `packages/ai/src/bots/naive.ts` is a scripted bot. The sim runs it by default and reports it as BT-2n, with the same 20–30% range marked informational. The BT-2 novice row (D-117) is unchanged, and the owner chooses which bot BT-2 applies to.
+  - It keeps its opening hand, chooses only from `getLegalActions`, reads only the player view, and uses no randomness and no search.
+  - The order at each decision is summon, then Graft, then attack, then end turn. Under `TURN_SLOTS` this uses the monster slot before the bond slot.
+  - Summon: the highest-Power monster in hand, face-up in attack, in the first legal lane. A tie goes to the first in legal order. It never summons face-down or in guard.
+  - Graft: it begins one only when its own script (highest-Power picks, skip Ascend, first legal keywords, attack position, first legal lane) previews at 8 or more Power (`NAIVE_GRAFT_MIN_POWER`, a bot constant, not a global). This is one deterministic `previewGraft` pass.
+  - Attack: the first legal attack whose attacker's on-board Power, without element advantage, is at least the target's displayed stat (Power if the target attacks, Guard if it guards). It never attacks a face-down monster, so it takes no Riposte or Ambush gamble. A direct attack is always made.
+  - It ignores spells, traps, Covetous summons, repositioning, lane moves, Appraisal timing, Split and Symbiosis.
+- Result: 0.0% in `sim:quick` (2,000 duels) and in the 2026-10-20 full run, the same as the novice. As scripted it can't reach 20–30% against `COLLECTOR_LIFE` 40. Not tuned: whether to loosen the script, change the target or keep both bots is an owner call for Phase 3.
+- Reason: the simplest faithful reading of M-09 under today's rules. Every ambiguity goes to "what a new player would obviously do".
+
 ---
 
 ## L. Summary of items needing owner review
@@ -3123,12 +3150,12 @@ Source: `docs/reports/phase0-paper-sim.md` §3 (5 hand-played duels, n = 5, dire
 | M-01 | P1 | rule | Slow = "cannot attack until his second turn after it is summoned" | Slow is a no-op under universal summoning sickness (A1, D-053) | `SLOW_TURNS=2` in `keywords/slow.ts` |
 | M-02 | P3 | rule/global | Unstable: destroyed at the **start of the grafter's turn after next** instead of the end of their next turn | Unstable is the dominant play and is Appraisal-proof unless made on R3/6/9; skilled play went 0/7 on Appraisals | `UNSTABLE_EXPIRY` mode global |
 | M-03 | P2 (part) | rule | An Appraised monster enters his board in **guard** (D-077 keeps its position) | Reduces the three-way swing of a steal; protects novices on R3 | `APPRAISED_ENTERS_GUARD` flag |
-| M-04 | P4 | rule + validator | Set The Unpriced aside: his draw pile is 19 cards; the first successful Appraisal puts the ace in his hand (validator: 19 + ace = 20) | No dead ace in hand (D1, D3); appearance rate = "games with ≥ 1 Appraisal"; less seed variance | `ACE_SET_ASIDE` flag |
+| M-04 | P4 | rule + validator | Set The Unpriced aside: his draw pile is 19 cards; the first successful Appraisal puts the ace in his hand (validator: 19 + ace = 20) | No dead ace in hand (D1, D3); appearance rate = "games with ≥ 1 Appraisal"; less seed variance | `ACE_SET_ASIDE` flag (wired by D-366, default off) |
 | M-05 | P5 | card | The Unpriced 10/8 Ward → 10/8, no keyword | Once it lands it is effectively unbeatable (D4, both lines lost) | `--set card.the-unpriced.keywords=[]` |
 | M-06 | P8 | card | Forfeit: "Power 4 or less, **or with Sentinel**" | High-Guard Sentinels shut down his whole offense under AI rule 2; Vain Relics bleed into them (D3) | alternate effect in `collector-spells.json` |
 | M-07 | P6 | card/global | Unmake: Power 5 or less → **6 or less** | Unmake hits almost no Relic; it is the best non-Graft tool for weaker players | `UNMAKE_MAX_POWER=6` |
 | M-08 | P7 | AI | Move play rule 4 (trap when behind) below rule 6, gated on "no summonable monster" | He sets traps instead of developing when behind, which opens direct lethal (D2 R7, D3 R5) | `collector.json › ai.play` order |
-| M-09 | P11 | bot definition | Replace the "random legal" novice with a scripted naive bot (highest-Power face-up attack summons, grafts only for ≥ 8 Power, attacks when raw Power ≥ the displayed stat, ignores traps/Appraisal) and apply the 20–30% target to it | Uniform random play is estimated at < 5% against a deterministic planner (D5) | add `bots/naive.ts`; report both |
+| M-09 | P11 | bot definition | Replace the "random legal" novice with a scripted naive bot (highest-Power face-up attack summons, grafts only for ≥ 8 Power, attacks when raw Power ≥ the displayed stat, ignores traps/Appraisal) and apply the 20–30% target to it | Uniform random play is estimated at < 5% against a deterministic planner (D5) | `bots/naive.ts`, reported as BT-2n (built by D-367, 0% in the first run) |
 | M-10 | P13 (tweak) | AI | Rule 3 skips a Brittle monster if you have a face-up monster with element advantage over it | The AI throws Brittle Relics into obvious counters (D1 R1) | `collector.json › ai.params.summonBeater.skipBrittleCountered` |
 | M-11 | P15 | card | Bastion Warden 6/9 → 7/8 (only if walls are still dominant after M-06) | The only ≤ 6-Power Guard ≥ 8 wall: Appraisal-immune and unbreakable | `--set card.bastion-warden.power=7 guard=8` |
 | M-12 | P12 (part) | rule/card | A Chimera that would go to hand goes to the discard instead; Grave Recall cannot target Chimeras | Re-summoning a Chimera from hand is a value exploit; Chimera-in-hand was undefined (A13) | `CHIMERA_TO_HAND` flag |

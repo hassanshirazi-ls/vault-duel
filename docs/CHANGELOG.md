@@ -3,6 +3,14 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-20 · Phase 3 start: baseline sim, a naive bot, the set-aside switch
+
+No live rule, card or setting changed, so saved duels and the seeds manifest are unaffected.
+
+- **Baseline report**: `docs/reports/full-2026-10-20.md` measures the live game before any Phase 3 test. The expert wins 46.1% (target 45–55%). Grafts per win (4.29) and how often The Unpriced appears (47.9%) are now above their targets, and duels are longer than on 16 October but still short of the length targets.
+- **Naive bot** (D-367): the simulator now also plays a scripted "casual player" (proposal M-09) and reports it as BT-2n next to the random novice. It won 0% in the first run, like the novice. Which bot the 20–30% novice target applies to is your call.
+- **`FLAGS.ACE_SET_ASIDE` works** (D-366): with it `true`, The Unpriced starts outside his deck and joins his hand on the first successful Appraisal (proposal M-04). It stays `false` until you adopt M-04, and `true` is no longer refused. The pinned-settings table in CONTENT_GUIDE section 7 lost its `FLAGS.ACE_SET_ASIDE` row.
+
 ## 2026-10-20 · Playtest fixes: the Monarch's turn, the share text, the guide
 
 No rule or content changed.
