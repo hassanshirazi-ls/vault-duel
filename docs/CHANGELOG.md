@@ -3,6 +3,14 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-21 · The Levy warning where you look
+
+No rule, card or setting changed, so saved duels and the seeds manifest are unaffected.
+
+- **Your monster at risk is marked** (D-372, proposal M-15): on your turn before a Levy, the monster the Levy will take gets a dashed frame and a small crown. The game asks the engine what ending your turn would do, so the mark is right even when an Unstable Chimera is about to expire.
+- **End turn shows the Levy** (D-372): the button reads "End turn" with "👑 Levy" under it, or "Levy · none" when the Levy would find nothing to take.
+- **His intent near your hand** (D-372): during your turn, the line above your hand repeats what the Monarch plans ("He will attack", "He will levy"), the same as the badge at the top.
+
 ## 2026-10-21 · A rarer Hollow Heir, a tougher Monarch, two targets updated
 
 Two settings changed, which changes the settings hash: a duel in progress when this update arrives starts over, and the

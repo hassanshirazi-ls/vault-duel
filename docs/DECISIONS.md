@@ -3147,6 +3147,18 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - No engine, rule or content change.
 - Reason: the rule worked but could not be found on a phone. The fix keeps the choice in view instead of explaining it.
 
+
+**D-372 · The Levy warning and the Monarch's intent where the player looks (M-15)** (owner choice, 2026-10-21)
+- Question: in the owner's own mobile playtests their eyes stay on the lower half of the screen (hand, Graft, End turn), so they forget the Levy and miss the round-track crowns and the intent badge at the top. The 2026-10-21 naive-bot trace points the same way: the round-3 Levy took its best monster in 69% of duels.
+- Decision (owner chose "marked card + End turn" and "echo in the bottom line"; built by ui-dev, reviewed by qa-reviewer):
+  - **Exact forecast, no rule in the web (TA-6):** `apps/web/src/view/levy.ts › levyForecast` applies the legal `endTurn` to the current frozen state with `engine.applyAction`, because the Levy resolves inside the player's `endTurn`. It reads only the `AppraisalAttempt`, `Appraised` (`iid`, always the player's own monster) and `AppraisalFailed` events and drops the rest of the result, so nothing hidden leaks. A board-only prediction would be wrong on about 15% of Levy turns, when an Unstable Chimera expires at the end of the turn (46 of 315 measured).
+  - **When it runs:** it is memoised per state object (valid for one engine and state), and runs only on the player's turn when `endTurn` is legal and the shown state equals the live state. It is off with `FLAGS.APPRAISAL` off, during a pending Graft, in the mulligan and after the game ends. Any engine throw gives no warning instead of a crash.
+  - **On the card:** the monster the Levy will take gets a dashed ink frame (a `::before`, so keyword frames and shadows are untouched) and an outlined crown tag, last in its marks ("The Levy will take this"). It is distinct from the filled "Crowned" tag. Its pulse is static under reduced motion and `FLAGS.ANIMATIONS=false`.
+  - **On End turn:** a second line reads "👑 Levy", or "Levy · none" when nothing would be taken (aria-label "The Levy has nothing to take"). The button keeps its size, so Graft, life and traps don't move at 360px. The owner's wording "nothing to take" did not fit.
+  - **Intent echo:** with `FLAGS.INTENTS` on, the idle line above the hand shows the same intent icon and text as the top badge during the player's turn, and not after the game ends. His-turn text is unchanged.
+  - No engine, rule, content or seed change. 11 tests added.
+- Reason: the warnings sit where the player looks, and the forecast comes from the engine itself, so it is always right.
+
 ---
 
 ## L. Summary of items needing owner review
@@ -3203,7 +3215,7 @@ Source: `docs/reports/phase0-paper-sim.md` §3 (5 hand-played duels, n = 5, dire
 | M-12 | P12 (part) | rule/card | A Chimera that would go to hand goes to the discard instead; Grave Recall cannot target Chimeras | Re-summoning a Chimera from hand is a value exploit; Chimera-in-hand was undefined (A13) | `CHIMERA_TO_HAND` flag |
 | M-13 | A4 reading | AI data | Paper-sim mood variant: Composed = list as written; Agitated = rule 2 takes ties; Desperate = face-down any Power + trades | Simpler than D-081 (D-081 kept because it implements all of DESIGN's mood prose) | alternate `collector.json › ai.moods` |
 | M-14 | P10 | global | `PLAYER_LIFE` 20 → 24 | Most losses were empty-board swings of 13–23 damage; +4 life buys one more decision turn | `--set PLAYER_LIFE=24`. **Adopted (D-368)** |
-| M-15 | feel notes | UX only | Mark "will be appraised" on face-up 7+ Power monsters during the player turn before an Appraisal round | Novices lose 7-Power base cards on R3 to a rule they haven't absorbed | none (UI; no rule change, no sim needed); recommended for the UI phase |
+| M-15 | feel notes | UX only | Mark "will be appraised" on face-up 7+ Power monsters during the player turn before an Appraisal round | Novices lose 7-Power base cards on R3 to a rule they haven't absorbed | none (UI; no rule change, no sim needed). **Built (D-372)**: crown mark on the card plus the End turn label |
 | M-16 | P9 (note) | card | Mirror Sigil −3 → −2, only if walls stay too strong after M-06 | Vain bounce damage into Mirror Sigil + high Guard is large (6 in one hit, D3) | `--set MIRROR_SIGIL_PENALTY=2`. **Adopted (D-368)** |
 | M-17 | AI milestone 1 (D-218) | AI | Attack rule 2: the weakest attacker that is enough takes the kill, instead of the strongest | More kills per turn; D-090 read literally sends the strongest | `collector.json › ai.params.killWithoutLoss.attacker` (`strongest` / `weakestSufficient`). Not built; built only if the owner asks for the A/B |
 
