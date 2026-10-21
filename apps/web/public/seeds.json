@@ -1,137 +1,130 @@
 {
   "contentHash": "dc8ab66e64dc4c9febcc4424ff0ef2a3",
-  "globalsHash": "1cc21c02357af877578d078dd5268146",
+  "globalsHash": "6956b13975151b4a116b3b5ce735ea68",
   "expertHash": "0eb20ec33121d2dffb41434b07cc1b45",
   "days": {
-    "2026-10-20": {
-      "k": 2,
-      "winRate": 0.46,
-      "stars": 2,
-      "par": 7,
-      "check": "accepted"
-    },
     "2026-10-21": {
       "k": 2,
-      "winRate": 0.584,
-      "stars": 1,
-      "par": 9,
-      "check": "accepted"
-    },
-    "2026-10-22": {
-      "k": 1,
-      "winRate": 0.524,
+      "winRate": 0.45,
       "stars": 2,
       "par": 8,
       "check": "accepted"
     },
-    "2026-10-23": {
-      "k": 2,
-      "winRate": 0.496,
+    "2026-10-22": {
+      "k": 1,
+      "winRate": 0.518,
       "stars": 2,
-      "par": 7,
+      "par": 10,
+      "check": "accepted"
+    },
+    "2026-10-23": {
+      "k": 0,
+      "winRate": 0.634,
+      "stars": 1,
+      "par": 5,
       "check": "accepted"
     },
     "2026-10-24": {
       "k": 3,
-      "winRate": 0.634,
+      "winRate": 0.576,
       "stars": 1,
       "par": 9,
       "check": "accepted"
     },
     "2026-10-25": {
       "k": 2,
-      "winRate": 0.478,
+      "winRate": 0.452,
       "stars": 2,
-      "par": 5,
+      "par": 6,
       "check": "accepted"
     },
     "2026-10-26": {
-      "k": 1,
-      "winRate": 0.656,
+      "k": 3,
+      "winRate": 0.7,
       "stars": 1,
-      "par": 8,
+      "par": 5,
       "check": "accepted"
     },
     "2026-10-27": {
       "k": 2,
-      "winRate": 0.586,
-      "stars": 1,
+      "winRate": 0.434,
+      "stars": 2,
       "par": 6,
       "check": "accepted"
     },
     "2026-10-28": {
-      "k": 0,
-      "winRate": 0.336,
+      "k": 5,
+      "winRate": 0.414,
       "stars": 3,
-      "par": 7,
+      "par": 9,
       "check": "accepted"
     },
     "2026-10-29": {
       "k": 0,
-      "winRate": 0.338,
-      "stars": 3,
-      "par": 9,
+      "winRate": 0.546,
+      "stars": 2,
+      "par": 10,
       "check": "accepted"
     },
     "2026-10-30": {
-      "k": 0,
-      "winRate": 0.34,
-      "stars": 3,
-      "par": 6,
+      "k": 3,
+      "winRate": 0.438,
+      "stars": 2,
+      "par": 8,
       "check": "accepted"
     },
     "2026-10-31": {
-      "k": 3,
-      "winRate": 0.3,
+      "k": 10,
+      "winRate": 0.604,
+      "stars": 1,
+      "par": 8,
+      "check": "accepted"
+    },
+    "2026-11-01": {
+      "k": 0,
+      "winRate": 0.312,
       "stars": 3,
       "par": 11,
       "check": "accepted"
     },
-    "2026-11-01": {
-      "k": 5,
-      "winRate": 0.358,
-      "stars": 3,
-      "par": 10,
-      "check": "accepted"
-    },
     "2026-11-02": {
       "k": 3,
-      "winRate": 0.458,
+      "winRate": 0.502,
       "stars": 2,
-      "par": 10,
+      "par": 9,
       "check": "accepted"
     },
     "2026-11-03": {
       "k": 1,
-      "winRate": 0.476,
-      "stars": 2,
-      "par": 10,
+      "winRate": 0.676,
+      "stars": 1,
+      "par": 9,
       "check": "accepted"
     },
     "2026-11-04": {
       "k": 4,
-      "winRate": 0.328,
+      "winRate": 0.41,
       "stars": 3,
-      "par": 9,
+      "par": 10,
       "check": "accepted"
     },
     "2026-11-05": {
-      "k": 1,
-      "winRate": 0.67,
+      "k": 0,
+      "winRate": 0.582,
       "stars": 1,
-      "par": 9,
+      "par": 7,
       "check": "accepted"
     },
     "2026-11-06": {
       "k": 0,
-      "winRate": 0.57,
-      "stars": 1,
-      "par": 10,
+      "winRate": 0.44,
+      "stars": 2,
+      "par": 11,
       "check": "accepted"
     },
     "2026-11-07": {
       "k": 0,
-      "winRate": 0.678,
+      "winRate": 0.58,
       "stars": 1,
       "par": 9,
       "check": "accepted"
@@ -140,497 +133,504 @@
       "k": 1,
       "winRate": 0.364,
       "stars": 3,
-      "par": 8,
+      "par": 9,
       "check": "accepted"
     },
     "2026-11-09": {
       "k": 3,
-      "winRate": 0.528,
+      "winRate": 0.462,
       "stars": 2,
-      "par": 8,
+      "par": 9,
       "check": "accepted"
     },
     "2026-11-10": {
       "k": 1,
-      "winRate": 0.444,
-      "stars": 2,
-      "par": 11,
+      "winRate": 0.336,
+      "stars": 3,
+      "par": 12,
       "check": "accepted"
     },
     "2026-11-11": {
       "k": 0,
-      "winRate": 0.592,
-      "stars": 1,
-      "par": 10,
+      "winRate": 0.478,
+      "stars": 2,
+      "par": 9,
       "check": "accepted"
     },
     "2026-11-12": {
       "k": 0,
-      "winRate": 0.434,
-      "stars": 2,
-      "par": 9,
+      "winRate": 0.326,
+      "stars": 3,
+      "par": 10,
       "check": "accepted"
     },
     "2026-11-13": {
       "k": 3,
-      "winRate": 0.446,
-      "stars": 2,
-      "par": 9,
+      "winRate": 0.358,
+      "stars": 3,
+      "par": 10,
       "check": "accepted"
     },
     "2026-11-14": {
       "k": 2,
-      "winRate": 0.572,
+      "winRate": 0.652,
       "stars": 1,
       "par": 6,
       "check": "accepted"
     },
     "2026-11-15": {
       "k": 1,
-      "winRate": 0.678,
+      "winRate": 0.656,
       "stars": 1,
       "par": 8,
       "check": "accepted"
     },
     "2026-11-16": {
-      "k": 2,
-      "winRate": 0.572,
-      "stars": 1,
-      "par": 5,
+      "k": 0,
+      "winRate": 0.454,
+      "stars": 2,
+      "par": 9,
       "check": "accepted"
     },
     "2026-11-17": {
-      "k": 0,
-      "winRate": 0.374,
-      "stars": 3,
-      "par": 4,
+      "k": 1,
+      "winRate": 0.678,
+      "stars": 1,
+      "par": 8,
       "check": "accepted"
     },
     "2026-11-18": {
       "k": 3,
-      "winRate": 0.688,
-      "stars": 1,
+      "winRate": 0.524,
+      "stars": 2,
       "par": 7,
       "check": "accepted"
     },
     "2026-11-19": {
       "k": 0,
-      "winRate": 0.62,
-      "stars": 1,
-      "par": 8,
+      "winRate": 0.474,
+      "stars": 2,
+      "par": 7,
       "check": "accepted"
     },
     "2026-11-20": {
       "k": 0,
-      "winRate": 0.594,
-      "stars": 1,
+      "winRate": 0.52,
+      "stars": 2,
       "par": 11,
       "check": "accepted"
     },
     "2026-11-21": {
-      "k": 0,
-      "winRate": 0.46,
+      "k": 1,
+      "winRate": 0.442,
       "stars": 2,
-      "par": 9,
+      "par": 8,
       "check": "accepted"
     },
     "2026-11-22": {
-      "k": 0,
-      "winRate": 0.324,
-      "stars": 3,
+      "k": 1,
+      "winRate": 0.486,
+      "stars": 2,
       "par": 10,
       "check": "accepted"
     },
     "2026-11-23": {
-      "k": 2,
-      "winRate": 0.414,
+      "k": 0,
+      "winRate": 0.322,
       "stars": 3,
-      "par": 8,
+      "par": 10,
       "check": "accepted"
     },
     "2026-11-24": {
-      "k": 4,
-      "winRate": 0.592,
+      "k": 0,
+      "winRate": 0.684,
       "stars": 1,
-      "par": 9,
+      "par": 8,
       "check": "accepted"
     },
     "2026-11-25": {
-      "k": 2,
-      "winRate": 0.426,
-      "stars": 3,
-      "par": 11,
+      "k": 3,
+      "winRate": 0.63,
+      "stars": 1,
+      "par": 7,
       "check": "accepted"
     },
     "2026-11-26": {
-      "k": 1,
-      "winRate": 0.3,
-      "stars": 3,
+      "k": 2,
+      "winRate": 0.602,
+      "stars": 1,
       "par": 9,
       "check": "accepted"
     },
     "2026-11-27": {
-      "k": 1,
-      "winRate": 0.688,
+      "k": 0,
+      "winRate": 0.622,
       "stars": 1,
-      "par": 8,
+      "par": 9,
       "check": "accepted"
     },
     "2026-11-28": {
-      "k": 1,
-      "winRate": 0.444,
-      "stars": 2,
+      "k": 2,
+      "winRate": 0.394,
+      "stars": 3,
       "par": 9,
       "check": "accepted"
     },
     "2026-11-29": {
-      "k": 5,
-      "winRate": 0.344,
+      "k": 2,
+      "winRate": 0.354,
       "stars": 3,
-      "par": 9,
+      "par": 6,
       "check": "accepted"
     },
     "2026-11-30": {
       "k": 0,
-      "winRate": 0.414,
-      "stars": 3,
-      "par": 10,
+      "winRate": 0.628,
+      "stars": 1,
+      "par": 9,
       "check": "accepted"
     },
     "2026-12-01": {
       "k": 0,
-      "winRate": 0.414,
-      "stars": 3,
-      "par": 9,
+      "winRate": 0.566,
+      "stars": 2,
+      "par": 8,
       "check": "accepted"
     },
     "2026-12-02": {
       "k": 1,
-      "winRate": 0.368,
-      "stars": 3,
-      "par": 9,
-      "check": "accepted"
-    },
-    "2026-12-03": {
-      "k": 3,
-      "winRate": 0.338,
-      "stars": 3,
-      "par": 9,
-      "check": "accepted"
-    },
-    "2026-12-04": {
-      "k": 2,
-      "winRate": 0.466,
-      "stars": 2,
-      "par": 6,
-      "check": "accepted"
-    },
-    "2026-12-05": {
-      "k": 8,
-      "winRate": 0.394,
+      "winRate": 0.33,
       "stars": 3,
       "par": 10,
       "check": "accepted"
     },
+    "2026-12-03": {
+      "k": 3,
+      "winRate": 0.64,
+      "stars": 1,
+      "par": 9,
+      "check": "accepted"
+    },
+    "2026-12-04": {
+      "k": 1,
+      "winRate": 0.638,
+      "stars": 1,
+      "par": 11,
+      "check": "accepted"
+    },
+    "2026-12-05": {
+      "k": 1,
+      "winRate": 0.326,
+      "stars": 3,
+      "par": 11,
+      "check": "accepted"
+    },
     "2026-12-06": {
       "k": 0,
-      "winRate": 0.628,
-      "stars": 1,
-      "par": 4,
+      "winRate": 0.55,
+      "stars": 2,
+      "par": 5,
       "check": "accepted"
     },
     "2026-12-07": {
       "k": 2,
-      "winRate": 0.408,
-      "stars": 3,
-      "par": 6,
+      "winRate": 0.622,
+      "stars": 1,
+      "par": 8,
       "check": "accepted"
     },
     "2026-12-08": {
       "k": 2,
-      "winRate": 0.644,
+      "winRate": 0.628,
       "stars": 1,
-      "par": 5,
+      "par": 7,
       "check": "accepted"
     },
     "2026-12-09": {
       "k": 0,
-      "winRate": 0.49,
-      "stars": 2,
+      "winRate": 0.336,
+      "stars": 3,
       "par": 5,
       "check": "accepted"
     },
     "2026-12-10": {
       "k": 0,
-      "winRate": 0.568,
-      "stars": 1,
-      "par": 10,
+      "winRate": 0.464,
+      "stars": 2,
+      "par": 11,
       "check": "accepted"
     },
     "2026-12-11": {
       "k": 2,
-      "winRate": 0.398,
+      "winRate": 0.324,
       "stars": 3,
-      "par": 9,
+      "par": 10,
       "check": "accepted"
     },
     "2026-12-12": {
-      "k": 3,
-      "winRate": 0.476,
-      "stars": 2,
-      "par": 9,
+      "k": 17,
+      "winRate": 0.328,
+      "stars": 3,
+      "par": 8,
       "check": "accepted"
     },
     "2026-12-13": {
       "k": 1,
-      "winRate": 0.594,
-      "stars": 1,
-      "par": 8,
+      "winRate": 0.528,
+      "stars": 2,
+      "par": 9,
       "check": "accepted"
     },
     "2026-12-14": {
-      "k": 0,
-      "winRate": 0.448,
-      "stars": 2,
+      "k": 3,
+      "winRate": 0.67,
+      "stars": 1,
       "par": 10,
       "check": "accepted"
     },
     "2026-12-15": {
-      "k": 11,
-      "winRate": 0.6,
+      "k": 2,
+      "winRate": 0.692,
       "stars": 1,
       "par": 8,
       "check": "accepted"
     },
     "2026-12-16": {
-      "k": 4,
-      "winRate": 0.584,
-      "stars": 1,
-      "par": 9,
+      "k": 1,
+      "winRate": 0.31,
+      "stars": 3,
+      "par": 10,
       "check": "accepted"
     },
     "2026-12-17": {
       "k": 2,
-      "winRate": 0.594,
-      "stars": 1,
-      "par": 9,
+      "winRate": 0.512,
+      "stars": 2,
+      "par": 11,
       "check": "accepted"
     },
     "2026-12-18": {
-      "k": 0,
-      "winRate": 0.59,
-      "stars": 1,
-      "par": 6,
+      "k": 1,
+      "winRate": 0.336,
+      "stars": 3,
+      "par": 11,
       "check": "accepted"
     },
     "2026-12-19": {
-      "k": 3,
-      "winRate": 0.386,
+      "k": 2,
+      "winRate": 0.32,
       "stars": 3,
-      "par": 9,
+      "par": 8,
       "check": "accepted"
     },
     "2026-12-20": {
       "k": 0,
-      "winRate": 0.648,
-      "stars": 1,
-      "par": 6,
+      "winRate": 0.428,
+      "stars": 3,
+      "par": 8,
       "check": "accepted"
     },
     "2026-12-21": {
       "k": 0,
-      "winRate": 0.45,
-      "stars": 2,
-      "par": 11,
+      "winRate": 0.348,
+      "stars": 3,
+      "par": 12,
       "check": "accepted"
     },
     "2026-12-22": {
       "k": 1,
-      "winRate": 0.434,
+      "winRate": 0.564,
       "stars": 2,
-      "par": 11,
+      "par": 7,
       "check": "accepted"
     },
     "2026-12-23": {
-      "k": 1,
-      "winRate": 0.392,
-      "stars": 3,
-      "par": 9,
-      "check": "accepted"
-    },
-    "2026-12-24": {
-      "k": 1,
-      "winRate": 0.508,
-      "stars": 2,
-      "par": 8,
-      "check": "accepted"
-    },
-    "2026-12-25": {
-      "k": 0,
-      "winRate": 0.31,
-      "stars": 3,
-      "par": 9,
-      "check": "accepted"
-    },
-    "2026-12-26": {
-      "k": 0,
-      "winRate": 0.352,
-      "stars": 3,
-      "par": 9,
-      "check": "accepted"
-    },
-    "2026-12-27": {
-      "k": 10,
-      "winRate": 0.582,
-      "stars": 1,
-      "par": 11,
-      "check": "accepted"
-    },
-    "2026-12-28": {
-      "k": 2,
-      "winRate": 0.346,
-      "stars": 3,
-      "par": 9,
-      "check": "accepted"
-    },
-    "2026-12-29": {
-      "k": 1,
-      "winRate": 0.402,
-      "stars": 3,
-      "par": 3,
-      "check": "accepted"
-    },
-    "2026-12-30": {
-      "k": 0,
-      "winRate": 0.424,
-      "stars": 3,
-      "par": 8,
-      "check": "accepted"
-    },
-    "2026-12-31": {
-      "k": 2,
-      "winRate": 0.432,
-      "stars": 3,
-      "par": 10,
-      "check": "accepted"
-    },
-    "2027-01-01": {
-      "k": 3,
-      "winRate": 0.662,
-      "stars": 1,
-      "par": 3,
-      "check": "accepted"
-    },
-    "2027-01-02": {
-      "k": 1,
-      "winRate": 0.312,
-      "stars": 3,
-      "par": 9,
-      "check": "accepted"
-    },
-    "2027-01-03": {
-      "k": 1,
-      "winRate": 0.306,
-      "stars": 3,
-      "par": 7,
-      "check": "accepted"
-    },
-    "2027-01-04": {
-      "k": 2,
-      "winRate": 0.404,
-      "stars": 3,
-      "par": 9,
-      "check": "accepted"
-    },
-    "2027-01-05": {
-      "k": 2,
-      "winRate": 0.32,
-      "stars": 3,
-      "par": 7,
-      "check": "accepted"
-    },
-    "2027-01-06": {
-      "k": 7,
-      "winRate": 0.378,
-      "stars": 3,
-      "par": 7,
-      "check": "accepted"
-    },
-    "2027-01-07": {
-      "k": 3,
-      "winRate": 0.608,
-      "stars": 1,
-      "par": 5,
-      "check": "accepted"
-    },
-    "2027-01-08": {
-      "k": 2,
-      "winRate": 0.41,
-      "stars": 3,
-      "par": 10,
-      "check": "accepted"
-    },
-    "2027-01-09": {
-      "k": 4,
-      "winRate": 0.314,
-      "stars": 3,
-      "par": 11,
-      "check": "accepted"
-    },
-    "2027-01-10": {
       "k": 0,
       "winRate": 0.302,
       "stars": 3,
       "par": 9,
       "check": "accepted"
     },
-    "2027-01-11": {
-      "k": 0,
-      "winRate": 0.578,
-      "stars": 1,
-      "par": 7,
+    "2026-12-24": {
+      "k": 1,
+      "winRate": 0.424,
+      "stars": 3,
+      "par": 8,
       "check": "accepted"
     },
-    "2027-01-12": {
-      "k": 2,
-      "winRate": 0.376,
-      "stars": 3,
+    "2026-12-25": {
+      "k": 1,
+      "winRate": 0.664,
+      "stars": 1,
       "par": 6,
       "check": "accepted"
     },
-    "2027-01-13": {
-      "k": 12,
-      "winRate": 0.504,
+    "2026-12-26": {
+      "k": 0,
+      "winRate": 0.318,
+      "stars": 3,
+      "par": 9,
+      "check": "accepted"
+    },
+    "2026-12-27": {
+      "k": 0,
+      "winRate": 0.678,
+      "stars": 1,
+      "par": 6,
+      "check": "accepted"
+    },
+    "2026-12-28": {
+      "k": 1,
+      "winRate": 0.352,
+      "stars": 3,
+      "par": 10,
+      "check": "accepted"
+    },
+    "2026-12-29": {
+      "k": 0,
+      "winRate": 0.636,
+      "stars": 1,
+      "par": 9,
+      "check": "accepted"
+    },
+    "2026-12-30": {
+      "k": 0,
+      "winRate": 0.39,
+      "stars": 3,
+      "par": 9,
+      "check": "accepted"
+    },
+    "2026-12-31": {
+      "k": 1,
+      "winRate": 0.624,
+      "stars": 1,
+      "par": 9,
+      "check": "accepted"
+    },
+    "2027-01-01": {
+      "k": 3,
+      "winRate": 0.546,
+      "stars": 2,
+      "par": 6,
+      "check": "accepted"
+    },
+    "2027-01-02": {
+      "k": 2,
+      "winRate": 0.508,
+      "stars": 2,
+      "par": 11,
+      "check": "accepted"
+    },
+    "2027-01-03": {
+      "k": 6,
+      "winRate": 0.536,
+      "stars": 2,
+      "par": 11,
+      "check": "accepted"
+    },
+    "2027-01-04": {
+      "k": 2,
+      "winRate": 0.526,
       "stars": 2,
       "par": 9,
       "check": "accepted"
     },
+    "2027-01-05": {
+      "k": 0,
+      "winRate": 0.36,
+      "stars": 3,
+      "par": 9,
+      "check": "accepted"
+    },
+    "2027-01-06": {
+      "k": 7,
+      "winRate": 0.382,
+      "stars": 3,
+      "par": 8,
+      "check": "accepted"
+    },
+    "2027-01-07": {
+      "k": 3,
+      "winRate": 0.56,
+      "stars": 2,
+      "par": 6,
+      "check": "accepted"
+    },
+    "2027-01-08": {
+      "k": 6,
+      "winRate": 0.452,
+      "stars": 2,
+      "par": 8,
+      "check": "accepted"
+    },
+    "2027-01-09": {
+      "k": 1,
+      "winRate": 0.576,
+      "stars": 1,
+      "par": 8,
+      "check": "accepted"
+    },
+    "2027-01-10": {
+      "k": 0,
+      "winRate": 0.308,
+      "stars": 3,
+      "par": 9,
+      "check": "accepted"
+    },
+    "2027-01-11": {
+      "k": 0,
+      "winRate": 0.368,
+      "stars": 3,
+      "par": 8,
+      "check": "accepted"
+    },
+    "2027-01-12": {
+      "k": 3,
+      "winRate": 0.608,
+      "stars": 1,
+      "par": 10,
+      "check": "accepted"
+    },
+    "2027-01-13": {
+      "k": 1,
+      "winRate": 0.4,
+      "stars": 3,
+      "par": 8,
+      "check": "accepted"
+    },
     "2027-01-14": {
       "k": 0,
-      "winRate": 0.428,
-      "stars": 3,
+      "winRate": 0.478,
+      "stars": 2,
       "par": 11,
       "check": "accepted"
     },
     "2027-01-15": {
       "k": 1,
-      "winRate": 0.47,
-      "stars": 2,
-      "par": 9,
+      "winRate": 0.35,
+      "stars": 3,
+      "par": 10,
       "check": "accepted"
     },
     "2027-01-16": {
       "k": 0,
-      "winRate": 0.408,
-      "stars": 3,
+      "winRate": 0.654,
+      "stars": 1,
       "par": 11,
       "check": "accepted"
     },
     "2027-01-17": {
       "k": 1,
-      "winRate": 0.638,
+      "winRate": 0.358,
+      "stars": 3,
+      "par": 9,
+      "check": "accepted"
+    },
+    "2027-01-18": {
+      "k": 6,
+      "winRate": 0.614,
       "stars": 1,
-      "par": 8,
+      "par": 7,
       "check": "accepted"
     }
   }
