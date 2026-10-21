@@ -3,6 +3,13 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-21 · The Monarch speaks above your hand
+
+No rule, card or setting changed, so saved duels and the seeds manifest are unaffected.
+
+- **His lines moved down on phones** (D-373): what the Monarch says, and the line announcing his next move, now appear in the line just above your hand instead of under the header. They no longer cover the top of his cards, and the cards keep their size.
+- **Simulator card tests** (D-374): the simulator can now try a different Power, Guard or keyword set on a single card or Graft recipe (`--card`), for the balance tests.
+
 ## 2026-10-21 · The Levy warning where you look
 
 No rule, card or setting changed, so saved duels and the seeds manifest are unaffected.

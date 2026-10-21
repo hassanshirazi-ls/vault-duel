@@ -312,7 +312,7 @@ content loads, validates and plays.
 - **Never change a DESIGN rule on your own.** If a rule looks wrong, record a `PROPOSAL, needs owner review`
   entry in `docs/DECISIONS.md` and keep the rule.
 - **The decision log.** `docs/DECISIONS.md` entries use a D-number, a date, the question, the decision and the
-  reason. The next free number is **D-373**. When DESIGN.md is ambiguous, take the simplest reading and log it.
+  reason. The next free number is **D-375**. When DESIGN.md is ambiguous, take the simplest reading and log it.
 - **Regenerate `seeds.json` after any change to content, globals or the expert weights (D-255).** Otherwise
   the manifest hashes no longer match, every device falls back to the slow on-device check, and
   `pnpm build` prints a warning. Use `pnpm seeds --from <date> --days 90`. It takes a few minutes on a

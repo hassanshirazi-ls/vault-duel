@@ -3170,6 +3170,18 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - In zsh, quote a bracketed value: `--card 'the-unpriced.keywords=[]'`.
 - Reason: the smallest change that makes M-05 and M-11 testable without touching content defaults.
 
+
+**D-373 · On phones the Monarch speaks above your hand** (owner choice, 2026-10-21)
+- Question: on phones the Monarch's quip and telegraph (D-266) floated under the header and covered the top of his board row (about 40px at 360x640). A first fix reserved a band under the header, but it shrank 360x640 board cards from 76 to 59px. The owner chose instead to move his lines to the bottom, where their eyes stay (the D-372 finding).
+- Decision (built by ui-dev, reviewed by qa-reviewer):
+  - On phones (the layout below the wide 1024px landscape one), his quip and telegraph show in the hint bar above the hand. The header's floating status line is hidden there, so nothing covers his row. The wide layout keeps its column line.
+  - **Order:** the pure `view/hintline.ts › hintLine` picks the line. On his turn: telegraph, then quip, then "The Monarch is acting.", each with "Tap to skip.". On your turn: a card's hint, then quip, then the intent echo (D-372).
+  - **Timing:** a quip shows for 6 s and fades over the last 0.6 s, all from one timer (`ui/quipClock.ts`), keyed on a quip number that grows with every new quip. Undo, which rewinds `nActions`, cannot hide or shorten a new quip, and a remount cannot restart the fade. There is no fade under reduced motion or `FLAGS.ANIMATIONS=false`.
+  - **Layout:** the hint bar stays a fixed 104px, so nothing moves and board cards keep their sizes (76, 102 and 113px at 360, 390 and 430).
+  - **Known limit:** on phones the opening quip is not shown during the mulligan, because the bar there holds "Keep this hand?". It shows after Keep if its 6 s have not run out.
+  - The old phone-only floating-line CSS is removed. Web only, with no engine, content or text change.
+- Reason: the line no longer covers his cards, card sizes are unchanged, and his words appear where the player looks.
+
 ---
 
 ## L. Summary of items needing owner review
