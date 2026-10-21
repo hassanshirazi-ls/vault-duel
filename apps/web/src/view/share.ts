@@ -29,17 +29,23 @@ export interface ShareInput {
   readonly url: string;
 }
 
-/** The link as shown in chat: no scheme, no trailing slash, any path kept. */
-export const shortUrl = (url: string): string => url.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+/**
+ * The link as shown in chat: the scheme stays, since Discord (and others) only make a link, and its preview card, from a
+ * URL with `https://` (D-376); the trailing slash goes, any path is kept.
+ */
+export const shareUrl = (url: string): string => url.replace(/\/+$/, '');
 
-/** The scorecard (owner's pick, D-247): `Vault Duel #6 🏆 9/12`, the round row, `❤️ 12 life · par 8 · ★★☆`, the link. */
+/**
+ * The scorecard (D-365, D-376): `Vault Duel #6 🏆 9/12`, the round row, `❤️ 12 life · par 8 · ★★☆`, the link. The stars
+ * show only when at least one was earned: `☆☆☆` alone is noise in a chat.
+ */
 export function shareText(i: ShareInput): string {
   const stars = '★'.repeat(i.stars) + '☆'.repeat(Math.max(0, i.starsMax - i.stars));
   return [
     `Vault Duel #${dayNumber(i.date)} ${i.won ? '🏆' : '💀'} ${i.won ? i.rounds : 'X'}/${i.maxRounds}`,
     i.row,
-    `❤️ ${Math.max(0, i.life)} life · par ${i.par}${i.showStars === false ? '' : ` · ${stars}`}`,
-    shortUrl(i.url),
+    `❤️ ${Math.max(0, i.life)} life · par ${i.par}${i.showStars === false || i.stars <= 0 ? '' : ` · ${stars}`}`,
+    shareUrl(i.url),
   ].join('\n');
 }
 

@@ -1,6 +1,6 @@
 // Home as the Monarch's decree (D-238, D-273 menu A, D-350, D-351): the title, the tagline (D-353) and the decree's date,
 // the big Daily duel plate (date, difficulty stars, Enter the vault / Resume / Today's result), then ink plates with a
-// one-line italic subtitle: Practice (after today's duel), How to play, Bestiary, Stats (D-265). Everything about the day
+// one-line italic subtitle: Practice (yesterday's vault; Replay today once today's duel is over, D-375), How to play, Bestiary, Stats (D-265). Everything about the day
 // sits below them in a folding "Today's decree": the champion on its plinth, the weekly twist, the levy rounds, the bonus
 // objectives and the deck list. The footer has the feedback link and the countdown to the next duel (the local reset hour, midnight by default).
 import { deckLine, definitionView } from '../view/cards';
@@ -46,6 +46,7 @@ export function Home() {
   const startPractice = useGame((s) => s.startPractice);
   const continuePractice = useGame((s) => s.continuePractice);
   const practiceSaved = useGame((s) => s.practiceSaved);
+  const yesterday = useGame((s) => s.yesterday);
   const mode = useGame((s) => s.mode);
   const state = useGame((s) => s.state);
   const actions = useGame((s) => s.actions);
@@ -105,12 +106,23 @@ export function Home() {
 
       <nav className="plates" aria-label="Main menu">
         {plate(
-          dailyDone ? 'sword' : 'lock',
+          'sword',
           'Practice',
-          !dailyDone ? "Opens after today's duel" : practiceSaved ? 'Resume your unrecorded duel' : "Replay today's vault, unrecorded",
-          practiceSaved ? continuePractice : startPractice,
-          { disabled: !dailyDone },
+          yesterday === null
+            ? "Preparing yesterday's vault…"
+            : practiceSaved.yesterday
+              ? "Resume yesterday's vault, unrecorded"
+              : `Yesterday's vault (${shortDate(yesterday.date)}), unrecorded`,
+          () => (practiceSaved.yesterday ? continuePractice('yesterday') : startPractice('yesterday')),
+          { disabled: yesterday === null },
         )}
+        {dailyDone &&
+          plate(
+            'swap',
+            'Replay today',
+            practiceSaved.today ? "Resume today's vault, unrecorded" : "Today's vault again, unrecorded",
+            () => (practiceSaved.today ? continuePractice('today') : startPractice('today')),
+          )}
         {plate('scroll', 'How to play', 'Rules, elements and a demo duel', openHowTo)}
         {plate('deck', 'Bestiary', "Every champion and Chimera you've met", () => openScreen('binder'))}
         {plate('scales', 'Stats', 'Streak, wins, best rounds', () => openScreen('stats'))}

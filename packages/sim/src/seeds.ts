@@ -1,7 +1,7 @@
 // The precomputed daily-seed manifest (D-236). `buildManifest` turns checked days into the file's shape; `inspectManifest`
 // is the `--check` report. Neither plays a duel: the rating comes from `checkDates`, which runs ai's own prepareDay.
 import type { CheckKey, DailySetup } from '@vault-duel/ai';
-import { dateRange } from './args';
+import { addDays, dateRange } from './args';
 
 export interface ManifestRating {
   readonly k: number;
@@ -64,6 +64,9 @@ export interface ManifestInspection {
 
 export const HORIZON_DAYS = 30;
 
+/** The regenerate command: from yesterday, since Practice plays yesterday's vault (D-375), then 90 days ahead. */
+export const regenerateHint = (today: string): string => `pnpm seeds --from ${addDays(today, -1)} --days 91`;
+
 /** `text` is the file's content, or null when there is no file. Never throws: a stale manifest is a warning (D-236). */
 export function inspectManifest(text: string | null, key: CheckKey, today: string, path: string): ManifestInspection {
   const warn = (status: 'missing' | 'unreadable', msg: string): ManifestInspection => ({
@@ -71,7 +74,7 @@ export function inspectManifest(text: string | null, key: CheckKey, today: strin
     differing: [],
     range: null,
     missingAhead: dateRange(today, HORIZON_DAYS),
-    lines: [`WARNING: ${msg} The app will rate every day on the device. Regenerate with: pnpm seeds --from ${today} --days 90`],
+    lines: [`WARNING: ${msg} The app will rate every day on the device. Regenerate with: ${regenerateHint(today)}`],
   });
   if (text === null) return warn('missing', `no seeds manifest at ${path}.`);
   const m = parseManifestText(text);
@@ -82,10 +85,13 @@ export function inspectManifest(text: string | null, key: CheckKey, today: strin
   const missingAhead = dateRange(today, HORIZON_DAYS).filter((d) => m.days[d] === undefined);
   const lines = [`seeds manifest ${path}: ${range === null ? 'no days' : `${range.count} days, ${range.first} to ${range.last}`}`];
   if (differing.length > 0) {
-    lines.push(`WARNING: the manifest was made for a different build (${differing.join(', ')} differ), so the app ignores it and rates every day on the device. Regenerate with: pnpm seeds --from ${today} --days 90`);
+    lines.push(`WARNING: the manifest was made for a different build (${differing.join(', ')} differ), so the app ignores it and rates every day on the device. Regenerate with: ${regenerateHint(today)}`);
   }
   if (missingAhead.length > 0) {
     lines.push(`${differing.length > 0 ? 'note' : 'WARNING'}: ${missingAhead.length} of the next ${HORIZON_DAYS} days from ${today} are not in the manifest (${missingAhead[0]}${missingAhead.length > 1 ? ` ..` : ''}).`);
+  }
+  if (m.days[addDays(today, -1)] === undefined) {
+    lines.push(`note: yesterday (${addDays(today, -1)}) is not in the manifest, so Practice rates it on the device. Regenerate with: ${regenerateHint(today)}`);
   }
   if (differing.length === 0 && missingAhead.length === 0) lines.push(`manifest matches this build and covers the next ${HORIZON_DAYS} days.`);
   return { status: differing.length > 0 ? 'mismatch' : 'match', differing, range, missingAhead, lines };

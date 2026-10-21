@@ -301,7 +301,7 @@ export function howToPages(ctx: GameCtx): HowToPage[] {
         'Your result compares the rounds you used with the day\'s par.',
         ...when(g.FLAGS.BONUS_OBJECTIVES && ctx.objectiveIds.length > 0, r('Each day has {OBJECTIVES_PER_DAY|bonus objective|bonus objectives}. You earn a star for each one you meet.')),
         'A win adds the day\'s champion to your Bestiary. Share your round row with friends.',
-        'Once your daily attempt is done, Practice replays today\'s seed without recording the result.',
+        'Practice plays yesterday\'s vault at any time, and today\'s again once your daily duel is done. Nothing in Practice is recorded.',
       ],
     },
     {

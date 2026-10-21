@@ -48,11 +48,11 @@ describe('the main menu', () => {
     const h = await started(DATE);
     await playOut(h);
     const daily = h.store.getState();
-    h.store.getState().startPractice();
+    h.store.getState().startPractice('today');
     for (let i = 0; i < 5; i++) h.store.getState().act(simplePick(h.store.getState().legal));
     const practiceActions = h.store.getState().actions;
     h.store.getState().openMenu();
-    expect(h.store.getState().practiceSaved).toBe(true);
+    expect(h.store.getState().practiceSaved.today).toBe(true);
     expect(h.storage.get(practiceKey(DATE))).not.toBeNull();
     // the Daily entry goes to the daily result while Practice waits in storage
     h.store.getState().enterDaily();
@@ -60,7 +60,7 @@ describe('the main menu', () => {
     expect(h.store.getState().phase.name).toBe('result');
     expect(h.store.getState().state).toBe(daily.state);
     h.store.getState().openMenu();
-    h.store.getState().continuePractice();
+    h.store.getState().continuePractice('today');
     expect(h.store.getState().mode).toBe('practice');
     expect(h.store.getState().phase.name).toBe('duel');
     expect(h.store.getState().actions).toEqual(practiceActions);
@@ -71,7 +71,7 @@ describe('the main menu', () => {
     await playOut(h);
     h.store.getState().leavePractice();
     h.store.getState().openMenu();
-    expect(h.store.getState().practiceSaved).toBe(false);
+    expect(h.store.getState().practiceSaved.today).toBe(false);
     expect(h.store.getState().mode).toBe('daily');
     expect(h.store.getState().phase.name).toBe('home');
     expect(h.storage.get(practiceKey(DATE))).toBeNull();
@@ -81,7 +81,7 @@ describe('the main menu', () => {
     const h = await started(DATE);
     await playOut(h);
     const daily = h.storage.get(sessionKey(DATE));
-    h.store.getState().startPractice();
+    h.store.getState().startPractice('today');
     for (let i = 0; i < 40 && h.store.getState().state?.result === null; i++) {
       const s = h.store.getState();
       s.act(simplePick(s.legal));

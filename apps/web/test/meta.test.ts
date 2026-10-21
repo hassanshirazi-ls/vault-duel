@@ -12,8 +12,8 @@ import type { DayRecord } from '../src/persistence/meta';
 import { memoryStorage } from '../src/persistence/storage';
 import { practiceKey, sessionKey } from '../src/daily/session';
 import { roundRow } from '../src/view/roundRow';
-import { dayNumber, sendShare, shareText, shortUrl } from '../src/view/share';
-import { makeStore, simplePick, started } from './helpers';
+import { dayNumber, sendShare, shareText, shareUrl } from '../src/view/share';
+import { flush, makeStore, simplePick, started } from './helpers';
 
 const win = (rounds = 6, stars = 2): DayRecord => ({ won: true, rounds, par: 6, life: 12, stars });
 const loss = (): DayRecord => ({ won: false, rounds: 12, par: 6, life: 0, stars: 0 });
@@ -151,20 +151,22 @@ describe('share text', () => {
   it('builds the round row, rounds against par, life and stars', () => {
     const row = roundRow(track, 4).join('');
     const text = shareText({ date: '2026-10-15', won: true, rounds: 4, maxRounds: 12, par: 6, life: 9, stars: 2, starsMax: 3, row, url: 'https://example.test/' });
-    expect(text).toBe(`Vault Duel #1 🏆 4/12\n${row}\n❤️ 9 life · par 6 · ★★☆\nexample.test`);
+    expect(text).toBe(`Vault Duel #1 🏆 4/12\n${row}\n❤️ 9 life · par 6 · ★★☆\nhttps://example.test`);
     expect(row).toBe('⚔️🧬🛡️👑');
+    // a lost monster is a wilted rose; the skull is only the lost duel in the header (D-376)
+    expect(roundRow({ ...track, round: [RoundFlag.LostMonster | RoundFlag.Attacked] }, 1).join('')).toBe('🥀');
   });
-  it('a loss says Bound and never shows negative life', () => {
-    const text = shareText({ date: '2026-10-20', won: false, rounds: 12, maxRounds: 12, par: 8, life: -3, stars: 0, starsMax: 3, row: '⚔️💀', url: 'https://vault-duel.vercel.app/' });
-    expect(text).toBe('Vault Duel #6 💀 X/12\n⚔️💀\n❤️ 0 life · par 8 · ☆☆☆\nvault-duel.vercel.app');
+  it('a loss says X, never shows negative life, and leaves out the stars when none were earned', () => {
+    const text = shareText({ date: '2026-10-20', won: false, rounds: 12, maxRounds: 12, par: 8, life: -3, stars: 0, starsMax: 3, row: '⚔️🥀', url: 'https://vault-duel.vercel.app/' });
+    expect(text).toBe('Vault Duel #6 💀 X/12\n⚔️🥀\n❤️ 0 life · par 8\nhttps://vault-duel.vercel.app');
   });
   it('numbers days from the launch date by calendar, across month, year and DST changes', () => {
     expect([dayNumber('2026-10-15'), dayNumber('2026-10-20'), dayNumber('2026-11-01'), dayNumber('2027-01-01')]).toEqual([1, 6, 18, 79]);
     expect(dayNumber('2026-11-02') - dayNumber('2026-10-31')).toBe(2);
   });
-  it('keeps a path on the link and drops the scheme and trailing slash', () => {
-    expect(shortUrl('https://example.test/play/')).toBe('example.test/play');
-    expect(shortUrl('http://localhost:5173/')).toBe('localhost:5173');
+  it('keeps the scheme and a path on the link, so chats make it a link, and drops the trailing slash (D-376)', () => {
+    expect(shareUrl('https://example.test/play/')).toBe('https://example.test/play');
+    expect(shareUrl('http://localhost:5173/')).toBe('http://localhost:5173');
   });
   it('uses the Web Share API, falls back to the clipboard, and treats a cancelled sheet as no error', async () => {
     const calls: string[] = [];
@@ -201,9 +203,9 @@ describe('the store records the daily and never records Practice (D-247)', () =>
     expect(fresh.store.getState().phase.name).toBe('result');
   });
 
-  it('Practice is locked until the daily is over', async () => {
+  it("today's vault opens for Practice only once the daily is over", async () => {
     const h = await started(DATE);
-    h.store.getState().startPractice();
+    h.store.getState().startPractice('today');
     expect(h.store.getState().mode).toBe('daily');
   });
 
@@ -213,7 +215,7 @@ describe('the store records the daily and never records Practice (D-247)', () =>
     const daily = h.store.getState();
     const snapshot = (): [string, string][] => [...h.storage.data.entries()].filter(([k]) => k !== practiceKey(DATE)).sort();
     const before = snapshot();
-    h.store.getState().startPractice();
+    h.store.getState().startPractice('today');
     expect(h.store.getState().mode).toBe('practice');
     expect(h.store.getState().phase.name).toBe('duel');
     await playOut(h);
@@ -232,7 +234,7 @@ describe('the store records the daily and never records Practice (D-247)', () =>
   it('a Practice duel in progress resumes after a reload, on top of the finished daily', async () => {
     const h = await started(DATE);
     await playOut(h);
-    h.store.getState().startPractice();
+    h.store.getState().startPractice('today');
     for (let i = 0; i < 6; i++) h.store.getState().act(simplePick(h.store.getState().legal));
     const n = h.store.getState().actions.length;
     const fresh = makeStore(DATE, h.storage);
@@ -243,5 +245,87 @@ describe('the store records the daily and never records Practice (D-247)', () =>
     expect(s.daily?.state?.result).not.toBeNull();
     s.leavePractice();
     expect(fresh.store.getState().phase.name).toBe('result');
+  });
+});
+
+describe("Practice plays yesterday's vault at any time (D-375)", () => {
+  const YESTERDAY = addDays(DATE, -1);
+
+  it('opens before the daily duel, plays yesterday, and records nothing but its own Practice record', async () => {
+    const h = makeStore(DATE);
+    await h.store.getState().boot();
+    await flush();
+    expect(h.store.getState().yesterday?.date).toBe(YESTERDAY);
+    expect(h.store.getState().practiceSaved).toEqual({ yesterday: false, today: false });
+    h.store.getState().startPractice();
+    let s = h.store.getState();
+    expect(s.mode).toBe('practice');
+    expect(s.practiceVault).toBe('yesterday');
+    expect(s.practiceSetup?.date).toBe(YESTERDAY);
+    expect(s.setup?.date).toBe(DATE);
+    for (let i = 0; i < 6; i++) h.store.getState().act(simplePick(h.store.getState().legal));
+    const practiceActions = h.store.getState().actions;
+    expect(JSON.parse(h.storage.get(practiceKey(YESTERDAY)) ?? '{}').actions).toEqual(practiceActions);
+    expect(h.storage.get(sessionKey(DATE))).toBeNull();
+    expect(h.storage.get(practiceKey(DATE))).toBeNull();
+    // the daily duel begins from the menu as usual, then Practice resumes where it was
+    h.store.getState().openMenu();
+    h.store.getState().enterDaily();
+    s = h.store.getState();
+    expect(s.mode).toBe('daily');
+    expect(s.actions).toEqual([]);
+    expect(h.storage.get(sessionKey(DATE))).not.toBeNull();
+    h.store.getState().act(simplePick(s.legal));
+    const dailyActions = h.store.getState().actions;
+    h.store.getState().openMenu();
+    h.store.getState().continuePractice('yesterday');
+    expect(h.store.getState().mode).toBe('practice');
+    expect(h.store.getState().actions).toEqual(practiceActions);
+    h.store.getState().leavePractice();
+    expect(h.store.getState().mode).toBe('daily');
+    expect(h.store.getState().actions).toEqual(dailyActions);
+    expect(h.store.getState().practiceSaved.yesterday).toBe(false);
+    expect(h.storage.get(practiceKey(YESTERDAY))).toBeNull();
+    expect(Object.keys(h.store.getState().stats.days)).toEqual([]);
+  });
+
+  it('a saved yesterday duel waits for the menu after a reload, and the vault from two days ago is cleared', async () => {
+    const h = makeStore(DATE);
+    await h.store.getState().boot();
+    await flush();
+    h.store.getState().startPractice('yesterday');
+    for (let i = 0; i < 6; i++) h.store.getState().act(simplePick(h.store.getState().legal));
+    const n = h.store.getState().actions.length;
+    const stale = practiceKey(addDays(DATE, -2));
+    h.storage.set(stale, '{}');
+    const fresh = makeStore(DATE, h.storage);
+    await fresh.store.getState().boot();
+    await flush();
+    expect(h.storage.get(stale)).toBeNull();
+    expect(fresh.store.getState().mode).toBe('daily');
+    expect(fresh.store.getState().practiceSaved.yesterday).toBe(true);
+    fresh.store.getState().continuePractice('yesterday');
+    expect(fresh.store.getState().mode).toBe('practice');
+    expect(fresh.store.getState().actions).toHaveLength(n);
+  });
+
+  it("switches between yesterday's and today's vault without touching the daily result", async () => {
+    const h = await started(DATE);
+    await playOut(h);
+    const daily = h.store.getState().state;
+    h.store.getState().startPractice('today');
+    h.store.getState().act(simplePick(h.store.getState().legal));
+    h.store.getState().openMenu();
+    h.store.getState().continuePractice('yesterday');
+    expect(h.store.getState().practiceVault).toBe('yesterday');
+    expect(h.store.getState().practiceSetup?.date).toBe(YESTERDAY);
+    expect(h.store.getState().practiceSaved).toEqual({ yesterday: true, today: true });
+    // Restart keeps the running vault
+    h.store.getState().startPractice();
+    expect(h.store.getState().practiceVault).toBe('yesterday');
+    h.store.getState().leavePractice();
+    expect(h.store.getState().mode).toBe('daily');
+    expect(h.store.getState().state).toBe(daily);
+    expect(h.store.getState().practiceSaved).toEqual({ yesterday: false, today: true });
   });
 });

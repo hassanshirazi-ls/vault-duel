@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Action } from '@vault-duel/engine';
 import { App } from '../src/ui/App';
 import { StoreContext } from '../src/ui/context';
-import { makeStore, simplePick, started } from './helpers';
+import { flush, makeStore, simplePick, started } from './helpers';
 
 type Harness = Awaited<ReturnType<typeof started>>;
 
@@ -83,9 +83,13 @@ describe('the main menu and the duel menu button (D-265)', () => {
   it('lists the menu entries on Home, a Menu button and Undo in the duel, and Main menu on the Result', async () => {
     const booted = makeStore('2026-10-14');
     await booted.store.getState().boot();
+    await flush();
     booted.store.getState().closeHowTo();
     const home = html(booted);
     for (const entry of ['Daily duel', 'Enter the vault', 'Practice', 'How to play', 'Bestiary', 'Stats']) expect(home).toContain(entry);
+    // yesterday's vault is open before today's duel; Replay today is not there yet (D-375)
+    expect(home).toContain('Yesterday&#x27;s vault');
+    expect(home).not.toContain('Replay today');
 
     const h = await started('2026-10-14');
     h.store.getState().act(h.store.getState().groups?.keep as Action);
@@ -98,10 +102,13 @@ describe('the main menu and the duel menu button (D-265)', () => {
     const done = await started('2026-10-14');
     for (let i = 0; i < 600 && done.store.getState().state?.result === null; i++) done.store.getState().act(simplePick(done.store.getState().legal));
     expect(html(done)).toContain('Main menu');
-    done.store.getState().startPractice();
+    done.store.getState().openMenu();
+    expect(html(done)).toContain('Replay today');
+    done.store.getState().startPractice('yesterday');
     for (let i = 0; i < 600 && done.store.getState().state?.result === null; i++) done.store.getState().act(simplePick(done.store.getState().legal));
     const practice = html(done);
     expect(practice).toContain('Replay');
+    expect(practice).toContain('2026-10-13');
     expect(practice).toContain('Main menu');
   });
 });
@@ -129,7 +136,8 @@ describe('menu A, the wheel and Try it (D-273, D-275)', () => {
     expect(guide).toContain('Try it');
     booted.store.getState().closeHowTo();
     const home = html(booted);
-    expect(home).toContain("Opens after today&#x27;s duel");
+    // Practice offers yesterday's vault (or says it is being prepared in the background), D-375
+    expect(home).toMatch(/[Yy]esterday&#x27;s vault/);
     expect(home).toContain('Today&#x27;s decree');
     expect(home).toContain('Next duel in');
   });

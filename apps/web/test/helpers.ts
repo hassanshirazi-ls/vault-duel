@@ -20,9 +20,13 @@ export function makeStore(date: string, storage = memoryStorage(), overrides: re
   return { store, storage };
 }
 
+/** Lets background work finish: boot resolves yesterday's vault for Practice off the boot path (D-375). */
+export const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
 export async function started(date: string, storage = memoryStorage(), overrides: readonly string[] = []): Promise<ReturnType<typeof makeStore>> {
   const h = makeStore(date, storage, overrides);
   await h.store.getState().boot();
+  await flush();
   h.store.getState().start();
   return h;
 }

@@ -4,7 +4,8 @@
 import { RoundFlag } from '@vault-duel/engine';
 import type { Track } from '@vault-duel/engine';
 
-export const ROUND_EMOJI = { appraised: '👑', lost: '💀', graft: '🧬', attack: '⚔️', guard: '🛡️' } as const;
+// A lost monster is a wilted rose, not a skull: the skull marks a lost duel in the header line (D-376).
+export const ROUND_EMOJI = { appraised: '👑', lost: '🥀', graft: '🧬', attack: '⚔️', guard: '🛡️' } as const;
 
 export function roundEmoji(flags: number): string {
   if (flags & RoundFlag.Appraised) return ROUND_EMOJI.appraised;

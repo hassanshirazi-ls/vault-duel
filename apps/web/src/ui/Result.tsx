@@ -1,5 +1,5 @@
 // Result as a royal edict (D-238, D-350): a paper edict with a wax seal, the date, rounds against par, life left, the
-// bonus objectives with check/cross, and the emoji round row exactly as it will be shared. Practice (D-247) gets a
+// bonus objectives with check/cross, and the emoji round row exactly as it will be shared. Practice (D-247, D-375) gets a
 // plain edict instead: no seal, no Share, and nothing in it was recorded.
 import { useEffect, useState } from 'react';
 import { definitionView } from '../view/cards';
@@ -29,7 +29,8 @@ const SHARE_LABEL: Readonly<Record<ShareOutcome | 'idle', string>> = {
 
 export function Result() {
   const state = useGame((s) => s.state);
-  const setup = useGame((s) => s.setup);
+  // in Practice the edict is the Practice vault's (yesterday's or today's, D-375)
+  const setup = useGame((s) => (s.mode === 'practice' ? s.practiceSetup : s.setup));
   const ctx = useGame((s) => s.ctx);
   const mode = useGame((s) => s.mode);
   const binder = useGame((s) => s.binder);
@@ -139,7 +140,7 @@ export function Result() {
 
       {practice ? (
         <div className="result-actions two">
-          <button type="button" className="btn primary" onClick={startPractice}>
+          <button type="button" className="btn primary" onClick={() => startPractice()}>
             <Glyph id="swap" size={18} /> Replay
           </button>
           <button
@@ -161,7 +162,7 @@ export function Result() {
           <p className="sr-only" role="status">
             {outcome === 'copied' ? 'Copied to clipboard' : outcome === 'shared' ? 'Shared' : ''}
           </p>
-          <button type="button" className="btn" onClick={startPractice}>
+          <button type="button" className="btn" onClick={() => startPractice('today')}>
             <Glyph id="sword" size={18} /> Practice
           </button>
           <button type="button" className="btn" onClick={() => openScreen('binder')}>

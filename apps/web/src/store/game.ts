@@ -9,6 +9,7 @@ import { newDuel, playerStep, recordOf, replayTrail } from '../duel/runtime';
 import type { Frame, Runtime } from '../duel/runtime';
 import { createRuntime } from '../duel/runtime';
 import { clearSession, loadSession, recordFor, resumeSession, saveSession } from '../daily/session';
+import { addDays } from '../meta/stats';
 import { howToSeen, markHowToSeen } from '../persistence/howto';
 import { emptyBinder, emptyStats, loadBinder, loadStats, recordDaily } from '../persistence/meta';
 import type { BinderRecord, StatsRecord } from '../persistence/meta';
@@ -37,6 +38,9 @@ export type Phase =
 export type Snapshot = Pick<GameState_, 'phase' | 'state' | 'actions' | 'trail' | 'events' | 'legal' | 'groups'>;
 
 export type Screen = 'binder' | 'stats';
+
+/** Which vault Practice plays (D-375): yesterday's at any time, today's again once the daily duel is over. */
+export type PracticeVault = 'yesterday' | 'today';
 
 export interface GameDeps {
   readonly storage: KV;
@@ -71,13 +75,18 @@ export interface GameState_ {
   readonly notice: string | null;
   /** a message when the last action was rejected; the duel is left as it was */
   readonly error: string | null;
-  /** 'practice' replays today's seed unrecorded (D-247); it never writes stats, Binder or the daily session */
+  /** 'practice' plays yesterday's or today's vault unrecorded (D-247, D-375); it never writes stats, Binder or the daily session */
   readonly mode: 'daily' | 'practice';
   readonly daily: Snapshot | null;
-  /** the daily duel has ended (Practice unlocks) */
+  /** the daily duel has ended (today's vault opens for Practice) */
   readonly dailyDone: boolean;
-  /** a Practice duel is saved, so the menu offers Resume */
-  readonly practiceSaved: boolean;
+  /** yesterday's vault, resolved in the background after boot; null until then (or if it could not be prepared) */
+  readonly yesterday: DailySetup | null;
+  /** the vault the running (or last) Practice duel plays, and its setup; `setup` always stays today's */
+  readonly practiceVault: PracticeVault | null;
+  readonly practiceSetup: DailySetup | null;
+  /** a Practice duel of that vault is saved, so the menu offers Resume */
+  readonly practiceSaved: Readonly<Record<PracticeVault, boolean>>;
   /** a full-page screen over Home or the Result */
   readonly screen: Screen | null;
   /** the How to play pages are open (D-257): on first open, and again from the "?" on Home */
@@ -104,12 +113,15 @@ export interface GameActions {
   openMenu(): void;
   /** Daily duel entry of the menu: begin, resume, or look at today's result */
   enterDaily(): void;
-  /** Practice entry of the menu: back into the saved Practice duel */
-  continuePractice(): void;
+  /** Practice entry of the menu: back into that vault's saved Practice duel */
+  continuePractice(vault: PracticeVault): void;
   dismissNotice(): void;
-  /** Practice (D-247): today's seed again, unrecorded. Needs the daily duel to be over. */
-  startPractice(): void;
-  /** back to the daily Result from Practice; clears the practice record */
+  /**
+   * Practice (D-247, D-375): a fresh unrecorded duel of yesterday's vault (any time) or today's (once the daily duel is
+   * over). Without an argument it restarts the running Practice vault, else yesterday's.
+   */
+  startPractice(vault?: PracticeVault): void;
+  /** back to the daily duel from Practice; clears that vault's practice record */
   leavePractice(): void;
   openScreen(screen: Screen): void;
   closeScreen(): void;
@@ -122,7 +134,8 @@ export type GameStore = ReturnType<typeof createGameStore>;
 
 const IDLE: GameState_ = {
   phase: { name: 'booting' }, ctx: null, rt: null, setup: null, source: null, state: null, actions: [], trail: [], events: [], frames: [], legal: [],
-  groups: null, notice: null, error: null, mode: 'daily', daily: null, dailyDone: false, practiceSaved: false, screen: null, howTo: false,
+  groups: null, notice: null, error: null, mode: 'daily', daily: null, dailyDone: false, yesterday: null, practiceVault: null, practiceSetup: null,
+  practiceSaved: { yesterday: false, today: false }, screen: null, howTo: false,
   stats: emptyStats(), binder: emptyBinder(),
 };
 
@@ -143,18 +156,50 @@ export function createGameStore(deps: GameDeps) {
       };
     };
 
-    /** A saved practice duel comes back after a reload, on top of the finished daily one. */
-    const resumePractice = (date: string): void => {
-      const { rt, setup } = get();
-      const rec = loadSession(deps.storage, date, 'practice');
-      if (rt === null || setup === null || rec === null || rec.actions.length === 0) return;
+    /** The setup of the duel on screen: the Practice vault's in Practice, else today's. */
+    const liveSetup = (): DailySetup | null => {
+      const { mode, practiceSetup, setup } = get();
+      return mode === 'practice' ? practiceSetup : setup;
+    };
+
+    const vaultSetup = (vault: PracticeVault): DailySetup | null => (vault === 'today' ? get().setup : get().yesterday);
+
+    const hasPractice = (date: string): boolean => (loadSession(deps.storage, date, 'practice')?.actions.length ?? 0) > 0;
+
+    const markSaved = (vault: PracticeVault, saved: boolean): Partial<GameState_> => ({ practiceSaved: { ...get().practiceSaved, [vault]: saved } });
+
+    /** The daily duel's screen data to keep while Practice shows: taken from the screen in daily mode, else the one kept. */
+    const keepDaily = (): Snapshot | null => (get().mode === 'daily' ? snapshot() : get().daily);
+
+    /** A saved practice duel of that vault comes back (after a reload, or from the menu), with the daily duel kept aside. */
+    const resumePractice = (vault: PracticeVault): void => {
+      const { rt } = get();
+      const setup = vaultSetup(vault);
+      if (rt === null || setup === null) return;
+      const rec = loadSession(deps.storage, setup.date, 'practice');
+      if (rec === null || rec.actions.length === 0) return;
       const r = resumeSession(rt, setup, rec);
       if (!r.ok) {
-        clearSession(deps.storage, date, 'practice');
+        clearSession(deps.storage, setup.date, 'practice');
+        set(markSaved(vault, false));
         return;
       }
-      const daily = snapshot();
-      set({ ...show(r.state, rec.actions, [], replayTrail(rt, setup, rec.actions).trail), mode: 'practice', daily, practiceSaved: true });
+      const daily = keepDaily();
+      set({
+        ...show(r.state, rec.actions, [], replayTrail(rt, setup, rec.actions).trail),
+        mode: 'practice', daily, practiceVault: vault, practiceSetup: setup, ...markSaved(vault, true),
+      });
+    };
+
+    /** Yesterday's vault for Practice (D-375), off the boot path: the manifest has it, or the on-device check runs quietly. */
+    const loadYesterday = async (ctx: GameCtx, date: string): Promise<void> => {
+      try {
+        const r = await deps.resolveSetup(ctx, addDays(date, -1), () => undefined);
+        if (get().ctx !== ctx) return;
+        set({ yesterday: r.setup, ...markSaved('yesterday', hasPractice(r.setup.date)) });
+      } catch (e) {
+        console.warn(`warning: could not prepare yesterday's vault: ${e instanceof Error ? e.message : String(e)}`);
+      }
     };
 
     const beginDuel = (notice: string | null): void => {
@@ -209,10 +254,13 @@ export function createGameStore(deps: GameDeps) {
         for (const w of ctx.warnings) console.warn(`warning: ${w}`);
         const rt = createRuntime(ctx, deps.dev === undefined ? {} : { dev: deps.dev });
         const date = deps.today(ctx.globals);
+        // the vault from two days ago is no longer anyone's Practice (D-375)
+        clearSession(deps.storage, addDays(date, -2), 'practice');
         // D-197: any content reload restarts the duel, even one whose replay would still pass.
         if (opts.restartNotice !== undefined) {
           clearSession(deps.storage, date);
           clearSession(deps.storage, date, 'practice');
+          clearSession(deps.storage, addDays(date, -1), 'practice');
         }
         set({ ctx, rt, phase: { name: 'preparing', progress: null } });
         let resolved;
@@ -226,6 +274,7 @@ export function createGameStore(deps: GameDeps) {
         }
         if (get().ctx !== ctx) return; // a newer boot replaced this one while the check ran
         set({ setup: resolved.setup, source: resolved.source });
+        void loadYesterday(ctx, date);
         const record = loadSession(deps.storage, date);
         if (record === null) {
           set({ phase: { name: 'home' }, notice: opts.restartNotice ?? null });
@@ -241,7 +290,7 @@ export function createGameStore(deps: GameDeps) {
             firstRun();
           }
           settle(resumed.state);
-          if (resumed.state.result !== null) resumePractice(date);
+          if (resumed.state.result !== null) resumePractice('today');
           return;
         }
         // Replay failed (cfg mismatch, illegal action, new content version): restart instead of losing it silently.
@@ -255,7 +304,8 @@ export function createGameStore(deps: GameDeps) {
       },
 
       act(action) {
-        const { rt, state, setup, ctx, actions, trail, mode } = get();
+        const { rt, state, ctx, actions, trail, mode } = get();
+        const setup = liveSetup();
         if (rt === null || state === null || setup === null || ctx === null || state.result !== null) return;
         try {
           const step = playerStep(rt, state, action);
@@ -304,7 +354,8 @@ export function createGameStore(deps: GameDeps) {
       },
 
       graftUnpick(iid) {
-        const { rt, state, setup, ctx, actions, mode } = get();
+        const { rt, state, ctx, actions, mode } = get();
+        const setup = liveSetup();
         const mats = state?.pending?.mats;
         if (rt === null || state === null || setup === null || ctx === null || mats === undefined || !mats.includes(iid)) return;
         let begin = actions.length - 1;
@@ -333,7 +384,8 @@ export function createGameStore(deps: GameDeps) {
       },
 
       undo() {
-        const { rt, state, setup, ctx, actions, trail, mode } = get();
+        const { rt, state, ctx, actions, trail, mode } = get();
+        const setup = liveSetup();
         if (rt === null || state === null || setup === null || ctx === null || state.result !== null) return;
         const status = undoStatus(trail);
         if (!status.ok) {
@@ -362,36 +414,38 @@ export function createGameStore(deps: GameDeps) {
         set({ phase: state.result === null ? { name: 'duel' } : { name: 'result' }, screen: null });
       },
 
-      continuePractice() {
-        const { mode, state, setup } = get();
-        if (mode === 'practice' && state !== null) {
-          set({ phase: state.result === null ? { name: 'duel' } : { name: 'result' }, screen: null });
-        } else if (setup !== null) {
-          resumePractice(setup.date);
-          if (get().mode === 'practice') {
-            const s = get().state;
-            set({ phase: s !== null && s.result !== null ? { name: 'result' } : { name: 'duel' }, screen: null });
-          }
-        }
+      continuePractice(vault) {
+        const { mode, practiceVault } = get();
+        if (mode !== 'practice' || practiceVault !== vault) resumePractice(vault);
+        // nothing saved (or it could not be replayed): a fresh duel of that vault
+        if (get().mode !== 'practice' || get().practiceVault !== vault) return get().startPractice(vault);
+        const s = get().state;
+        set({ phase: s !== null && s.result !== null ? { name: 'result' } : { name: 'duel' }, screen: null });
       },
 
       dismissNotice() {
         set({ notice: null });
       },
 
-      startPractice() {
-        const { rt, setup, ctx, dailyDone, mode, daily } = get();
-        if (rt === null || setup === null || ctx === null || !dailyDone) return;
+      startPractice(vault) {
+        const { rt, ctx, dailyDone, mode, practiceVault } = get();
+        const which = vault ?? (mode === 'practice' && practiceVault !== null ? practiceVault : 'yesterday');
+        const setup = vaultSetup(which);
+        if (rt === null || setup === null || ctx === null || (which === 'today' && !dailyDone)) return;
         const first = newDuel(rt, setup);
         saveSession(deps.storage, recordFor(setup, ctx.globals.CONTENT_VERSION, first.state.cfg, []), 'practice');
-        const snap = mode === 'daily' ? snapshot() : daily;
-        set({ ...show(first.state, [], first.events, []), mode: 'practice', daily: snap, screen: null, notice: null, practiceSaved: true });
+        const daily = keepDaily();
+        set({
+          ...show(first.state, [], first.events, []),
+          mode: 'practice', daily, practiceVault: which, practiceSetup: setup, screen: null, notice: null, ...markSaved(which, true),
+        });
       },
 
       leavePractice() {
-        const { daily, setup } = get();
-        if (setup !== null) clearSession(deps.storage, setup.date, 'practice');
-        set({ practiceSaved: false });
+        const { daily, practiceSetup, practiceVault, mode } = get();
+        if (mode !== 'practice') return;
+        if (practiceSetup !== null) clearSession(deps.storage, practiceSetup.date, 'practice');
+        if (practiceVault !== null) set(markSaved(practiceVault, false));
         if (daily === null) return;
         set({ ...daily, mode: 'daily', daily: null, error: null });
       },

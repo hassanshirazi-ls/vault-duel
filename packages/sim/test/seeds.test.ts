@@ -87,6 +87,13 @@ describe('inspectManifest', () => {
     expect(r.lines.join('\n')).toContain('20 of the next 30');
   });
 
+  it("notes a manifest without yesterday (Practice, D-375) and suggests regenerating from yesterday", () => {
+    const text = inspectManifest(full(), key, today, 'p').lines.join('\n');
+    expect(text).toContain('note: yesterday (2026-10-14) is not in the manifest');
+    expect(text).toContain('pnpm seeds --from 2026-10-14 --days 91');
+    expect(inspectManifest(full(), key, '2026-10-16', 'p').lines.join('\n')).not.toContain('yesterday');
+  });
+
   it('warns for a missing or unreadable file', () => {
     expect(inspectManifest(null, key, today, 'p')).toMatchObject({ status: 'missing', missingAhead: expect.any(Array) });
     expect(inspectManifest(null, key, today, 'p').lines[0]).toContain('WARNING');
