@@ -2,6 +2,92 @@
 
 Every applied balance change, with the evidence. Experiment JSONs live in `docs/reports/balance/` (T01-T25: 123L without bond rules; B01-B15: this cycle). Marks follow the TARGET_* globals: expert win 45-55%, median rounds 9-11, rounds 8-12 over half, round 12 15-30%, grafts/win 1.5-3, Levy 30-60%, Hollow Heir 20-40%, novice 20-30%, seed rejection at most 15%. Quick noise: about plus or minus 2.2 points on a 2000-game win rate.
 
+## Phase 3 A/B round 3 (2026-10-21)
+
+Measurement only: **no default changed** (players are playtesting the live build). This round tests M-05 and M-11 with the new `--card` flag (D-374) and looks for the cheapest way to get the one failing length target, BT-3 median rounds 9-11, from 8 to 9. Start point: the live package at e774cfc (D-368 to D-370: `PLAYER_LIFE` 24, `MIRROR_SIGIL_PENALTY` 2, `APPRAISAL_MIN_POWER` 8, `COLLECTOR_LIFE` 46, `TARGET_GRAFTS_PER_WIN` [3.5, 5]). Constraints: expert near today's 47.7 (D-364 band 45-55), round 12 at most 30, Levy 30-60, Hollow Heir 20-40, grafts/win 3.5-5, BT-2 not chased.
+
+- Screening: `sim quick --bots expert --games 10000 --seed-dates 30 --from 2026-10-21 --workers 10`, with the same dates and game seeds in every cell (paired). Noise is about plus or minus 1.0 point on a 10,000-game rate.
+- Confirm: `--games 20000 --seed-dates 60 --from 2026-10-21 --seed-check`. Reports are in `docs/reports/ab-round3-2026-10-21/`. The confirm baseline gives 47.7, today's live figure.
+- New columns. "Rds 8 or less" is the share of games over by the end of round 8: the median reads 9 once it drops under 50. "Actions" is engine actions per game, both sides, end turns included. It stands in for real time.
+- M-05 is `--card 'the-unpriced.keywords=[]'`. M-11 is `--card bastion-warden.power=7 --card bastion-warden.guard=8`. "Ace later" is round 2's owner-only `collector.json › ai` rule order. `APPRAISAL_ROUNDS=[3,6]` drops the round-9 Levy.
+
+Screening (10,000 games, 30 dates):
+
+| Cell | Expert | Median | Mean rds | Rds 8 or less | 8-12 | Rd 12 | Grafts/win | Levy | Hollow Heir | Actions | Verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| baseline (live) | 48.2 | 8 | 8.33 | 53.1 | 59.7 | 17.6 | 4.39 | 37.0 | 38.4 | 76.8 | |
+| M-05 The Hollow Heir loses Ward | 52.3 | 8 | 8.28 | 54.0 | 58.8 | 17.1 | 4.39 | 37.1 | 38.4 | 76.1 | +4.1 for the player, no target moves |
+| M-11 Bastion Warden 7/8 | 49.4 | 8 | 8.31 | 53.8 | 59.2 | 17.1 | 4.38 | 37.2 | 38.4 | 76.7 | +1.2, noise edge, no target moves |
+| `PLAYER_LIFE=26` | 49.2 | 8 | 8.49 | 50.8 | 62.0 | 19.5 | 4.40 | 36.7 | 39.1 | 78.2 | Per 2 points: +1.0 expert, -2.3 in rounds 8 or less |
+| `PLAYER_LIFE=27` | 49.5 | 9 | 8.56 | 49.6 | 63.0 | 20.4 | 4.40 | 36.6 | 39.2 | 78.8 | Median 9 by 0.4. Too thin |
+| `PLAYER_LIFE=28` | 50.1 | 9 | 8.63 | 48.6 | 63.9 | 21.1 | 4.41 | 36.6 | 39.6 | 79.3 | One edit; Hollow Heir near 40. Confirmed |
+| `PLAYER_LIFE=30` | 50.6 | 9 | 8.76 | 46.5 | 65.8 | 23.0 | 4.42 | 36.2 | 39.9 | 80.4 | Hollow Heir at the edge |
+| `COLLECTOR_LIFE=50` | 43.9 | 9 | 8.61 | 48.6 | 64.0 | 21.0 | 4.51 | 37.9 | 40.8 | 79.5 | Per 4 points: -4.3 expert, -4.5 in rounds 8 or less, +2.4 Hollow Heir |
+| `PLAYER_LIFE=26`, `COLLECTOR_LIFE=48` | 47.0 | 9 | 8.65 | 48.3 | 64.4 | 21.5 | 4.46 | 37.0 | 40.3 | 79.7 | Hollow Heir over 40 |
+| `PLAYER_LIFE=26`, `COLLECTOR_LIFE=50` | 44.6 | 9 | 8.78 | 46.2 | 66.3 | 23.2 | 4.52 | 37.6 | 41.5 | 80.9 | Expert under 45, Hollow Heir over 40 |
+| `PLAYER_LIFE=28`, `COLLECTOR_LIFE=47` | 49.1 | 9 | 8.71 | 47.2 | 65.2 | 22.1 | 4.44 | 36.7 | 40.4 | 80.1 | Hollow Heir over 40 |
+| `PLAYER_LIFE=28`, `COLLECTOR_LIFE=48` | 47.7 | 9 | 8.79 | 46.0 | 66.4 | 23.4 | 4.47 | 36.9 | 40.9 | 80.9 | Expert held, Hollow Heir over 40 |
+| `PLAYER_LIFE=28`, `COLLECTOR_LIFE=50` | 45.4 | 9 | 8.94 | 43.7 | 68.4 | 25.4 | 4.53 | 37.3 | 41.9 | 82.2 | Hollow Heir over 40 |
+| `PLAYER_LIFE=28`, `COLLECTOR_LIFE=52` | 43.0 | 9 | 9.07 | 41.5 | 70.4 | 27.3 | 4.58 | 37.7 | 43.1 | 83.5 | Expert under 45 |
+| `PLAYER_LIFE=30`, `COLLECTOR_LIFE=50` | 45.9 | 9 | 9.06 | 41.6 | 70.2 | 27.2 | 4.53 | 37.1 | 42.4 | 83.3 | Hollow Heir over 40 |
+| `ELEMENT_BONUS=1` | 45.0 | 9 | 8.57 | 49.7 | 62.6 | 22.1 | 4.44 | 38.5 | 41.4 | 79.0 | -3.2 expert, Hollow Heir over 40 |
+| `ELEMENT_BONUS=1`, `PLAYER_LIFE=26` | 45.6 | 9 | 8.73 | 47.5 | 64.7 | 24.1 | 4.45 | 38.2 | 41.9 | 80.3 | Hollow Heir over 40 |
+| `ELEMENT_BONUS=1`, `PLAYER_LIFE=28` | 46.2 | 9 | 8.87 | 45.0 | 66.8 | 26.0 | 4.46 | 37.9 | 42.4 | 81.5 | Hollow Heir over 40 |
+| `AMBUSH_POWER=1` | 48.2 | 8 | 8.42 | 52.0 | 60.8 | 19.0 | 4.40 | 37.2 | 39.1 | 77.5 | Some length at no expert cost |
+| `AMBUSH_POWER=0` | 48.0 | 8 | 8.50 | 50.6 | 61.8 | 20.4 | 4.40 | 37.5 | 39.8 | 78.1 | Length at no expert cost, but 0 removes the Ambush rule |
+| `PLAYER_LIFE=26`, `AMBUSH_POWER=1` | 49.0 | 9 | 8.57 | 49.6 | 63.0 | 20.8 | 4.41 | 36.9 | 39.7 | 78.8 | Median 9 by 0.4. Too thin |
+| `PLAYER_LIFE=26`, `AMBUSH_POWER=0` | 48.9 | 9 | 8.65 | 48.2 | 63.9 | 22.2 | 4.41 | 37.3 | 40.4 | 79.3 | Hollow Heir over 40 |
+| `PLAYER_LIFE=28`, `AMBUSH_POWER=1` | 49.8 | 9 | 8.70 | 47.5 | 64.8 | 22.5 | 4.42 | 36.8 | 40.2 | 79.9 | Hollow Heir over 40 |
+| `AMBUSH_POWER=0`, `COLLECTOR_LIFE=48` | 45.9 | 9 | 8.65 | 48.3 | 64.2 | 22.3 | 4.46 | 37.9 | 41.1 | 79.5 | Hollow Heir over 40 |
+| `HAND_SIZE=6` | 52.1 | 8 | 8.12 | 56.7 | 56.3 | 15.0 | 4.42 | 40.4 | 44.0 | 76.9 | Shorter and easier. Reject |
+| `OPENING_HAND=6`, `HAND_SIZE=6` | 51.6 | 8 | 8.17 | 55.6 | 57.3 | 15.4 | 4.45 | 39.7 | 43.9 | 77.4 | Same. Reject |
+| `MOOD_AGITATED_AT=10`, `MOOD_DESPERATE_AT=4` | 47.2 | 8 | 8.40 | 52.1 | 60.9 | 18.8 | 4.41 | 37.2 | 39.0 | 77.5 | A calmer Monarch: -1.0 expert, a little length |
+| `MOOD_AGITATED_AT=20`, `MOOD_DESPERATE_AT=10` | 49.2 | 8 | 8.26 | 54.5 | 58.7 | 16.7 | 4.36 | 36.7 | 37.7 | 76.1 | Shorter |
+| moods 10/4, `PLAYER_LIFE=26` | 48.0 | 9 | 8.57 | 49.8 | 63.2 | 20.9 | 4.42 | 37.0 | 39.6 | 78.9 | Median 9 by 0.2. Too thin |
+| moods 10/4, `PLAYER_LIFE=28` | 48.9 | 9 | 8.71 | 47.5 | 65.1 | 22.5 | 4.43 | 36.8 | 40.1 | 80.1 | Hollow Heir at 40.1 |
+| M-03 `FLAGS.APPRAISED_ENTERS_GUARD` | 53.9 | 8 | 8.40 | 52.4 | 61.1 | 18.6 | 4.39 | 37.5 | 37.4 | 77.3 | +5.7 expert, little length |
+| M-03, `COLLECTOR_LIFE=50` | 50.1 | 9 | 8.69 | 47.6 | 65.7 | 21.9 | 4.51 | 38.5 | 39.6 | 80.1 | Passes; Hollow Heir 0.4 from the edge, expert +1.9 |
+| M-03, `COLLECTOR_LIFE=52` | 47.9 | 9 | 8.84 | 45.4 | 67.8 | 23.9 | 4.56 | 38.9 | 40.7 | 81.4 | Hollow Heir over 40 |
+| M-03, `PLAYER_LIFE=26`, `COLLECTOR_LIFE=52` | 48.5 | 9 | 8.98 | 43.1 | 69.8 | 25.9 | 4.57 | 38.6 | 41.1 | 82.6 | Hollow Heir over 40 |
+| M-05, `COLLECTOR_LIFE=50` | 48.0 | 9 | 8.56 | 49.5 | 63.2 | 20.5 | 4.51 | 38.0 | 40.8 | 78.7 | Median by 0.5, Hollow Heir over 40 |
+| `CROWN_POWER=0` | 50.3 | 8 | 8.34 | 52.9 | 60.1 | 17.4 | 4.40 | 37.2 | 38.1 | 76.9 | +2.1 expert, no length |
+| `CROWN_POWER=0`, `COLLECTOR_LIFE=50` | 45.9 | 9 | 8.63 | 48.2 | 64.4 | 21.0 | 4.51 | 38.1 | 40.5 | 79.6 | Hollow Heir over 40 |
+| ace later (owner-only) | 48.9 | 8 | 8.32 | 53.4 | 59.7 | 17.4 | 4.38 | 37.0 | 33.6 | 76.7 | -4.8 Hollow Heir, no length |
+| ace later, `PLAYER_LIFE=28` | 50.7 | 9 | 8.61 | 49.0 | 63.9 | 20.9 | 4.40 | 36.6 | 34.9 | 79.2 | Passes, median by 1.0 |
+| ace later, `PLAYER_LIFE=26`, `COLLECTOR_LIFE=48` | 47.8 | 9 | 8.63 | 48.5 | 64.3 | 21.2 | 4.46 | 37.0 | 35.4 | 79.6 | Passes, median by 1.5 |
+| ace later, `PLAYER_LIFE=28`, `COLLECTOR_LIFE=48` | 48.4 | 9 | 8.77 | 46.5 | 66.2 | 23.0 | 4.46 | 36.9 | 36.0 | 80.7 | Passes, but uses an owner-only rule order |
+| `APPRAISAL_ROUNDS=[3,6]` | 55.6 | 8 | 8.28 | 53.1 | 59.7 | 14.9 | 4.51 | 36.8 | 32.3 | 76.2 | -6.1 Hollow Heir, +7.4 expert |
+| `APPRAISAL_ROUNDS=[3,6]`, `COLLECTOR_LIFE=50` | 52.0 | 9 | 8.55 | 48.6 | 64.0 | 18.0 | 4.62 | 37.6 | 33.7 | 78.7 | Passes; expert +3.8 |
+| `APPRAISAL_ROUNDS=[3,6]`, `COLLECTOR_LIFE=52` | 50.5 | 9 | 8.69 | 46.4 | 66.0 | 19.7 | 4.68 | 37.8 | 34.2 | 79.9 | Passes; expert +2.3 |
+| **`APPRAISAL_ROUNDS=[3,6]`, `COLLECTOR_LIFE=54`** | **49.0** | **9** | 8.81 | **44.4** | 67.7 | 21.3 | 4.72 | 38.1 | **34.8** | 80.9 | Passes with margin everywhere. Confirmed |
+| `APPRAISAL_ROUNDS=[3,6]`, `PLAYER_LIFE=26`, `COLLECTOR_LIFE=52` | 51.4 | 9 | 8.85 | 44.0 | 68.3 | 21.8 | 4.68 | 37.6 | 34.5 | 81.2 | Passes; expert +3.2 |
+| `APPRAISAL_ROUNDS=[3,6]`, `PLAYER_LIFE=26`, `COLLECTOR_LIFE=54` | 50.0 | 9 | 8.98 | 41.8 | 70.0 | 23.5 | 4.73 | 37.8 | 35.0 | 82.3 | Passes; longest of the passing cells |
+| `APPRAISAL_ROUNDS=[3,6,10]`, `PLAYER_LIFE=28` | 52.3 | 9 | 8.58 | 48.6 | 63.9 | 19.7 | 4.43 | 36.9 | 38.0 | 79.0 | Expert +4.1 |
+| `APPRAISAL_ROUNDS=[3,6,10]`, `PLAYER_LIFE=28`, `COLLECTOR_LIFE=48` | 49.9 | 9 | 8.74 | 46.0 | 66.4 | 21.9 | 4.48 | 37.1 | 39.2 | 80.4 | Hollow Heir near 40 |
+
+Confirm (20,000 games, 60 dates, seed check on the same 60 dates):
+
+| Cell | Expert | Median | Mean rds | Rds 8 or less | 8-12 | Rd 12 | Grafts/win | Levy | Hollow Heir | Actions | Seed reject |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| baseline (live) | 47.7 pass | 8 fail | 8.34 | 53.1 | 59.9 pass | 17.6 pass | 4.40 pass | 36.7 pass | 38.5 pass | 76.9 | 63.9% (106/166) fail |
+| `PLAYER_LIFE=28` | 49.6 pass | **9 pass** | 8.65 | 48.3 | 64.4 pass | 21.2 pass | 4.42 pass | 36.3 pass | 39.8 pass (edge) | 79.5 (+3.4%) | 62.5% (100/160) fail |
+| **`APPRAISAL_ROUNDS=[3,6]`, `COLLECTOR_LIFE=54`** | **48.2 pass** | **9 pass** | 8.81 | 44.3 | 67.6 pass | 21.4 pass | 4.73 pass | 38.0 pass | **35.1 pass** | 80.9 (+5.2%) | 58.0% (83/143) fail |
+
+BT-2 (10,000 games each, 30 dates): novice wins 0 of 10,000 in all three cells. Naive wins 1, 1 and 0 of 10,000 (baseline, `PLAYER_LIFE=28`, recommended).
+
+Findings:
+- M-05 (The Hollow Heir loses Ward) makes the game easier (+4.1 expert) and moves no target. It does not change how often The Hollow Heir appears (38.4 in both cells), only how hard he is to beat once he lands. Paired with `COLLECTOR_LIFE=50` to hold the win rate, the longer games push The Hollow Heir to 40.8. Not recommended.
+- M-11 (Bastion Warden 7/8) is +1.2 at the noise edge and moves nothing. Its premise is gone: with `APPRAISAL_MIN_POWER` 8, a 7-Power Bastion Warden is still out of Levy reach. Drop.
+- The median moves with anything that slows damage: either life (Monarch life costs expert, player life adds to it), `ELEMENT_BONUS` 1, a smaller Ambush and a calmer Monarch (moods 10/4). It needs about 3 points of games moved from round 8 or earlier to round 9 or later. Bigger hands and a fiercer Monarch shorten games.
+- The binding constraint is BT-7, not the win rate. The Hollow Heir appears more often in longer games: about 0.4 to 0.9 points per 0.1 round of mean length, more when the length comes from Monarch life. Most cells that reach median 9 with the expert held at 47-49 put him at 40-42. Only three tested knobs lower him without shortening games: fewer Levy rounds (`APPRAISAL_ROUNDS=[3,6]`, -6.1), the owner-only ace-later order (-4.8) and M-03 (-1.0).
+- `APPRAISAL_ROUNDS=[3,6]` gives +7.4 expert on its own, and Monarch life takes that back while adding the length: each Monarch life point is about -0.8 expert and -1.1 in rounds 8 or less. At 54 it lands at 48.2 with every non-seed target passing. Its grafts/win (4.73) sits 0.27 under the new top of 5, because fewer steals leave more monsters to graft. It also lowers seed rejection by 5.9 points, the only cell in three rounds that moved BT-8 at all (still far from 15).
+- Real-time cost: today's 76.9 actions per game rise 3.4% with `PLAYER_LIFE=28` and 5.2% with the recommended cell. The cell with the most margin (`[3,6]` with both lives up) costs 7%.
+- The 9-11 target is reachable inside every other band, so it does not need a review on feasibility. It does need one on pace. At median 8, rounds 8-12 (59.9) and round 12 (17.6) already pass. The target was written before lanes, turn slots and the bond rules, which put more actions into each round. Median 9 buys about 0.5 rounds and 4 actions per duel. If the owner's faster pace matters more, lowering `TARGET_MEDIAN_ROUNDS` to [8, 11] passes the live build as it is.
+
+Recommendation to the owner (not applied, after the playtest): **`APPRAISAL_ROUNDS` [3, 6, 9] to [3, 6] and `COLLECTOR_LIFE` 46 to 54.** Expected: expert 48.2 (+0.5), median 9, rounds 8-12 67.6, round 12 21.4, grafts/win 4.73, Levy 38.0, Hollow Heir 35.1, seed rejection 58.0%, +5.2% actions. This is two edits plus a seeds regen, and both change DESIGN text: "rounds 3, 6 and 9" in the Levy rule is a rule change (one Levy fewer), not just a number, and the Monarch's 46 life changes too. The one-edit option is `PLAYER_LIFE` 24 to 28 (49.6, median 9, +3.4% actions). It leaves The Hollow Heir 0.2 under the ceiling, so it is fragile. A cheaper option still is to review the target and keep the live build.
+
+Not tested: `MAX_DRAW_PER_TURN` (round 2: 1 collapses the expert to 12; 2 is the live value, and 3 adds card flow, which `HAND_SIZE=6` shows shortens games). Riposte has no value knob (`FLAGS.RIPOSTE` only, a rule switch). `MAX_ROUNDS` is the 12-round rule. Sim time: about 40 minutes. Scripts and screening output: `/Users/hassanshirazi/.claude/jobs/390b6775/tmp/r3/`.
+
 ## Phase 3 A/B round 2 (2026-10-20)
 
 Measurement only: **no default changed.** This round covers knobs outside the §M proposals, aimed at the three targets round 1 left alone: BT-5 grafts per winning game, BT-7 Hollow Heir appearance and BT-8 seed rejection. Start point: the live package at a0ac982 (D-368: `PLAYER_LIFE` 24, `MIRROR_SIGIL_PENALTY` 2). Constraints from the owner: expert stays near 46.6 (D-364 band 45-55), length targets no worse, Levy 30-60, BT-2 not chased.
