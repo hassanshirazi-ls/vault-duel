@@ -2068,7 +2068,7 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | DF-1 | Open: deck list, difficulty, Appraisal reminder | web `screens/Home.tsx` | — |
 | DF-2 | Optional redraw, duel, save after every action, refresh resumes | `reducer.ts`, `replay.ts`, web `daily/session.ts` | D-108 |
 | DF-3 | Result: win/loss, rounds, life, objectives (0–3 stars), share | `meta/objectives.ts`, web `screens/Result.tsx` | D-102 |
-| DF-4 | Practice unlocks for today's seed; Binder and stats | web `screens/Duel.tsx` (practice), `persistence/*` | D-105, D-106 |
+| DF-4 | Practice: yesterday's vault any time, today's after the daily (D-375); Binder and stats | web `screens/Duel.tsx` (practice), `persistence/*` | D-105, D-106 |
 | BO-1 | Objective pool, 3 per day | `objectives.json`, ai `difficulty.ts › prepareDay`, web `view/objectives.ts`, `FLAGS.BONUS_OBJECTIVES` | D-102, D-362 |
 | SH-1 | Share: one emoji per round + rounds vs par | `meta/share-grid.ts`, web `meta/share.ts` | D-100, D-101 |
 | BI-1 | Binder: win adds signature card; first Chimera family adds it; cosmetic; local | web `persistence/binder.ts` | D-010, D-066 |

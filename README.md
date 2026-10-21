@@ -79,7 +79,7 @@ machine you commit from.
 The manifest covers a fixed window of days (now 2026-10-15 to 2027-01-12). When a day has no manifest
 entry, or a content or globals change makes the manifest stale, the app falls back to rating the day on the
 device, which is slower but still correct. `pnpm build` prints a warning when fewer than the next 30 days are
-covered. To refresh it, run `pnpm seeds --from <today> --days 90`, commit `apps/web/public/seeds.json` and
+covered. To refresh it, run `pnpm seeds --from <yesterday> --days 91` (Practice plays yesterday's vault), commit `apps/web/public/seeds.json` and
 push.
 
 ## Docs

@@ -292,7 +292,7 @@ Each local calendar date produces one seed; the seed produces the player's deck,
 1. Open the game: today's deck list, difficulty, Levy reminder.
 2. Optional redraw, then duel (progress saves after every action; refresh resumes).
 3. Result screen: win/loss, rounds used, life left, bonus objectives (0–3 stars), share button.
-4. Practice mode unlocks for today's seed; the Bestiary and stats are available.
+4. Practice plays yesterday's vault at any time, and today's again once the daily duel is over (D-375); the Bestiary and stats are available.
 
 **Bonus objectives** (example pool, 3 picked per day): win without grafting; win with 15+ life; win by round 8; never lose a monster to a Levy.
 

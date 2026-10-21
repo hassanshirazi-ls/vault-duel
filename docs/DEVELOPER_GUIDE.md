@@ -129,8 +129,8 @@ Points worth knowing:
   `apps/web/src/view/legal.ts` only groups the list for display.
 - The saved record is `{seedString, k, twist, contentVersion, cfg, actions}` (`daily/session.ts`). Resuming
   replays it. A changed content version or `state.cfg` gives "restart with a notice", never a crash.
-- Practice (D-247, D-249) replays today's seed unrecorded and keeps its own `vd:practice:<date>` record. It
-  never writes stats or the Binder.
+- Practice (D-247, D-249, D-375) plays yesterday's vault at any time, and today's again once the daily duel is
+  over, unrecorded. Each vault keeps its own `vd:practice:<vault date>` record. It never writes stats or the Binder.
 - A manifest rating is used only when `contentHash`, `globalsHash` and `expertHash` all match the running
   build (`checkKey`), so a stale `seeds.json` is ignored, not trusted.
 
@@ -315,7 +315,7 @@ content loads, validates and plays.
   reason. The next free number is **D-375**. When DESIGN.md is ambiguous, take the simplest reading and log it.
 - **Regenerate `seeds.json` after any change to content, globals or the expert weights (D-255).** Otherwise
   the manifest hashes no longer match, every device falls back to the slow on-device check, and
-  `pnpm build` prints a warning. Use `pnpm seeds --from <date> --days 90`. It takes a few minutes on a
+  `pnpm build` prints a warning. Use `pnpm seeds --from <yesterday> --days 91` (yesterday is Practice's vault, D-375). It takes a few minutes on a
   multi-core machine.
 - **Dev-only overrides (D-252).** `?set=NAME=VALUE` (repeatable) and `?debug` work in dev builds only. They
   never reach production, and they are also passed to the difficulty worker. `?date=YYYY-MM-DD` overrides the

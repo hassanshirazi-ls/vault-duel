@@ -3,6 +3,16 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-21 · Practice any time, a better share
+
+No rule, card or setting changed, so saved duels are unaffected. The seeds manifest now also covers yesterday.
+
+- **Practice plays yesterday's vault** (D-375): it is open at any time, even before today's duel, and nothing in it is recorded. Once today's duel is over, **Replay today** lets you play today's vault again, as Practice did before.
+- **The shared link works in Discord** (D-376): the link now starts with `https://`, so chats make it clickable and show a preview.
+- **A lost monster is 🥀 in the round row** (D-376): it was 💀, which made a lost duel a wall of skulls. 💀 now only marks a lost duel.
+- **No empty stars** (D-376): `☆☆☆` is left out of the share when no bonus objective was met.
+- **Regenerating seeds starts at yesterday** (D-375): `pnpm seeds --from <yesterday> --days 91`.
+
 ## 2026-10-21 · The Monarch speaks above your hand
 
 No rule, card or setting changed, so saved duels and the seeds manifest are unaffected.

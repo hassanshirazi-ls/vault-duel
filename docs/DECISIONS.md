@@ -3160,6 +3160,27 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
 - Reason: the warnings sit where the player looks, and the forecast comes from the engine itself, so it is always right.
 
 
+**D-375 · Practice plays yesterday's vault at any time** (owner choice, 2026-10-21; changes D-249)
+- Question: playtesters asked to practise before their daily attempt, but Practice opened only after today's duel (D-249), so a new player's first real duel was also their first duel.
+- Decision (owner chose "yesterday, then both"):
+  - **Practice** on Home plays yesterday's vault, unrecorded, at any time, even before today's duel. Its subtitle names the day ("Yesterday's vault (Tue, Oct 20), unrecorded") or reads "Resume yesterday's vault, unrecorded".
+  - **Replay today** appears under it once today's duel is over: today's vault again, unrecorded (the old Practice). The daily Result's Practice button starts it.
+  - Each vault keeps its own record, `vd:practice:<vault date>`, so both can be saved at once. The record of today's replay becomes the next day's yesterday record (same seed), and a record two days old is deleted at boot. A content reload clears both.
+  - The store keeps `setup` as today's (Home, Stats, Bestiary, Feedback); `practiceSetup` is the running Practice vault's, and the Practice Result shows its date. Restart and Replay restart the running vault.
+  - Yesterday's setup resolves after boot without blocking it: the manifest has it, or the on-device check runs quietly while Practice reads "Preparing yesterday's vault…". The seeds manifest now starts at yesterday (`pnpm seeds --from <yesterday> --days 91`), and `seeds:check` notes a manifest without yesterday.
+  - Practice never writes stats, streaks, the Bestiary or the daily session (D-247 unchanged). Yesterday's vault is played under today's rules and content, so after a balance change it can differ from the duel played yesterday; it is unrecorded, so nothing depends on that.
+- Reason: practice should never compete with or spoil the daily duel, and yesterday's vault is a real, already-rated duel that nobody can still score.
+
+
+**D-376 · Share text for Discord** (owner choices, 2026-10-21; changes D-365)
+- Question: the scorecard looked wrong in Discord: the link was plain text, the round row was mostly skulls on a loss, and `☆☆☆` added nothing.
+- Decision:
+  - **The link keeps `https://`** (trailing slash still dropped). Discord, like most chats, makes a link and a preview card only from a URL with a scheme. `shortUrl` is now `shareUrl`.
+  - **A round where you lost a monster is 🥀** (was 💀). 💀 now only marks a lost duel in the header line.
+  - **The stars show only when at least one was earned**; with none the line ends at par. With `FLAGS.BONUS_OBJECTIVES` off there are never stars (D-363 unchanged).
+- Reason: owner's picks from the Discord screenshot.
+
+
 **D-374 · Sim CLI: `--card` content override (Phase 3 A/B)** (2026-10-21)
 - Question: M-05 (The Hollow Heir loses Ward) and M-11 (Bastion Warden 7/8) could not be A/B tested: `--set` reaches only globals and `CONTENT_NUMBERS`, and `--collector` only `collector.json › ai`.
 - Decision (playtest-runner, recorded by the main session): `sim quick|full` accept a repeatable `--card <id>.<field>=<json>`.
