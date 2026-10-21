@@ -30,14 +30,6 @@ export function pinned(value: number): z.ZodType<number> {
   });
 }
 
-/** An inert flag (D-170, D-199): the engine reads it only at this value, so any other value would be a silent no-op. */
-export function pinnedFlag(value: false): z.ZodType<boolean> {
-  return z.boolean().refine((input) => input === value, {
-    message: `must be ${value} until the engine supports other values`,
-    params: { fix: `keep ${value}` },
-  });
-}
-
 /**
  * BOARD_SLOTS is at most 16 (D-170). The engine packs a board location as side * LOC_STRIDE + slot, with
  * LOC_STRIDE = 16 in packages/engine/src/stats.ts, so a larger board would collide with the other side's slots.
@@ -93,7 +85,7 @@ const Flags = z
     ANIMATIONS: z.boolean(),
     DEBUG_OVERLAY: z.boolean(),
     APPRAISED_ENTERS_GUARD: z.boolean(),
-    ACE_SET_ASIDE: pinnedFlag(false), // D-184: pinned until the set-aside zone is wired
+    ACE_SET_ASIDE: z.boolean(),
     CHIMERA_TO_HAND: z.boolean(),
     LANES: z.boolean(),
     LANE_SWAP: z.boolean(),

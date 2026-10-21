@@ -41,7 +41,7 @@ export class UsageError extends Error {
 }
 
 export const USAGE = `usage:
-  sim quick [--games N] [--seed-dates N] [--from DATE] [--bots expert,novice] [--set K=V]... [--ring A|B|C|a,b,c,d,e] [--collector ai.F=JSON]... [--collector-reposition MODE] [--seed-check] [--workers N] [--out DIR]
+  sim quick [--games N] [--seed-dates N] [--from DATE] [--bots expert,novice,naive] [--set K=V]... [--ring A|B|C|a,b,c,d,e] [--collector ai.F=JSON]... [--collector-reposition MODE] [--seed-check] [--workers N] [--out DIR]
   sim full  [--games N] [--seed-dates N] [--from DATE] [--bots ...] [--set K=V]... [--workers N] [--out DIR]
   sim seed  <YYYY-MM-DD> [--set K=V]... [--workers N]
   sim seeds --from DATE --days N [--set K=V]... [--workers N] [--out FILE]   (default out apps/web/public/seeds.json)
@@ -167,7 +167,7 @@ export function parseArgs(argv: readonly string[]): CliOptions {
   if (days !== undefined && command !== 'seeds') throw new UsageError('--days belongs to sim seeds');
   if (command === 'seeds' && !check && (from === undefined || days === undefined)) throw new UsageError('sim seeds needs --from DATE and --days N (or --check)');
   if (ab !== undefined && command !== 'full') throw new UsageError('--ab belongs to sim full');
-  return { command, games, seedDates, from, bots: bots ?? ['expert', 'novice'], sets, workers, out, date, ab, days, check, ring, collector, seedCheck };
+  return { command, games, seedDates, from, bots: bots ?? ['expert', 'novice', 'naive'], sets, workers, out, date, ab, days, check, ring, collector, seedCheck };
 }
 
 /** The date `n` days after `date` (UTC calendar arithmetic). */

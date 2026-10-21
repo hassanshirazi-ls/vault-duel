@@ -53,8 +53,8 @@ describe('inert pins and ranges (D-170, D-199)', () => {
     expect(accepts({ SYMBIOSIS_GUARD_BONUS: -1 })).toBe(false);
   });
 
-  it('accepts only the set-aside flag value the engine reads (D-184)', () => {
-    expect(accepts({ FLAGS: { ...G.FLAGS, ACE_SET_ASIDE: !G.FLAGS.ACE_SET_ASIDE } })).toBe(false);
+  it('accepts either set-aside flag value now the engine reads it (D-184)', () => {
+    expect(accepts({ FLAGS: { ...G.FLAGS, ACE_SET_ASIDE: !G.FLAGS.ACE_SET_ASIDE } })).toBe(true);
   });
 
   it('keeps MAX_GRAFT_MATERIALS in the graft range and BOARD_SLOTS within the engine stride', () => {

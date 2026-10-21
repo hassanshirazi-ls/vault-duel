@@ -42,9 +42,14 @@ export function buildInitialState(env: Env, seed: string, opts: NewGameOptions =
   };
   const range = (from: number, to: number): Iid[] => Array.from({ length: to - from }, (_, i) => from + i);
   const p = shuffleDeck(range(0, nPlayer), isMonster, g, windowsFor(g, true), stream(seed, 'shuffle-player'));
-  const col = shuffleDeck(range(nPlayer, inst.length), isMonster, g, windowsFor(g, false), stream(seed, 'shuffle-collector'));
+  // D-184 (M-04): with FLAGS.ACE_SET_ASIDE the ace's instance leaves the draw pile before the shuffle, so the
+  // opening-hand guarantee runs on the remaining cards.
+  const colIids = range(nPlayer, inst.length);
+  const aceIid = g.FLAGS.ACE_SET_ASIDE ? colIids.find((iid) => inst[iid]?.def === c.collector.ace) : undefined;
+  const aside: Iid[] = aceIid === undefined ? [] : [aceIid];
+  const col = shuffleDeck(aceIid === undefined ? colIids : colIids.filter((iid) => iid !== aceIid), isMonster, g, windowsFor(g, false), stream(seed, 'shuffle-collector'));
 
-  const side = (life: number, order: readonly Iid[]): SideState => ({
+  const side = (life: number, order: readonly Iid[], setAside: readonly Iid[]): SideState => ({
     life,
     deck: order.slice(g.OPENING_HAND),
     hand: order.slice(0, g.OPENING_HAND),
@@ -52,8 +57,9 @@ export function buildInitialState(env: Env, seed: string, opts: NewGameOptions =
     board: Array.from({ length: g.BOARD_SLOTS }, () => null),
     traps: Array.from({ length: g.TRAP_SLOTS }, () => null),
     vault: [],
+    aside: setAside,
   });
-  const sides: [SideState, SideState] = [side(g.PLAYER_LIFE, p), side(g.COLLECTOR_LIFE, col)];
+  const sides: [SideState, SideState] = [side(g.PLAYER_LIFE, p, []), side(g.COLLECTOR_LIFE, col, aside)];
 
   const state: GameState = {
     v: 1,

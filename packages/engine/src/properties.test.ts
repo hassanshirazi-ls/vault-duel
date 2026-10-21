@@ -33,6 +33,7 @@ function conservation(s: GameState): string | null {
     sd.hand.forEach(count);
     sd.discard.forEach(count);
     sd.vault.forEach(count);
+    sd.aside.forEach(count);
     for (const m of sd.board) if (m !== null) count(m.iid);
     for (const t of sd.traps) if (t !== null) count(t.iid);
     if (sd.board.length !== g.BOARD_SLOTS || sd.traps.length !== g.TRAP_SLOTS) return 'zone length';

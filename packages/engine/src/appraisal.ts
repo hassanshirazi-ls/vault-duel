@@ -7,6 +7,7 @@
 //   none -> AppraisalFailed; else highest Power, ties leftmost
 //   board-to-board move keeps everything (D-077) but `entered = turn`, `appraised = true`
 //   no free Collector slot -> vault (a zone: no record, so no board state is kept)
+//   first success of the duel -> the set-aside ace joins his hand (D-184, FLAGS.ACE_SET_ASIDE)
 import { markRound } from './track';
 import type { Run } from './pipeline';
 import { effectivePower, roundOf } from './stats';
@@ -68,6 +69,14 @@ export function appraisal(run: Run): void {
   }
   const a = tx.state.appraisal;
   tx.set('appraisal', { ...a, successes: a.successes + 1, taken: [...a.taken, iid] });
+  // D-184 (M-04): the duel's first success hands the Collector the ace he was holding aside
+  if (a.successes === 0) {
+    const ace = tx.state.sides[COLLECTOR].aside[0];
+    if (ace !== undefined && tx.zoneRemove(COLLECTOR, 'aside', ace)) {
+      tx.zonePush(COLLECTOR, 'hand', ace);
+      run.emit({ e: 'CardDrawn', side: COLLECTOR, iid: ace, byEffect: true });
+    }
+  }
   markRound(tx, RoundFlag.Appraised);
   tx.set('track', { ...tx.state.track, appraisedLost: tx.state.track.appraisedLost + 1 });
 }

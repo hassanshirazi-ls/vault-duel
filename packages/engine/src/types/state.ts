@@ -60,6 +60,8 @@ export interface SideState {
   readonly board: readonly (Monster | null)[];
   readonly traps: readonly (TrapSlot | null)[];
   readonly vault: readonly Iid[];
+  /** D-184: cards set aside from the start (the Collector's ace under FLAGS.ACE_SET_ASIDE); public, empty otherwise */
+  readonly aside: readonly Iid[];
 }
 
 export type Step = 'mulligan' | 'main' | 'attack' | 'over';

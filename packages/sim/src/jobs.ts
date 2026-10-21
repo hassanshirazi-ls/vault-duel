@@ -5,7 +5,7 @@ import type { Aggregate } from './aggregate';
 import type { ContentOverrides } from './overrides';
 
 /** The player bots the simulator can field. `expert-noisy` is the difficulty check's reference bot (D-094). */
-export const BOT_IDS = ['novice', 'greedy', 'expert', 'expert-noisy'] as const;
+export const BOT_IDS = ['novice', 'naive', 'greedy', 'expert', 'expert-noisy'] as const;
 export type BotId = (typeof BOT_IDS)[number];
 
 export function isBotId(text: string): text is BotId {

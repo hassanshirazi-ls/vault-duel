@@ -384,7 +384,7 @@ export function buildScenario(sc: Scenario, c: CompiledContent, g: Globals): Bui
     const vault = sp.vault.map((m) => mk(m, sideNo).iid);
     sides.push({
       life: sp.life ?? (sideNo === 0 ? g.PLAYER_LIFE : g.COLLECTOR_LIFE),
-      deck, hand, discard, board, traps, vault,
+      deck, hand, discard, board, traps, vault, aside: [],
     });
   }
   const [p, col] = sides as [SideState, SideState];

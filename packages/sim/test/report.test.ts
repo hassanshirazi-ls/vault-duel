@@ -122,6 +122,17 @@ describe('balance targets', () => {
     expect(only['BT-2']).toBe('not measured');
   });
 
+  it('reports the naive bot beside the novice as information only (M-09, D-117)', () => {
+    const a = world(expert, novice);
+    (a['bots'] as Aggregate)['naive'] = bot({ 3: 70, 6: 30 }, 25);
+    const rep = buildReport(input(a, { bots: ['expert', 'novice', 'naive'] }));
+    const row = rep.results.targets.find((m) => m.id === 'BT-2n');
+    expect(row).toMatchObject({ bot: 'naive', verdict: 'info' });
+    expect(row?.value).toBeCloseTo(0.25, 12);
+    expect(rep.results.targets.find((m) => m.id === 'BT-2')?.bot).toBe('novice');
+    expect(verdicts(world(expert, novice))['BT-2n']).toBe('not measured');
+  });
+
   it('judges the seed rejection rate against TARGET_SEED_REJECT_MAX', () => {
     const summary = (rejected: number, candidates: number) => ({ ...summarise({ setups: [], candidates: [] }), rejected, candidates, rejectionRate: rejected / candidates, dates: 1 });
     expect(verdicts(world(expert, novice), { seedSummary: summary(1, 5) })['BT-8']).toBe('pass');

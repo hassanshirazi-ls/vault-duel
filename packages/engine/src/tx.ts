@@ -18,7 +18,7 @@ import type { Side } from './types/state';
 
 type Mut<T> = { -readonly [K in keyof T]: T[K] };
 
-export type IidZone = 'deck' | 'hand' | 'discard' | 'vault';
+export type IidZone = 'deck' | 'hand' | 'discard' | 'vault' | 'aside';
 export type Zone = IidZone | 'board' | 'traps';
 export type SideScalar = 'life';
 /** Root fields written by whole-value replacement. */
@@ -44,6 +44,7 @@ const ZONE_BIT: Readonly<Record<Zone, number>> = {
   hand: 2,
   discard: 4,
   vault: 8,
+  aside: 64,
   board: 16,
   traps: 32,
 };
@@ -140,7 +141,7 @@ export class Tx {
     this.ownSide(side).life = life;
   }
 
-  /** Replace a whole iid zone (deck/hand/discard/vault). The array is adopted, not copied. */
+  /** Replace a whole iid zone (deck/hand/discard/vault/aside). The array is adopted, not copied. */
   setZone(side: Side, zone: IidZone, iids: readonly Iid[]): void {
     const s = this.ownSide(side);
     (s as Record<IidZone, readonly Iid[]>)[zone] = iids;

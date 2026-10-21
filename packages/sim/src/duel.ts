@@ -1,6 +1,6 @@
 // One balance duel: a player bot on side 0 against the Collector, folded into an Aggregate (ARCHITECTURE.md §15).
 // Only what the engine exposes without events: the final state (Track, appraisal counters, result) and the actions taken.
-import { createCollector, createExpert, createGreedy, createNoise, createNovice, botAction, noiseKey } from '@vault-duel/ai';
+import { createCollector, createExpert, createGreedy, createNaive, createNoise, createNovice, botAction, noiseKey } from '@vault-duel/ai';
 import type { Bot, Collector } from '@vault-duel/ai';
 import { activeSide, createEngine, rerollSeed } from '@vault-duel/engine';
 import type { Action, Engine, GameState, Intent } from '@vault-duel/engine';
@@ -18,6 +18,8 @@ export function createBot(ctx: SimContext, job: SimJob): Bot {
   switch (job.botId) {
     case 'novice':
       return createNovice(`${rerollSeed(job.seedString, job.k)}/novice/${job.runIndex}`);
+    case 'naive':
+      return createNaive();
     case 'greedy':
       return createGreedy();
     case 'expert':

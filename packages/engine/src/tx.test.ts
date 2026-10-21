@@ -9,7 +9,7 @@ const mon = (iid: number): Monster => ({
   permP: 0, permG: 0, timed: [], unstableUntil: -1, shroudUntil: -1, appraised: false, sym: -1,
 });
 const side = (life: number, deck: number[], hand: number[]): SideState => ({
-  life, deck, hand, discard: [], board: [mon(100), null, null], traps: [null, null], vault: [],
+  life, deck, hand, discard: [], board: [mon(100), null, null], traps: [null, null], vault: [], aside: [],
 });
 
 function deepFreeze<T>(o: T): T {

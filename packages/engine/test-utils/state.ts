@@ -37,6 +37,7 @@ interface SideDraft {
   board: (Monster | null)[];
   traps: (TrapSlot | null)[];
   vault: Iid[];
+  aside: Iid[];
 }
 
 export class StateBuilder {
@@ -57,6 +58,7 @@ export class StateBuilder {
       board: Array.from({ length: boardSlots }, () => null),
       traps: Array.from({ length: trapSlots }, () => null),
       vault: [],
+      aside: [],
     });
     this.sides = [mk(20), mk(25)];
   }
@@ -121,7 +123,7 @@ export class StateBuilder {
     const [a, b] = this.sides;
     const side = (d: SideDraft): SideState => ({
       life: d.life, deck: d.deck.slice(), hand: d.hand.slice(), discard: d.discard.slice(),
-      board: d.board.slice(), traps: d.traps.slice(), vault: d.vault.slice(),
+      board: d.board.slice(), traps: d.traps.slice(), vault: d.vault.slice(), aside: d.aside.slice(),
     });
     return deepFreeze({
       v: 1,

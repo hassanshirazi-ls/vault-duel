@@ -28,6 +28,7 @@ export { botAction, botContext, playerView } from './bots/player-view';
 export type { Bot, BotContext, PlayerView } from './bots/player-view';
 export { createNovice } from './bots/novice';
 export { createGreedy } from './bots/greedy';
+export { createNaive, NAIVE_GRAFT_MIN_POWER } from './bots/naive';
 export { evaluate, GREEDY_WEIGHTS } from './bots/evaluate';
 export type { EvalWeights } from './bots/evaluate';
 export { createExpert, EXPERT_BOND_WEIGHTS, EXPERT_WEIGHTS } from './bots/expert';

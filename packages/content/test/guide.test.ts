@@ -1411,14 +1411,12 @@ describe('guide §7 · tune a global', () => {
       ['RELIC_FLAWS=2', PINNED_RELIC_FLAWS, 'RELIC_FLAWS=1'],
       ['BONDS_PER_TURN=2', BONDS_BAD, 'BONDS_PER_TURN=1'],
       ['SYMBIOTES_PER_HOST=2', SYMBIOTES_BAD, 'SYMBIOTES_PER_HOST=1'],
-      ['FLAGS.ACE_SET_ASIDE=true', 'globals.ts › FLAGS › ACE_SET_ASIDE: must be false until the engine supports other values › keep false', 'FLAGS.ACE_SET_ASIDE=false'],
     ];
     for (const [refused, message, accepted] of cases) {
       expect(messageOf(() => withOverrides(g, [refused])), refused).toBe(message);
       expect(() => withOverrides(g, [accepted]), accepted).not.toThrow();
     }
     quoted('keep 1');
-    quoted('ACE_SET_ASIDE: must be false');
     quoted(PINNED_RELIC_FLAWS);
   });
 

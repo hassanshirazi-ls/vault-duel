@@ -27,7 +27,7 @@ type MonsterCovered = Exclude<keyof Monster, 'sym' | 'iid' | 'pos' | 'faceDown' 
 const sideTuple = (s: SideState): unknown => [
   s.life, s.deck, s.hand, s.discard, s.board.map(monsterTuple), s.traps.map((t) => (t === null ? null : [t.iid, t.set])), s.vault,
 ];
-type SideCovered = Exclude<keyof SideState, 'life' | 'deck' | 'hand' | 'discard' | 'board' | 'traps' | 'vault'>;
+type SideCovered = Exclude<keyof SideState, 'aside' | 'life' | 'deck' | 'hand' | 'discard' | 'board' | 'traps' | 'vault'>;
 
 const chimeraTuple = (c: ChimeraInfo | null): unknown =>
   c === null ? null : [c.element, c.kw, c.ascended, c.materials, c.grafted];
@@ -61,6 +61,8 @@ export function canonicalState(s: GameState): string {
     s.nActions,
     ...(s.bond !== 0 ? [s.bond] : []),
     ...(s.spell !== 0 ? [`s${s.spell}`] : []),
+    // the aside zone is hashed only when a card is in it, so a state that never uses it hashes as before D-366
+    ...(s.sides[0].aside.length > 0 || s.sides[1].aside.length > 0 ? [['aside', s.sides[0].aside, s.sides[1].aside]] : []),
   ]);
 }
 

@@ -14,7 +14,7 @@ describe('parseArgs', () => {
     expect(o.games).toBeUndefined();
     expect(o.seedDates).toBeUndefined();
     expect(o.from).toBeUndefined();
-    expect(o.bots).toEqual(['expert', 'novice']);
+    expect(o.bots).toEqual(['expert', 'novice', 'naive']);
   });
 
   it('takes the date of sim seed as a positional argument', () => {

@@ -250,6 +250,7 @@ export function keywordRows(a: Aggregate): KeywordRow[] {
 export function evaluateTargets(g: Globals, bots: readonly BotSummary[], seed: SeedCheckSummary | null): Metric[] {
   const expert = bots.find((b) => b.bot === 'expert');
   const novice = bots.find((b) => b.bot === 'novice');
+  const naive = bots.find((b) => b.bot === 'naive');
   const metrics: Metric[] = [];
   const add = (m: Metric): void => void metrics.push(m);
   const need = (id: string, name: string, bot: string, target: string): Metric => ({ id, name, bot, value: null, target, verdict: 'not measured', note: `the ${bot} bot was not run` });
@@ -279,6 +280,11 @@ export function evaluateTargets(g: Globals, bots: readonly BotSummary[], seed: S
   } else {
     const distance = novice.winRate === null ? '' : `, ${(Math.abs(novice.winRate - g.TARGET_NOVICE_POINT) * 100).toFixed(1)} points from the ${g.TARGET_NOVICE_POINT} point`;
     add({ id: 'BT-2', name: 'Win rate', bot: 'novice', value: novice.winRate, target: showRange(g.TARGET_NOVICE_WINRATE), verdict: inRange(novice.winRate, g.TARGET_NOVICE_WINRATE), note: `uniform random legal action (D-117)${distance}` });
+  }
+  if (naive === undefined) {
+    add(need('BT-2n', 'Win rate', 'naive', showRange(g.TARGET_NOVICE_WINRATE)));
+  } else {
+    add({ id: 'BT-2n', name: 'Win rate', bot: 'naive', value: naive.winRate, target: showRange(g.TARGET_NOVICE_WINRATE), verdict: 'info', note: `informational: M-09 alternative to D-117 (scripted naive player, D-367)${naive.winRate === null ? '' : inRange(naive.winRate, g.TARGET_NOVICE_WINRATE) === 'pass' ? ', inside the range' : ', outside the range'}` });
   }
   if (seed === null) {
     add({ id: 'BT-8', name: 'Seed rejection rate', bot: 'expert-noisy', value: null, target: `at most ${g.TARGET_SEED_REJECT_MAX}`, verdict: 'not measured', note: 'run sim full or sim seed' });
@@ -382,7 +388,7 @@ export function renderMarkdown(r: Report): string {
 
   L.push('## Balance targets', '', '| Id | Metric | Bot | Value | Target | Result | Note |', '| --- | --- | --- | --- | --- | --- | --- |');
   for (const m of [...r.results.targets, r.perf.metric]) {
-    const asPct = ['BT-1', 'BT-2', 'BT-3b', 'BT-4', 'BT-6', 'BT-7', 'BT-8'].includes(m.id);
+    const asPct = ['BT-1', 'BT-2', 'BT-2n', 'BT-3b', 'BT-4', 'BT-6', 'BT-7', 'BT-8'].includes(m.id);
     const value = m.value === null ? 'n/a' : asPct ? pct(m.value) : dec(m.value);
     const target = asPct && m.id !== 'BT-3b' ? m.target.replace(/-?\d+(\.\d+)?/g, (n) => (Number(n) <= 1 ? `${(Number(n) * 100).toFixed(0)}%` : n)) : m.target;
     L.push(`| ${m.id} | ${m.name} | ${m.bot} | ${value} | ${target} | **${m.verdict}** | ${m.note} |`);
