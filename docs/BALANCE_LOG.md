@@ -1,6 +1,6 @@
 # Balance log
 
-Every applied balance change, with the evidence. Experiment JSONs live in `docs/reports/balance/` (T01-T25: 123L without bond rules; B01-B15: this cycle). Marks follow the TARGET_* globals: expert win 45-55%, median rounds 9-11, rounds 8-12 over half, round 12 15-30%, grafts/win 1.5-3, Levy 30-60%, Hollow Heir 20-40%, novice 20-30%, seed rejection at most 15%. Quick noise: about plus or minus 2.2 points on a 2000-game win rate.
+Every applied balance change, with the evidence. Experiment JSONs live in `docs/reports/balance/` (T01-T25: 123L without bond rules; B01-B15: this cycle). Marks follow the TARGET_* globals: expert win 45-55%, median rounds 9-11, rounds 8-12 over half, round 12 15-30%, grafts/win 3.5-5 (1.5-3 before D-370), Levy 30-60%, Hollow Heir 20-40%, novice 20-30%, no date on the fallback seed (BT-8, D-370; the seed rejection rate is informational). Quick noise: about plus or minus 2.2 points on a 2000-game win rate.
 
 ## Phase 3 A/B round 3 (2026-10-21)
 
