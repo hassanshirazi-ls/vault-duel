@@ -261,10 +261,10 @@ export function evaluateTargets(g: Globals, bots: readonly BotSummary[], seed: S
     add(need('BT-3b', 'Share ending in the typical rounds', 'expert', showRange(g.TARGET_TYPICAL_END_ROUNDS)));
     add(need('BT-4', 'Share going the full length', 'expert', showRange(g.TARGET_FULL_LENGTH_SHARE)));
     add(need('BT-5', 'Grafts per winning game', 'expert', showRange(g.TARGET_GRAFTS_PER_WIN)));
-    add(need('BT-6', 'Appraisal success rate', 'expert', showRange(g.TARGET_APPRAISAL_SUCCESS)));
-    add(need('BT-7', 'Unpriced appearance rate', 'expert', showRange(g.TARGET_UNPRICED_APPEARS)));
+    add(need('BT-6', 'Levy success rate', 'expert', showRange(g.TARGET_APPRAISAL_SUCCESS)));
+    add(need('BT-7', 'Hollow Heir appearance rate', 'expert', showRange(g.TARGET_UNPRICED_APPEARS)));
   } else {
-    add({ id: 'BT-1', name: 'Win rate', bot: 'expert', value: expert.winRate, target: showRange(g.TARGET_EXPERT_WINRATE), verdict: inRange(expert.winRate, g.TARGET_EXPERT_WINRATE), note: 'noise-free expert vs the Collector' });
+    add({ id: 'BT-1', name: 'Win rate', bot: 'expert', value: expert.winRate, target: showRange(g.TARGET_EXPERT_WINRATE), verdict: inRange(expert.winRate, g.TARGET_EXPERT_WINRATE), note: 'noise-free expert vs the Monarch' });
     add({ id: 'BT-3', name: 'Median rounds per game', bot: 'expert', value: expert.medianRounds, target: showRange(g.TARGET_MEDIAN_ROUNDS), verdict: inRange(expert.medianRounds, g.TARGET_MEDIAN_ROUNDS), note: 'median of the round histogram, all finished games' });
     const [lo, hi] = g.TARGET_TYPICAL_END_ROUNDS;
     // "Most games" end in rounds lo to hi: more than half.
@@ -272,8 +272,8 @@ export function evaluateTargets(g: Globals, bots: readonly BotSummary[], seed: S
     add({ id: 'BT-3b', name: `Share ending in rounds ${lo} to ${hi}`, bot: 'expert', value: typical, target: `more than half (rounds ${showRange(g.TARGET_TYPICAL_END_ROUNDS)})`, verdict: typical === null ? 'not measured' : typical * 2 > 1 ? 'pass' : 'fail', note: '"most" read as a majority (D-230)' });
     add({ id: 'BT-4', name: `Share ending in round ${g.MAX_ROUNDS}`, bot: 'expert', value: expert.shareMaxRounds, target: showRange(g.TARGET_FULL_LENGTH_SHARE), verdict: inRange(expert.shareMaxRounds, g.TARGET_FULL_LENGTH_SHARE), note: 'includes games ended by the sealed Vault' });
     add({ id: 'BT-5', name: 'Grafts per winning game', bot: 'expert', value: expert.graftsPerWin, target: showRange(g.TARGET_GRAFTS_PER_WIN), verdict: inRange(expert.graftsPerWin, g.TARGET_GRAFTS_PER_WIN), note: 'track.grafts over wins' });
-    add({ id: 'BT-6', name: 'Appraisal success rate', bot: 'expert', value: expert.appraisalSuccessRate, target: showRange(g.TARGET_APPRAISAL_SUCCESS), verdict: inRange(expert.appraisalSuccessRate, g.TARGET_APPRAISAL_SUCCESS), note: `successes over attempts (${expert.appraisalAttempts} attempts); an attempt with no target fails` });
-    add({ id: 'BT-7', name: 'Unpriced appearance rate', bot: 'expert', value: expert.unpricedRate, target: showRange(g.TARGET_UNPRICED_APPEARS), verdict: inRange(expert.unpricedRate, g.TARGET_UNPRICED_APPEARS), note: 'share of games in which the Collector summoned his ace (track.unpriced)' });
+    add({ id: 'BT-6', name: 'Levy success rate', bot: 'expert', value: expert.appraisalSuccessRate, target: showRange(g.TARGET_APPRAISAL_SUCCESS), verdict: inRange(expert.appraisalSuccessRate, g.TARGET_APPRAISAL_SUCCESS), note: `successes over attempts (${expert.appraisalAttempts} attempts); an attempt with no target fails` });
+    add({ id: 'BT-7', name: 'Hollow Heir appearance rate', bot: 'expert', value: expert.unpricedRate, target: showRange(g.TARGET_UNPRICED_APPEARS), verdict: inRange(expert.unpricedRate, g.TARGET_UNPRICED_APPEARS), note: 'share of games in which the Monarch summoned his ace, The Hollow Heir (track.unpriced)' });
   }
   if (novice === undefined) {
     add(need('BT-2', 'Win rate', 'novice', showRange(g.TARGET_NOVICE_WINRATE)));
@@ -414,12 +414,12 @@ export function renderMarkdown(r: Report): string {
   }
   L.push('');
 
-  L.push('## Per-bot detail', '', '| Bot | Grafts per win | Appraisal success | Appraisal attempts | Unpriced appears | Intent accuracy | Intent samples | Crashed | Stuck |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+  L.push('## Per-bot detail', '', '| Bot | Grafts per win | Levy success | Levy attempts | Hollow Heir appears | Intent accuracy | Intent samples | Crashed | Stuck |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
   for (const b of r.results.bots) {
     L.push(`| ${b.bot} | ${dec(b.graftsPerWin)} | ${pct(b.appraisalSuccessRate)} | ${b.appraisalAttempts} | ${pct(b.unpricedRate)} | ${pct(b.intentAccuracy)} | ${b.intentSamples} | ${b.crashed} | ${b.stuck} |`);
   }
   L.push('');
-  L.push('## Damage, Unstable Chimeras, vault', '', '| Bot | Vault sealed | Median winning round | Unstable per game | Games with Unstable | Damage per round | To Collector | To player | Direct share |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+  L.push('## Damage, Unstable Chimeras, vault', '', '| Bot | Vault sealed | Median winning round | Unstable per game | Games with Unstable | Damage per round | To Monarch | To player | Direct share |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
   for (const b of r.results.bots) {
     L.push(`| ${b.bot} | ${pct(b.vaultSealedShare)} | ${dec(b.medianWinRound, 1)} | ${dec(b.unstablePerGame)} | ${pct(b.unstableGameShare)} | ${dec(b.damagePerRound)} | ${dec(b.damageToCollectorPerRound)} | ${dec(b.damageToPlayerPerRound)} | ${pct(b.directDamageShare)} |`);
   }

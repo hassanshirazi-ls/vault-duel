@@ -43,7 +43,7 @@ const GLOBAL_VALUES = {
   CONTENT_VERSION: '0.2.0',
   SEED_PREFIX: 'vault-duel',
   // Life & length
-  PLAYER_LIFE: 20,
+  PLAYER_LIFE: 24, // 20 before D-368 (Phase 3 A/B round 1, M-14; docs/BALANCE_LOG.md)
   COLLECTOR_LIFE: 40, // 25 before D-335: the turn slots give a skilled player much more than the Collector (docs/BALANCE_LOG.md)
   MAX_ROUNDS: 12,
   // Decks
@@ -156,7 +156,7 @@ const GLOBAL_VALUES = {
   // Open record: add a line for a new card number. Names must not repeat a core key.
   CONTENT_NUMBERS: {
     // Player spells & traps
-    UNMAKE_MAX_POWER: 5, BLOODLUST_POWER: 3, SCRYING_DRAW: 2, SIPHON_DRAIN: 3, SIPHON_GAIN: 3, MIRROR_SIGIL_PENALTY: 3, LAST_RITES_DRAW: 1,
+    UNMAKE_MAX_POWER: 5, BLOODLUST_POWER: 3, SCRYING_DRAW: 2, SIPHON_DRAIN: 3, SIPHON_GAIN: 3, MIRROR_SIGIL_PENALTY: 2, LAST_RITES_DRAW: 1,
     // Collector spells & traps
     PROVENANCE_DRAW: 2, GILT_POWER: 2, GILT_GUARD: 2, FORFEIT_MAX_POWER: 4, COUNTERFEIT_PENALTY: 3, INSURANCE_HEAL: 3,
     // Objectives
