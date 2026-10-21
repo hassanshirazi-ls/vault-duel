@@ -3,6 +3,13 @@
   "globalsHash": "6956b13975151b4a116b3b5ce735ea68",
   "expertHash": "0eb20ec33121d2dffb41434b07cc1b45",
   "days": {
+    "2026-10-20": {
+      "k": 2,
+      "winRate": 0.306,
+      "stars": 3,
+      "par": 9,
+      "check": "accepted"
+    },
     "2026-10-21": {
       "k": 2,
       "winRate": 0.45,
