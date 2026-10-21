@@ -3116,6 +3116,37 @@ Terminology used below: *turn index* `t` counts turns from 0 (round 1 player = 0
   - The settings hash changes: the seeds manifest is regenerated (2026-10-20 to 2027-01-17), and a duel in progress when this update arrives starts over.
 - Reason: the owner's pick of the recommended package. It passes two of the three length targets without moving the expert's average.
 
+
+**D-369 · Levy minimum Power 8 and Monarch life 46** (owner choice, 2026-10-21)
+- Question: Phase 3 A/B round 2 (docs/BALANCE_LOG.md, "Phase 3 A/B round 2 (2026-10-20)"; reports in `docs/reports/ab-round2-2026-10-20/`) looked outside the §M proposals for BT-7 (The Hollow Heir in ~50% of games), BT-5 and BT-8. Which package ships?
+- Decision (owner): `APPRAISAL_MIN_POWER` 5 → 8 and `COLLECTOR_LIFE` 40 → 46. The optional "ace later" rule-order change (`summonAce` lower in `collector.json › ai.play` and in the Agitated play list) is not adopted.
+  - Confirm run (20,000 games, 60 dates from 2026-10-20, reproduced by the main session): expert 47.7% (was 46.6%), rounds 8–12 59.9%, round 12 17.6%, median 8 (still failing), Levy success 36.7% (was 55.5%), Hollow Heir 38.5% (pass, was 49.8%), grafts per win 4.40, seed rejection 63.9%.
+  - Why the Levy threshold: the Hollow Heir can only be summoned by sacrificing a monster the Monarch took with a Levy (Covetous, D-054), so his rate follows Levy success. D-332 lowered the threshold from 7 to 5 only because Split and Symbiosis kept monsters small. D-336 turned both off.
+  - Why the life: 8 helps the player by about 8 points. Each point of `COLLECTOR_LIFE` costs the expert about 1.3 points and adds about 0.08 rounds, so 46 brings the expert back near the D-364 average and lengthens duels.
+  - DESIGN.md L32 (24 and 46 life; the 24 was missed in D-368), L154 and L240 (8+ Power) are updated with this entry.
+  - The settings hash changes: the seeds manifest is regenerated, and a duel in progress when this update arrives starts over.
+- Reason: the owner chose the recommended package. It passes BT-7 without moving the expert's average out of band and without a rule-order change.
+
+**D-370 · BT-5 becomes 3.5–5 grafts per win, and BT-8 counts fallback dates** (owner choice, 2026-10-21; changes DESIGN's balance table)
+- Question: rounds 1 and 2 found no knob that moves grafts per win (4.2–4.4 in every in-band cell) or the seed rejection rate (60–66%). Keep chasing them, or review the targets?
+- Decision (owner):
+  - **BT-5:** `TARGET_GRAFTS_PER_WIN` [1.5, 3] → [3.5, 5]. The old band predates Graft as the core action under the bond and turn-slot rules (D-305, D-335). Weakening Graft makes the expert graft more often, not less. The count follows how many cards the player gets: only `MAX_DRAW_PER_TURN` 1 reaches 3.22, and that cell's expert wins 12%.
+  - **BT-8:** the metric is now the number of dates that use the D-004 fallback seed, with a target of none. This was D-004's own "never" and is 0 of 60 dates today. The rejection rate stays in the report as BT-8r, informational, against `TARGET_SEED_REJECT_MAX` (kept as a compute guide). Its "above the maximum" anomaly line is removed. Reason: no setting narrows the spread (no deal feature explains a seed's win rate, |r| ≤ 0.18), and the 30–70% window builds in about 60% rejection. Rejection costs compute, not players: the check spends about 1.75 rerolls per day.
+  - DESIGN.md's balance table, ARCHITECTURE BT-5/BT-8, CONTENT_GUIDE §16 and `sim/report.ts` change with this entry.
+- Reason: both targets measured things no setting controls. The new readings test what each target was for: a game that runs on Graft, and a daily seed that always passes the difficulty check.
+
+
+**D-371 · Graft workbench: the Ascend step is visible and the third slot works** (owner choice, 2026-10-21)
+- Question: the owner reported that Ascend "does not work or do anything". The engine was fine (a third material gives +`ASCEND_POWER`/+`ASCEND_GUARD` and the Chimera shows Ascended, checked in 6 of 6 engine duels and in the browser). But at 390x844 the hint and the monsters you could add sat below the workbench's scroll fold, and the empty "3 Ascend" slot did nothing when tapped. The only obvious action was "Graft", which skipped Ascend.
+- Decision (owner chose "cards up + live slot"; built by ui-dev):
+  - The material row (hand cards you can pick) moves out of the scroll area to directly under the slots, so the choices are visible at every Graft step.
+  - At the Ascend step a line "Add a third for Ascend:" sits above the row.
+  - The empty third slot reads "+{ASCEND_POWER} [sword] +{ASCEND_GUARD} [shield]" and is a button (aria-label "Ascend: tap a highlighted monster to add it"). Tapping it pulses the cards you can add, in the hand row and on the board, for about 1.6 s. Under reduced motion or `FLAGS.ANIMATIONS=false` it shows a static heavier ring instead.
+  - The primary button at the Ascend step reads "Graft without Ascend" (still `graftSkipAscend`). `ASCEND_HINT` is replaced by `ASCEND_ADD` and `ASCEND_SKIP` in `view/copy.ts`.
+  - The workbench grows from `min(52dvh,360px)` to `min(58dvh,390px)`, and only the preview scrolls (minimum 44px). At 360x640 the preview's stats need a scroll.
+  - No engine, rule or content change.
+- Reason: the rule worked but could not be found on a phone. The fix keeps the choice in view instead of explaining it.
+
 ---
 
 ## L. Summary of items needing owner review

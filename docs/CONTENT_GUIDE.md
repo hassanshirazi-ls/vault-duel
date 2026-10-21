@@ -1006,7 +1006,7 @@ simulator evidence (`docs/BALANCE_LOG.md`).
 | `BOND_GRAFT_MAX_HAND_MATERIALS` | `3` | The most hand cards one Graft may use. `3` is no limit, the same as `MAX_GRAFT_MATERIALS`. Read only with `BOND_ACTION`. | a whole number, 0 or more |
 | `SYMBIOSIS_GUARD_BONUS` | `2` | The Guard a host gains from its symbiote. Read only with `SYMBIOSIS`. | a whole number, 0 or more |
 | `SPLIT_PART_PERM_P` | `0` | The permanent Power change each part gets when a Chimera splits. A negative number makes the parts weaker. Read only with `SPLIT`. | a whole number, any sign |
-| `APPRAISAL_MIN_POWER` | `5` | The Levy (Appraisal in the code) takes only a face-up monster with at least this Power. It was 7 before v0.2.0, because Split parts and Symbiosis hosts are base monsters with Power 2 to 7. | a whole number, 0 or more |
+| `APPRAISAL_MIN_POWER` | `8` | The Levy (Appraisal in the code) takes only a face-up monster with at least this Power. It was 7 before v0.2.0, because Split parts and Symbiosis hosts are base monsters with Power 2 to 7, and 5 until D-369 raised it to 8 to make The Hollow Heir rarer. | a whole number, 0 or more |
 
 The sim tested `APPRAISAL_MIN_POWER` at 5, 6 and 7, and `BOND_GRAFT_MAX_HAND_MATERIALS` at 2 and 3 (`docs/BALANCE_LOG.md`).
 The other rule numbers are shipped at their starting values and have not been swept. Change one by one step, then run
@@ -1434,7 +1434,7 @@ you can read and a `.json` file with every global the run used. The `.md` file h
   The metrics are: BT-1 the expert's win rate against the Monarch; BT-3 the median round a game ends; BT-3b the
   share of games ending in rounds 8 to 12 (it needs to be more than half); BT-4 the share ending in round 12; BT-5 the
   grafts per win; BT-6 the Levy success rate; BT-7 how often The Hollow Heir (the Monarch's
-  ace, `the-unpriced`) appears; BT-2 the novice's win rate; BT-8 the seed rejection rate (sim full and sim seed only); DUEL-MIN and LEARN-SEC (minutes to
+  ace, `the-unpriced`) appears; BT-2 the novice's win rate; BT-8 the number of dates that fall back to an unchecked seed, which should be none, and BT-8r the seed rejection rate, shown for information only, as a guide to how long the check takes (both sim full and sim seed only); DUEL-MIN and LEARN-SEC (minutes to
   play and seconds to learn), which need people to play, so they are never measured by the simulator. The report
   uses these names for its rows, such as "Levy success rate".
 - **Anomalies.** A line under `ANOMALY` is a warning about the run itself. The speed line (PERF) is one: it reports

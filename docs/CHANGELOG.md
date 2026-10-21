@@ -3,6 +3,18 @@
 The owner's log of changes to the content tooling and the content files. One dated section per phase or milestone.
 Each item names the decision (D-number) that made the change, and a line that changed shows its old and new text.
 
+## 2026-10-21 · A rarer Hollow Heir, a tougher Monarch, two targets updated
+
+Two settings changed, which changes the settings hash: a duel in progress when this update arrives starts over, and the
+seeds manifest is regenerated.
+
+- **The Levy takes only Power 8 or more** (D-369): `APPRAISAL_MIN_POWER: 5,` is now `APPRAISAL_MIN_POWER: 8,`. The Monarch can only summon The Hollow Heir by sacrificing a monster he took with a Levy, so he now appears in 38.5% of games (was 49.8%; the target is 20–40%).
+- **The Monarch has 46 life** (D-369): `COLLECTOR_LIFE: 40,` is now `COLLECTOR_LIFE: 46,`. This offsets the gentler Levy: the expert wins 47.7% (was 46.6%), and duels run a little longer.
+- **Grafts per win target is now 3.5–5** (D-370): `TARGET_GRAFTS_PER_WIN: [1.5, 3],` is now `[3.5, 5],`. Graft is the core action, and no setting moved the count without wrecking the expert's win rate.
+- **The seed target counts fallback days** (D-370): BT-8 now reports how many days had to use an unchecked fallback seed (target: none; 0 of 60 today). The rejection rate is still printed as BT-8r, for information.
+- **DESIGN.md** now says 24 and 46 life, a Levy on Power 8 or more, and the new balance targets.
+- **Ascend is easy to find** (D-371): in the Graft workbench, the monsters you can add now sit right under the slots. The empty third slot shows "+2 ⚔ +1 🛡" and makes them pulse when tapped. The button reads "Graft without Ascend". The rule itself always worked; on a phone it was hidden below the fold.
+
 ## 2026-10-20 · Longer duels: Player life 24, Mirror Sigil −2
 
 Two settings changed, which changes the settings hash: a duel in progress when this update arrives starts over, and

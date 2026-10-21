@@ -2,6 +2,85 @@
 
 Every applied balance change, with the evidence. Experiment JSONs live in `docs/reports/balance/` (T01-T25: 123L without bond rules; B01-B15: this cycle). Marks follow the TARGET_* globals: expert win 45-55%, median rounds 9-11, rounds 8-12 over half, round 12 15-30%, grafts/win 1.5-3, Levy 30-60%, Hollow Heir 20-40%, novice 20-30%, seed rejection at most 15%. Quick noise: about plus or minus 2.2 points on a 2000-game win rate.
 
+## Phase 3 A/B round 2 (2026-10-20)
+
+Measurement only: **no default changed.** This round covers knobs outside the §M proposals, aimed at the three targets round 1 left alone: BT-5 grafts per winning game, BT-7 Hollow Heir appearance and BT-8 seed rejection. Start point: the live package at a0ac982 (D-368: `PLAYER_LIFE` 24, `MIRROR_SIGIL_PENALTY` 2). Constraints from the owner: expert stays near 46.6 (D-364 band 45-55), length targets no worse, Levy 30-60, BT-2 not chased.
+
+- Screening: `sim quick --bots expert --games 10000 --seed-dates 30 --from 2026-10-20 --workers 10`, same dates and game seeds in every cell (paired). Noise about plus or minus 1.0 point on a 10,000-game rate. Seed-spread cells: `--games 1000 --seed-dates 30 --seed-check`, where the seed check (500 expert-noisy runs per candidate) is the measurement.
+- Confirm: `--games 20000 --seed-dates 60 --from 2026-10-20 --seed-check`, reports in `docs/reports/ab-round2-2026-10-20/`. The confirm baseline reproduces round 1's M-14 + M-16 confirm exactly (46.6 / 8.07 / 55.6 / 15.1 / 4.34 / 55.5 / 49.8 / 105 of 165).
+- "Ace later" (owner-only, `collector.json › ai` rule lists) moves `summonAce` below `castHighValueSpell` in `ai.play` and below `summonBeater` in `ai.moods.agitated.play`, so the Monarch summons The Hollow Heir only when no better play is on.
+- `MIN_GRAFT_MATERIALS=3` can't be measured: the schema pins it at 2 ("must be 2 until the engine supports other values").
+
+Screening (10,000 games, 30 dates):
+
+| Cell | Expert | Median | Mean rds | 8-12 | Rd 12 | Grafts/win | Levy | Hollow Heir | Verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| baseline (live) | 47.1 | 8 | 8.05 | 55.5 | 14.6 | 4.33 | 55.7 | 49.4 | |
+| `MAX_GRAFT_MATERIALS=2` | 41.3 | 8 | 8.09 | 55.3 | 16.2 | 4.85 | 63.7 | 53.8 | Grafts go up (smaller grafts more often); Levy over 60. Reject |
+| `BOND_GRAFT_MAX_HAND_MATERIALS=2` (owner-only) | 43.4 | 8 | 8.07 | 55.2 | 16.2 | 4.85 | 63.1 | 53.1 | Same pattern. Reject |
+| `BOND_GRAFT_MAX_HAND_MATERIALS=1` (owner-only) | 34.9 | 9 | 8.95 | 68.8 | 25.3 | 5.11 | 61.1 | 56.9 | Median 9, but expert -12 and grafts up. Reject |
+| `UNSTABLE_BONUS=1` | 34.6 | 8 | 8.15 | 55.7 | 17.2 | 4.55 | 62.7 | 55.2 | Expert -12.5, grafts up. Reject |
+| `ASCEND_POWER=0`, `ASCEND_GUARD=0` | 42.3 | 8 | 8.06 | 54.9 | 16.0 | 4.77 | 63.2 | 52.9 | Grafts up. Reject |
+| `HAND_SIZE=4` | 41.5 | 8 | 8.03 | 54.7 | 15.9 | 4.07 | 53.7 | 43.4 | Grafts -0.26 for -5.6 expert |
+| `OPENING_HAND=4` | 48.2 | 8 | 7.94 | 53.4 | 13.6 | 4.29 | 57.2 | 49.7 | No effect |
+| `MAX_DRAW_PER_TURN=1` | 12.0 | 7 | 7.57 | 46.2 | 12.3 | 3.22 | 46.3 | 41.7 | The only cell near 3 grafts, by starving the player. Reject |
+| `FLAGS.BOND_ACTION=false` (owner-only) | 48.5 | 8 | 7.99 | 54.6 | 13.6 | 4.07 | 51.1 | 47.0 | Making Graft cost the play barely moves grafts/win |
+| `APPRAISAL_ROUNDS=[4,8]` | 59.3 | 7 | 7.69 | 48.9 | 12.8 | 4.13 | 60.8 | 39.6 | Hollow Heir passes, but expert +12 and games shorter |
+| `APPRAISAL_ROUNDS=[6,9]` | 69.7 | 6 | 7.20 | 41.4 | 10.8 | 3.82 | 57.4 | 25.7 | Far too easy and short. Reject |
+| `APPRAISAL_ROUNDS=[4,7,10]` | 53.6 | 7 | 7.75 | 48.7 | 13.2 | 4.08 | 58.3 | 44.7 | Shorter, Hollow Heir still over 40 |
+| `APPRAISAL_ROUNDS=[3,6]` | 54.6 | 8 | 8.00 | 55.5 | 12.2 | 4.45 | 55.7 | 43.8 | Expert +7.5 |
+| `APPRAISAL_MIN_POWER=6` | 47.9 | 8 | 7.99 | 54.4 | 14.2 | 4.28 | 51.2 | 46.9 | Small step |
+| `APPRAISAL_MIN_POWER=7` | 50.6 | 8 | 7.95 | 53.7 | 14.0 | 4.22 | 43.9 | 41.7 | Hollow Heir -7.7 for +3.5 expert |
+| `APPRAISAL_MIN_POWER=8` | 55.5 | 8 | 7.84 | 51.8 | 12.8 | 4.18 | 35.8 | 34.5 | Hollow Heir passes; needs an expert offset |
+| `CROWN_POWER=0` | 50.0 | 8 | 8.05 | 55.8 | 14.4 | 4.33 | 55.8 | 48.9 | Crown is +2.9 for the Monarch, no Hollow Heir effect |
+| ace later (owner-only) | 48.4 | 8 | 8.02 | 55.1 | 14.3 | 4.32 | 55.9 | 43.5 | Hollow Heir -5.9 for +1.3 expert |
+| `COLLECTOR_LIFE=44` | 41.8 | 8 | 8.39 | 60.3 | 18.7 | 4.48 | 56.5 | 52.1 | The offset: about -1.3 expert and +0.08 mean rounds per Monarch life point |
+| `APPRAISAL_MIN_POWER=7`, `COLLECTOR_LIFE=42` | 48.1 | 8 | 8.14 | 56.6 | 15.9 | 4.31 | 44.4 | 43.1 | Hollow Heir still over 40 |
+| `APPRAISAL_MIN_POWER=7`, `COLLECTOR_LIFE=44` | 45.5 | 8 | 8.31 | 59.3 | 17.8 | 4.38 | 44.7 | 44.5 | Same |
+| `APPRAISAL_MIN_POWER=7`, `COLLECTOR_LIFE=42`, ace later | 49.0 | 8 | 8.13 | 56.7 | 15.7 | 4.31 | 44.4 | 37.9 | Passes, but uses an owner-only rule order |
+| `APPRAISAL_MIN_POWER=8`, `COLLECTOR_LIFE=44` | 50.5 | 8 | 8.19 | 57.4 | 16.3 | 4.32 | 36.6 | 37.1 | Passes; expert +3.4 |
+| **`APPRAISAL_MIN_POWER=8`, `COLLECTOR_LIFE=46`** | **48.1** | 8 | 8.33 | 59.5 | 17.7 | 4.38 | 37.0 | **38.4** | Passes; expert +1.0; length better. Confirmed |
+| `APPRAISAL_MIN_POWER=8`, `COLLECTOR_LIFE=48` | 45.9 | 8 | 8.48 | 61.9 | 19.4 | 4.44 | 37.5 | 39.8 | Longest; Hollow Heir at the edge (longer games give him more chances) |
+| `APPRAISAL_MIN_POWER=8`, `COLLECTOR_LIFE=46`, ace later | 48.7 | 8 | 8.32 | 59.5 | 17.5 | 4.38 | 37.0 | 33.6 | Most Hollow Heir margin. Confirmed |
+| `APPRAISAL_MIN_POWER=9`, `COLLECTOR_LIFE=46` | 58.3 | 8 | 8.19 | 57.1 | 15.9 | 4.34 | 25.4 | 27.2 | Levy under 30 (fails BT-6). Reject |
+| `APPRAISAL_ROUNDS=[4,8]`, `COLLECTOR_LIFE=46` | 52.2 | 8 | 8.26 | 57.4 | 17.8 | 4.37 | 62.3 | 44.6 | Levy over 60. Reject |
+| `APPRAISAL_ROUNDS=[4,8]`, `COLLECTOR_LIFE=48`, ace later | 51.1 | 8 | 8.38 | 59.1 | 18.8 | 4.42 | 62.9 | 38.8 | Levy over 60. Reject |
+| `APPRAISAL_ROUNDS=[3,6]`, `COLLECTOR_LIFE=44`, ace later | 51.5 | 8 | 8.31 | 60.1 | 15.6 | 4.60 | 56.5 | 39.4 | Keeps the Levy at Power 5; Hollow Heir at the edge, expert +4.4. Screen only |
+
+Seed-spread screening (1,000 games, seed check on 30 dates; rejection = rejected candidates / candidates tried):
+
+| Cell | Expert-noisy candidate histogram (10 bins, 0-100%) | Seed reject |
+|---|---|---|
+| baseline | [12,9,4,8,8,8,6,7,7,9] | 61.5% (48/78) |
+| `BOT_NOISE_EPSILON=0.3` | [12,17,6,5,9,7,9,4,5,2] | 60.5% (46/76) |
+| `BOT_NOISE_EPSILON=0.5` | [26,12,12,9,11,6,4,3,3,0] | 65.1% (56/86) |
+| `OPENING_MIN_MONSTERS=3` | [10,7,11,9,9,5,7,8,12,8] | 65.1% (56/86) |
+| `APPRAISAL_MIN_POWER=8`, `COLLECTOR_LIFE=46` | [15,4,15,6,10,7,6,8,7,8] | 65.1% (56/86) |
+
+More noise only slides the spread toward 0; it does not narrow it.
+
+Confirm (20,000 games, 60 dates, seed check on the same 60 dates):
+
+| Cell | Expert | Median | Mean rds | 8-12 | Rd 12 | Grafts/win | Levy | Hollow Heir | Seed reject |
+|---|---|---|---|---|---|---|---|---|---|
+| baseline (live) | 46.6 pass | 8 fail | 8.07 | 55.6 pass | 15.1 pass | 4.34 fail | 55.5 pass | 49.8 fail | 63.6% (105/165) fail |
+| **`APPRAISAL_MIN_POWER=8`, `COLLECTOR_LIFE=46`** | **47.8 pass** | 8 fail | 8.34 | **59.9 pass** | **17.6 pass** | 4.40 fail | **36.7 pass** | **38.5 pass** | 63.9% (106/166) fail |
+| same + ace later (owner-only) | 48.4 pass | 8 fail | 8.33 | 59.7 pass | 17.5 pass | 4.40 fail | 36.7 pass | 33.8 pass | 64.5% (109/169) fail |
+
+Seed-spread diagnostic (scratch script, not repo code): 90 candidates (30 dates from 2026-10-20, k 0-2, 40 expert-noisy runs each) give the histogram [16,8,11,5,8,8,10,2,8,14], mean 0.46. No deal feature explains a candidate's win rate. Correlations: the Monarch's monsters in his first 10 cards 0.18, the player's Power 7+ monsters 0.17, the Monarch's first-10 Power 0.15, The Hollow Heir's depth in his deck -0.07, the player's first-10 Power 0.01. Only 8 of the 90 candidates sit at 0% or 100%, so noise does change single games, but the per-deal win chance is spread evenly across the range.
+
+For information only (it changes the yardstick, not the game): with that histogram the accept window [0.3, 0.7] gives about 66% rejection, [0.2, 0.8] about 51%, and [0.1, 0.9] about 33%. The check never falls back (0 of 60 dates); it spends a mean of 1.75 rerolls per day.
+
+Findings:
+- BT-7 (Hollow Heir) moves with the Levy, because The Hollow Heir needs a monster taken by a Levy. `APPRAISAL_MIN_POWER` is the cleanest knob: 8 gives Hollow Heir about 35-38 and Levy 36-37, at +8 expert, which `COLLECTOR_LIFE` 46 takes back while it also lengthens games. 9 drops the Levy under 30. Fewer Levy rounds also lower The Hollow Heir, but they raise the expert by 7-22 points and push the Levy over 60 once life offsets them. The owner-only ace-later order gives about 5 more points of margin.
+- BT-5 (grafts/win) doesn't respond to any game knob. Weakening Graft (fewer materials, fewer hand materials, less Unstable or Ascend) makes the expert graft *more* often with smaller grafts, and it loses more. Making Graft cost the play (`FLAGS.BOND_ACTION=false`) gives 4.07. Only cutting card flow (`MAX_DRAW_PER_TURN=1`: 3.22 at 12% expert) gets near 3. The expert grafts whenever it has two spare monsters, so the count follows card flow, not Graft's power. This needs a target review or a rule change (owner).
+- BT-8 doesn't respond to any knob (noise, opening constraint, the Levy package). The spread comes from the whole deal, not from any one feature a deckgen constraint could control.
+- Length: the recommended package improves BT-3b (59.9) and BT-4 (17.6) and moves mean rounds 8.07 to 8.34. The median stays 8.
+
+Recommendation to the owner (not applied): **`APPRAISAL_MIN_POWER` 5 to 8 and `COLLECTOR_LIFE` 40 to 46** (both tuning under ARCHITECTURE §11, but see the DESIGN note). Expected: expert 47.8 (+1.2), Levy 36.7, Hollow Heir 38.5 (passes, 1.5 points inside the edge), rounds 8-12 59.9, round 12 17.6, grafts/win 4.40 (+0.06), seed rejection unchanged. For more margin, add the owner-only ace-later rule order (Hollow Heir 33.8, expert 48.4). DESIGN note: DESIGN.md says "Every Chimera reaches 5+ Power, which makes it a Levy target" and "Power 5 or more" in the Levy rule, and its 40 Monarch life would also change, so the owner has to approve the text. `APPRAISAL_MIN_POWER` 5 was set in D-332 because Split and Symbiosis kept monsters small. D-336 has since turned both off.
+
+Sim time: about 40 minutes. Scripts and screening output: `/Users/hassanshirazi/.claude/jobs/390b6775/tmp/`.
+
 ## Phase 3 A/B round 1 (2026-10-20)
 
 Measurement only: **no default changed.** Every lever below is owner-only (DECISIONS §M), so this section recommends and the owner decides. Start point: the live package at 9ac1aab (baseline `docs/reports/full-2026-10-20.md`: expert 46.1%, median 7, rounds 8-12 49.6%, round 12 11.5%, grafts/win 4.29, Levy 56.8%, Hollow Heir 47.9%, seed rejection 66.7%).

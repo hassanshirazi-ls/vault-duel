@@ -29,7 +29,7 @@ Vault Duel is a daily dark-fantasy card duel: every day, every player gets the s
 
 ## Core rules
 
-You have 20 life and a 24-card deck; the Monarch has 40 life and a fixed 20-card deck. Reduce his life to 0 before round 12 ends.
+You have 24 life and a 24-card deck; the Monarch has 46 life and a fixed 20-card deck. Reduce his life to 0 before round 12 ends.
 
 **Setup**
 
@@ -151,7 +151,7 @@ Grafting combines 2 monsters into a Chimera whose family is set by their two kin
 | Construct + Spirit | Haunted Engine | 7 / 6 |
 | Spirit + Spirit | Choir of Ash | 7 / 5 |
 
-Every pair of monsters can graft, so a random hand never has zero options; the skill is choosing which pair, which order, and when. Every Chimera reaches 5+ Power, which makes it a Levy target (see The Monarch).
+Every pair of monsters can graft, so a random hand never has zero options; the skill is choosing which pair, which order, and when. A Chimera with 8+ Power is a Levy target (see The Monarch).
 
 ## Bond actions
 
@@ -237,7 +237,7 @@ The Monarch plays a fixed 20-card deck of Courtiers: stronger than your base car
 
 **Traps (3)**: Bend the Knee (cancel an attack and switch the attacker to guard), Forbidden Union (a Chimera grafted this turn loses 3 Power), Blood Tithe (when his monster is destroyed, he gains 3 life).
 
-**Levy**: at the start of his turns in rounds 3, 6 and 9, he takes your highest-Power face-up monster with Power 5 or more (tie: leftmost). It goes to his leftmost open lane, or to his vault if his board is full. Face-down monsters and Shrouded monsters are safe. A monster with a symbiote attached is taken together with it. A countdown is always on screen.
+**Levy**: at the start of his turns in rounds 3, 6 and 9, he takes your highest-Power face-up monster with Power 8 or more (tie: leftmost). It goes to his leftmost open lane, or to his vault if his board is full. Face-down monsters and Shrouded monsters are safe. A monster with a symbiote attached is taken together with it. A countdown is always on screen.
 
 **Crowned** (D-349): a monster he took with a Levy wears his crown and has +1 Power (`CROWN_POWER`) while it is on his board.
 
@@ -310,10 +310,10 @@ The simulator must show an experienced-bot win rate of 45–55% and a novice-bot
 | Novice (random legal moves) win rate | 20–30% |
 | Median duel length | 9–11 rounds |
 | Games lasting the full 12 rounds | 15–30% |
-| Grafts per winning game | 1.5–3 |
+| Grafts per winning game | 3.5–5 |
 | Levies that succeed | 30–60% |
 | Games where The Hollow Heir appears | 20–40% |
-| Seeds rejected by the difficulty check | under 15% |
+| Days that fall back to an unchecked seed | none |
 
 Every number in this doc is a global in one config file, so tuning never requires engine changes:
 

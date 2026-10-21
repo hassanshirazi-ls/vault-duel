@@ -2081,10 +2081,10 @@ Engine paths are under `packages/engine/src/`, content under `packages/content/`
 | BT-2 | Novice ~25% (20–30%) | `sim/report.ts`, `ai/bots/novice.ts`; measured 0% in AI milestone 1, handled in Phase 3 | D-117, D-223, M-09 |
 | BT-3 | Most games end rounds 8–12; median 9–11 | `sim/report.ts` | — |
 | BT-4 | 15–30% go full 12 rounds | `sim/report.ts` | — |
-| BT-5 | 1.5–3 grafts per winning game | `track.grafts`, `sim/report.ts` | — |
+| BT-5 | 3.5–5 grafts per winning game (1.5–3 before D-370) | `track.grafts`, `sim/report.ts` | D-370 |
 | BT-6 | 30–60% Appraisals succeed | `state.appraisal`, `sim/report.ts` | D-079 |
 | BT-7 | Unpriced appears in 20–40% | `track.unpriced`, `sim/report.ts` | — |
-| BT-8 | < 15% seeds rejected | `sim/difficulty-batch.ts` | — |
+| BT-8 | No date falls back (D-004); the rejection rate is the informational BT-8r against `TARGET_SEED_REJECT_MAX` | `sim/difficulty-batch.ts`, `sim/report.ts` | D-370 |
 | GL-1 | Every number is a global in one file | `content/src/globals.ts` (core globals + `CONTENT_NUMBERS`), `content/src/schemas/globals.ts`, `engine/src/types/globals.ts`; canonical after the switch; no derived globals; every key read, pinned or planned (`planned-globals.ts`, `content/test/globals-readers.test.ts`); unused content numbers warned; AI search cap `AI_SEARCH_NODE_BUDGET` | D-074, D-126, D-147, D-166, D-168, D-170, D-171, D-205, D-211 |
 | GL-2 | Feature flags (10) | `globals.FLAGS` | — |
 
